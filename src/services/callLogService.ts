@@ -14,6 +14,7 @@ export interface SubmitCallResultInput {
   customerEmail?: string;
   remarks?: string;
   callDurationSeconds?: number;
+  isFollowUp?: boolean;
 }
 
 export class CallLogService {
@@ -37,14 +38,16 @@ export class CallLogService {
       customerEmail: input.customerEmail,
       remarks: input.remarks,
       callDurationSeconds: input.callDurationSeconds || 60,
+      isFollowUp: input.isFollowUp,
       calledAt: now,
     });
 
-    // 2. Update Contact status & attempt count
+    // 2. Update Contact status, attempt count & isFollowUp state
     await contactRepository.update(input.contactId, {
       status: input.status,
       attemptCount: (contact.attemptCount || 0) + 1,
       lastCalledAt: now,
+      isFollowUp: input.isFollowUp !== undefined ? input.isFollowUp : contact.isFollowUp,
     });
 
     let createdOrUpdatedCustomer: Customer | null = null;

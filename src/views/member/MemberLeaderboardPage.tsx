@@ -50,13 +50,13 @@ const ROW_GRADIENTS = [
 
 // Rich mock call stats for 7 Sri Lankan team members
 const MOCK_CALL_STATS: Record<string, { totalCalls: number; interestedCount: number }> = {
-  usr_mem_01: { totalCalls: 245, interestedCount: 62 }, // Pathum Nishshanka (#1)
-  usr_mem_02: { totalCalls: 210, interestedCount: 53 }, // Kaveen Fernando (#2)
-  usr_mem_06: { totalCalls: 184, interestedCount: 48 }, // Nuwan Wickramasinghe (#3)
-  usr_mem_07: { totalCalls: 168, interestedCount: 42 }, // Ruwani Gunawardena (#4)
-  usr_mem_08: { totalCalls: 156, interestedCount: 39 }, // Tharindu De Silva (#5)
-  usr_mem_09: { totalCalls: 142, interestedCount: 34 }, // Amali Ratnayake (#6)
-  usr_mem_10: { totalCalls: 128, interestedCount: 29 }, // Sanath Bandara (#7)
+  usr_mem_02: { totalCalls: 285, interestedCount: 78 }, // Kasun Perera (#1)
+  usr_mem_06: { totalCalls: 260, interestedCount: 68 }, // Nuwan Wickramasinghe (#2)
+  usr_mem_01: { totalCalls: 242, interestedCount: 62 }, // Pathum Nishshanka (Current User #3 - 62/242 calls)
+  usr_mem_07: { totalCalls: 190, interestedCount: 42 }, // Ruwani Gunawardena (#4)
+  usr_mem_08: { totalCalls: 175, interestedCount: 38 }, // Tharindu De Silva (#5)
+  usr_mem_09: { totalCalls: 150, interestedCount: 31 }, // Amali Ratnayake (#6)
+  usr_mem_10: { totalCalls: 130, interestedCount: 26 }, // Sanath Bandara (#7)
 };
 
 export const MemberLeaderboardPage: React.FC = () => {

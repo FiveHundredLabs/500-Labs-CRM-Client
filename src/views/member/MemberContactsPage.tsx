@@ -13,7 +13,7 @@ import { Clock, PhoneCall, RotateCcw, Star } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
-type TabCategory = 'NEW' | 'ANSWERED' | 'NOT_ANSWERED' | 'PHONE_OFF' | 'INTERESTED' | 'NOT_INTERESTED' | 'ALL';
+type TabCategory = 'NEW' | 'FOLLOW_UP' | 'ANSWERED' | 'NOT_ANSWERED' | 'PHONE_OFF' | 'INTERESTED' | 'NOT_INTERESTED' | 'ALL';
 
 interface TabConfig {
   key: TabCategory;
@@ -22,6 +22,7 @@ interface TabConfig {
 
 const TABS: TabConfig[] = [
   { key: 'NEW', label: 'New' },
+  { key: 'FOLLOW_UP', label: 'Follow-Up' },
   { key: 'ANSWERED', label: 'Answered' },
   { key: 'NOT_ANSWERED', label: 'Not Answered' },
   { key: 'PHONE_OFF', label: 'Phone Off' },
@@ -71,6 +72,7 @@ export const MemberContactsPage: React.FC = () => {
   // Compute counts per category
   const countMap: Record<TabCategory, number> = {
     NEW: contacts.filter((c) => c.status === 'NEW').length,
+    FOLLOW_UP: contacts.filter((c) => c.status !== 'NEW' && c.isFollowUp).length,
     ANSWERED: contacts.filter((c) => c.status === 'ANSWERED').length,
     NOT_ANSWERED: contacts.filter((c) => c.status === 'NOT_ANSWERED').length,
     PHONE_OFF: contacts.filter((c) => c.status === 'PHONE_OFF').length,
@@ -81,9 +83,14 @@ export const MemberContactsPage: React.FC = () => {
 
   // Filter contacts by active tab & search
   const filteredContacts = contacts.filter((c) => {
-    const matchesTab = activeTab === 'ALL' || c.status === activeTab;
     const matchesSearch = c.phone.toLowerCase().includes(search.toLowerCase());
-    return matchesTab && matchesSearch;
+    if (!matchesSearch) return false;
+
+    if (activeTab === 'FOLLOW_UP') {
+      return c.status !== 'NEW' && Boolean(c.isFollowUp);
+    }
+    if (activeTab === 'ALL') return true;
+    return c.status === activeTab;
   });
 
   if (loading) return <LoadingState rows={8} />;
@@ -92,7 +99,7 @@ export const MemberContactsPage: React.FC = () => {
     <div className="space-y-5">
       <PageHeader
         title="Contacts"
-        description="Browse assigned leads by status category and launch calls"
+        description="Browse assigned leads by status category, filter follow-ups, and launch calls"
       />
 
       {/* Status Filter Boxes */}
@@ -101,6 +108,7 @@ export const MemberContactsPage: React.FC = () => {
           {TABS.map((tab) => {
             const count = countMap[tab.key];
             const isActive = activeTab === tab.key;
+            const isFollowUpTab = tab.key === 'FOLLOW_UP';
 
             return (
               <button
@@ -108,14 +116,27 @@ export const MemberContactsPage: React.FC = () => {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center justify-between gap-2.5 px-3.5 py-2 rounded-lg text-xs transition-all cursor-pointer flex-1 sm:flex-initial min-w-[135px] sm:min-w-0 ${
                   isActive
-                    ? 'bg-blue-50 text-blue-600 font-semibold border border-blue-200 shadow-2xs'
+                    ? isFollowUpTab
+                      ? 'bg-amber-100/90 text-amber-900 font-bold border border-amber-300 shadow-2xs'
+                      : 'bg-blue-50 text-blue-600 font-semibold border border-blue-200 shadow-2xs'
+                    : isFollowUpTab
+                    ? 'bg-amber-50/70 hover:bg-amber-100/80 text-amber-800 border border-amber-200/80 font-medium'
                     : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-transparent'
                 }`}
               >
-                <span className="whitespace-nowrap">{tab.label}</span>
+                <span className="whitespace-nowrap flex items-center gap-1.5">
+                  {isFollowUpTab && <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />}
+                  <span>{tab.label}</span>
+                </span>
                 <span
                   className={`px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0 ${
-                    isActive ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
+                    isActive
+                      ? isFollowUpTab
+                        ? 'bg-amber-500 text-white font-bold'
+                        : 'bg-blue-600 text-white'
+                      : isFollowUpTab
+                      ? 'bg-amber-200 text-amber-900 font-bold'
+                      : 'bg-slate-200 text-slate-600'
                   }`}
                 >
                   {count}
@@ -132,7 +153,13 @@ export const MemberContactsPage: React.FC = () => {
           <SearchInput
             value={search}
             onChange={setSearch}
-            placeholder={`Search ${activeTab === 'ALL' ? 'all' : activeTab.toLowerCase().replace('_', ' ')} contacts by phone...`}
+            placeholder={`Search ${
+              activeTab === 'FOLLOW_UP'
+                ? 'follow-up'
+                : activeTab === 'ALL'
+                ? 'all'
+                : activeTab.toLowerCase().replace('_', ' ')
+            } contacts by phone...`}
           />
         </div>
         {search && (
@@ -145,10 +172,18 @@ export const MemberContactsPage: React.FC = () => {
       {/* Single-Row Contact Cards List */}
       {filteredContacts.length === 0 ? (
         <EmptyState
-          title={`No ${activeTab === 'ALL' ? '' : activeTab.toLowerCase().replace('_', ' ')} contacts found`}
+          title={`No ${
+            activeTab === 'FOLLOW_UP'
+              ? 'Follow-Up'
+              : activeTab === 'ALL'
+              ? ''
+              : activeTab.toLowerCase().replace('_', ' ')
+          } contacts found`}
           description={
             search
               ? `No contacts in this category match "${search}".`
+              : activeTab === 'FOLLOW_UP'
+              ? 'No contacts have been added to your Follow-Up list yet. Click the star mark on any called contact to add it to your Follow-Up list!'
               : `You currently have 0 contacts in the "${TABS.find((t) => t.key === activeTab)?.label}" category.`
           }
           action={
@@ -172,7 +207,9 @@ export const MemberContactsPage: React.FC = () => {
           {filteredContacts.map((contact) => (
             <div
               key={contact.id}
-              className="bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between gap-3"
+              className={`bg-white border rounded-xl p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between gap-3 ${
+                contact.isFollowUp ? 'border-amber-200/90' : 'border-slate-200 hover:border-slate-300'
+              }`}
             >
               {/* Left Info Column */}
               <div className="space-y-1 min-w-0 flex-1">

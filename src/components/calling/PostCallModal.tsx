@@ -9,7 +9,7 @@ import { CallLogService } from '../../services/callLogService';
 import { callLogRepository } from '../../repositories';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
-import { Phone, CheckCircle2, History, AlertCircle, ChevronRight } from 'lucide-react';
+import { Phone, CheckCircle2, History, AlertCircle, ChevronRight, Star } from 'lucide-react';
 import { format } from 'date-fns';
 
 export interface PostCallModalProps {
@@ -32,6 +32,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const [status, setStatus] = useState<ContactStatus>('ANSWERED');
+  const [isFollowUp, setIsFollowUp] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
@@ -44,6 +45,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
     setHasDialed(false);
     setStatus(contact.status === 'NEW' ? 'ANSWERED' : contact.status);
+    setIsFollowUp(Boolean(contact.isFollowUp));
     setCustomerName('');
     setCustomerAddress('');
     setCustomerEmail('');
@@ -90,6 +92,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
         {
           contactId: contact.id,
           status,
+          isFollowUp,
           customerName: customerName.trim() || undefined,
           customerAddress: customerAddress.trim() || undefined,
           customerEmail: customerEmail.trim() || undefined,
@@ -228,6 +231,29 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                 { value: 'NOT_INTERESTED', label: 'Not Interested' },
               ]}
             />
+
+            {/* Follow-Up Star Mark Option Box */}
+            <div className="bg-amber-50/70 border border-amber-200 p-3 rounded-xl flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <Star className={`w-4 h-4 ${isFollowUp ? 'fill-amber-400 text-amber-500' : 'text-slate-400'}`} />
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Add to Follow-Up List</div>
+                  <div className="text-[11px] text-slate-500">Stars this contact for priority callback tracking</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFollowUp(!isFollowUp)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  isFollowUp
+                    ? 'bg-amber-500 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-amber-50'
+                }`}
+              >
+                <Star className={`w-3.5 h-3.5 ${isFollowUp ? 'fill-white text-white' : 'text-amber-500'}`} />
+                <span>{isFollowUp ? 'Starred' : 'Star for Follow-Up'}</span>
+              </button>
+            </div>
 
             {/* Customer Details Form Container (Hidden for NOT_ANSWERED & PHONE_OFF) */}
             {showCustomerFields && (

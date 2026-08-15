@@ -421,8 +421,7 @@ export const MemberFollowUpsPage: React.FC = () => {
                         </div>
 
                         {/* Call Time */}
-                        <div className="text-xs text-slate-500 flex items-center gap-1 shrink-0">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <div className="text-xs text-slate-500 shrink-0">
                           <span>{format(new Date(log.calledAt), 'MMM dd, yyyy • hh:mm a')}</span>
                         </div>
                       </div>
