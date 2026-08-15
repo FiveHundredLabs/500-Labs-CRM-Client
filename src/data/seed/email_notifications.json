@@ -1,0 +1,11 @@
+[
+  {
+    "id": "eml_001",
+    "orderId": "ord_001",
+    "customerId": "cst_001",
+    "recipientEmail": "robert.anderson@example.com",
+    "notificationType": "DELIVERY_CONFIRMATION",
+    "status": "SENT",
+    "sentAt": "2026-08-12T16:30:00Z"
+  }
+]

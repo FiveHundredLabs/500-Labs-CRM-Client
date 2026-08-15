@@ -1,0 +1,46 @@
+[
+  {
+    "id": "exp_001",
+    "categoryId": "cat_002",
+    "categoryName": "Postal Charges",
+    "amount": 345.50,
+    "expenseDate": "2026-08-10",
+    "remarks": "Express courier delivery fees for Batch #1 orders",
+    "createdBy": "usr_fin",
+    "createdByName": "Harrison Reed",
+    "createdAt": "2026-08-10T14:00:00Z"
+  },
+  {
+    "id": "exp_002",
+    "categoryId": "cat_004",
+    "categoryName": "Printing",
+    "amount": 120.00,
+    "expenseDate": "2026-08-12",
+    "remarks": "A4 Label sticker sheets (500 sheets)",
+    "createdBy": "usr_fin",
+    "createdByName": "Harrison Reed",
+    "createdAt": "2026-08-12T11:30:00Z"
+  },
+  {
+    "id": "exp_003",
+    "categoryId": "cat_001",
+    "categoryName": "Petty Cash",
+    "amount": 45.00,
+    "expenseDate": "2026-08-14",
+    "remarks": "Team refreshment snacks during weekend shift",
+    "createdBy": "usr_fin",
+    "createdByName": "Harrison Reed",
+    "createdAt": "2026-08-14T16:00:00Z"
+  },
+  {
+    "id": "exp_004",
+    "categoryId": "cat_003",
+    "categoryName": "Transport",
+    "amount": 85.20,
+    "expenseDate": "2026-08-15",
+    "remarks": "Urgent parcel pickup dispatch transport",
+    "createdBy": "usr_fin",
+    "createdByName": "Harrison Reed",
+    "createdAt": "2026-08-15T09:45:00Z"
+  }
+]

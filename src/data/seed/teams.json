@@ -1,0 +1,26 @@
+[
+  {
+    "id": "team_001",
+    "name": "Brand Alpha",
+    "code": "ALPHA",
+    "brandColor": "#ea580c",
+    "accentColor": "#fff7ed",
+    "logoText": "ALPHA SALES & LOGISTICS",
+    "contactEmail": "support@brandalpha.com",
+    "contactPhone": "+1 (800) 555-0199",
+    "address": "100 Commerce Boulevard, Suite 400, Industrial Zone A",
+    "createdAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "team_002",
+    "name": "Brand Beta",
+    "code": "BETA",
+    "brandColor": "#c2410c",
+    "accentColor": "#ffedd5",
+    "logoText": "BETA DIRECT FULFILLMENT",
+    "contactEmail": "contact@brandbeta.com",
+    "contactPhone": "+1 (800) 555-0288",
+    "address": "250 Enterprise Way, Building 2, Logistics Park",
+    "createdAt": "2026-01-01T00:00:00Z"
+  }
+]

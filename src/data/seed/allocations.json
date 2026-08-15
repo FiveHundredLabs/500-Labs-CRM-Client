@@ -1,0 +1,65 @@
+[
+  {
+    "id": "alc_001",
+    "allocationBatchId": "batch_alc_001",
+    "contactId": "cnt_001",
+    "teamMemberId": "usr_mem_01",
+    "supervisorId": "usr_sup_01",
+    "teamId": "team_001",
+    "allocatedAt": "2026-08-10T09:30:00Z"
+  },
+  {
+    "id": "alc_002",
+    "allocationBatchId": "batch_alc_001",
+    "contactId": "cnt_002",
+    "teamMemberId": "usr_mem_02",
+    "supervisorId": "usr_sup_01",
+    "teamId": "team_001",
+    "allocatedAt": "2026-08-10T09:30:00Z"
+  },
+  {
+    "id": "alc_003",
+    "allocationBatchId": "batch_alc_002",
+    "contactId": "cnt_003",
+    "teamMemberId": "usr_mem_01",
+    "supervisorId": "usr_sup_01",
+    "teamId": "team_001",
+    "allocatedAt": "2026-08-12T09:30:00Z"
+  },
+  {
+    "id": "alc_004",
+    "allocationBatchId": "batch_alc_002",
+    "contactId": "cnt_004",
+    "teamMemberId": "usr_mem_02",
+    "supervisorId": "usr_sup_01",
+    "teamId": "team_001",
+    "allocatedAt": "2026-08-12T09:30:00Z"
+  },
+  {
+    "id": "alc_005",
+    "allocationBatchId": "batch_alc_003",
+    "contactId": "cnt_005",
+    "teamMemberId": "usr_mem_01",
+    "supervisorId": "usr_sup_01",
+    "teamId": "team_001",
+    "allocatedAt": "2026-08-15T08:30:00Z"
+  },
+  {
+    "id": "alc_006",
+    "allocationBatchId": "batch_alc_003",
+    "contactId": "cnt_006",
+    "teamMemberId": "usr_mem_01",
+    "supervisorId": "usr_sup_01",
+    "teamId": "team_001",
+    "allocatedAt": "2026-08-15T08:30:00Z"
+  },
+  {
+    "id": "alc_007",
+    "allocationBatchId": "batch_alc_003",
+    "contactId": "cnt_007",
+    "teamMemberId": "usr_mem_02",
+    "supervisorId": "usr_sup_01",
+    "teamId": "team_001",
+    "allocatedAt": "2026-08-15T08:30:00Z"
+  }
+]

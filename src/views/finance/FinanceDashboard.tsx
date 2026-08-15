@@ -1,0 +1,160 @@
+import React, { useState, useEffect } from 'react';
+import { expenseRepository } from '../../repositories';
+import { Expense } from '../../models/domain';
+import { PageHeader } from '../../components/shared/PageHeader';
+import { StatCard } from '../../components/shared/StatCard';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { LoadingState } from '../../components/shared/LoadingState';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
+import { DollarSign, Plus, Layers, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+export const FinanceDashboard: React.FC = () => {
+  const navigate = useNavigate();
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const data = await expenseRepository.getAll();
+        setExpenses(data);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) return <LoadingState rows={6} />;
+
+  const totalExpenseAmount = expenses.reduce((acc, curr) => acc + curr.amount, 0);
+
+  // Group expenses by category for pie chart
+  const categoryTotals: Record<string, number> = {};
+  expenses.forEach((e) => {
+    categoryTotals[e.categoryName] = (categoryTotals[e.categoryName] || 0) + e.amount;
+  });
+
+  const COLORS = ['#2563EB', '#16A34A', '#0284C7', '#D97706', '#4F46E5', '#7E22CE'];
+  const pieData = Object.entries(categoryTotals).map(([name, value]) => ({
+    name,
+    value,
+  }));
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Finance & Expenditure Dashboard"
+        description="Monitor operational expenditures, postal dispatch fees, printing supplies, and petty cash"
+        actions={
+          <Button
+            variant="primary"
+            leftIcon={<Plus className="w-4 h-4" />}
+            onClick={() => navigate('/finance/expenses/new')}
+          >
+            Record Expense
+          </Button>
+        }
+      />
+
+      {/* Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard
+          title="Total Monthly Expenses"
+          value={`$${totalExpenseAmount.toFixed(2)}`}
+          subtitle={`${expenses.length} vouchers recorded`}
+          icon={<DollarSign className="w-4 h-4" />}
+          accentColor="blue"
+        />
+        <StatCard
+          title="Postal & Shipping Charges"
+          value={`$${(categoryTotals['Postal Charges'] || 0).toFixed(2)}`}
+          subtitle="Fulfillment courier dispatch fees"
+          icon={<Layers className="w-4 h-4" />}
+          accentColor="green"
+        />
+        <StatCard
+          title="Printing & Stationery"
+          value={`$${(categoryTotals['Printing'] || 0).toFixed(2)}`}
+          subtitle="A4/A6 Labels and thermal rolls"
+          icon={<DollarSign className="w-4 h-4" />}
+          accentColor="purple"
+        />
+      </div>
+
+      {/* Interactive Pie Chart Breakdown & Recent Transactions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div>
+              <CardTitle>Expense Distribution</CardTitle>
+              <CardDescription>Breakdown by operational category</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="h-72 flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={95}
+                  paddingAngle={3}
+                >
+                  {pieData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(val: any) => `$${Number(val).toFixed(2)}`}
+                  contentStyle={{
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(15, 23, 42, 0.08)',
+                    color: '#0F172A',
+                    fontSize: '12px',
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Recent Vouchers</CardTitle>
+              <CardDescription>Latest disbursements</CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+              onClick={() => navigate('/finance/expenses')}
+            >
+              All
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0 divide-y divide-slate-100">
+            {expenses.slice(0, 4).map((exp) => (
+              <div key={exp.id} className="p-3.5 flex items-center justify-between gap-3 text-xs">
+                <div>
+                  <div className="font-semibold text-slate-900">{exp.categoryName}</div>
+                  <div className="text-slate-400">{exp.remarks}</div>
+                </div>
+                <div className="font-bold text-slate-900 text-sm">${exp.amount.toFixed(2)}</div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};

@@ -1,0 +1,238 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS — Enterprise Light CRM System
+   ═══════════════════════════════════════════════ */
+:root {
+  /* Main Palette */
+  --bg-app: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F1F5F9;
+
+  --text-heading: #0F172A;
+  --text-body: #334155;
+  --text-muted: #64748B;
+
+  --border-default: #E2E8F0;
+  --border-subtle: #F1F5F9;
+
+  --brand-primary: #2563EB;
+  --brand-primary-hover: #1D4ED8;
+  --brand-primary-subtle: #EFF6FF;
+
+  --color-success: #16A34A;
+  --color-success-bg: #ECFDF5;
+  --color-warning: #D97706;
+  --color-warning-bg: #FFF7ED;
+  --color-danger: #DC2626;
+  --color-danger-bg: #FEF2F2;
+  --color-info: #0284C7;
+  --color-info-bg: #EFF6FF;
+
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-dropdown: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+/* ═══════════════════════════════════════════════
+   BASE RESET & TYPOGRAPHY
+   ═══════════════════════════════════════════════ */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background-color: #F8FAFC;
+  color: #334155;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  color: #0F172A;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* ═══════════════════════════════════════════════
+   ENTERPRISE SURFACES & CARDS
+   ═══════════════════════════════════════════════ */
+.enterprise-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.enterprise-card:hover {
+  border-color: #CBD5E1;
+}
+
+.enterprise-table-container {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* ═══════════════════════════════════════════════
+   FORM CONTROLS & FOCUS STATES
+   ═══════════════════════════════════════════════ */
+.enterprise-input {
+  background-color: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  color: #0F172A;
+  font-size: 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.enterprise-input:focus {
+  outline: none;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.enterprise-input::placeholder {
+  color: #94A3B8;
+}
+
+/* ═══════════════════════════════════════════════
+   NAVIGATION PILLS
+   ═══════════════════════════════════════════════ */
+.nav-item-active {
+  background-color: #EFF6FF;
+  color: #2563EB;
+  font-weight: 600;
+}
+
+.nav-item-inactive {
+  color: #64748B;
+}
+
+.nav-item-inactive:hover {
+  background-color: #F8FAFC;
+  color: #0F172A;
+}
+
+/* ═══════════════════════════════════════════════
+   STATUS PILL BADGES (Restrained Light Semantic)
+   ═══════════════════════════════════════════════ */
+.badge-blue {
+  background-color: #EFF6FF;
+  color: #2563EB;
+  border: 1px solid #DBEAFE;
+}
+
+.badge-green {
+  background-color: #ECFDF5;
+  color: #15803D;
+  border: 1px solid #D1FAE5;
+}
+
+.badge-amber {
+  background-color: #FFF7ED;
+  color: #C2410C;
+  border: 1px solid #FFEDD5;
+}
+
+.badge-gray {
+  background-color: #F1F5F9;
+  color: #475569;
+  border: 1px solid #E2E8F0;
+}
+
+.badge-red {
+  background-color: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FEE2E2;
+}
+
+.badge-indigo {
+  background-color: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #E0E7FF;
+}
+
+.badge-purple {
+  background-color: #FAF5FF;
+  color: #7E22CE;
+  border: 1px solid #F3E8FF;
+}
+
+/* ═══════════════════════════════════════════════
+   HORIZONTAL LEADERBOARD PERFORMANCE BAR
+   ═══════════════════════════════════════════════ */
+.perf-track {
+  background-color: #F1F5F9;
+  border-radius: 9999px;
+  overflow: hidden;
+  height: 8px;
+}
+
+.perf-bar {
+  background-color: #2563EB;
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.4s ease-out;
+}
+
+/* ═══════════════════════════════════════════════
+   CUSTOM SCROLLBAR (Subtle Enterprise)
+   ═══════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* ═══════════════════════════════════════════════
+   PRINT ENGINE (A4 Landscape & A6 Delivery Labels)
+   ═══════════════════════════════════════════════ */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  aside, header, nav, button, .no-print {
+    display: none !important;
+  }
+  .print-container {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .page-break-after-always {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 0mm;
+  }
+}

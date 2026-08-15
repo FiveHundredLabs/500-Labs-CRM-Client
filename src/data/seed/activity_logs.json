@@ -1,0 +1,86 @@
+[
+  {
+    "id": "act_001",
+    "userId": "usr_sup_01",
+    "userRole": "SUPERVISOR",
+    "userName": "Marcus Vance",
+    "teamId": "team_001",
+    "action": "CONTACT_IMPORTED",
+    "entityType": "Contact",
+    "entityId": "batch_imp_001",
+    "description": "Imported 10 numbers for Brand Alpha (Batch #batch_imp_001)",
+    "createdAt": "2026-08-10T09:00:00Z"
+  },
+  {
+    "id": "act_002",
+    "userId": "usr_sup_01",
+    "userRole": "SUPERVISOR",
+    "userName": "Marcus Vance",
+    "teamId": "team_001",
+    "action": "CONTACT_ALLOCATED",
+    "entityType": "Allocation",
+    "entityId": "batch_alc_001",
+    "description": "Allocated 10 contacts across 2 active team members via Round-Robin",
+    "createdAt": "2026-08-10T09:30:00Z"
+  },
+  {
+    "id": "act_003",
+    "userId": "usr_mem_01",
+    "userRole": "TEAM_MEMBER",
+    "userName": "David Miller",
+    "teamId": "team_001",
+    "action": "CALL_COMPLETED",
+    "entityType": "CallLog",
+    "entityId": "cll_001",
+    "description": "Completed call with +1 (555) 234-5678 - Status: INTERESTED",
+    "createdAt": "2026-08-10T10:15:00Z"
+  },
+  {
+    "id": "act_004",
+    "userId": "usr_mem_01",
+    "userRole": "TEAM_MEMBER",
+    "userName": "David Miller",
+    "teamId": "team_001",
+    "action": "CUSTOMER_CREATED",
+    "entityType": "Customer",
+    "entityId": "cst_001",
+    "description": "Created customer record for Robert Anderson",
+    "createdAt": "2026-08-10T10:15:00Z"
+  },
+  {
+    "id": "act_005",
+    "userId": "usr_sup_01",
+    "userRole": "SUPERVISOR",
+    "userName": "Marcus Vance",
+    "teamId": "team_001",
+    "action": "ORDER_CREATED",
+    "entityType": "Order",
+    "entityId": "ord_001",
+    "description": "Created Order #ORD-2026-001 for Robert Anderson ($149.99)",
+    "createdAt": "2026-08-10T11:00:00Z"
+  },
+  {
+    "id": "act_006",
+    "userId": "usr_sup_01",
+    "userRole": "SUPERVISOR",
+    "userName": "Marcus Vance",
+    "teamId": "team_001",
+    "action": "DELIVERY_STATUS_CHANGED",
+    "entityType": "Order",
+    "entityId": "ord_001",
+    "description": "Changed Order #ORD-2026-001 status from DISPATCHED to DELIVERED",
+    "createdAt": "2026-08-12T16:30:00Z"
+  },
+  {
+    "id": "act_007",
+    "userId": "usr_sup_01",
+    "userRole": "SUPERVISOR",
+    "userName": "Marcus Vance",
+    "teamId": "team_001",
+    "action": "EMAIL_NOTIFICATION_SENT",
+    "entityType": "Email",
+    "entityId": "eml_001",
+    "description": "Sent Delivery Confirmation email to robert.anderson@example.com",
+    "createdAt": "2026-08-12T16:30:00Z"
+  }
+]

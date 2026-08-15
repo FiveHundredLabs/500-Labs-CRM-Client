@@ -1,0 +1,41 @@
+[
+  {
+    "id": "cst_001",
+    "contactId": "cnt_001",
+    "fullName": "Roshan Mahanama",
+    "phone": "+94 77 234 5678",
+    "address": "No. 45, Galle Road, Colombo 03",
+    "email": "roshan.mahanama@gmail.com",
+    "teamId": "team_001",
+    "responsibleTeamMemberId": "usr_mem_01",
+    "supervisorId": "usr_sup_01",
+    "createdAt": "2026-08-10T10:15:00Z",
+    "updatedAt": "2026-08-10T10:15:00Z"
+  },
+  {
+    "id": "cst_002",
+    "contactId": "cnt_002",
+    "fullName": "Anusha Damayanthi",
+    "phone": "+94 71 345 6789",
+    "address": "120/4, Kandy Road, Kiribathgoda",
+    "email": "anusha.damayanthi@yahoo.com",
+    "teamId": "team_001",
+    "responsibleTeamMemberId": "usr_mem_02",
+    "supervisorId": "usr_sup_01",
+    "createdAt": "2026-08-11T11:00:00Z",
+    "updatedAt": "2026-08-11T11:00:00Z"
+  },
+  {
+    "id": "cst_003",
+    "contactId": "cnt_010",
+    "fullName": "Manjula Kumara",
+    "phone": "+94 71 123 4567",
+    "address": "No. 78, Main Street, Kurunegala",
+    "email": "manjula.kumara@outlook.com",
+    "teamId": "team_002",
+    "responsibleTeamMemberId": "usr_mem_04",
+    "supervisorId": "usr_sup_02",
+    "createdAt": "2026-08-11T14:00:00Z",
+    "updatedAt": "2026-08-11T14:00:00Z"
+  }
+]
