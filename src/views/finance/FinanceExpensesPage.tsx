@@ -7,7 +7,7 @@ import { Select } from '../../components/ui/Select';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { LoadingState } from '../../components/shared/LoadingState';
-import { Plus, Calendar, Filter, X } from 'lucide-react';
+import { Plus, Calendar, Filter, X, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 
@@ -101,9 +101,14 @@ export const FinanceExpensesPage: React.FC = () => {
         title="Expense Voucher Register"
         description="Filterable audit ledger of recorded operational expenditures"
         actions={
-          <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />} onClick={() => navigate('/finance/expenses/new')}>
-            New Voucher
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" leftIcon={<FileText className="w-4 h-4 text-blue-600" />} onClick={() => navigate('/finance/reports')}>
+              Reports (CSV / PDF)
+            </Button>
+            <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />} onClick={() => navigate('/finance/expenses/new')}>
+              New Voucher
+            </Button>
+          </div>
         }
       />
 

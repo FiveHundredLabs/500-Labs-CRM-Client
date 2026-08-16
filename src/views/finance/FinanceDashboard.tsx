@@ -102,7 +102,6 @@ export const FinanceDashboard: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="Finance & Expenditure Dashboard"
-        description="Monitor operational expenditures, postal dispatch fees, printing supplies, and petty cash"
         actions={
           <Button
             variant="primary"
