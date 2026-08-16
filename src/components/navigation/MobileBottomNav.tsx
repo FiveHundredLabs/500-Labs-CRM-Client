@@ -17,7 +17,7 @@ export const MobileBottomNav: React.FC = () => {
   // Group secondary items for the More sheet
   const supervisorChildren = allNavItems.find((i) => i.label === 'Supervisor')?.children || [];
   const financeChildren = allNavItems.find((i) => i.label === 'Finance')?.children || [];
-  const directSecondary = allNavItems.filter((i) => !i.isBottomNav && !i.children);
+  const directSecondary = allNavItems.filter((i) => !i.isBottomNav && !i.children && i.path !== '#more');
 
   return (
     <>
@@ -62,8 +62,8 @@ export const MobileBottomNav: React.FC = () => {
       <Sheet
         isOpen={isMoreOpen}
         onClose={() => setIsMoreOpen(false)}
-        title="Operations & Features"
-        description="Quick access to system operations"
+        title="Operations & Navigation"
+        description="Quick access to all operations"
         position="bottom"
       >
         <div className="space-y-4 py-2 max-h-[75vh] overflow-y-auto">
@@ -89,7 +89,7 @@ export const MobileBottomNav: React.FC = () => {
             </div>
           )}
 
-          {/* Supervisor Operations */}
+          {/* Supervisor Operations (For Admin) */}
           {supervisorChildren.length > 0 && (
             <div className="space-y-2">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">
@@ -116,7 +116,7 @@ export const MobileBottomNav: React.FC = () => {
             </div>
           )}
 
-          {/* Finance Operations */}
+          {/* Finance Operations (For Admin) */}
           {financeChildren.length > 0 && (
             <div className="space-y-2">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">
