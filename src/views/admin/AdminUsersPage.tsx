@@ -12,6 +12,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ProfileAvatar } from '../../components/shared/ProfileAvatar';
+import { EditableProfileAvatar } from '../../components/shared/EditableProfileAvatar';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { LoadingState } from '../../components/shared/LoadingState';
 import toast from 'react-hot-toast';
@@ -41,6 +42,7 @@ export const AdminUsersPage: React.FC = () => {
   const [supervisorId, setSupervisorId] = useState<string>('');
   const [nic, setNic] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('1995-05-15');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Disable Dialog
@@ -70,6 +72,8 @@ export const AdminUsersPage: React.FC = () => {
     setTeamId('team_001');
     setSupervisorId('');
     setNic('');
+    setDateOfBirth('1995-05-15');
+    setAvatarUrl('');
     setIsModalOpen(true);
   };
 
@@ -83,6 +87,8 @@ export const AdminUsersPage: React.FC = () => {
     setTeamId(u.teamId || 'team_001');
     setSupervisorId(u.supervisorId || '');
     setNic(u.nic || '');
+    setDateOfBirth(u.dateOfBirth || '1995-05-15');
+    setAvatarUrl(u.avatarUrl || '');
     setIsModalOpen(true);
   };
 
@@ -104,6 +110,8 @@ export const AdminUsersPage: React.FC = () => {
             teamId: role === 'ADMIN' || role === 'FINANCE' ? null : teamId,
             supervisorId: role === 'TEAM_MEMBER' ? supervisorId : null,
             nic,
+            dateOfBirth,
+            avatarUrl,
           },
           user!
         );
@@ -124,6 +132,7 @@ export const AdminUsersPage: React.FC = () => {
             phone,
             nic,
             dateOfBirth,
+            avatarUrl,
             joiningDate: new Date().toISOString(),
             isActive: true,
           },
@@ -281,6 +290,19 @@ export const AdminUsersPage: React.FC = () => {
         title={editingUser ? 'Edit User Account' : 'Create User Account'}
       >
         <form onSubmit={handleSaveUser} className="space-y-4">
+          <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <EditableProfileAvatar
+              name={fullName || 'User'}
+              avatarUrl={avatarUrl}
+              onChangeAvatar={setAvatarUrl}
+              size="lg"
+            />
+            <div>
+              <div className="text-xs font-bold text-slate-900">User Photo</div>
+              <div className="text-[11px] text-slate-500">Click camera icon to upload profile photo</div>
+            </div>
+          </div>
+
           <Select
             label="System Role *"
             value={role}
