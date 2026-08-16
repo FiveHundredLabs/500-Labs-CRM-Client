@@ -19,7 +19,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
 
   return (
     <aside
-      className={`hidden md:flex flex-col bg-white border-r border-slate-200 transition-all duration-200 relative shrink-0 z-20 ${
+      className={`hidden md:flex flex-col h-full bg-white border-r border-slate-200 transition-all duration-200 relative shrink-0 z-20 ${
         isCollapsed ? 'w-[72px]' : 'w-[240px]'
       }`}
     >

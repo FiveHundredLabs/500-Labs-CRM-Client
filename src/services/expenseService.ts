@@ -49,7 +49,7 @@ export class ExpenseService {
       action: 'EXPENSE_CREATED',
       entityType: 'Expense',
       entityId: newExpense.id,
-      description: `Recorded expense of $${input.amount.toFixed(2)} under ${finalCategoryName}`,
+      description: `Recorded expense of LKR ${input.amount.toFixed(2)} under ${finalCategoryName}`,
     });
 
     return newExpense;

@@ -84,7 +84,7 @@ export const SupervisorDashboard: React.FC = () => {
       {/* Quick Action Navigation Bar */}
       <Card>
         <CardContent className="p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <Button
               variant="secondary"
               size="sm"
@@ -111,15 +111,6 @@ export const SupervisorDashboard: React.FC = () => {
               className="justify-start"
             >
               Interested Leads
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<Printer className="w-4 h-4 text-slate-600" />}
-              onClick={() => navigate('/supervisor/print')}
-              className="justify-start"
-            >
-              Print Labels
             </Button>
           </div>
         </CardContent>
