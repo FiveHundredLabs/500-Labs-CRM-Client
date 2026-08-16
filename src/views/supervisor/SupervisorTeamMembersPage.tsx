@@ -7,13 +7,10 @@ import {
   ReportsFilterOptions,
 } from '../../services/supervisorAnalyticsService';
 import { PageHeader } from '../../components/shared/PageHeader';
-import { StatCard } from '../../components/shared/StatCard';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { Leaderboard } from '../../components/leaderboard';
 import { TeamMemberFilters } from '../../components/supervisor/team/TeamMemberFilters';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from 'date-fns';
-import { Trophy, Users, CheckCircle2, TrendingUp } from 'lucide-react';
-import { formatCurrency } from '../../utils/currency';
 
 export const SupervisorTeamMembersPage: React.FC = () => {
   const { user } = useAuth();
@@ -83,52 +80,12 @@ export const SupervisorTeamMembersPage: React.FC = () => {
     ? leaderboard.filter((m) => m.memberName.toLowerCase().includes(searchQuery.toLowerCase().trim()))
     : leaderboard;
 
-  // Aggregate metrics
-  const totalHandledOrders = leaderboard.reduce((acc, curr) => acc + curr.totalOrders, 0);
-  const totalDeliveredOrders = leaderboard.reduce((acc, curr) => acc + curr.deliveredOrders, 0);
-  const totalSalesRevenue = leaderboard.reduce((acc, curr) => acc + curr.totalSalesValue, 0);
-  const overallDeliveryRate =
-    totalHandledOrders > 0 ? Math.round((totalDeliveredOrders / totalHandledOrders) * 1000) / 10 : 0;
-  const topPerformer = leaderboard.length > 0 ? leaderboard[0].memberName : 'None';
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Team Performance & Leaderboard"
         description="Comprehensive analysis of team member order handling, delivery rates, and revenue performance"
       />
-
-      {/* Top Level Performance Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Top Performer"
-          value={topPerformer}
-          subtitle={`Rank #1 in Team`}
-          icon={<Trophy className="w-4 h-4 text-amber-500" />}
-          accentColor="amber"
-        />
-        <StatCard
-          title="Handled Orders"
-          value={totalHandledOrders}
-          subtitle={`${teamMembers.length} active members`}
-          icon={<Users className="w-4 h-4 text-blue-600" />}
-          accentColor="blue"
-        />
-        <StatCard
-          title="Delivered Rate"
-          value={`${overallDeliveryRate}%`}
-          subtitle={`${totalDeliveredOrders} of ${totalHandledOrders} orders`}
-          icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-          accentColor="green"
-        />
-        <StatCard
-          title="Total Team Sales"
-          value={formatCurrency(totalSalesRevenue)}
-          subtitle="Delivered order revenue"
-          icon={<TrendingUp className="w-4 h-4 text-purple-600" />}
-          accentColor="purple"
-        />
-      </div>
 
       {/* Filters */}
       <TeamMemberFilters
