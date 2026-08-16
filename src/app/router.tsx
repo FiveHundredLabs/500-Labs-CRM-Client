@@ -20,7 +20,6 @@ import { SupervisorAllocationHistoryPage } from '../views/supervisor/SupervisorA
 import { SupervisorCustomersPage } from '../views/supervisor/SupervisorCustomersPage';
 import { SupervisorCustomerDetailPage } from '../views/supervisor/SupervisorCustomerDetailPage';
 import { SupervisorOrdersPage } from '../views/supervisor/SupervisorOrdersPage';
-import { SupervisorPrintPage } from '../views/supervisor/SupervisorPrintPage';
 import { SupervisorProfilePage } from '../views/supervisor/SupervisorProfilePage';
 
 // Admin Views
@@ -80,7 +79,6 @@ export const router = createBrowserRouter([
               { path: 'customers', element: <SupervisorCustomersPage /> },
               { path: 'customers/:id', element: <SupervisorCustomerDetailPage /> },
               { path: 'orders', element: <SupervisorOrdersPage /> },
-              { path: 'print', element: <SupervisorPrintPage /> },
               { path: 'profile', element: <SupervisorProfilePage /> },
             ],
           },
