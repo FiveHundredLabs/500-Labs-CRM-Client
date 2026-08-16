@@ -19,7 +19,7 @@ import { UserPlus, Edit2, UserX, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const AdminUsersPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateCurrentUser } = useAuth();
   const navigate = useNavigate();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -93,7 +93,7 @@ export const AdminUsersPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       if (editingUser) {
-        await UserService.updateUser(
+        const updated = await UserService.updateUser(
           editingUser.id,
           {
             fullName,
@@ -107,6 +107,9 @@ export const AdminUsersPage: React.FC = () => {
           },
           user!
         );
+        if (editingUser.id === user?.id) {
+          updateCurrentUser(updated);
+        }
         toast.success(`Updated details for ${fullName}`);
       } else {
         await UserService.createUser(
