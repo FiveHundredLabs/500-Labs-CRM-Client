@@ -17,9 +17,11 @@ import { SupervisorTeamPage } from '../views/supervisor/SupervisorTeamPage';
 import { SupervisorImportPage } from '../views/supervisor/SupervisorImportPage';
 import { SupervisorAllocationPage } from '../views/supervisor/SupervisorAllocationPage';
 import { SupervisorAllocationHistoryPage } from '../views/supervisor/SupervisorAllocationHistoryPage';
-import { SupervisorCustomersPage } from '../views/supervisor/SupervisorCustomersPage';
+import { SupervisorInterestedPage } from '../views/supervisor/SupervisorInterestedPage';
 import { SupervisorCustomerDetailPage } from '../views/supervisor/SupervisorCustomerDetailPage';
 import { SupervisorOrdersPage } from '../views/supervisor/SupervisorOrdersPage';
+import { SupervisorReportsPage } from '../views/supervisor/SupervisorReportsPage';
+import { SupervisorTeamMembersPage } from '../views/supervisor/SupervisorTeamMembersPage';
 import { SupervisorProfilePage } from '../views/supervisor/SupervisorProfilePage';
 
 // Admin Views
@@ -73,11 +75,15 @@ export const router = createBrowserRouter([
             children: [
               { path: 'dashboard', element: <SupervisorDashboard /> },
               { path: 'team', element: <SupervisorTeamPage /> },
+              { path: 'team-members', element: <SupervisorTeamMembersPage /> },
+              { path: 'reports', element: <SupervisorReportsPage /> },
               { path: 'import', element: <SupervisorImportPage /> },
               { path: 'allocation', element: <SupervisorAllocationPage /> },
               { path: 'allocation/history', element: <SupervisorAllocationHistoryPage /> },
-              { path: 'customers', element: <SupervisorCustomersPage /> },
-              { path: 'customers/:id', element: <SupervisorCustomerDetailPage /> },
+              { path: 'interested', element: <SupervisorInterestedPage /> },
+              { path: 'interested/:id', element: <SupervisorCustomerDetailPage /> },
+              { path: 'customers', element: <Navigate to="/supervisor/interested" replace /> },
+              { path: 'customers/:id', element: <Navigate to="/supervisor/interested" replace /> },
               { path: 'orders', element: <SupervisorOrdersPage /> },
               { path: 'profile', element: <SupervisorProfilePage /> },
             ],
@@ -90,12 +96,10 @@ export const router = createBrowserRouter([
               { path: 'dashboard', element: <AdminDashboard /> },
               { path: 'users', element: <AdminUsersPage /> },
               { path: 'users/:id', element: <AdminEmployeeDetailPage /> },
+              { path: 'customers', element: <SupervisorInterestedPage /> },
               { path: 'reports', element: <AdminReportsPage /> },
               { path: 'activity', element: <AdminActivityPage /> },
               { path: 'profile', element: <AdminProfilePage /> },
-
-              // Supervisor Operations for Admin
-              { path: 'customers', element: <SupervisorCustomersPage /> },
               { path: 'customers/:id', element: <SupervisorCustomerDetailPage /> },
               { path: 'orders', element: <SupervisorOrdersPage /> },
               { path: 'import', element: <SupervisorImportPage /> },

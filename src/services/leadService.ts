@@ -43,8 +43,8 @@ export class LeadService {
           supervisorId: customer.supervisorId,
           status: 'DISPATCHED',
           itemsDescription: 'Interested Lead Standard Package x1',
-          totalAmount: 150.00,
-          currency: 'USD',
+          totalAmount: 5990.00,
+          currency: 'LKR',
           remarks: 'Auto-generated order upon Interested Lead billing dispatch',
         });
 
