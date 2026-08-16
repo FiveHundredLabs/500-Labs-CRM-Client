@@ -18,8 +18,13 @@ import { useOrderFilters } from '../../hooks/useOrderFilters';
 import { useSelection } from '../../hooks/useSelection';
 import { downloadBillingPDF } from '../../utils/pdfGenerator';
 import toast from 'react-hot-toast';
+import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
+import { useAuth } from '../../hooks/useAuth';
 
 export const SupervisorOrdersPage: React.FC = () => {
+  const { user } = useAuth();
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+
   const {
     orders,
     customersMap,
@@ -30,7 +35,7 @@ export const SupervisorOrdersPage: React.FC = () => {
     updateOrderRemark,
     bulkUpdateOrderStatus,
     fetchOrderHistory,
-  } = useOrders();
+  } = useOrders(user?.role === 'ADMIN' ? adminTeamId : undefined);
 
   const {
     selectedDate,
@@ -129,6 +134,13 @@ export const SupervisorOrdersPage: React.FC = () => {
       <div className="hidden print:block">
         <A4BillingPrintSheet items={selectedPrintItems} />
       </div>
+
+      {/* Admin Multi-Team Switcher */}
+      <AdminTeamSelector
+        activeTeamId={adminTeamId}
+        onTeamChange={setAdminTeamId}
+        title="Orders & Fulfillment Management"
+      />
 
       <PageHeader
         title="Supervisor Orders"

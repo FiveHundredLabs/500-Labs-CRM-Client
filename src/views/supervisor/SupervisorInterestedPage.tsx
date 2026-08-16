@@ -13,7 +13,17 @@ import { useSelection } from '../../hooks/useSelection';
 import { downloadBillingPDF } from '../../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 
+<<<<<<< HEAD:src/views/supervisor/SupervisorInterestedPage.tsx
 export const SupervisorInterestedPage: React.FC = () => {
+=======
+import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
+import { useAuth } from '../../hooks/useAuth';
+
+export const SupervisorCustomersPage: React.FC = () => {
+  const { user } = useAuth();
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+
+>>>>>>> 3a1cc5b1c3f29a7c7bd420e5680009956842715d:src/views/supervisor/SupervisorCustomersPage.tsx
   const {
     customers,
     teamMembers,
@@ -21,7 +31,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     ordersMap,
     loading,
     dispatchInterestedLeads,
-  } = useInterestedLeads();
+  } = useInterestedLeads(user?.role === 'ADMIN' ? adminTeamId : undefined);
 
   // Filters State
   const [search, setSearch] = useState('');
@@ -132,6 +142,13 @@ export const SupervisorInterestedPage: React.FC = () => {
       <div className="hidden print:block">
         <A4BillingPrintSheet items={selectedPrintItems} />
       </div>
+
+      {/* Admin Multi-Team Switcher */}
+      <AdminTeamSelector
+        activeTeamId={adminTeamId}
+        onTeamChange={setAdminTeamId}
+        title="Interested Leads Dispatch"
+      />
 
       <PageHeader
         title="Interested Leads"

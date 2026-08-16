@@ -5,8 +5,9 @@ import { customerRepository, userRepository, orderRepository, contactRepository 
 import { LeadService } from '../services/leadService';
 import toast from 'react-hot-toast';
 
-export function useInterestedLeads() {
+export function useInterestedLeads(overrideTeamId?: string) {
   const { user } = useAuth();
+  const effectiveTeamId = overrideTeamId || user?.teamId || 'team_001';
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
@@ -15,14 +16,14 @@ export function useInterestedLeads() {
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
-    if (!user || !user.teamId) return;
+    if (!user) return;
     setLoading(true);
     try {
       const [cList, contactList, teamUsers, oList] = await Promise.all([
-        customerRepository.getByTeamId(user.teamId),
-        contactRepository.getByTeamId(user.teamId),
-        userRepository.getByTeamId(user.teamId),
-        orderRepository.getByTeamId(user.teamId),
+        customerRepository.getByTeamId(effectiveTeamId),
+        contactRepository.getByTeamId(effectiveTeamId),
+        userRepository.getByTeamId(effectiveTeamId),
+        orderRepository.getByTeamId(effectiveTeamId),
       ]);
 
       const cntMap: Record<string, Contact> = {};
@@ -66,7 +67,7 @@ export function useInterestedLeads() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, effectiveTeamId]);
 
   useEffect(() => {
     loadData();
@@ -87,6 +88,7 @@ export function useInterestedLeads() {
 
   return {
     user,
+    effectiveTeamId,
     customers,
     teamMembers,
     membersMap,

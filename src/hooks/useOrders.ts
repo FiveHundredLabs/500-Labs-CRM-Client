@@ -5,8 +5,9 @@ import { customerRepository, userRepository, orderRepository, deliveryStatusHist
 import { OrderService } from '../services/orderService';
 import toast from 'react-hot-toast';
 
-export function useOrders() {
+export function useOrders(overrideTeamId?: string) {
   const { user } = useAuth();
+  const effectiveTeamId = overrideTeamId || user?.teamId || 'team_001';
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [customersMap, setCustomersMap] = useState<Record<string, Customer>>({});
@@ -15,13 +16,13 @@ export function useOrders() {
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
-    if (!user || !user.teamId) return;
+    if (!user) return;
     setLoading(true);
     try {
       const [oList, cList, teamUsers] = await Promise.all([
-        orderRepository.getByTeamId(user.teamId),
-        customerRepository.getByTeamId(user.teamId),
-        userRepository.getByTeamId(user.teamId),
+        orderRepository.getByTeamId(effectiveTeamId),
+        customerRepository.getByTeamId(effectiveTeamId),
+        userRepository.getByTeamId(effectiveTeamId),
       ]);
 
       setOrders(oList);
@@ -39,7 +40,7 @@ export function useOrders() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, effectiveTeamId]);
 
   useEffect(() => {
     loadData();
@@ -106,6 +107,7 @@ export function useOrders() {
 
   return {
     user,
+    effectiveTeamId,
     orders,
     customersMap,
     teamMembers,

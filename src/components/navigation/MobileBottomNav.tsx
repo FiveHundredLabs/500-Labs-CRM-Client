@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { ROLE_NAVIGATION } from '../../config/navigation';
+import { ROLE_NAVIGATION, NavItem } from '../../config/navigation';
 import { Sheet } from '../ui/Sheet';
 import { LogOut } from 'lucide-react';
 
@@ -13,7 +13,11 @@ export const MobileBottomNav: React.FC = () => {
 
   const allNavItems = ROLE_NAVIGATION[role] || [];
   const bottomNavItems = allNavItems.filter((i) => i.isBottomNav);
-  const secondaryNavItems = allNavItems.filter((i) => !i.isBottomNav);
+
+  // Group secondary items for the More sheet
+  const supervisorChildren = allNavItems.find((i) => i.label === 'Supervisor')?.children || [];
+  const financeChildren = allNavItems.find((i) => i.label === 'Finance')?.children || [];
+  const directSecondary = allNavItems.filter((i) => !i.isBottomNav && !i.children);
 
   return (
     <>
@@ -58,27 +62,86 @@ export const MobileBottomNav: React.FC = () => {
       <Sheet
         isOpen={isMoreOpen}
         onClose={() => setIsMoreOpen(false)}
-        title="More Features"
-        description="Quick access to secondary operations"
+        title="Operations & Features"
+        description="Quick access to system operations"
         position="bottom"
       >
-        <div className="grid grid-cols-2 gap-2.5 py-2">
-          {secondaryNavItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsMoreOpen(false)}
-                className="flex flex-col items-center p-3.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-xl transition-colors text-center"
-              >
-                <div className="p-2 bg-white text-blue-600 rounded-lg border border-slate-200 shadow-2xs mb-2">
-                  <Icon className="w-4 h-4" />
-                </div>
-                <span className="text-xs font-semibold text-slate-800">{item.label}</span>
-              </NavLink>
-            );
-          })}
+        <div className="space-y-4 py-2 max-h-[75vh] overflow-y-auto">
+          {/* Direct Secondary Items */}
+          {directSecondary.length > 0 && (
+            <div className="grid grid-cols-2 gap-2.5">
+              {directSecondary.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsMoreOpen(false)}
+                    className="flex flex-col items-center p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-xl transition-colors text-center"
+                  >
+                    <div className="p-2 bg-white text-blue-600 rounded-lg border border-slate-200 shadow-2xs mb-1.5">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-800">{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Supervisor Operations */}
+          {supervisorChildren.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">
+                Supervisor Operations
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {supervisorChildren.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setIsMoreOpen(false)}
+                      className="flex flex-col items-center p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-xl transition-colors text-center"
+                    >
+                      <div className="p-2 bg-white text-blue-600 rounded-lg border border-slate-200 shadow-2xs mb-1.5">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-800">{item.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Finance Operations */}
+          {financeChildren.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">
+                Finance & Expenses
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {financeChildren.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setIsMoreOpen(false)}
+                      className="flex flex-col items-center p-3 bg-slate-50 hover:bg-emerald-50 border border-slate-200 rounded-xl transition-colors text-center"
+                    >
+                      <div className="p-2 bg-white text-emerald-600 rounded-lg border border-slate-200 shadow-2xs mb-1.5">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-800">{item.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-4 pt-3 border-t border-slate-100">
@@ -87,7 +150,7 @@ export const MobileBottomNav: React.FC = () => {
               setIsMoreOpen(false);
               logout();
             }}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-50 text-red-600 rounded-lg font-medium text-xs hover:bg-red-100 transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-50 text-red-600 rounded-lg font-medium text-xs hover:bg-red-100 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
