@@ -113,67 +113,6 @@ export const FinanceDashboard: React.FC = () => {
         }
       />
 
-      {/* Date Range Selector Control Bar */}
-      <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 shadow-2xs">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-blue-600" />
-            <span className="text-xs font-bold text-slate-800">Date Range Filter:</span>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <Select
-              value={datePreset}
-              onChange={(e) => setDatePreset(e.target.value)}
-              options={[
-                { value: 'THIS_MONTH', label: 'This Month' },
-                { value: 'LAST_MONTH', label: 'Last Month' },
-                { value: 'THIS_WEEK', label: 'This Week' },
-                { value: 'ALL', label: 'All Time' },
-                { value: 'CUSTOM', label: 'Custom Range' },
-              ]}
-              className="w-40 text-xs"
-            />
-          </div>
-        </div>
-
-        {/* Custom Range Date Pickers */}
-        {(datePreset === 'CUSTOM' || (datePreset !== 'ALL' && startDate && endDate)) && (
-          <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-3 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-            <span className="font-semibold text-slate-700 flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5 text-blue-600" />
-              <span>Range:</span>
-            </span>
-
-            <div className="flex items-center gap-2">
-              <label className="text-slate-500 font-medium">From:</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setDatePreset('CUSTOM');
-                  setStartDate(e.target.value);
-                }}
-                className="bg-white border border-slate-300 rounded-md px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-slate-500 font-medium">To:</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setDatePreset('CUSTOM');
-                  setEndDate(e.target.value);
-                }}
-                className="bg-white border border-slate-300 rounded-md px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono"
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard

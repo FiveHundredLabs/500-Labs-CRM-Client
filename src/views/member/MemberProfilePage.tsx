@@ -15,7 +15,7 @@ import { Shield, MapPin, Save, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const MemberProfilePage: React.FC = () => {
-  const { user, login } = useAuth();
+  const { user, updateCurrentUser } = useAuth();
 
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [city, setCity] = useState(user?.city || '');
@@ -46,7 +46,7 @@ export const MemberProfilePage: React.FC = () => {
     setIsLoading(true);
     try {
       const updated = await UserService.updateUser(user.id, { fullName, city, avatarUrl }, user);
-      await login(updated.email); // Refresh auth state
+      updateCurrentUser(updated);
       toast.success('Profile updated successfully!');
     } catch (err: any) {
       toast.error(err.message || 'Failed to update profile.');

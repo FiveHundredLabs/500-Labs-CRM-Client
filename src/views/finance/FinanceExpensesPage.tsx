@@ -102,11 +102,8 @@ export const FinanceExpensesPage: React.FC = () => {
         description="Filterable audit ledger of recorded operational expenditures"
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" leftIcon={<FileText className="w-4 h-4 text-blue-600" />} onClick={() => navigate('/finance/reports')}>
-              Reports (CSV / PDF)
-            </Button>
             <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />} onClick={() => navigate('/finance/expenses/new')}>
-              New Voucher
+              New Expense 
             </Button>
           </div>
         }

@@ -9,6 +9,7 @@ interface AuthContextType {
   loading: boolean;
   login: (emailOrUsername: string) => Promise<User>;
   logout: () => void;
+  updateCurrentUser: (updatedUser: User) => void;
   isAdmin: boolean;
   isSupervisor: boolean;
   isTeamMember: boolean;
@@ -45,12 +46,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     toast.success('Logged out successfully.');
   };
 
+  const updateCurrentUser = (updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem('crm_auth_user_lk_v8', JSON.stringify(updatedUser));
+  };
+
   const value: AuthContextType = {
     user,
     role: user ? user.role : null,
     loading,
     login,
     logout,
+    updateCurrentUser,
     isAdmin: user?.role === 'ADMIN',
     isSupervisor: user?.role === 'SUPERVISOR',
     isTeamMember: user?.role === 'TEAM_MEMBER',

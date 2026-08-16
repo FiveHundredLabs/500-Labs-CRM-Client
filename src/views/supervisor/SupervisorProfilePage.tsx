@@ -15,7 +15,7 @@ import { Shield, MapPin, Save, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const SupervisorProfilePage: React.FC = () => {
-  const { user, login } = useAuth();
+  const { user, updateCurrentUser } = useAuth();
 
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [city, setCity] = useState(user?.city || '');
@@ -42,7 +42,7 @@ export const SupervisorProfilePage: React.FC = () => {
     setIsLoading(true);
     try {
       const updated = await UserService.updateUser(user.id, { fullName, city, avatarUrl }, user);
-      await login(updated.email);
+      updateCurrentUser(updated);
       toast.success('Supervisor profile updated successfully!');
     } catch (err: any) {
       toast.error(err.message || 'Update failed.');

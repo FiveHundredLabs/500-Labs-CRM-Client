@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { expenseRepository } from '../../repositories';
 import { Expense } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
-import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
 import { Select } from '../../components/ui/Select';
 import { Button } from '../../components/ui/Button';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { EmptyState } from '../../components/shared/EmptyState';
-import { Download, Printer, Calendar, DollarSign, Layers, FileText, Filter, CheckCircle2, X } from 'lucide-react';
+import { Download, Printer, Calendar, FileText, X } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -16,11 +15,16 @@ export const FinanceReportsPage: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Filter States
-  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  // 1. Report Name / Category State
+  const [reportName, setReportName] = useState<string>('ALL');
+
+  // 2. Date Range State
   const [datePreset, setDatePreset] = useState<string>('THIS_MONTH');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+
+  // 3. Report Format Type State (CSV or PDF)
+  const [exportFormat, setExportFormat] = useState<'CSV' | 'PDF'>('CSV');
 
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
@@ -38,19 +42,21 @@ export const FinanceReportsPage: React.FC = () => {
   }, []);
 
   // Update dates on preset selection
-  useEffect(() => {
+  const handlePresetChange = (preset: string) => {
+    setDatePreset(preset);
     const now = new Date();
-    if (datePreset === 'THIS_MONTH') {
+
+    if (preset === 'THIS_MONTH') {
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       setStartDate(format(firstDay, 'yyyy-MM-dd'));
       setEndDate(format(lastDay, 'yyyy-MM-dd'));
-    } else if (datePreset === 'LAST_MONTH') {
+    } else if (preset === 'LAST_MONTH') {
       const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
       setStartDate(format(firstDay, 'yyyy-MM-dd'));
       setEndDate(format(lastDay, 'yyyy-MM-dd'));
-    } else if (datePreset === 'THIS_WEEK') {
+    } else if (preset === 'THIS_WEEK') {
       const day = now.getDay();
       const firstDay = new Date(now);
       firstDay.setDate(now.getDate() - day);
@@ -58,17 +64,21 @@ export const FinanceReportsPage: React.FC = () => {
       lastDay.setDate(firstDay.getDate() + 6);
       setStartDate(format(firstDay, 'yyyy-MM-dd'));
       setEndDate(format(lastDay, 'yyyy-MM-dd'));
-    } else if (datePreset === 'ALL') {
+    } else if (preset === 'ALL') {
       setStartDate('');
       setEndDate('');
     }
-  }, [datePreset]);
+  };
 
-  if (loading) return <LoadingState rows={8} />;
+  useEffect(() => {
+    handlePresetChange('THIS_MONTH');
+  }, []);
 
-  // Filter expenses
+  if (loading) return <LoadingState rows={6} />;
+
+  // Filter matching expenses
   const filtered = expenses.filter((e) => {
-    const matchesCat = categoryFilter === 'ALL' || e.categoryName === categoryFilter;
+    const matchesCat = reportName === 'ALL' || e.categoryName === reportName;
     let matchesDate = true;
     if (startDate) {
       matchesDate = matchesDate && e.expenseDate >= startDate;
@@ -80,23 +90,31 @@ export const FinanceReportsPage: React.FC = () => {
   });
 
   const totalAmount = filtered.reduce((acc, curr) => acc + curr.amount, 0);
-  const avgAmount = filtered.length > 0 ? totalAmount / filtered.length : 0;
-  const maxAmount = filtered.length > 0 ? Math.max(...filtered.map((e) => e.amount)) : 0;
 
-  // Category breakdown for summary card
-  const categoryTotals: Record<string, number> = {};
-  filtered.forEach((e) => {
-    categoryTotals[e.categoryName] = (categoryTotals[e.categoryName] || 0) + e.amount;
-  });
+  const getReportTitleLabel = () => {
+    switch (reportName) {
+      case 'Postal Charges':
+        return 'Postal & Shipping Charges Report';
+      case 'Printing':
+        return 'Printing & Stationery Supplies Report';
+      case 'Transport':
+        return 'Transport & Fuel Disbursements Report';
+      case 'Petty Cash':
+        return 'Petty Cash & Refreshments Report';
+      case 'ALL':
+      default:
+        return 'All Operational Expenditures Report';
+    }
+  };
 
-  // Export CSV Handler
-  const handleExportCSV = () => {
+  // CSV Export Handler
+  const generateCSV = () => {
     if (filtered.length === 0) {
-      toast.error('No expense records to export.');
+      toast.error('No expense records found for the selected options.');
       return;
     }
 
-    const headers = ['Voucher ID', 'Category Name', 'Expense Date', 'Remarks / Description', 'Recorded By', 'Amount ($)'];
+    const headers = ['Voucher ID', 'Category', 'Expense Date', 'Remarks / Description', 'Recorded By', 'Amount ($)'];
     const rows = filtered.map((exp) => [
       exp.id,
       `"${exp.categoryName.replace(/"/g, '""')}"`,
@@ -106,13 +124,12 @@ export const FinanceReportsPage: React.FC = () => {
       exp.amount.toFixed(2),
     ]);
 
-    const reportTitle = categoryFilter === 'ALL' ? 'All Expenditure Categories' : categoryFilter;
     const csvContent = [
-      `"Financial Expenditure Report","${reportTitle}"`,
+      `"Report Name","${getReportTitleLabel()}"`,
       `"Generated Date","${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}"`,
       `"Date Range","${startDate || 'Start'} to ${endDate || 'Present'}"`,
       `"Total Vouchers","${filtered.length}"`,
-      `"Total Amount ($)","${totalAmount.toFixed(2)}"`,
+      `"Total Expenditure ($)","${totalAmount.toFixed(2)}"`,
       '',
       headers.join(','),
       ...rows.map((row) => row.join(',')),
@@ -122,193 +139,211 @@ export const FinanceReportsPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Finance_Expense_Report_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+    link.setAttribute('download', `Finance_Report_${reportName}_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('CSV Report exported successfully!');
+    toast.success('CSV Report generated and downloaded!');
   };
 
-  const handleTriggerPrint = () => {
-    window.print();
+  // Form Submit Handler
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (filtered.length === 0) {
+      toast.error('No expense records match your selected options.');
+      return;
+    }
+
+    if (exportFormat === 'CSV') {
+      generateCSV();
+    } else {
+      setIsPrintModalOpen(true);
+    }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <PageHeader
-        title="Financial Expenditure Reports"
-        description="Generate, filter, and export official financial audit statements in CSV and PDF formats"
-        actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              leftIcon={<Download className="w-4 h-4 text-emerald-600" />}
-              onClick={handleExportCSV}
-              className="border-emerald-200 text-emerald-800 hover:bg-emerald-50"
-            >
-              Export CSV
-            </Button>
-            <Button
-              variant="primary"
-              leftIcon={<Printer className="w-4 h-4" />}
-              onClick={() => setIsPrintModalOpen(true)}
-            >
-              Export PDF / Print Statement
-            </Button>
-          </div>
-        }
+        title="Expense Reports Generator"
+        description="Select report name, date range, and export format (CSV or PDF)"
       />
 
-      {/* Filter Toolbar Card */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Filter className="w-4 h-4 text-blue-600" />
-            <span>Report Filter Parameters</span>
+      {/* Simple 3-Step Report Selection Form */}
+      <Card className="shadow-xs border-slate-200">
+        <CardHeader className="bg-slate-50/80 border-b border-slate-200 pb-4">
+          <CardTitle className="text-base flex items-center gap-2 text-slate-900">
+            <FileText className="w-5 h-5 text-blue-600" />
+            <span>Generate Expense Report</span>
           </CardTitle>
+          <CardDescription>
+            Choose your report specifications to download CSV or generate PDF
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Category Filter */}
+
+        <CardContent className="p-6">
+          <form onSubmit={handleFormSubmit} className="space-y-6">
+            {/* Step 1: Select Report Name */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Expense Category</label>
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-extrabold">1</span>
+                <span>Select Report Name</span>
+              </label>
               <Select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                value={reportName}
+                onChange={(e) => setReportName(e.target.value)}
                 options={[
-                  { value: 'ALL', label: 'All Categories' },
-                  { value: 'Postal Charges', label: 'Postal Charges' },
-                  { value: 'Printing', label: 'Printing' },
-                  { value: 'Transport', label: 'Transport' },
-                  { value: 'Petty Cash', label: 'Petty Cash' },
+                  { value: 'ALL', label: 'All Operational Expenditures Report' },
+                  { value: 'Postal Charges', label: 'Postal & Shipping Charges Report' },
+                  { value: 'Printing', label: 'Printing & Stationery Supplies Report' },
+                  { value: 'Transport', label: 'Transport & Fuel Disbursements Report' },
+                  { value: 'Petty Cash', label: 'Petty Cash & Refreshments Report' },
                 ]}
               />
             </div>
 
-            {/* Date Preset */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                <span>Time Period Preset</span>
+            {/* Step 2: Select Date Range */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-extrabold">2</span>
+                <Calendar className="w-4 h-4 text-blue-600" />
+                <span>Select Date Range</span>
               </label>
               <Select
                 value={datePreset}
-                onChange={(e) => setDatePreset(e.target.value)}
+                onChange={(e) => handlePresetChange(e.target.value)}
                 options={[
                   { value: 'THIS_MONTH', label: 'This Month' },
                   { value: 'LAST_MONTH', label: 'Last Month' },
                   { value: 'THIS_WEEK', label: 'This Week' },
                   { value: 'ALL', label: 'All Time' },
-                  { value: 'CUSTOM', label: 'Custom Range' },
+                  { value: 'CUSTOM', label: 'Custom Date Range' },
                 ]}
               />
+
+              {/* Custom Date Range Pickers */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">From Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setDatePreset('CUSTOM');
+                      setStartDate(e.target.value);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">To Date</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setDatePreset('CUSTOM');
+                      setEndDate(e.target.value);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Quick Summary Pill */}
-            <div className="flex flex-col justify-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <span className="text-[11px] font-medium text-slate-500">Report Status:</span>
-              <div className="font-bold text-slate-900 text-xs mt-0.5">
-                {filtered.length} Vouchers &bull; ${totalAmount.toFixed(2)} Total
-              </div>
-            </div>
-          </div>
+            {/* Step 3: Select Type of Report (CSV or PDF) */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-extrabold">3</span>
+                <span>Select Type of Report Format</span>
+              </label>
 
-          {/* Custom Date Pickers */}
-          {(datePreset === 'CUSTOM' || (datePreset !== 'ALL' && startDate && endDate)) && (
-            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-4 text-xs bg-blue-50/50 p-3 rounded-lg border border-blue-100">
-              <span className="font-semibold text-blue-900">Custom Date Range:</span>
-              <div className="flex items-center gap-2">
-                <label className="text-slate-600 font-medium">From:</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setDatePreset('CUSTOM');
-                    setStartDate(e.target.value);
-                  }}
-                  className="bg-white border border-slate-300 rounded-md px-2.5 py-1 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-slate-600 font-medium">To:</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setDatePreset('CUSTOM');
-                    setEndDate(e.target.value);
-                  }}
-                  className="bg-white border border-slate-300 rounded-md px-2.5 py-1 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label
+                  className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
+                    exportFormat === 'CSV'
+                      ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    value="CSV"
+                    checked={exportFormat === 'CSV'}
+                    onChange={() => setExportFormat('CSV')}
+                    className="text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <Download className="w-4 h-4 text-emerald-600" />
+                      <span>CSV Spreadsheet (.csv)</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">Instant CSV data file download</div>
+                  </div>
+                </label>
+
+                <label
+                  className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
+                    exportFormat === 'PDF'
+                      ? 'border-blue-500 bg-blue-50/70 ring-2 ring-blue-500/20'
+                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    value="PDF"
+                    checked={exportFormat === 'PDF'}
+                    onChange={() => setExportFormat('PDF')}
+                    className="text-blue-600 focus:ring-blue-500 w-4 h-4"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <Printer className="w-4 h-4 text-blue-600" />
+                      <span>PDF Audit Statement (.pdf)</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">Print or Save as PDF document</div>
+                  </div>
+                </label>
               </div>
             </div>
-          )}
+
+            {/* Action Footer */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs text-slate-600">
+                Matching Vouchers: <strong className="text-slate-900 font-mono">{filtered.length} records</strong> (Total: <strong className="text-emerald-700 font-mono">${totalAmount.toFixed(2)}</strong>)
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                leftIcon={exportFormat === 'CSV' ? <Download className="w-4 h-4" /> : <Printer className="w-4 h-4" />}
+                className="w-full sm:w-auto"
+              >
+                {exportFormat === 'CSV' ? 'Download CSV Report' : 'Generate PDF Statement'}
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
 
-      {/* KPI Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Expenditure"
-          value={`$${totalAmount.toFixed(2)}`}
-          subtitle="Sum of filtered vouchers"
-          icon={<DollarSign className="w-4 h-4 text-blue-600" />}
-          accentColor="blue"
-        />
-        <StatCard
-          title="Vouchers Count"
-          value={filtered.length}
-          subtitle="Recorded transactions"
-          icon={<FileText className="w-4 h-4 text-emerald-600" />}
-          accentColor="green"
-        />
-        <StatCard
-          title="Average Voucher"
-          value={`$${avgAmount.toFixed(2)}`}
-          subtitle="Mean cost per expense"
-          icon={<Layers className="w-4 h-4 text-indigo-600" />}
-          accentColor="purple"
-        />
-        <StatCard
-          title="Highest Single Voucher"
-          value={`$${maxAmount.toFixed(2)}`}
-          subtitle="Peak transaction amount"
-          icon={<CheckCircle2 className="w-4 h-4 text-amber-600" />}
-          accentColor="green"
-        />
-      </div>
-
-      {/* Report Data Table */}
+      {/* Preview Table of Matching Expense Records */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <div>
-            <CardTitle>Expenditure Audit Table</CardTitle>
-            <CardDescription>
-              Showing {filtered.length} records ({categoryFilter === 'ALL' ? 'All Categories' : categoryFilter})
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<Download className="w-3.5 h-3.5" />}
-              onClick={handleExportCSV}
-            >
-              CSV
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<Printer className="w-3.5 h-3.5" />}
-              onClick={() => setIsPrintModalOpen(true)}
-            >
-              PDF Statement
-            </Button>
-          </div>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center justify-between">
+            <span>Report Preview Data</span>
+            <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+              {filtered.length} Vouchers
+            </span>
+          </CardTitle>
+          <CardDescription>
+            Preview of records that will be exported in your selected report
+          </CardDescription>
         </CardHeader>
+
         <CardContent className="p-0">
           {filtered.length === 0 ? (
-            <EmptyState title="No expense records found" description="Adjust your category or date filters to generate data." />
+            <EmptyState title="No matching expense records" description="Select a different category or date range." />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm text-slate-700">
@@ -322,7 +357,7 @@ export const FinanceReportsPage: React.FC = () => {
                     <th className="py-3 px-4 text-right">Amount ($)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-sans">
+                <tbody className="divide-y divide-slate-100">
                   {filtered.map((exp) => (
                     <tr key={exp.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4 font-mono font-semibold text-slate-900">{exp.id}</td>
@@ -352,14 +387,13 @@ export const FinanceReportsPage: React.FC = () => {
       {isPrintModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
-            {/* Modal Header Controls (Hidden when printing) */}
             <div className="flex items-center justify-between border-b border-slate-200 pb-4 print:hidden">
               <div>
                 <h3 className="font-bold text-lg text-slate-900">Official PDF Statement Preview</h3>
-                <p className="text-xs text-slate-500">Ready to save as PDF or print to physical printer</p>
+                <p className="text-xs text-slate-500">Ready to print or save as PDF document</p>
               </div>
               <div className="flex items-center gap-3">
-                <Button variant="primary" leftIcon={<Printer className="w-4 h-4" />} onClick={handleTriggerPrint}>
+                <Button variant="primary" leftIcon={<Printer className="w-4 h-4" />} onClick={() => window.print()}>
                   Print / Save as PDF
                 </Button>
                 <button
@@ -373,12 +407,11 @@ export const FinanceReportsPage: React.FC = () => {
 
             {/* Printable Document Sheet Content */}
             <div className="p-6 bg-white border border-slate-200 rounded-xl space-y-6 font-sans text-slate-900 printable-document">
-              {/* Document Header */}
               <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4">
                 <div>
                   <div className="text-xl font-black tracking-tight text-slate-900">500 LABS CRM ENTERPRISE</div>
                   <div className="text-xs font-semibold text-blue-600 uppercase tracking-wider mt-0.5">
-                    Financial Audit & Expenditure Statement
+                    {getReportTitleLabel()}
                   </div>
                 </div>
                 <div className="text-right text-xs text-slate-500 space-y-0.5 font-mono">
@@ -387,11 +420,10 @@ export const FinanceReportsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Summary Metadata Card */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
                 <div>
-                  <span className="text-slate-500 font-medium">Category Filter:</span>
-                  <div className="font-bold text-slate-900 mt-0.5">{categoryFilter}</div>
+                  <span className="text-slate-500 font-medium">Report Type:</span>
+                  <div className="font-bold text-slate-900 mt-0.5 truncate">{reportName}</div>
                 </div>
                 <div>
                   <span className="text-slate-500 font-medium">Date Range:</span>
@@ -409,7 +441,6 @@ export const FinanceReportsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Vouchers Table */}
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] border-y border-slate-300">
@@ -436,7 +467,7 @@ export const FinanceReportsPage: React.FC = () => {
                 <tfoot>
                   <tr className="bg-slate-100 font-bold border-t-2 border-slate-900 text-slate-900">
                     <td colSpan={5} className="py-3 px-3 text-right text-xs uppercase tracking-wider">
-                      Grand Total Filtered Expenditure:
+                      Grand Total Report Expenditure:
                     </td>
                     <td className="py-3 px-3 text-right font-mono text-sm text-blue-700 font-black">
                       ${totalAmount.toFixed(2)}
@@ -445,7 +476,6 @@ export const FinanceReportsPage: React.FC = () => {
                 </tfoot>
               </table>
 
-              {/* Signatures Footer */}
               <div className="pt-10 grid grid-cols-2 gap-8 text-xs border-t border-slate-200">
                 <div className="space-y-8">
                   <div className="border-b border-slate-400 w-48" />
