@@ -71,9 +71,6 @@ export const AdminProfilePage: React.FC = () => {
                     <Shield className="w-3.5 h-3.5" />
                     <span>System Administrator</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Click the camera icon on photo to upload a new profile picture.
-                  </p>
                 </div>
               </div>
 
