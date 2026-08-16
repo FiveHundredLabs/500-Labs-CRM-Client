@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { getTeamBranding } from '../../config/branding';
 import { ProfileAvatar } from '../shared/ProfileAvatar';
-import { Bell, Calendar, Search } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const TopHeader: React.FC = () => {
@@ -27,21 +27,6 @@ export const TopHeader: React.FC = () => {
         </div>
       </div>
 
-      {/* Center Search Bar */}
-      <div className="hidden md:flex items-center flex-1 max-w-md mx-4">
-        <div className="relative w-full flex items-center">
-          <Search className="absolute left-3 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search leads, customers, calls (⌘K)..."
-            className="w-full bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 rounded-lg py-1.5 pl-8 pr-12 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all"
-          />
-          <kbd className="absolute right-2.5 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 bg-white border border-slate-200 rounded shadow-2xs">
-            ⌘K
-          </kbd>
-        </div>
-      </div>
-
       {/* Right controls */}
       <div className="flex items-center gap-3">
         {/* Date indicator */}
@@ -49,15 +34,6 @@ export const TopHeader: React.FC = () => {
           <Calendar className="w-3.5 h-3.5 text-slate-400" />
           <span>{format(new Date(), 'MMM dd, yyyy')}</span>
         </div>
-
-        {/* Notifications */}
-        <button
-          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer relative"
-          aria-label="Notifications"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-blue-600 rounded-full ring-2 ring-white" />
-        </button>
 
         <div className="h-4 w-px bg-slate-200 hidden sm:block" />
 
