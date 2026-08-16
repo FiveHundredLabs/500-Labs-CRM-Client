@@ -93,6 +93,18 @@ export const router = createBrowserRouter([
               { path: 'reports', element: <AdminReportsPage /> },
               { path: 'activity', element: <AdminActivityPage /> },
               { path: 'profile', element: <AdminProfilePage /> },
+
+              // Supervisor Operations for Admin
+              { path: 'customers', element: <SupervisorCustomersPage /> },
+              { path: 'customers/:id', element: <SupervisorCustomerDetailPage /> },
+              { path: 'orders', element: <SupervisorOrdersPage /> },
+              { path: 'import', element: <SupervisorImportPage /> },
+              { path: 'allocation', element: <SupervisorAllocationPage /> },
+              { path: 'allocation/history', element: <SupervisorAllocationHistoryPage /> },
+
+              // Finance Operations for Admin
+              { path: 'finance/expenses', element: <FinanceExpensesPage /> },
+              { path: 'finance/expenses/new', element: <FinanceNewExpensePage /> },
             ],
           },
           // Finance Routes

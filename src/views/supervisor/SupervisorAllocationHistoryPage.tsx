@@ -12,6 +12,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ProfileAvatar } from '../../components/shared/ProfileAvatar';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { EmptyState } from '../../components/shared/EmptyState';
+import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import toast from 'react-hot-toast';
 import {
   Users,
@@ -49,6 +50,10 @@ interface BatchSummary {
 
 export const SupervisorAllocationHistoryPage: React.FC = () => {
   const { user } = useAuth();
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+
+  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || 'team_001';
+
   const [batches, setBatches] = useState<BatchSummary[]>([]);
   const [teamSalesmen, setTeamSalesmen] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,13 +73,13 @@ export const SupervisorAllocationHistoryPage: React.FC = () => {
 
   useEffect(() => {
     const loadHistory = async () => {
-      if (!user || !user.teamId) return;
+      if (!user) return;
       setLoading(true);
       try {
         const [allAllocations, teamUsers, teamContacts] = await Promise.all([
           allocationRepository.getAll(),
-          userRepository.getByTeamId(user.teamId),
-          contactRepository.getByTeamId(user.teamId),
+          userRepository.getByTeamId(effectiveTeamId),
+          contactRepository.getByTeamId(effectiveTeamId),
         ]);
 
         const usersMap: Record<string, User> = {};
@@ -84,7 +89,7 @@ export const SupervisorAllocationHistoryPage: React.FC = () => {
         const contactsMap: Record<string, Contact> = {};
         teamContacts.forEach((c) => (contactsMap[c.id] = c));
 
-        const teamAllocations = allAllocations.filter((a) => a.teamId === user.teamId);
+        const teamAllocations = allAllocations.filter((a) => a.teamId === effectiveTeamId);
 
         // Group allocations by allocationBatchId
         const batchMap: Record<string, EnrichedAllocation[]> = {};
@@ -139,7 +144,7 @@ export const SupervisorAllocationHistoryPage: React.FC = () => {
     };
 
     loadHistory();
-  }, [user]);
+  }, [user, effectiveTeamId]);
 
   const copyBatchId = (batchId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -216,6 +221,13 @@ export const SupervisorAllocationHistoryPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Admin Multi-Team Switcher */}
+      <AdminTeamSelector
+        activeTeamId={adminTeamId}
+        onTeamChange={setAdminTeamId}
+        title="Allocation Batch Audit Logs"
+      />
+
       <PageHeader
         title="Allocation Batch History"
         description="Inspect and filter past allocation batches with full recipient and assigned phone breakdown"

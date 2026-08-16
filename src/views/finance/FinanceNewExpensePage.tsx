@@ -63,7 +63,7 @@ export const FinanceNewExpensePage: React.FC = () => {
       );
 
       toast.success(`Expense voucher of ${formatCurrency(parsedAmount)} recorded successfully!`);
-      navigate('/finance/expenses');
+      navigate(user?.role === 'ADMIN' ? '/admin/finance/expenses' : '/finance/expenses');
     } catch (err: any) {
       toast.error(err.message || 'Failed to record expense.');
     } finally {
@@ -77,7 +77,7 @@ export const FinanceNewExpensePage: React.FC = () => {
         variant="ghost"
         size="sm"
         leftIcon={<ArrowLeft className="w-4 h-4" />}
-        onClick={() => navigate('/finance/expenses')}
+        onClick={() => navigate(user?.role === 'ADMIN' ? '/admin/finance/expenses' : '/finance/expenses')}
       >
         Back to Expenses
       </Button>
