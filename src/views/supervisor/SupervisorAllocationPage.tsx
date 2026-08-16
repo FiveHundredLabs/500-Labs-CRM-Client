@@ -10,15 +10,24 @@ import { Dialog } from '../../components/ui/Dialog';
 import { ProfileAvatar } from '../../components/shared/ProfileAvatar';
 import { LoadingState } from '../../components/shared/LoadingState';
 import toast from 'react-hot-toast';
-import { Layers, Users, CheckCircle2, ArrowRight, History } from 'lucide-react';
+import { Layers, Users, CheckCircle2, ArrowRight, History, CheckSquare, Square, Calculator, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
+import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 
 export const SupervisorAllocationPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+
+  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || 'team_001';
+  const effectiveActor = user
+    ? { ...user, teamId: effectiveTeamId }
+    : null;
 
   const [unallocated, setUnallocated] = useState<Contact[]>([]);
   const [activeMembers, setActiveMembers] = useState<User[]>([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Preview State
@@ -27,12 +36,12 @@ export const SupervisorAllocationPage: React.FC = () => {
   const [isAllocating, setIsAllocating] = useState(false);
 
   const loadAllocationData = async () => {
-    if (!user || !user.teamId) return;
+    if (!user) return;
     setLoading(true);
     try {
       const [allContacts, teamUsers] = await Promise.all([
-        contactRepository.getByTeamId(user.teamId),
-        userRepository.getByTeamId(user.teamId),
+        contactRepository.getByTeamId(effectiveTeamId),
+        userRepository.getByTeamId(effectiveTeamId),
       ]);
 
       const unalloc = allContacts.filter((c) => !c.isAllocated && c.status === 'NEW');
@@ -40,6 +49,8 @@ export const SupervisorAllocationPage: React.FC = () => {
 
       setUnallocated(unalloc);
       setActiveMembers(active);
+      // Select all by default
+      setSelectedMemberIds(active.map((m) => m.id));
     } finally {
       setLoading(false);
     }
@@ -47,30 +58,55 @@ export const SupervisorAllocationPage: React.FC = () => {
 
   useEffect(() => {
     loadAllocationData();
-  }, [user]);
+  }, [user, effectiveTeamId]);
 
+  // Checkbox Selection Handlers
+  const handleToggleMember = (id: string) => {
+    setSelectedMemberIds((prev) =>
+      prev.includes(id) ? prev.filter((mId) => mId !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleAll = () => {
+    if (selectedMemberIds.length === activeMembers.length) {
+      setSelectedMemberIds([]);
+    } else {
+      setSelectedMemberIds(activeMembers.map((m) => m.id));
+    }
+  };
+
+  // Selected Members List
+  const selectedMembers = activeMembers.filter((m) => selectedMemberIds.includes(m.id));
+
+  // Automatic Division Calculation
+  const countPerSalesman = selectedMembers.length > 0
+    ? Math.floor(unallocated.length / selectedMembers.length)
+    : 0;
+  const remainder = selectedMembers.length > 0 ? unallocated.length % selectedMembers.length : 0;
+
+  // Preview Generation
   const handleGeneratePreview = () => {
     if (unallocated.length === 0) {
-      toast.error('No unallocated contacts available to distribute.');
+      toast.error('No unallocated contacts available in pool.');
       return;
     }
-    if (activeMembers.length === 0) {
-      toast.error('No active team members available to receive allocations.');
+    if (selectedMembers.length === 0) {
+      toast.error('Please select at least one salesman to assign numbers to.');
       return;
     }
 
-    // Calculate Round-Robin preview counts
+    // Calculate Automatic Round-Robin Division
     const counts: Record<string, number> = {};
-    activeMembers.forEach((m) => (counts[m.id] = 0));
+    selectedMembers.forEach((m) => (counts[m.id] = 0));
 
     unallocated.forEach((_, idx) => {
-      const member = activeMembers[idx % activeMembers.length];
+      const member = selectedMembers[idx % selectedMembers.length];
       counts[member.id] += 1;
     });
 
-    const summary = activeMembers.map((m) => ({
+    const summary = selectedMembers.map((m) => ({
       memberId: m.id,
-      memberName: m.fullName,
+      memberName: m.fullName.split(' ')[0],
       count: counts[m.id],
     }));
 
@@ -78,15 +114,18 @@ export const SupervisorAllocationPage: React.FC = () => {
     setIsPreviewOpen(true);
   };
 
+  // Confirm Bulk Allocation
   const handleConfirmAllocation = async () => {
-    if (!user) return;
+    if (!effectiveActor) return;
     setIsAllocating(true);
     try {
-      await AllocationService.allocateTeamContacts(user);
-      toast.success(`Successfully allocated ${unallocated.length} contacts across ${activeMembers.length} members!`);
+      await AllocationService.allocateTeamContacts(effectiveActor, selectedMemberIds);
+      toast.success(
+        `Successfully auto-distributed ${unallocated.length} contacts across ${selectedMembers.length} selected salesmen!`
+      );
       setIsPreviewOpen(false);
       loadAllocationData();
-      navigate('/supervisor/allocation/history');
+      navigate(user?.role === 'ADMIN' ? '/admin/allocation/history' : '/supervisor/allocation/history');
     } catch (err: any) {
       toast.error(err.message || 'Allocation failed.');
     } finally {
@@ -98,99 +137,188 @@ export const SupervisorAllocationPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Admin Multi-Team Switcher */}
+      <AdminTeamSelector
+        activeTeamId={adminTeamId}
+        onTeamChange={setAdminTeamId}
+        title="Contact Allocation & Distribution"
+      />
+
       <PageHeader
         title="Contact Allocation"
-        description="Distribute unallocated pool numbers evenly among active team members"
+        description="Select salesmen and bulk-assign numbers with automatic equal distribution"
         actions={
           <Button
             variant="secondary"
             size="sm"
             leftIcon={<History className="w-3.5 h-3.5" />}
-            onClick={() => navigate('/supervisor/allocation/history')}
+            onClick={() => navigate(user?.role === 'ADMIN' ? '/admin/allocation/history' : '/supervisor/allocation/history')}
           >
             Allocation History
           </Button>
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Pool Summary */}
-        <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Pool & Auto Division Banner */}
+        <Card className="lg:col-span-1 flex flex-col justify-between">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
               <Layers className="w-4 h-4 text-blue-600" />
               <span>Unallocated Pool</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-6 bg-blue-50/50 border border-blue-100 rounded-xl text-center">
-              <div className="text-4xl font-bold text-blue-600">{unallocated.length}</div>
-              <div className="text-xs font-semibold text-slate-700 mt-1">
-                Contacts Ready for Distribution
+
+          <CardContent className="space-y-5 flex-1 flex flex-col justify-between">
+            <div className="p-6 bg-blue-50/60 border border-blue-100 rounded-2xl text-center">
+              <div className="text-4xl font-black text-blue-600">{unallocated.length}</div>
+              <div className="text-xs font-bold text-slate-700 mt-1 uppercase tracking-wider">
+                Unallocated Pool Contacts
               </div>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              These contacts are currently not assigned to any team member. Clicking Allocate will run the Round-Robin algorithm to distribute them evenly across active specialists.
+
+            {/* Live Auto Distribution Callout */}
+            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+                <Calculator className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Automatic Equal Number Distribution</span>
+              </div>
+              <p className="text-xs text-emerald-800 leading-relaxed">
+                {selectedMembers.length > 0 ? (
+                  <>
+                    <span className="font-bold text-emerald-950">{unallocated.length}</span> numbers will be divided automatically across{' '}
+                    <span className="font-bold text-emerald-950">{selectedMembers.length}</span> selected salesmen.
+                    <br />
+                    <span className="inline-block mt-1 bg-white px-2 py-0.5 rounded border border-emerald-200 font-bold text-emerald-700">
+                      ~{countPerSalesman} contacts per salesman
+                      {remainder > 0 ? ` (+1 extra to first ${remainder} salesmen)` : ''}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-amber-800 font-medium">Select salesmen on the right to view automatic distribution math.</span>
+                )}
+              </p>
+            </div>
+
+            <p className="text-[11px] text-slate-400">
+              Numbers will be assigned automatically and logged in allocation history.
             </p>
           </CardContent>
         </Card>
 
-        {/* Active Members Roster */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-600" />
-              <span>Active Recipient Members ({activeMembers.length})</span>
-            </CardTitle>
+        {/* Multi-Select Salesmen Roster */}
+        <Card className="lg:col-span-2 flex flex-col justify-between">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Users className="w-4 h-4 text-blue-600" />
+                <span>Select Recipient Salesmen ({selectedMembers.length} of {activeMembers.length} Selected)</span>
+              </CardTitle>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleToggleAll}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+            >
+              {selectedMemberIds.length === activeMembers.length ? (
+                <>
+                  <CheckSquare className="w-4 h-4 text-blue-600" />
+                  <span>Deselect All</span>
+                </>
+              ) : (
+                <>
+                  <Square className="w-4 h-4 text-slate-400" />
+                  <span>Select All ({activeMembers.length})</span>
+                </>
+              )}
+            </button>
           </CardHeader>
-          <CardContent className="p-0 divide-y divide-slate-100 max-h-72 overflow-y-auto">
+
+          <CardContent className="p-0 divide-y divide-slate-100 max-h-80 overflow-y-auto">
             {activeMembers.length === 0 ? (
               <div className="p-6 text-center text-xs text-red-600 font-medium">
-                No active team members found. Enable members before allocating.
+                No active salesmen found in team. Please add or activate salesmen first.
               </div>
             ) : (
-              activeMembers.map((member) => (
-                <div key={member.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <ProfileAvatar name={member.fullName} avatarUrl={member.avatarUrl} size="sm" />
-                    <div>
-                      <div className="font-semibold text-sm text-slate-900">{member.fullName}</div>
-                      <div className="text-xs text-slate-400">{member.city}</div>
+              activeMembers.map((member) => {
+                const isSelected = selectedMemberIds.includes(member.id);
+                const firstName = member.fullName.split(' ')[0];
+                return (
+                  <div
+                    key={member.id}
+                    onClick={() => handleToggleMember(member.id)}
+                    className={`px-5 py-3.5 flex items-center justify-between gap-3 transition-colors cursor-pointer select-none ${
+                      isSelected ? 'bg-blue-50/40 hover:bg-blue-50/70' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {}} // Controlled via row click
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <ProfileAvatar name={firstName} avatarUrl={member.avatarUrl} size="sm" />
+                      <div>
+                        <div className="font-semibold text-sm text-slate-900 flex items-center gap-2">
+                          <span>{firstName}</span>
+                          <span className="text-[10px] font-medium text-slate-400 font-mono">({member.id})</span>
+                        </div>
+                        <div className="text-xs text-slate-500">{member.city}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {isSelected ? (
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                          ~{countPerSalesman} Contacts
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                          Unselected
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
-                </div>
-              ))
+                );
+              })
             )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex justify-end">
+      {/* Action Footer */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+        <div className="flex items-center gap-2 text-xs text-slate-600">
+          <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+          <span>
+            Ready to distribute <strong className="text-slate-900">{unallocated.length}</strong> pool numbers to <strong className="text-slate-900">{selectedMembers.length}</strong> selected salesmen.
+          </span>
+        </div>
+
         <Button
           variant="primary"
           size="lg"
           rightIcon={<ArrowRight className="w-4 h-4" />}
           onClick={handleGeneratePreview}
-          disabled={unallocated.length === 0 || activeMembers.length === 0}
+          disabled={unallocated.length === 0 || selectedMembers.length === 0}
         >
-          Preview &amp; Confirm Allocation ({unallocated.length} Contacts)
+          Preview &amp; Auto-Distribute ({unallocated.length} Contacts)
         </Button>
       </div>
 
-      {/* Preview Dialog */}
+      {/* Preview & Confirmation Dialog */}
       <Dialog
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
-        title="Allocation Batch Preview"
-        description="Deterministic Round-Robin Distribution Summary"
+        title="Automatic Number Distribution Preview"
+        description="Review exact contact allocation count for each selected salesman"
       >
         <div className="space-y-4">
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs font-semibold text-slate-700">
-            <span>Total Contacts: {unallocated.length}</span>
-            <span>Active Specialists: {activeMembers.length}</span>
+          <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-xs font-semibold text-blue-900">
+            <span>Total Contacts to Allocate: {unallocated.length}</span>
+            <span>Selected Salesmen: {selectedMembers.length}</span>
           </div>
 
           <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -199,9 +327,12 @@ export const SupervisorAllocationPage: React.FC = () => {
                 key={item.memberId}
                 className="p-3 bg-white border border-slate-200 rounded-lg flex items-center justify-between text-sm"
               >
-                <span className="font-semibold text-slate-900">{item.memberName}</span>
-                <span className="font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full text-xs">
-                  +{item.count} Contacts
+                <div className="flex items-center gap-2">
+                  <ProfileAvatar name={item.memberName} size="sm" />
+                  <span className="font-semibold text-slate-900">{item.memberName}</span>
+                </div>
+                <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-0.5 rounded-full text-xs">
+                  +{item.count} Contacts Assigned
                 </span>
               </div>
             ))}
@@ -217,7 +348,7 @@ export const SupervisorAllocationPage: React.FC = () => {
               onClick={handleConfirmAllocation}
               isLoading={isAllocating}
             >
-              Execute Allocation
+              Confirm &amp; Execute Allocation
             </Button>
           </div>
         </div>

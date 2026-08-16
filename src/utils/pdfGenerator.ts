@@ -1,5 +1,6 @@
 import { LeadPrintItem } from '../components/printing/A4BillingPrintSheet';
 import { getTeamBranding } from '../config/branding';
+import { formatCurrency } from './currency';
 
 /**
  * Generates and downloads billing slips for selected leads.
@@ -19,7 +20,7 @@ export const downloadBillingPDF = (items: LeadPrintItem[]): boolean => {
       const slipsHtml = pageItems
         .map((item) => {
           const teamBrand = getTeamBranding(item.customer.teamId);
-          const codAmount = item.order?.totalAmount ? `$${item.order.totalAmount.toFixed(2)}` : '$150.00';
+          const codAmount = formatCurrency(item.order?.totalAmount ?? 150);
           const itemDesc = item.order?.itemsDescription || 'Interested Lead Fulfillment / Express COD Parcel';
           const refNo = item.order ? item.order.orderNumber : `LD-${item.customer.id.replace('cst_', '').toUpperCase()}`;
           const memberName = item.responsibleUser ? item.responsibleUser.fullName : 'Team Member';

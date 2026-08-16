@@ -10,6 +10,7 @@ import { EmptyState } from '../../components/shared/EmptyState';
 import { Download, Printer, Calendar, FileText, X } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '../../utils/currency';
 
 export const FinanceReportsPage: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -114,7 +115,7 @@ export const FinanceReportsPage: React.FC = () => {
       return;
     }
 
-    const headers = ['Voucher ID', 'Category', 'Expense Date', 'Remarks / Description', 'Recorded By', 'Amount ($)'];
+    const headers = ['Voucher ID', 'Category', 'Expense Date', 'Remarks / Description', 'Recorded By', 'Amount (LKR)'];
     const rows = filtered.map((exp) => [
       exp.id,
       `"${exp.categoryName.replace(/"/g, '""')}"`,
@@ -129,7 +130,7 @@ export const FinanceReportsPage: React.FC = () => {
       `"Generated Date","${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}"`,
       `"Date Range","${startDate || 'Start'} to ${endDate || 'Present'}"`,
       `"Total Vouchers","${filtered.length}"`,
-      `"Total Expenditure ($)","${totalAmount.toFixed(2)}"`,
+      `"Total Expenditure (LKR)","${totalAmount.toFixed(2)}"`,
       '',
       headers.join(','),
       ...rows.map((row) => row.join(',')),
@@ -310,7 +311,7 @@ export const FinanceReportsPage: React.FC = () => {
             {/* Action Footer */}
             <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-xs text-slate-600">
-                Matching Vouchers: <strong className="text-slate-900 font-mono">{filtered.length} records</strong> (Total: <strong className="text-emerald-700 font-mono">${totalAmount.toFixed(2)}</strong>)
+                Matching Vouchers: <strong className="text-slate-900 font-mono">{filtered.length} records</strong> (Total: <strong className="text-emerald-700 font-mono">{formatCurrency(totalAmount)}</strong>)
               </div>
 
               <Button
@@ -354,7 +355,7 @@ export const FinanceReportsPage: React.FC = () => {
                     <th className="py-3 px-4">Expense Date</th>
                     <th className="py-3 px-4">Remarks</th>
                     <th className="py-3 px-4">Recorded By</th>
-                    <th className="py-3 px-4 text-right">Amount ($)</th>
+                    <th className="py-3 px-4 text-right">Amount (LKR)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -372,7 +373,7 @@ export const FinanceReportsPage: React.FC = () => {
                       <td className="py-3 px-4 text-slate-700 max-w-xs truncate">{exp.remarks}</td>
                       <td className="py-3 px-4 text-slate-600">{exp.createdByName}</td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 text-sm">
-                        ${exp.amount.toFixed(2)}
+                        {formatCurrency(exp.amount)}
                       </td>
                     </tr>
                   ))}
@@ -437,7 +438,7 @@ export const FinanceReportsPage: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-slate-500 font-medium">Total Expenditure:</span>
-                  <div className="font-black text-blue-700 text-sm mt-0.5 font-mono">${totalAmount.toFixed(2)}</div>
+                  <div className="font-black text-blue-700 text-sm mt-0.5 font-mono">{formatCurrency(totalAmount)}</div>
                 </div>
               </div>
 
@@ -449,7 +450,7 @@ export const FinanceReportsPage: React.FC = () => {
                     <th className="py-2.5 px-3">Date</th>
                     <th className="py-2.5 px-3">Description / Remarks</th>
                     <th className="py-2.5 px-3">Recorded By</th>
-                    <th className="py-2.5 px-3 text-right">Amount ($)</th>
+                    <th className="py-2.5 px-3 text-right">Amount (LKR)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -460,7 +461,7 @@ export const FinanceReportsPage: React.FC = () => {
                       <td className="py-2.5 px-3 font-mono text-slate-600">{exp.expenseDate}</td>
                       <td className="py-2.5 px-3 text-slate-700">{exp.remarks}</td>
                       <td className="py-2.5 px-3 text-slate-600">{exp.createdByName}</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">${exp.amount.toFixed(2)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{formatCurrency(exp.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -470,7 +471,7 @@ export const FinanceReportsPage: React.FC = () => {
                       Grand Total Report Expenditure:
                     </td>
                     <td className="py-3 px-3 text-right font-mono text-sm text-blue-700 font-black">
-                      ${totalAmount.toFixed(2)}
+                      {formatCurrency(totalAmount)}
                     </td>
                   </tr>
                 </tfoot>
@@ -487,8 +488,11 @@ export const FinanceReportsPage: React.FC = () => {
                 <div className="space-y-8">
                   <div className="border-b border-slate-400 w-48" />
                   <div>
-                    <p className="font-bold text-slate-900">System Verification & Stamp</p>
-                    <p className="text-[11px] text-slate-500">500 Labs CRM Audit Verification</p>
+                    <p className="font-bold text-slate-400 w-48" />
+                    <div>
+                      <p className="font-bold text-slate-900">System Verification & Stamp</p>
+                      <p className="text-[11px] text-slate-500">500 Labs CRM Audit Verification</p>
+                    </div>
                   </div>
                 </div>
               </div>

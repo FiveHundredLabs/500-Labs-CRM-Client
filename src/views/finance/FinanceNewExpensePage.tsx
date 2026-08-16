@@ -12,6 +12,7 @@ import { Select } from '../../components/ui/Select';
 import toast from 'react-hot-toast';
 import { DollarSign, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatCurrency } from '../../utils/currency';
 
 export const FinanceNewExpensePage: React.FC = () => {
   const { user } = useAuth();
@@ -34,7 +35,7 @@ export const FinanceNewExpensePage: React.FC = () => {
     const parsedAmount = parseFloat(amount);
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      toast.error('Please enter a valid positive dollar amount.');
+      toast.error('Please enter a valid positive amount.');
       return;
     }
 
@@ -61,8 +62,8 @@ export const FinanceNewExpensePage: React.FC = () => {
         user
       );
 
-      toast.success(`Expense voucher of $${parsedAmount.toFixed(2)} recorded successfully!`);
-      navigate('/finance/expenses');
+      toast.success(`Expense voucher of ${formatCurrency(parsedAmount)} recorded successfully!`);
+      navigate(user?.role === 'ADMIN' ? '/admin/finance/expenses' : '/finance/expenses');
     } catch (err: any) {
       toast.error(err.message || 'Failed to record expense.');
     } finally {
@@ -76,7 +77,7 @@ export const FinanceNewExpensePage: React.FC = () => {
         variant="ghost"
         size="sm"
         leftIcon={<ArrowLeft className="w-4 h-4" />}
-        onClick={() => navigate('/finance/expenses')}
+        onClick={() => navigate(user?.role === 'ADMIN' ? '/admin/finance/expenses' : '/finance/expenses')}
       >
         Back to Expenses
       </Button>
@@ -119,7 +120,7 @@ export const FinanceNewExpensePage: React.FC = () => {
             )}
 
             <Input
-              label="Amount ($ USD) *"
+              label="Amount (LKR) *"
               type="number"
               step="0.01"
               placeholder="e.g. 150.00"

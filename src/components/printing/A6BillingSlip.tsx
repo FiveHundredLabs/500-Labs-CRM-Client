@@ -1,6 +1,7 @@
 import React from 'react';
 import { Customer, User, Order } from '../../models/domain';
 import { getTeamBranding } from '../../config/branding';
+import { formatCurrency } from '../../utils/currency';
 
 export interface A6BillingSlipProps {
   customer: Customer;
@@ -18,7 +19,7 @@ export const A6BillingSlip: React.FC<A6BillingSlipProps> = ({
   const teamBrand = getTeamBranding(customer.teamId);
 
   // Billing COD Amount (use order amount if available, otherwise default standard COD)
-  const codAmount = order?.totalAmount ? `$${order.totalAmount.toFixed(2)}` : '$150.00';
+  const codAmount = formatCurrency(order?.totalAmount ?? 150);
   const itemDesc = order?.itemsDescription || 'Interested Lead Fulfillment / Express COD Parcel';
 
   return (

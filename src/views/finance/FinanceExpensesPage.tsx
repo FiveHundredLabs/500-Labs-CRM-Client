@@ -10,8 +10,11 @@ import { LoadingState } from '../../components/shared/LoadingState';
 import { Plus, Calendar, Filter, X, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { formatCurrency } from '../../utils/currency';
+import { useAuth } from '../../hooks/useAuth';
 
 export const FinanceExpensesPage: React.FC = () => {
+  const { role } = useAuth();
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,13 +76,16 @@ export const FinanceExpensesPage: React.FC = () => {
     setEndDate('');
   };
 
-  if (loading) return <LoadingState rows={6} />;
+  if (loading) return <LoadingState rows={8} />;
 
+  // Filter matching expenses
   const filtered = expenses.filter((e) => {
     const matchesSearch =
-      e.categoryName.toLowerCase().includes(search.toLowerCase()) ||
+      !search ||
+      e.id.toLowerCase().includes(search.toLowerCase()) ||
       e.remarks.toLowerCase().includes(search.toLowerCase()) ||
       e.createdByName.toLowerCase().includes(search.toLowerCase());
+
     const matchesCat = categoryFilter === 'ALL' || e.categoryName === categoryFilter;
 
     let matchesDate = true;
@@ -102,7 +108,11 @@ export const FinanceExpensesPage: React.FC = () => {
         description="Filterable audit ledger of recorded operational expenditures"
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />} onClick={() => navigate('/finance/expenses/new')}>
+            <Button
+              variant="primary"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => navigate(role === 'ADMIN' ? '/admin/finance/expenses/new' : '/finance/expenses/new')}
+            >
               New Expense 
             </Button>
           </div>
@@ -206,7 +216,7 @@ export const FinanceExpensesPage: React.FC = () => {
         {/* Filter Summary Stats */}
         <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
           <span>Showing <strong className="text-slate-900">{filtered.length}</strong> of {expenses.length} expense vouchers</span>
-          <span>Total Filtered: <strong className="text-emerald-700 font-mono text-sm">${totalFilteredAmount.toFixed(2)}</strong></span>
+          <span>Total Filtered: <strong className="text-emerald-700 font-mono text-sm">{formatCurrency(totalFilteredAmount)}</strong></span>
         </div>
       </div>
 
@@ -238,7 +248,7 @@ export const FinanceExpensesPage: React.FC = () => {
                     {format(new Date(exp.expenseDate), 'MMM dd, yyyy')}
                   </td>
                   <td className="py-3.5 px-4 text-right font-bold text-slate-900 font-mono">
-                    ${exp.amount.toFixed(2)}
+                    {formatCurrency(exp.amount)}
                   </td>
                 </tr>
               ))}
