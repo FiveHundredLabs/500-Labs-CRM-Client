@@ -48,7 +48,6 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Users', path: '/admin/users', icon: Users, isBottomNav: true },
     { label: 'Reports', path: '/admin/reports', icon: PieChart, isBottomNav: true },
     { label: 'Activity', path: '/admin/activity', icon: Activity, isBottomNav: true },
-    { label: 'Customers & Orders', path: '/admin/customers', icon: Package, isBottomNav: false },
     { label: 'Profile', path: '/admin/profile', icon: User, isBottomNav: false },
     { label: 'More', path: '#more', icon: MoreHorizontal, isBottomNav: true },
   ],

@@ -90,7 +90,6 @@ export const router = createBrowserRouter([
               { path: 'dashboard', element: <AdminDashboard /> },
               { path: 'users', element: <AdminUsersPage /> },
               { path: 'users/:id', element: <AdminEmployeeDetailPage /> },
-              { path: 'customers', element: <SupervisorCustomersPage /> },
               { path: 'reports', element: <AdminReportsPage /> },
               { path: 'activity', element: <AdminActivityPage /> },
               { path: 'profile', element: <AdminProfilePage /> },
