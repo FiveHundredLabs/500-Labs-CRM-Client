@@ -53,6 +53,16 @@ export const CONTACT_STATUS_CONFIG: Record<ContactStatus, StatusMeta> = {
     badgeClass: 'badge-red',
     icon: XCircle,
   },
+  DISPATCHED: {
+    label: 'Dispatched',
+    badgeClass: 'badge-amber',
+    icon: Truck,
+  },
+  DELIVERED: {
+    label: 'Delivered',
+    badgeClass: 'badge-green',
+    icon: CheckCheck,
+  },
 };
 
 export const ORDER_STATUS_CONFIG: Record<OrderStatus, StatusMeta> = {

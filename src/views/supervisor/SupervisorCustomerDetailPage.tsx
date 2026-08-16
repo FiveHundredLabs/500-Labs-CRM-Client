@@ -73,7 +73,7 @@ export const SupervisorCustomerDetailPage: React.FC = () => {
         leftIcon={<ArrowLeft className="w-4 h-4" />}
         onClick={() => navigate('/supervisor/customers')}
       >
-        Back to Customers
+        Back to Interested Leads
       </Button>
 
       <PageHeader
