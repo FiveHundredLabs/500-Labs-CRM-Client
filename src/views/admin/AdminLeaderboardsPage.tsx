@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import { User, Order } from '../../models/domain';
-import { userRepository, orderRepository } from '../../repositories';
+import { teamRepository, userRepository, orderRepository } from '../../repositories';
+import { Team, User, Order } from '../../models/domain';
 import {
   SupervisorAnalyticsService,
   ReportsFilterOptions,
@@ -11,12 +10,13 @@ import { LoadingState } from '../../components/shared/LoadingState';
 import { Leaderboard } from '../../components/leaderboard';
 import { TeamMemberFilters } from '../../components/supervisor/team/TeamMemberFilters';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from 'date-fns';
+import { Layers } from 'lucide-react';
 
-export const SupervisorTeamMembersPage: React.FC = () => {
-  const { user } = useAuth();
-
-  const [teamMembers, setTeamMembers] = useState<User[]>([]);
+export const AdminLeaderboardsPage: React.FC = () => {
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -27,22 +27,27 @@ export const SupervisorTeamMembersPage: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!user || !user.teamId) return;
       setLoading(true);
       try {
-        const [membersData, ordersData] = await Promise.all([
-          userRepository.getByTeamId(user.teamId),
-          orderRepository.getByTeamId(user.teamId),
+        const [teamsData, usersData, ordersData] = await Promise.all([
+          teamRepository.getAll(),
+          userRepository.getAll(),
+          orderRepository.getAll(),
         ]);
-        setTeamMembers(membersData.filter((m) => m.role === 'TEAM_MEMBER'));
+        setTeams(teamsData);
+        setUsers(usersData);
         setOrders(ordersData);
+
+        if (teamsData.length > 0) {
+          setSelectedTeamId(teamsData[0].id);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, [user]);
+  }, []);
 
   const handleDatePresetChange = (preset: string) => {
     setDatePreset(preset);
@@ -66,6 +71,14 @@ export const SupervisorTeamMembersPage: React.FC = () => {
 
   if (loading) return <LoadingState rows={8} />;
 
+  const selectedTeam = teams.find((t) => t.id === selectedTeamId) || teams[0];
+
+  // Get active team members and orders for selected team
+  const teamMembers = users.filter(
+    (u) => u.teamId === selectedTeamId && u.role === 'TEAM_MEMBER' && u.isActive
+  );
+  const teamOrders = orders.filter((o) => o.teamId === selectedTeamId);
+
   const filters: ReportsFilterOptions = {
     datePreset,
     startDate,
@@ -73,7 +86,8 @@ export const SupervisorTeamMembersPage: React.FC = () => {
     searchQuery,
   };
 
-  const leaderboard = SupervisorAnalyticsService.computeLeaderboard(teamMembers, orders, filters);
+  // Compute leaderboard using shared analytics service
+  const leaderboard = SupervisorAnalyticsService.computeLeaderboard(teamMembers, teamOrders, filters);
 
   // Search query filter applied to leaderboard list
   const filteredLeaderboard = searchQuery.trim()
@@ -83,9 +97,32 @@ export const SupervisorTeamMembersPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Team Performance & Leaderboard"
-        description="Comprehensive analysis of team member order handling, delivery rates, and revenue performance"
+        title="Admin Team Leaderboards"
+        description="Cross-team performance rankings, delivery fulfillment analysis, and sales metrics"
       />
+
+      {/* Top-Center Team Selector */}
+      <div className="flex justify-center w-full">
+        <div className="inline-flex p-1.5 bg-slate-100/90 rounded-xl shadow-xs border border-slate-200">
+          {teams.map((team) => {
+            const isSelected = selectedTeamId === team.id;
+            return (
+              <button
+                key={team.id}
+                onClick={() => setSelectedTeamId(team.id)}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                  isSelected
+                    ? 'bg-white text-blue-600 shadow-xs border border-slate-200/80 font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                <Layers className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
+                <span>{team.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Filters */}
       <TeamMemberFilters
@@ -99,25 +136,25 @@ export const SupervisorTeamMembersPage: React.FC = () => {
         onSearchQueryChange={setSearchQuery}
       />
 
-      {/* Full Leaderboard Component */}
+      {/* Reused Shared Leaderboard Component */}
       <Leaderboard
         items={filteredLeaderboard.map((m) => ({
           id: m.memberId,
           rank: m.rank,
           name: m.memberName,
           avatarUrl: m.avatarUrl,
-          isCurrentUser: m.memberId === user?.id,
           primaryValue: m.deliveredOrders,
           secondaryValue: m.totalOrders,
           primaryLabel: 'Delivered',
           secondaryLabel: 'Handled Orders',
           unitLabel: 'orders',
         }))}
-        chartTitle="Team Member Delivered Orders Ranking"
-        tableTitle="Team Performance Data Table"
+        chartTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Member Delivered Orders Ranking`}
+        tableTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Performance Data Table`}
         primaryLabel="Delivered"
         secondaryLabel="Total Orders"
         unitLabel="orders"
+        emptyMessage={`No leaderboard data available for ${selectedTeam ? selectedTeam.name : 'this team'}.`}
       />
     </div>
   );

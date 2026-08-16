@@ -18,7 +18,6 @@ import toast from 'react-hot-toast';
 export const SupervisorInterestedPage: React.FC = () => {
   const { user } = useAuth();
   const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
-
   const {
     customers,
     teamMembers,

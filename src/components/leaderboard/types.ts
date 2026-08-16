@@ -15,6 +15,7 @@ export interface LeaderboardProps {
   items: LeaderboardItem[];
   loading?: boolean;
   compact?: boolean;
+  limit?: number;
   title?: string;
   chartTitle?: string;
   tableTitle?: string;

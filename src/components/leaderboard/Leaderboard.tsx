@@ -11,6 +11,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   items,
   loading = false,
   compact = false,
+  limit,
   title = 'Team Leaderboard',
   chartTitle = 'This Month Interested Calls Ranking',
   tableTitle = 'Leaderboard Data Table',
@@ -20,11 +21,12 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   onViewFullLeaderboard,
   emptyMessage = 'No leaderboard data available for ranking.',
 }) => {
+  const displayedItems = limit && limit > 0 ? items.slice(0, limit) : items;
   if (loading) {
     return <LoadingState rows={compact ? 4 : 7} />;
   }
 
-  if (items.length === 0) {
+  if (displayedItems.length === 0) {
     return (
       <Card className="p-8 text-center text-slate-400 text-xs font-medium">
         {emptyMessage}
@@ -35,7 +37,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   if (compact) {
     return (
       <LeaderboardCompactWidget
-        items={items}
+        items={displayedItems}
         title={title}
         unitLabel={unitLabel}
         onViewFullLeaderboard={onViewFullLeaderboard}
@@ -43,7 +45,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     );
   }
 
-  const topPerformer = items.find((item) => item.rank === 1) || items[0];
+  const topPerformer = displayedItems.find((item) => item.rank === 1) || displayedItems[0];
 
   return (
     <div className="space-y-6 max-w-full overflow-hidden">
@@ -58,14 +60,14 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
 
       {/* 2. Infographic Bar Chart Ranking */}
       <LeaderboardInfographicChart
-        items={items}
+        items={displayedItems}
         chartTitle={chartTitle}
         unitLabel={unitLabel}
       />
 
       {/* 3. Responsive Leaderboard Data Table */}
       <LeaderboardDataTable
-        items={items}
+        items={displayedItems}
         tableTitle={tableTitle}
         primaryLabel={primaryLabel}
         secondaryLabel={secondaryLabel}
