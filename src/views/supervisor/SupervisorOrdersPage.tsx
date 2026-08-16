@@ -1,325 +1,238 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import { Order, OrderStatus, Customer, DeliveryStatusHistory } from '../../models/domain';
-import { orderRepository, customerRepository, deliveryStatusHistoryRepository } from '../../repositories';
-import { OrderService } from '../../services/orderService';
+import React, { useState } from 'react';
+import type { Order, OrderStatus, DeliveryStatusHistory } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
-import { Card, CardContent } from '../../components/ui/Card';
-import { StatusBadge } from '../../components/shared/StatusBadge';
-import { Button } from '../../components/ui/Button';
-import { Select } from '../../components/ui/Select';
-import { Dialog } from '../../components/ui/Dialog';
-import { Input } from '../../components/ui/Input';
-import { PrintPreviewModal } from '../../components/printing/PrintPreviewModal';
-import { EmptyState } from '../../components/shared/EmptyState';
 import { LoadingState } from '../../components/shared/LoadingState';
+import { LeadPrintItem, A4BillingPrintSheet } from '../../components/printing/A4BillingPrintSheet';
+import { PrintDocumentStyles } from '../../components/printing/PrintDocumentStyles';
+import { PrintFloatingPanel } from '../../components/printing/PrintFloatingPanel';
+import { OrdersStats } from '../../components/orders/OrdersStats';
+import { OrderFilters } from '../../components/orders/OrderFilters';
+import { OrderList } from '../../components/orders/OrderList';
+import { OrderStatusChangeDialog } from '../../components/orders/OrderStatusChangeDialog';
+import { OrderRemarkDialog } from '../../components/orders/OrderRemarkDialog';
+import { BulkStatusChangeDialog } from '../../components/orders/BulkStatusChangeDialog';
+import { OrderHistoryDialog } from '../../components/orders/OrderHistoryDialog';
+import { OrderPrintConfirmDialog } from '../../components/orders/OrderPrintConfirmDialog';
+import { useOrders } from '../../hooks/useOrders';
+import { useOrderFilters } from '../../hooks/useOrderFilters';
+import { useSelection } from '../../hooks/useSelection';
+import { downloadBillingPDF } from '../../utils/pdfGenerator';
 import toast from 'react-hot-toast';
-import { Package, Truck, CheckCheck, XCircle, Printer, History } from 'lucide-react';
-import { format } from 'date-fns';
 
 export const SupervisorOrdersPage: React.FC = () => {
-  const { user } = useAuth();
+  const {
+    orders,
+    customersMap,
+    teamMembers,
+    membersMap,
+    loading,
+    updateOrderStatus,
+    updateOrderRemark,
+    bulkUpdateOrderStatus,
+    fetchOrderHistory,
+  } = useOrders();
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [customersMap, setCustomersMap] = useState<Record<string, Customer>>({});
-  const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const {
+    selectedDate,
+    setSelectedDate,
+    statusFilter,
+    setStatusFilter,
+    selectedMemberId,
+    setSelectedMemberId,
+    search,
+    setSearch,
+    dateFilteredOrders,
+    filteredOrders,
+    dispatchedCount,
+    deliveredCount,
+    rejectedCount,
+    resetFilters,
+  } = useOrderFilters(orders, customersMap, membersMap);
 
-  // Status Change Dialog
+  const filteredOrderIds = filteredOrders.map((o) => o.id);
+  const {
+    selectedIds: selectedOrderIds,
+    selectAllCheckboxRef,
+    allSelected: allFilteredSelected,
+    toggleSelectAll,
+    toggleSelectCard,
+    clearSelection,
+  } = useSelection(filteredOrderIds);
+
+  // Workflow Dialog States
   const [targetOrder, setTargetOrder] = useState<Order | null>(null);
-  const [newStatus, setNewStatus] = useState<OrderStatus>('PREPARED');
-  const [remarks, setRemarks] = useState('');
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [targetNewStatus, setTargetNewStatus] = useState<OrderStatus>('DELIVERED');
 
-  // History Inspector Dialog
+  const [remarkOrder, setRemarkOrder] = useState<Order | null>(null);
+
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+
   const [historyOrder, setHistoryOrder] = useState<Order | null>(null);
   const [orderHistories, setOrderHistories] = useState<DeliveryStatusHistory[]>([]);
 
-  // Print Selection
-  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
-  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
 
-  const loadData = async () => {
-    if (!user || !user.teamId) return;
-    setLoading(true);
-    try {
-      const [oList, cList] = await Promise.all([
-        orderRepository.getByTeamId(user.teamId),
-        customerRepository.getByTeamId(user.teamId),
-      ]);
-
-      setOrders(oList);
-
-      const cMap: Record<string, Customer> = {};
-      cList.forEach((c) => (cMap[c.id] = c));
-      setCustomersMap(cMap);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [user]);
-
+  // Status Change Modal Trigger
   const handleOpenStatusModal = (order: Order, defaultNewStatus: OrderStatus) => {
     setTargetOrder(order);
-    setNewStatus(defaultNewStatus);
-    setRemarks('');
+    setTargetNewStatus(defaultNewStatus);
   };
 
-  const handleConfirmStatusChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetOrder || !user) return;
-
-    setIsUpdatingStatus(true);
-    try {
-      await OrderService.updateOrderStatus(targetOrder.id, newStatus, user, remarks);
-      toast.success(`Order #${targetOrder.orderNumber} status updated to ${newStatus}`);
-      setTargetOrder(null);
-      loadData();
-    } catch (err: any) {
-      toast.error(err.message || 'Status transition failed.');
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
-
+  // View History Trigger
   const handleViewHistory = async (order: Order) => {
     setHistoryOrder(order);
-    const hist = await deliveryStatusHistoryRepository.getByOrderId(order.id);
+    const hist = await fetchOrderHistory(order.id);
     setOrderHistories(hist);
   };
 
-  const toggleSelectOrder = (id: string) => {
-    setSelectedOrderIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+  // Selected Lead Print Items for PDF & Print
+  const selectedPrintItems: LeadPrintItem[] = orders
+    .filter((o) => selectedOrderIds.includes(o.id))
+    .map((o) => ({
+      customer: customersMap[o.customerId] || {
+        id: `cst_temp_${o.id}`,
+        contactId: '',
+        fullName: 'Customer',
+        phone: 'N/A',
+        address: 'N/A',
+        teamId: o.teamId,
+        responsibleTeamMemberId: o.teamMemberId,
+        supervisorId: o.supervisorId,
+        createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
+      },
+      responsibleUser: membersMap[o.teamMemberId],
+      order: o,
+    }));
+
+  const handleDownloadPDF = () => {
+    if (selectedPrintItems.length === 0) return;
+    const success = downloadBillingPDF(selectedPrintItems);
+    if (success) {
+      toast.success('Billing slips PDF downloaded!');
+    }
   };
 
-  const filteredOrders = orders.filter((o) => statusFilter === 'ALL' || o.status === statusFilter);
-  const selectedOrdersList = orders.filter((o) => selectedOrderIds.includes(o.id));
+  const handleNativePrint = () => {
+    if (selectedPrintItems.length === 0) return;
+    window.print();
+    setIsPrintConfirmOpen(true);
+  };
 
   if (loading) return <LoadingState rows={6} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pb-28">
+      <PrintDocumentStyles />
+
+      {/* Hidden Print Container rendered in DOM for window.print() */}
+      <div className="hidden print:block">
+        <A4BillingPrintSheet items={selectedPrintItems} />
+      </div>
+
       <PageHeader
-        title="Orders & Delivery Tracking"
-        description="Fulfillment lifecycle, delivery status transitions, and courier labels"
-        actions={
-          <Button
-            variant="primary"
-            leftIcon={<Printer className="w-4 h-4" />}
-            onClick={() => setIsPrintModalOpen(true)}
-            disabled={selectedOrderIds.length === 0}
+        title="Supervisor Orders"
+        description="Monitor dispatched parcels, process delivery status updates with optional remarks, and manage team orders."
+      />
+
+      {/* 1. Status Filter Summary Cards */}
+      <OrdersStats
+        dispatchedCount={dispatchedCount}
+        deliveredCount={deliveredCount}
+        rejectedCount={rejectedCount}
+        statusFilter={statusFilter}
+        onSelectStatusFilter={setStatusFilter}
+      />
+
+      {/* 2. Filter Toolbar */}
+      <OrderFilters
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+        selectedMemberId={selectedMemberId}
+        onMemberIdChange={setSelectedMemberId}
+        teamMembers={teamMembers}
+        dateFilteredOrders={dateFilteredOrders}
+        search={search}
+        onSearchChange={setSearch}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        onResetFilters={resetFilters}
+        filteredCount={filteredOrders.length}
+        selectedCount={selectedOrderIds.length}
+        allFilteredSelected={allFilteredSelected}
+        onToggleSelectAll={toggleSelectAll}
+        selectAllCheckboxRef={selectAllCheckboxRef}
+        onOpenBulkModal={() => setIsBulkModalOpen(true)}
+      />
+
+      {/* 3. Orders Grid */}
+      <OrderList
+        filteredOrders={filteredOrders}
+        customersMap={customersMap}
+        membersMap={membersMap}
+        selectedOrderIds={selectedOrderIds}
+        onToggleSelectCard={toggleSelectCard}
+        onViewHistory={handleViewHistory}
+        onOpenStatusModal={handleOpenStatusModal}
+        onOpenRemarkModal={(order) => setRemarkOrder(order)}
+      />
+
+      {/* 4. Floating Action Panel */}
+      <PrintFloatingPanel
+        selectedCount={selectedOrderIds.length}
+        countLabel="Order(s) Selected"
+        onDownloadPDF={handleDownloadPDF}
+        onNativePrint={handleNativePrint}
+        extraActions={
+          <button
+            type="button"
+            onClick={() => setIsBulkModalOpen(true)}
+            className="py-1 px-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-amber-400/20 cursor-pointer"
+            title="Bulk Status Change"
           >
-            Print Labels ({selectedOrderIds.length})
-          </Button>
+            <span>Bulk</span>
+          </button>
         }
       />
 
-      {/* Filter Row */}
-      <div className="w-full sm:w-64">
-        <Select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          options={[
-            { value: 'ALL', label: 'All Order Statuses' },
-            { value: 'DRAFT', label: 'Draft Orders' },
-            { value: 'PREPARED', label: 'Prepared Parcels' },
-            { value: 'DISPATCHED', label: 'Dispatched' },
-            { value: 'DELIVERED', label: 'Delivered' },
-            { value: 'REJECTED', label: 'Rejected' },
-            { value: 'RETURNED', label: 'Returned' },
-          ]}
-        />
-      </div>
+      {/* 5. Dialog Modals */}
+      <OrderStatusChangeDialog
+        order={targetOrder}
+        defaultNewStatus={targetNewStatus}
+        customersMap={customersMap}
+        onClose={() => setTargetOrder(null)}
+        onConfirm={updateOrderStatus}
+      />
 
-      {filteredOrders.length === 0 ? (
-        <EmptyState
-          title="No orders found"
-          description="No order records match your current filter criteria."
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredOrders.map((order) => {
-            const customer = customersMap[order.customerId];
-            const isSelected = selectedOrderIds.includes(order.id);
+      <OrderRemarkDialog
+        order={remarkOrder}
+        customersMap={customersMap}
+        onClose={() => setRemarkOrder(null)}
+        onConfirm={updateOrderRemark}
+      />
 
-            return (
-              <Card
-                key={order.id}
-                className={`transition-all ${isSelected ? 'border-2 border-blue-600 bg-blue-50/20' : ''}`}
-              >
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelectOrder(order.id)}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20"
-                      />
-                      <div>
-                        <div className="font-bold text-sm text-slate-900">{order.orderNumber}</div>
-                        <div className="text-xs text-slate-600 font-medium">
-                          {customer ? customer.fullName : 'Customer'}
-                        </div>
-                      </div>
-                    </div>
-                    <StatusBadge type="order" status={order.status} />
-                  </div>
+      <BulkStatusChangeDialog
+        isOpen={isBulkModalOpen}
+        selectedCount={selectedOrderIds.length}
+        onClose={() => setIsBulkModalOpen(false)}
+        onConfirm={async (bulkTargetStatus) => {
+          const success = await bulkUpdateOrderStatus(selectedOrderIds, bulkTargetStatus);
+          if (success) clearSelection();
+          return success;
+        }}
+      />
 
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1 text-slate-600">
-                    <div>
-                      <span className="font-medium text-slate-400">Items:</span> {order.itemsDescription}
-                    </div>
-                    <div>
-                      <span className="font-medium text-slate-400">Amount:</span> ${order.totalAmount.toFixed(2)}
-                    </div>
-                    {order.remarks && (
-                      <div>
-                        <span className="font-medium text-slate-400">Remarks:</span> {order.remarks}
-                      </div>
-                    )}
-                  </div>
+      <OrderHistoryDialog
+        order={historyOrder}
+        historyList={orderHistories}
+        onClose={() => setHistoryOrder(null)}
+      />
 
-                  {/* Actions Bar */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      leftIcon={<History className="w-3.5 h-3.5" />}
-                      onClick={() => handleViewHistory(order)}
-                    >
-                      History
-                    </Button>
-
-                    <div className="flex items-center gap-1.5">
-                      {order.status === 'DRAFT' && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          leftIcon={<Package className="w-3.5 h-3.5" />}
-                          onClick={() => handleOpenStatusModal(order, 'PREPARED')}
-                        >
-                          Mark Prepared
-                        </Button>
-                      )}
-                      {order.status === 'PREPARED' && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          leftIcon={<Truck className="w-3.5 h-3.5" />}
-                          onClick={() => handleOpenStatusModal(order, 'DISPATCHED')}
-                        >
-                          Mark Dispatched
-                        </Button>
-                      )}
-                      {order.status === 'DISPATCHED' && (
-                        <>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            leftIcon={<CheckCheck className="w-3.5 h-3.5" />}
-                            onClick={() => handleOpenStatusModal(order, 'DELIVERED')}
-                          >
-                            Delivered
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            leftIcon={<XCircle className="w-3.5 h-3.5" />}
-                            onClick={() => handleOpenStatusModal(order, 'REJECTED')}
-                          >
-                            Rejected
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Status Transition Dialog */}
-      {targetOrder && (
-        <Dialog
-          isOpen={!!targetOrder}
-          onClose={() => setTargetOrder(null)}
-          title={`Update Status: Order #${targetOrder.orderNumber}`}
-          description={`Transitioning from ${targetOrder.status} to ${newStatus}`}
-        >
-          <form onSubmit={handleConfirmStatusChange} className="space-y-4">
-            <Select
-              label="Target Status *"
-              value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
-              options={[
-                { value: 'PREPARED', label: 'Parcel Prepared' },
-                { value: 'DISPATCHED', label: 'Dispatched with Courier' },
-                { value: 'DELIVERED', label: 'Delivered to Customer (Triggers Email Simulation)' },
-                { value: 'REJECTED', label: 'Rejected by Receiver' },
-                { value: 'RETURNED', label: 'Returned to Warehouse' },
-              ]}
-            />
-            <Input
-              label="Transition Remarks / Courier Notes"
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              placeholder="e.g. Courier Tracking #EX-998822"
-            />
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-              <Button type="button" variant="secondary" onClick={() => setTargetOrder(null)}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary" isLoading={isUpdatingStatus}>
-                Update Order Status
-              </Button>
-            </div>
-          </form>
-        </Dialog>
-      )}
-
-      {/* History Inspector Dialog */}
-      {historyOrder && (
-        <Dialog
-          isOpen={!!historyOrder}
-          onClose={() => setHistoryOrder(null)}
-          title={`Status History - #${historyOrder.orderNumber}`}
-        >
-          <div className="space-y-3 max-h-72 overflow-y-auto">
-            {orderHistories.map((h) => (
-              <div key={h.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
-                <div className="flex items-center justify-between font-semibold text-slate-900">
-                  <span>
-                    {h.previousStatus ? `${h.previousStatus} ➔ ` : ''}
-                    {h.newStatus}
-                  </span>
-                  <span className="text-slate-400 font-normal">
-                    {format(new Date(h.createdAt), 'MMM dd, hh:mm a')}
-                  </span>
-                </div>
-                {h.remarks && <div className="text-slate-600">{h.remarks}</div>}
-              </div>
-            ))}
-          </div>
-        </Dialog>
-      )}
-
-      {/* Print Preview Engine Modal */}
-      {isPrintModalOpen && (
-        <PrintPreviewModal
-          isOpen={isPrintModalOpen}
-          onClose={() => setIsPrintModalOpen(false)}
-          orders={selectedOrdersList}
-          customersMap={customersMap}
-        />
-      )}
+      <OrderPrintConfirmDialog
+        isOpen={isPrintConfirmOpen}
+        onClose={() => setIsPrintConfirmOpen(false)}
+        onClearSelection={clearSelection}
+      />
     </div>
   );
 };
