@@ -13,7 +13,7 @@ import { useSelection } from '../../hooks/useSelection';
 import { downloadBillingPDF } from '../../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 
-export const SupervisorCustomersPage: React.FC = () => {
+export const SupervisorInterestedPage: React.FC = () => {
   const {
     customers,
     teamMembers,
