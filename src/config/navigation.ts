@@ -56,8 +56,8 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   FINANCE: [
     { label: 'Overview', path: '/finance/dashboard', icon: Home, isBottomNav: true },
     { label: 'Expenses', path: '/finance/expenses', icon: DollarSign, isBottomNav: true },
-    { label: 'Add Expense', path: '/finance/expenses/new', icon: DollarSign, isBottomNav: true },
-    { label: 'Categories', path: '/finance/categories', icon: Layers, isBottomNav: true },
+    { label: 'Reports', path: '/finance/reports', icon: PieChart, isBottomNav: true },
+    { label: 'Add Expense', path: '/finance/expenses/new', icon: DollarSign, isBottomNav: false },
     { label: 'Profile', path: '/finance/profile', icon: User, isBottomNav: true },
   ],
 };

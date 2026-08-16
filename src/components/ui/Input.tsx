@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from 'lucide-react';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -6,11 +7,13 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   helperText?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  onClear?: () => void;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, leftIcon, rightIcon, className = '', id, ...props }, ref) => {
+  ({ label, error, helperText, leftIcon, rightIcon, onClear, className = '', id, ...props }, ref) => {
     const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    const hasValue = props.value !== undefined && props.value !== null && props.value !== '';
 
     return (
       <div className="w-full space-y-1.5">
@@ -32,10 +35,21 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 : 'border-slate-300 focus:border-blue-600 focus:ring-blue-500/20'
             } rounded-lg py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors ${
               leftIcon ? 'pl-9' : 'pl-3'
-            } ${rightIcon ? 'pr-9' : 'pr-3'} ${className}`}
+            } ${onClear && hasValue ? 'pr-9' : rightIcon ? 'pr-9' : 'pr-3'} ${className}`}
             {...props}
           />
-          {rightIcon && <div className="absolute right-3 text-slate-400">{rightIcon}</div>}
+          {onClear && hasValue ? (
+            <button
+              type="button"
+              onClick={onClear}
+              className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+              aria-label="Clear text input"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : rightIcon ? (
+            <div className="absolute right-3 text-slate-400">{rightIcon}</div>
+          ) : null}
         </div>
         {error && <p className="text-xs text-red-600 font-medium">{error}</p>}
         {!error && helperText && <p className="text-xs text-slate-500">{helperText}</p>}

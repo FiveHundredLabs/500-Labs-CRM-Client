@@ -3,7 +3,7 @@ import React from 'react';
 export interface ProfileAvatarProps {
   name: string;
   avatarUrl?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   className?: string;
 }
 
@@ -25,6 +25,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
     md: 'w-8 h-8 text-xs',
     lg: 'w-10 h-10 text-sm',
     xl: 'w-14 h-14 text-base',
+    '2xl': 'w-20 h-20 text-xl',
   };
 
   if (avatarUrl) {

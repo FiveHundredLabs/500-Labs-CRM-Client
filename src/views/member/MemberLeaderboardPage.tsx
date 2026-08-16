@@ -152,7 +152,7 @@ export const MemberLeaderboardPage: React.FC = () => {
                 <span>#1 Top Performer This Month</span>
               </div>
               <h2 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5">
-                {topPerformer.user.fullName}
+                {topPerformer.user.fullName.split(' ')[0]}
               </h2>
             </div>
           </div>
@@ -161,19 +161,10 @@ export const MemberLeaderboardPage: React.FC = () => {
           <div className="relative z-10 flex items-center justify-around w-full sm:w-auto gap-5 sm:gap-8 bg-white/75 backdrop-blur-md px-5 py-2.5 sm:py-3 rounded-xl border border-sky-100 text-center shadow-xs">
             <div>
               <div className="text-xl sm:text-3xl font-black text-blue-600 font-mono tracking-tight">
-                {topPerformer.interestedCount}
+                {topPerformer.interestedCount}/{topPerformer.totalCalls}
               </div>
               <div className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider mt-0.5">
-                Interested Calls
-              </div>
-            </div>
-            <div className="w-px h-8 sm:h-10 bg-slate-200/80" />
-            <div>
-              <div className="text-xl sm:text-3xl font-black text-slate-800 font-mono tracking-tight">
-                {topPerformer.totalCalls}
-              </div>
-              <div className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider mt-0.5">
-                Total Calls
+                Interested / Total Calls
               </div>
             </div>
           </div>
@@ -194,6 +185,7 @@ export const MemberLeaderboardPage: React.FC = () => {
             const isCurrent = item.user.id === user?.id;
             const theme = ROW_GRADIENTS[index % ROW_GRADIENTS.length];
             const percentage = Math.max(Math.round((item.interestedCount / maxInterested) * 100), 25);
+            const firstName = item.user.fullName.split(' ')[0];
 
             const initials = item.user.fullName
               .split(' ')
@@ -216,10 +208,10 @@ export const MemberLeaderboardPage: React.FC = () => {
                     className={`h-full bg-gradient-to-r ${theme.bar} rounded-full flex items-center justify-between px-2.5 sm:px-4 relative transition-all duration-700 ease-out shadow-sm min-w-[85px]`}
                     style={{ width: `${percentage}%` }}
                   >
-                    {/* Label inside the Bar */}
+                    {/* Label inside the Bar (First Name Only) */}
                     <div className="flex items-center gap-1.5 overflow-hidden pr-3 sm:pr-4">
                       <span className="font-extrabold text-[10px] sm:text-xs tracking-wider uppercase text-white drop-shadow-xs truncate">
-                        {item.user.fullName}
+                        {firstName}
                       </span>
                       {isCurrent && (
                         <span className="bg-white/30 text-white text-[8px] sm:text-[9px] px-1 py-0.2 rounded font-bold uppercase shrink-0">
@@ -235,7 +227,7 @@ export const MemberLeaderboardPage: React.FC = () => {
                       {item.user.avatarUrl ? (
                         <img
                           src={item.user.avatarUrl}
-                          alt={item.user.fullName}
+                          alt={firstName}
                           className="w-full h-full rounded-full object-cover"
                         />
                       ) : (
@@ -245,11 +237,13 @@ export const MemberLeaderboardPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Outer Right Number of Interested Calls */}
-                <div className="w-16 sm:w-28 text-right font-extrabold text-slate-900 text-xs sm:text-base font-mono tracking-tight shrink-0">
-                  {item.interestedCount}{' '}
+                {/* Outer Right Number of Interested / Total Calls (e.g. 78/285) */}
+                <div className="w-20 sm:w-32 text-right font-extrabold text-slate-900 text-xs sm:text-base font-mono tracking-tight shrink-0">
+                  <span className="text-emerald-600 font-black">{item.interestedCount}</span>
+                  <span className="text-slate-400 font-normal">/</span>
+                  <span className="text-slate-700 font-bold">{item.totalCalls}</span>{' '}
                   <span className="text-[10px] sm:text-xs font-normal text-slate-500 font-sans hidden sm:inline">
-                    {item.interestedCount === 1 ? 'Interest' : 'Interests'}
+                    calls
                   </span>
                 </div>
               </div>
@@ -258,7 +252,7 @@ export const MemberLeaderboardPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* BOTTOM SECTION: Responsive Leaderboard Data Table (3 Columns) */}
+      {/* BOTTOM SECTION: Responsive Leaderboard Data Table */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base sm:text-lg">Leaderboard Data Table</CardTitle>
@@ -271,14 +265,14 @@ export const MemberLeaderboardPage: React.FC = () => {
             <table className="w-full text-left text-xs sm:text-sm text-slate-700">
               <thead className="bg-slate-50 border-b border-slate-200 text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-3.5 sm:px-6">Name</th>
-                  <th className="py-3 px-3.5 sm:px-6 text-center">Total Calls</th>
-                  <th className="py-3 px-3.5 sm:px-6 text-right">Interest Calls</th>
+                  <th className="py-3 px-4 sm:px-6">Name</th>
+                  <th className="py-3 px-4 sm:px-6 text-right">Interested / Total Calls</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {rankings.map((item) => {
                   const isCurrent = item.user.id === user?.id;
+                  const firstName = item.user.fullName.split(' ')[0];
 
                   return (
                     <tr
@@ -287,9 +281,9 @@ export const MemberLeaderboardPage: React.FC = () => {
                         isCurrent ? 'bg-blue-50/40 font-semibold' : ''
                       }`}
                     >
-                      {/* Name Column */}
-                      <td className="py-3 px-3.5 sm:px-6">
-                        <div className="flex items-center gap-2 sm:gap-3">
+                      {/* Name Column (First Name Only) */}
+                      <td className="py-3.5 px-4 sm:px-6">
+                        <div className="flex items-center gap-3">
                           <span
                             className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-extrabold shrink-0 ${
                               item.rank === 1
@@ -304,28 +298,24 @@ export const MemberLeaderboardPage: React.FC = () => {
                             {item.rank}
                           </span>
                           <ProfileAvatar name={item.user.fullName} avatarUrl={item.user.avatarUrl} size="sm" />
-                          <div className="min-w-0">
-                            <div className="font-semibold text-slate-900 text-xs sm:text-sm flex items-center gap-1.5 truncate">
-                              <span className="truncate">{item.user.fullName}</span>
-                              {isCurrent && (
-                                <span className="text-[9px] sm:text-[10px] bg-blue-100 text-blue-700 px-1 py-0.2 rounded font-semibold shrink-0">
-                                  You
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[10px] sm:text-xs text-slate-400 truncate">{item.user.city || 'Tele-caller'}</div>
+                          <div className="min-w-0 flex items-center gap-2">
+                            <span className="font-bold text-slate-900 text-xs sm:text-sm truncate">
+                              {firstName}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[9px] sm:text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded font-semibold shrink-0">
+                                You
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
 
-                      {/* Total Calls Column */}
-                      <td className="py-3 px-3.5 sm:px-6 text-center font-mono font-bold text-slate-800 text-xs sm:text-sm">
-                        {item.totalCalls}
-                      </td>
-
-                      {/* Interest Calls Column */}
-                      <td className="py-3 px-3.5 sm:px-6 text-right font-mono font-extrabold text-emerald-600 text-sm sm:text-base">
-                        {item.interestedCount}
+                      {/* Interested / Total Calls Column (e.g. 78/285) */}
+                      <td className="py-3.5 px-4 sm:px-6 text-right font-mono font-extrabold text-slate-900 text-sm sm:text-base">
+                        <span className="text-emerald-600 font-black">{item.interestedCount}</span>
+                        <span className="text-slate-400 font-normal"> / </span>
+                        <span className="text-slate-700 font-bold">{item.totalCalls}</span>
                       </td>
                     </tr>
                   );

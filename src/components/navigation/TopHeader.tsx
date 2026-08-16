@@ -1,15 +1,54 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { getTeamBranding } from '../../config/branding';
 import { ProfileAvatar } from '../shared/ProfileAvatar';
-import { Bell, Calendar, Search } from 'lucide-react';
+import { Calendar, LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 export const TopHeader: React.FC = () => {
-  const { user, role } = useAuth();
+  const { user, role, logout } = useAuth();
+  const navigate = useNavigate();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (!user) return null;
 
   const teamBrand = getTeamBranding(user.teamId || undefined);
+
+  const getProfilePath = () => {
+    switch (role) {
+      case 'SUPERVISOR':
+        return '/supervisor/profile';
+      case 'ADMIN':
+        return '/admin/profile';
+      case 'FINANCE':
+        return '/finance/profile';
+      case 'TEAM_MEMBER':
+      default:
+        return '/member/profile';
+    }
+  };
+
+  const handleNavigateProfile = () => {
+    setIsDropdownOpen(false);
+    navigate(getProfilePath());
+  };
+
+  const handleLogout = () => {
+    setIsDropdownOpen(false);
+    logout();
+  };
 
   return (
     <header className="sticky top-0 z-30 h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between gap-4">
@@ -27,21 +66,6 @@ export const TopHeader: React.FC = () => {
         </div>
       </div>
 
-      {/* Center Search Bar */}
-      <div className="hidden md:flex items-center flex-1 max-w-md mx-4">
-        <div className="relative w-full flex items-center">
-          <Search className="absolute left-3 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search leads, customers, calls (⌘K)..."
-            className="w-full bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 rounded-lg py-1.5 pl-8 pr-12 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all"
-          />
-          <kbd className="absolute right-2.5 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 bg-white border border-slate-200 rounded shadow-2xs">
-            ⌘K
-          </kbd>
-        </div>
-      </div>
-
       {/* Right controls */}
       <div className="flex items-center gap-3">
         {/* Date indicator */}
@@ -50,24 +74,56 @@ export const TopHeader: React.FC = () => {
           <span>{format(new Date(), 'MMM dd, yyyy')}</span>
         </div>
 
-        {/* Notifications */}
-        <button
-          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer relative"
-          aria-label="Notifications"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-blue-600 rounded-full ring-2 ring-white" />
-        </button>
-
         <div className="h-4 w-px bg-slate-200 hidden sm:block" />
 
-        {/* User profile info */}
-        <div className="flex items-center gap-2.5">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-xs font-semibold text-slate-900 leading-tight">{user.fullName}</span>
-            <span className="text-[10px] font-medium text-blue-600 uppercase tracking-wider">{role}</span>
-          </div>
-          <ProfileAvatar name={user.fullName} avatarUrl={user.avatarUrl} size="sm" />
+        {/* User profile dropdown button in top right corner */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            aria-label="User Profile Menu"
+            aria-expanded={isDropdownOpen}
+          >
+            <div className="hidden sm:flex flex-col items-end">
+              <span className="text-xs font-semibold text-slate-900 leading-tight">{user.fullName}</span>
+              <span className="text-[10px] font-medium text-blue-600 uppercase tracking-wider">{role}</span>
+            </div>
+            <ProfileAvatar name={user.fullName} avatarUrl={user.avatarUrl} size="sm" />
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Profile Menu Dropdown */}
+          {isDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="px-4 py-2.5 border-b border-slate-100">
+                <p className="text-xs font-bold text-slate-900 truncate">{user.fullName}</p>
+                <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                <span className="inline-block mt-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 uppercase tracking-wider">
+                  {role}
+                </span>
+              </div>
+
+              <div className="py-1">
+                <button
+                  onClick={handleNavigateProfile}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors text-left font-medium cursor-pointer"
+                >
+                  <UserIcon className="w-4 h-4 text-slate-400" />
+                  <span>My Profile</span>
+                </button>
+              </div>
+
+              <div className="border-t border-slate-100 pt-1">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors text-left font-semibold cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 text-rose-600" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
