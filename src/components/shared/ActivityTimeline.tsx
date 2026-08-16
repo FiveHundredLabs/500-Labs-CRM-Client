@@ -10,6 +10,9 @@ import {
   Mail,
   DollarSign,
   Clock,
+  User,
+  Settings,
+  ShieldCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -28,7 +31,10 @@ const ACTION_CONFIG: Record<string, { icon: React.FC<any>; color: string; bg: st
   ORDER_DISPATCHED: { icon: Truck, color: 'text-amber-600', bg: 'bg-amber-50' },
   DELIVERY_STATUS_CHANGED: { icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   EMAIL_NOTIFICATION_SENT: { icon: Mail, color: 'text-blue-600', bg: 'bg-blue-50' },
-  EXPENSE_CREATED: { icon: DollarSign, color: 'text-slate-600', bg: 'bg-slate-100' },
+  EXPENSE_CREATED: { icon: DollarSign, color: 'text-purple-600', bg: 'bg-purple-50' },
+  PROFILE_UPDATED: { icon: User, color: 'text-sky-600', bg: 'bg-sky-50' },
+  USER_CREATED: { icon: UserPlus, color: 'text-teal-600', bg: 'bg-teal-50' },
+  SYSTEM_CONFIG_UPDATED: { icon: Settings, color: 'text-amber-600', bg: 'bg-amber-50' },
 };
 
 export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ activities, className = '' }) => {

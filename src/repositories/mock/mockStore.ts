@@ -12,19 +12,19 @@ import expensesSeed from '../../data/seed/expenses.json';
 import emailNotificationsSeed from '../../data/seed/email_notifications.json';
 
 const STORAGE_KEYS = {
-  TEAMS: 'crm_teams_lk_v6',
-  USERS: 'crm_users_lk_v6',
-  CONTACTS: 'crm_contacts_lk_v6',
-  ALLOCATIONS: 'crm_allocations_lk_v6',
-  CALL_LOGS: 'crm_call_logs_lk_v6',
-  CUSTOMERS: 'crm_customers_lk_v6',
-  ORDERS: 'crm_orders_lk_v6',
-  DELIVERY_HISTORIES: 'crm_delivery_histories_lk_v6',
-  ACTIVITY_LOGS: 'crm_activity_logs_lk_v6',
-  EXPENSE_CATEGORIES: 'crm_expense_categories_lk_v6',
-  EXPENSES: 'crm_expenses_lk_v6',
-  EMAIL_NOTIFICATIONS: 'crm_email_notifications_lk_v6',
-  CURRENT_USER: 'crm_auth_user_lk_v6',
+  TEAMS: 'crm_teams_lk_v7',
+  USERS: 'crm_users_lk_v7',
+  CONTACTS: 'crm_contacts_lk_v7',
+  ALLOCATIONS: 'crm_allocations_lk_v7',
+  CALL_LOGS: 'crm_call_logs_lk_v7',
+  CUSTOMERS: 'crm_customers_lk_v7',
+  ORDERS: 'crm_orders_lk_v7',
+  DELIVERY_HISTORIES: 'crm_delivery_histories_lk_v7',
+  ACTIVITY_LOGS: 'crm_activity_logs_lk_v7',
+  EXPENSE_CATEGORIES: 'crm_expense_categories_lk_v7',
+  EXPENSES: 'crm_expenses_lk_v7',
+  EMAIL_NOTIFICATIONS: 'crm_email_notifications_lk_v7',
+  CURRENT_USER: 'crm_auth_user_lk_v7',
 };
 
 export const delay = (ms = 100): Promise<void> => new Promise((res) => setTimeout(res, ms));
