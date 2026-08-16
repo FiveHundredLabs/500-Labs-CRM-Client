@@ -63,21 +63,21 @@ export const FinanceDashboard: React.FC = () => {
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
-          title="Total Monthly Expenses"
+          title="This Month Total Expenses"
           value={`$${totalExpenseAmount.toFixed(2)}`}
           subtitle={`${expenses.length} vouchers recorded`}
           icon={<DollarSign className="w-4 h-4" />}
           accentColor="blue"
         />
         <StatCard
-          title="Postal & Shipping Charges"
+          title="This Month Postal & Shipping Charges"
           value={`$${(categoryTotals['Postal Charges'] || 0).toFixed(2)}`}
           subtitle="Fulfillment courier dispatch fees"
           icon={<Layers className="w-4 h-4" />}
           accentColor="green"
         />
         <StatCard
-          title="Printing & Stationery"
+          title="This Month Printing & Stationery"
           value={`$${(categoryTotals['Printing'] || 0).toFixed(2)}`}
           subtitle="A4/A6 Labels and thermal rolls"
           icon={<DollarSign className="w-4 h-4" />}
@@ -90,7 +90,7 @@ export const FinanceDashboard: React.FC = () => {
         <Card className="lg:col-span-2">
           <CardHeader>
             <div>
-              <CardTitle>Expense Distribution</CardTitle>
+              <CardTitle>This Month Expense Distribution</CardTitle>
               <CardDescription>Breakdown by operational category</CardDescription>
             </div>
           </CardHeader>
@@ -130,7 +130,7 @@ export const FinanceDashboard: React.FC = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Recent Vouchers</CardTitle>
+              <CardTitle>This Month Recent Vouchers</CardTitle>
               <CardDescription>Latest disbursements</CardDescription>
             </div>
             <Button
