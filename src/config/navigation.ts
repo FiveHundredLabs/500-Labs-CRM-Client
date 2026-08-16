@@ -35,7 +35,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   SUPERVISOR: [
     { label: 'Home', path: '/supervisor/dashboard', icon: Home, isBottomNav: true },
     { label: 'Team', path: '/supervisor/team', icon: Users, isBottomNav: true },
-    { label: 'Customers', path: '/supervisor/customers', icon: FileCheck, isBottomNav: true },
+    { label: 'Interested', path: '/supervisor/customers', icon: FileCheck, isBottomNav: true },
     { label: 'Orders', path: '/supervisor/orders', icon: Package, isBottomNav: true },
     { label: 'Import Contacts', path: '/supervisor/import', icon: Upload, isBottomNav: false },
     { label: 'Allocation', path: '/supervisor/allocation', icon: Layers, isBottomNav: false },
@@ -56,8 +56,8 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   FINANCE: [
     { label: 'Overview', path: '/finance/dashboard', icon: Home, isBottomNav: true },
     { label: 'Expenses', path: '/finance/expenses', icon: DollarSign, isBottomNav: true },
-    { label: 'Add Expense', path: '/finance/expenses/new', icon: DollarSign, isBottomNav: true },
-    { label: 'Categories', path: '/finance/categories', icon: Layers, isBottomNav: true },
+    { label: 'Reports', path: '/finance/reports', icon: PieChart, isBottomNav: true },
+    { label: 'Add Expense', path: '/finance/expenses/new', icon: DollarSign, isBottomNav: false },
     { label: 'Profile', path: '/finance/profile', icon: User, isBottomNav: true },
   ],
 };

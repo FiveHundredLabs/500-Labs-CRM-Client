@@ -9,6 +9,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ProfileAvatar } from '../../components/shared/ProfileAvatar';
+import { EditableProfileAvatar } from '../../components/shared/EditableProfileAvatar';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import toast from 'react-hot-toast';
@@ -31,6 +32,8 @@ export const SupervisorTeamPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [nic, setNic] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('1995-05-15');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Disable modal
@@ -58,6 +61,8 @@ export const SupervisorTeamPage: React.FC = () => {
     setPhone('');
     setCity('');
     setNic('');
+    setDateOfBirth('1995-05-15');
+    setAvatarUrl('');
     setIsModalOpen(true);
   };
 
@@ -68,6 +73,8 @@ export const SupervisorTeamPage: React.FC = () => {
     setPhone(member.phone);
     setCity(member.city);
     setNic(member.nic || '');
+    setDateOfBirth(member.dateOfBirth || '1995-05-15');
+    setAvatarUrl(member.avatarUrl || '');
     setIsModalOpen(true);
   };
 
@@ -80,7 +87,7 @@ export const SupervisorTeamPage: React.FC = () => {
       if (editingMember) {
         await UserService.updateUser(
           editingMember.id,
-          { fullName, email, phone, city, nic },
+          { fullName, email, phone, city, nic, dateOfBirth, avatarUrl },
           user!
         );
         toast.success(`Updated details for ${fullName}`);
@@ -96,6 +103,8 @@ export const SupervisorTeamPage: React.FC = () => {
             city,
             phone,
             nic,
+            dateOfBirth,
+            avatarUrl,
             joiningDate: new Date().toISOString(),
             isActive: true,
           },
@@ -209,6 +218,19 @@ export const SupervisorTeamPage: React.FC = () => {
         title={editingMember ? 'Edit Team Member' : 'Add New Team Member'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <EditableProfileAvatar
+              name={fullName || 'Member'}
+              avatarUrl={avatarUrl}
+              onChangeAvatar={setAvatarUrl}
+              size="lg"
+            />
+            <div>
+              <div className="text-xs font-bold text-slate-900">Profile Photo</div>
+              <div className="text-[11px] text-slate-500">Click camera icon to upload photo</div>
+            </div>
+          </div>
+
           <Input
             label="Full Name *"
             value={fullName}
@@ -238,6 +260,12 @@ export const SupervisorTeamPage: React.FC = () => {
             label="National ID / NIC Number"
             value={nic}
             onChange={(e) => setNic(e.target.value)}
+          />
+          <Input
+            label="Date of Birth"
+            type="date"
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
           />
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
