@@ -22,6 +22,8 @@ export interface NavItem {
   icon: any;
   permission?: string;
   isBottomNav?: boolean;
+  group?: 'Admin' | 'Supervisor' | 'Finance';
+  children?: NavItem[];
 }
 
 export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
@@ -44,12 +46,40 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'More', path: '#more', icon: MoreHorizontal, isBottomNav: true },
   ],
   ADMIN: [
-    { label: 'Home', path: '/admin/dashboard', icon: Home, isBottomNav: true },
-    { label: 'Users', path: '/admin/users', icon: Users, isBottomNav: true },
-    { label: 'Reports', path: '/admin/reports', icon: PieChart, isBottomNav: true },
-    { label: 'Activity', path: '/admin/activity', icon: Activity, isBottomNav: true },
-    { label: 'Customers & Orders', path: '/admin/customers', icon: Package, isBottomNav: false },
-    { label: 'Profile', path: '/admin/profile', icon: User, isBottomNav: false },
+    // Admin Specific Items
+    { label: 'Home', path: '/admin/dashboard', icon: Home, isBottomNav: true, group: 'Admin' },
+    { label: 'Users', path: '/admin/users', icon: Users, isBottomNav: true, group: 'Admin' },
+    { label: 'Reports', path: '/admin/reports', icon: PieChart, isBottomNav: true, group: 'Admin' },
+    { label: 'Activity', path: '/admin/activity', icon: Activity, isBottomNav: true, group: 'Admin' },
+    { label: 'Profile', path: '/admin/profile', icon: User, isBottomNav: false, group: 'Admin' },
+
+    // Supervisor Section (Expandable Group)
+    {
+      label: 'Supervisor',
+      path: '#supervisor-group',
+      icon: Layers,
+      group: 'Supervisor',
+      children: [
+        { label: 'Interested', path: '/admin/customers', icon: FileCheck },
+        { label: 'Orders', path: '/admin/orders', icon: Package },
+        { label: 'Import Contacts', path: '/admin/import', icon: Upload },
+        { label: 'Allocation', path: '/admin/allocation', icon: Layers },
+        { label: 'Allocation History', path: '/admin/allocation/history', icon: Clock },
+      ],
+    },
+
+    // Finance Section (Expandable Group)
+    {
+      label: 'Finance',
+      path: '#finance-group',
+      icon: DollarSign,
+      group: 'Finance',
+      children: [
+        { label: 'Expenses', path: '/admin/finance/expenses', icon: DollarSign },
+        { label: 'Add Expense', path: '/admin/finance/expenses/new', icon: DollarSign },
+      ],
+    },
+
     { label: 'More', path: '#more', icon: MoreHorizontal, isBottomNav: true },
   ],
   FINANCE: [

@@ -11,8 +11,10 @@ import { Plus, Calendar, Filter, X, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
+import { useAuth } from '../../hooks/useAuth';
 
 export const FinanceExpensesPage: React.FC = () => {
+  const { role } = useAuth();
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,13 +76,16 @@ export const FinanceExpensesPage: React.FC = () => {
     setEndDate('');
   };
 
-  if (loading) return <LoadingState rows={6} />;
+  if (loading) return <LoadingState rows={8} />;
 
+  // Filter matching expenses
   const filtered = expenses.filter((e) => {
     const matchesSearch =
-      e.categoryName.toLowerCase().includes(search.toLowerCase()) ||
+      !search ||
+      e.id.toLowerCase().includes(search.toLowerCase()) ||
       e.remarks.toLowerCase().includes(search.toLowerCase()) ||
       e.createdByName.toLowerCase().includes(search.toLowerCase());
+
     const matchesCat = categoryFilter === 'ALL' || e.categoryName === categoryFilter;
 
     let matchesDate = true;
@@ -103,7 +108,11 @@ export const FinanceExpensesPage: React.FC = () => {
         description="Filterable audit ledger of recorded operational expenditures"
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />} onClick={() => navigate('/finance/expenses/new')}>
+            <Button
+              variant="primary"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => navigate(role === 'ADMIN' ? '/admin/finance/expenses/new' : '/finance/expenses/new')}
+            >
               New Expense 
             </Button>
           </div>

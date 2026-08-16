@@ -9,9 +9,16 @@ import toast from 'react-hot-toast';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Phone, ArrowRight, MessageSquareCode, Filter, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
+
 export const SupervisorImportPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+
+  const effectiveActor = user
+    ? { ...user, teamId: user.role === 'ADMIN' ? adminTeamId : user.teamId }
+    : null;
 
   // Single manual contact state
   const [manualPhone, setManualPhone] = useState('');
@@ -33,11 +40,11 @@ export const SupervisorImportPage: React.FC = () => {
   // Single Contact Submit
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualPhone.trim() || !user) return;
+    if (!manualPhone.trim() || !effectiveActor) return;
 
     setIsManualSubmitting(true);
     try {
-      const { summary, executeImport } = await ContactService.processBulkImport([manualPhone], user!);
+      const { summary, executeImport } = await ContactService.processBulkImport([manualPhone], effectiveActor);
       setImportSummary(summary);
       setExecuteFn(() => executeImport);
       if (summary.duplicateCount > 0) {
@@ -66,7 +73,7 @@ export const SupervisorImportPage: React.FC = () => {
         .map((l) => l.split(/[,;\t]/)[0].trim())
         .filter((l) => l.length > 0 && !l.toLowerCase().includes('phone'));
 
-      const { summary, executeImport } = await ContactService.processBulkImport(rawLines, user!);
+      const { summary, executeImport } = await ContactService.processBulkImport(rawLines, effectiveActor!);
       setImportSummary(summary);
       setExecuteFn(() => executeImport);
       toast.success(`Parsed ${rawLines.length} phone numbers from ${selected.name}`);
@@ -78,7 +85,7 @@ export const SupervisorImportPage: React.FC = () => {
   // Bulk Text / Message Numbers Extraction & Parse
   const handleProcessBulkText = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bulkText.trim() || !user) {
+    if (!bulkText.trim() || !effectiveActor) {
       toast.error('Please paste or enter bulk numbers first.');
       return;
     }
@@ -97,7 +104,7 @@ export const SupervisorImportPage: React.FC = () => {
         return;
       }
 
-      const { summary, executeImport } = await ContactService.processBulkImport(extractedNumbers, user!);
+      const { summary, executeImport } = await ContactService.processBulkImport(extractedNumbers, effectiveActor);
       setImportSummary(summary);
       setExecuteFn(() => executeImport);
       toast.success(`Extracted & analyzed ${extractedNumbers.length} bulk numbers!`);
@@ -119,7 +126,7 @@ export const SupervisorImportPage: React.FC = () => {
       setFile(null);
       setBulkText('');
       setExecuteFn(null);
-      navigate('/supervisor/allocation');
+      navigate(user?.role === 'ADMIN' ? '/admin/allocation' : '/supervisor/allocation');
     } catch (err: any) {
       toast.error(err.message || 'Import failed.');
     } finally {
@@ -139,6 +146,13 @@ export const SupervisorImportPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Admin Multi-Team Switcher */}
+      <AdminTeamSelector
+        activeTeamId={adminTeamId}
+        onTeamChange={setAdminTeamId}
+        title="Contacts & Leads Ingestion"
+      />
+
       <PageHeader
         title="Import Contacts & Leads"
         description="Select CSV files, paste bulk numbers text, or add single phone numbers"

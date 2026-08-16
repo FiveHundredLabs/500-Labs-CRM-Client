@@ -13,9 +13,17 @@ import toast from 'react-hot-toast';
 import { Layers, Users, CheckCircle2, ArrowRight, History, CheckSquare, Square, Calculator, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
+
 export const SupervisorAllocationPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+
+  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || 'team_001';
+  const effectiveActor = user
+    ? { ...user, teamId: effectiveTeamId }
+    : null;
 
   const [unallocated, setUnallocated] = useState<Contact[]>([]);
   const [activeMembers, setActiveMembers] = useState<User[]>([]);
@@ -28,12 +36,12 @@ export const SupervisorAllocationPage: React.FC = () => {
   const [isAllocating, setIsAllocating] = useState(false);
 
   const loadAllocationData = async () => {
-    if (!user || !user.teamId) return;
+    if (!user) return;
     setLoading(true);
     try {
       const [allContacts, teamUsers] = await Promise.all([
-        contactRepository.getByTeamId(user.teamId),
-        userRepository.getByTeamId(user.teamId),
+        contactRepository.getByTeamId(effectiveTeamId),
+        userRepository.getByTeamId(effectiveTeamId),
       ]);
 
       const unalloc = allContacts.filter((c) => !c.isAllocated && c.status === 'NEW');
@@ -50,7 +58,7 @@ export const SupervisorAllocationPage: React.FC = () => {
 
   useEffect(() => {
     loadAllocationData();
-  }, [user]);
+  }, [user, effectiveTeamId]);
 
   // Checkbox Selection Handlers
   const handleToggleMember = (id: string) => {
@@ -108,16 +116,16 @@ export const SupervisorAllocationPage: React.FC = () => {
 
   // Confirm Bulk Allocation
   const handleConfirmAllocation = async () => {
-    if (!user) return;
+    if (!effectiveActor) return;
     setIsAllocating(true);
     try {
-      await AllocationService.allocateTeamContacts(user, selectedMemberIds);
+      await AllocationService.allocateTeamContacts(effectiveActor, selectedMemberIds);
       toast.success(
         `Successfully auto-distributed ${unallocated.length} contacts across ${selectedMembers.length} selected salesmen!`
       );
       setIsPreviewOpen(false);
       loadAllocationData();
-      navigate('/supervisor/allocation/history');
+      navigate(user?.role === 'ADMIN' ? '/admin/allocation/history' : '/supervisor/allocation/history');
     } catch (err: any) {
       toast.error(err.message || 'Allocation failed.');
     } finally {
@@ -129,6 +137,13 @@ export const SupervisorAllocationPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Admin Multi-Team Switcher */}
+      <AdminTeamSelector
+        activeTeamId={adminTeamId}
+        onTeamChange={setAdminTeamId}
+        title="Contact Allocation & Distribution"
+      />
+
       <PageHeader
         title="Contact Allocation"
         description="Select salesmen and bulk-assign numbers with automatic equal distribution"
@@ -137,7 +152,7 @@ export const SupervisorAllocationPage: React.FC = () => {
             variant="secondary"
             size="sm"
             leftIcon={<History className="w-3.5 h-3.5" />}
-            onClick={() => navigate('/supervisor/allocation/history')}
+            onClick={() => navigate(user?.role === 'ADMIN' ? '/admin/allocation/history' : '/supervisor/allocation/history')}
           >
             Allocation History
           </Button>
