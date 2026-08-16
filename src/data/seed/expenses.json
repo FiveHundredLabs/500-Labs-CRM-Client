@@ -4,43 +4,87 @@
     "categoryId": "cat_002",
     "categoryName": "Postal Charges",
     "amount": 345.50,
-    "expenseDate": "2026-08-10",
+    "expenseDate": "2026-08-16",
     "remarks": "Express courier delivery fees for Batch #1 orders",
     "createdBy": "usr_fin",
-    "createdByName": "Harrison Reed",
-    "createdAt": "2026-08-10T14:00:00Z"
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-16T14:00:00Z"
   },
   {
     "id": "exp_002",
     "categoryId": "cat_004",
     "categoryName": "Printing",
     "amount": 120.00,
-    "expenseDate": "2026-08-12",
-    "remarks": "A4 Label sticker sheets (500 sheets)",
+    "expenseDate": "2026-08-14",
+    "remarks": "A4 Label sticker sheets (500 sheets) and thermal roll refills",
     "createdBy": "usr_fin",
-    "createdByName": "Harrison Reed",
-    "createdAt": "2026-08-12T11:30:00Z"
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-14T11:30:00Z"
   },
   {
     "id": "exp_003",
     "categoryId": "cat_001",
     "categoryName": "Petty Cash",
     "amount": 45.00,
-    "expenseDate": "2026-08-14",
-    "remarks": "Team refreshment snacks during weekend shift",
+    "expenseDate": "2026-08-12",
+    "remarks": "Team refreshment snacks and minor office stationeries",
     "createdBy": "usr_fin",
-    "createdByName": "Harrison Reed",
-    "createdAt": "2026-08-14T16:00:00Z"
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-12T16:00:00Z"
   },
   {
     "id": "exp_004",
     "categoryId": "cat_003",
     "categoryName": "Transport",
     "amount": 85.20,
-    "expenseDate": "2026-08-15",
-    "remarks": "Urgent parcel pickup dispatch transport",
+    "expenseDate": "2026-08-08",
+    "remarks": "Urgent parcel pickup dispatch transport fuel allowance",
     "createdBy": "usr_fin",
-    "createdByName": "Harrison Reed",
-    "createdAt": "2026-08-15T09:45:00Z"
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-08T09:45:00Z"
+  },
+  {
+    "id": "exp_005",
+    "categoryId": "cat_002",
+    "categoryName": "Postal Charges",
+    "amount": 210.00,
+    "expenseDate": "2026-08-04",
+    "remarks": "Bulk shipping dispatch fees for Herbal Life campaign orders",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-04T10:15:00Z"
+  },
+  {
+    "id": "exp_006",
+    "categoryId": "cat_004",
+    "categoryName": "Printing",
+    "amount": 95.00,
+    "expenseDate": "2026-07-28",
+    "remarks": "Custom CRM marketing brochure printing (200 copies)",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-07-28T15:20:00Z"
+  },
+  {
+    "id": "exp_007",
+    "categoryId": "cat_002",
+    "categoryName": "Postal Charges",
+    "amount": 410.00,
+    "expenseDate": "2026-07-20",
+    "remarks": "Monthly regional courier dispatch invoice settlement",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-07-20T11:00:00Z"
+  },
+  {
+    "id": "exp_008",
+    "categoryId": "cat_001",
+    "categoryName": "Petty Cash",
+    "amount": 65.50,
+    "expenseDate": "2026-07-15",
+    "remarks": "Office maintenance and cleaning supplies expenditure",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-07-15T14:30:00Z"
   }
 ]

@@ -124,7 +124,7 @@ export const MemberDashboard: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title={`Good morning, ${user?.fullName.split(' ')[0]} 👋`}
-        description="Here is your daily calling activity and performance summary."
+        description="Here is your monthly calling activity and performance summary."
         actions={
           <Button
             variant="primary"
@@ -173,7 +173,7 @@ export const MemberDashboard: React.FC = () => {
       <Card>
         <CardContent className="p-5 space-y-2">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-            <span>Daily Call Completion Goal</span>
+            <span>Monthly Call Completion Goal</span>
             <span className="text-blue-600 font-bold">{completionPercentage}% Completed</span>
           </div>
           <div className="perf-track">

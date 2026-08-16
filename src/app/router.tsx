@@ -36,6 +36,7 @@ import { FinanceDashboard } from '../views/finance/FinanceDashboard';
 import { FinanceExpensesPage } from '../views/finance/FinanceExpensesPage';
 import { FinanceNewExpensePage } from '../views/finance/FinanceNewExpensePage';
 import { FinanceCategoriesPage } from '../views/finance/FinanceCategoriesPage';
+import { FinanceReportsPage } from '../views/finance/FinanceReportsPage';
 import { FinanceProfilePage } from '../views/finance/FinanceProfilePage';
 
 export const router = createBrowserRouter([
@@ -105,6 +106,7 @@ export const router = createBrowserRouter([
               { path: 'dashboard', element: <FinanceDashboard /> },
               { path: 'expenses', element: <FinanceExpensesPage /> },
               { path: 'expenses/new', element: <FinanceNewExpensePage /> },
+              { path: 'reports', element: <FinanceReportsPage /> },
               { path: 'categories', element: <FinanceCategoriesPage /> },
               { path: 'profile', element: <FinanceProfilePage /> },
             ],

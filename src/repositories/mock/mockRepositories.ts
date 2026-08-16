@@ -100,6 +100,17 @@ export class MockUserRepository implements IUserRepository {
     const updated = { ...users[index], ...updates };
     users[index] = updated;
     setStoredItem(STORAGE_KEYS.USERS, users);
+
+    const rawCurr = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    if (rawCurr) {
+      try {
+        const parsed = JSON.parse(rawCurr);
+        if (parsed && parsed.id === id) {
+          localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updated));
+        }
+      } catch (e) {}
+    }
+
     return updated;
   }
 
