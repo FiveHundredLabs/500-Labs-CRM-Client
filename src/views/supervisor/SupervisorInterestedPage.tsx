@@ -11,10 +11,9 @@ import { InterestedPrintConfirmDialog } from '../../components/interested/Intere
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
 import { downloadBillingPDF } from '../../utils/pdfGenerator';
-import toast from 'react-hot-toast';
-
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
+import toast from 'react-hot-toast';
 
 export const SupervisorInterestedPage: React.FC = () => {
   const { user } = useAuth();
@@ -200,3 +199,5 @@ export const SupervisorInterestedPage: React.FC = () => {
     </div>
   );
 };
+
+export const SupervisorCustomersPage = SupervisorInterestedPage;
