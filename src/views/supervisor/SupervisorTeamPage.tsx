@@ -13,7 +13,7 @@ import { EditableProfileAvatar } from '../../components/shared/EditableProfileAv
 import { LoadingState } from '../../components/shared/LoadingState';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import toast from 'react-hot-toast';
-import { UserPlus, Edit2, UserX } from 'lucide-react';
+import { UserPlus, Edit2, UserX, Eye, Mail, Phone, MapPin, Calendar, CreditCard, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const SupervisorTeamPage: React.FC = () => {
@@ -21,6 +21,9 @@ export const SupervisorTeamPage: React.FC = () => {
 
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // View Member Details Modal State
+  const [viewingMember, setViewingMember] = useState<User | null>(null);
 
   // Add/Edit Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -127,6 +130,9 @@ export const SupervisorTeamPage: React.FC = () => {
       await UserService.disableUser(disablingId, user);
       toast.success('Team member account has been disabled.');
       setDisablingId(null);
+      if (viewingMember && viewingMember.id === disablingId) {
+        setViewingMember(null);
+      }
       loadTeam();
     } catch (err: any) {
       toast.error(err.message || 'Failed to disable member.');
@@ -147,60 +153,89 @@ export const SupervisorTeamPage: React.FC = () => {
         }
       />
 
-      <div className="enterprise-table-container">
+      <div className="enterprise-table-container overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-left text-sm text-slate-700">
           <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
             <tr>
-              <th className="py-3 px-4">Member</th>
-              <th className="py-3 px-4">Contact Info</th>
-              <th className="py-3 px-4">Location</th>
-              <th className="py-3 px-4">Joined Date</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4 text-right">Actions</th>
+              <th className="py-3 px-3 sm:px-4">Member</th>
+              <th className="py-3 px-4 hidden md:table-cell">Contact Info</th>
+              <th className="py-3 px-4 hidden md:table-cell">Location</th>
+              <th className="py-3 px-4 hidden md:table-cell">Joined Date</th>
+              <th className="py-3 px-4 hidden md:table-cell">Status</th>
+              <th className="py-3 px-3 sm:px-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {members.map((member) => (
               <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
-                <td className="py-3.5 px-4">
-                  <div className="flex items-center gap-3">
+                {/* Member Name Column (Always Visible) */}
+                <td className="py-3.5 px-3 sm:px-4">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
                     <ProfileAvatar name={member.fullName} avatarUrl={member.avatarUrl} size="sm" />
-                    <div>
-                      <div className="font-semibold text-slate-900">{member.fullName}</div>
-                      <div className="text-xs text-slate-400 font-mono">{member.id}</div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-slate-900 truncate max-w-[120px] sm:max-w-none">
+                        {member.fullName}
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-mono">{member.id}</div>
                     </div>
                   </div>
                 </td>
-                <td className="py-3.5 px-4 text-xs">
+
+                {/* Contact Info (Desktop Only) */}
+                <td className="py-3.5 px-4 text-xs hidden md:table-cell">
                   <div className="text-slate-800">{member.email}</div>
                   <div className="text-slate-400 font-mono mt-0.5">{member.phone}</div>
                 </td>
-                <td className="py-3.5 px-4 text-xs text-slate-600">{member.city}</td>
-                <td className="py-3.5 px-4 text-xs text-slate-500">
+
+                {/* Location (Desktop Only) */}
+                <td className="py-3.5 px-4 text-xs text-slate-600 hidden md:table-cell">{member.city}</td>
+
+                {/* Joined Date (Desktop Only) */}
+                <td className="py-3.5 px-4 text-xs text-slate-500 hidden md:table-cell">
                   {format(new Date(member.joiningDate), 'MMM dd, yyyy')}
                 </td>
-                <td className="py-3.5 px-4">
+
+                {/* Status (Desktop Only) */}
+                <td className="py-3.5 px-4 hidden md:table-cell">
                   <StatusBadge type="user" status={String(member.isActive)} />
                 </td>
-                <td className="py-3.5 px-4 text-right">
-                  <div className="flex items-center justify-end gap-1.5">
+
+                {/* Actions (Always Visible on all mobile screens) */}
+                <td className="py-3.5 px-3 sm:px-4 text-right whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1 sm:gap-1.5">
+                    {/* View Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Eye className="w-3.5 h-3.5 text-blue-600" />}
+                      onClick={() => setViewingMember(member)}
+                      className="px-2 sm:px-3 text-xs"
+                      title="View Member Profile Details"
+                    >
+                      <span className="hidden sm:inline">View</span>
+                    </Button>
+
                     <Button
                       variant="ghost"
                       size="sm"
                       leftIcon={<Edit2 className="w-3.5 h-3.5" />}
                       onClick={() => openEditModal(member)}
+                      className="px-2 sm:px-3 text-xs"
+                      title="Edit Member"
                     >
-                      Edit
+                      <span className="hidden sm:inline">Edit</span>
                     </Button>
+
                     {member.isActive && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 px-2 sm:px-3 text-xs"
                         leftIcon={<UserX className="w-3.5 h-3.5" />}
                         onClick={() => setDisablingId(member.id)}
+                        title="Disable Member"
                       >
-                        Disable
+                        <span className="hidden sm:inline">Disable</span>
                       </Button>
                     )}
                   </div>
@@ -210,6 +245,116 @@ export const SupervisorTeamPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Member Details Pop-up Modal */}
+      {viewingMember && (
+        <Dialog
+          isOpen={!!viewingMember}
+          onClose={() => setViewingMember(null)}
+          title="Team Member Profile"
+          description="Complete personal information and employee profile details"
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            {/* Header Profile Info */}
+            <div className="flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <ProfileAvatar
+                name={viewingMember.fullName}
+                avatarUrl={viewingMember.avatarUrl}
+                size="lg"
+              />
+              <div className="space-y-1 min-w-0">
+                <div className="font-bold text-sm sm:text-base text-slate-900 flex flex-wrap items-center gap-2">
+                  <span className="truncate">{viewingMember.fullName}</span>
+                  <StatusBadge type="user" status={String(viewingMember.isActive)} />
+                </div>
+                <div className="text-xs text-slate-500 font-mono">ID: {viewingMember.id}</div>
+                <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                  <Shield className="w-3 h-3" />
+                  <span>Sales Specialist</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Properties Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs">
+              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+                <div className="text-slate-400 font-medium flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Email Address</span>
+                </div>
+                <div className="font-semibold text-slate-900 break-all">{viewingMember.email}</div>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+                <div className="text-slate-400 font-medium flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Phone Number</span>
+                </div>
+                <div className="font-semibold font-mono text-slate-900">{viewingMember.phone}</div>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+                <div className="text-slate-400 font-medium flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                  <span>City / Location</span>
+                </div>
+                <div className="font-semibold text-slate-900">{viewingMember.city || 'Not Specified'}</div>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+                <div className="text-slate-400 font-medium flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+                  <span>NIC / National ID</span>
+                </div>
+                <div className="font-semibold font-mono text-slate-900">{viewingMember.nic || 'Not Specified'}</div>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+                <div className="text-slate-400 font-medium flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Date of Birth</span>
+                </div>
+                <div className="font-semibold text-slate-900">
+                  {viewingMember.dateOfBirth
+                    ? format(new Date(viewingMember.dateOfBirth), 'MMMM dd, yyyy')
+                    : 'Not Specified'}
+                </div>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+                <div className="text-slate-400 font-medium flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Joining Date</span>
+                </div>
+                <div className="font-semibold text-slate-900">
+                  {format(new Date(viewingMember.joiningDate), 'MMMM dd, yyyy')}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  const m = viewingMember;
+                  setViewingMember(null);
+                  openEditModal(m);
+                }}
+              >
+                Edit Member Details
+              </Button>
+
+              <Button variant="secondary" size="sm" onClick={() => setViewingMember(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
 
       {/* Add/Edit Modal */}
       <Dialog

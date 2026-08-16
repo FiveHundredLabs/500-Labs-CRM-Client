@@ -10,6 +10,7 @@ import { ActivityLogService } from './activityLogService';
 export class AllocationService {
   static async allocateTeamContacts(
     supervisor: User,
+    targetMemberIds?: string[],
     contactIds?: string[]
   ): Promise<{ batchId: string; result: AllocationResult }> {
     if (!supervisor.teamId) {
@@ -18,10 +19,14 @@ export class AllocationService {
 
     // Fetch team members
     const teamMembers = await userRepository.getByTeamId(supervisor.teamId);
-    const activeMembers = teamMembers.filter((m) => m.role === 'TEAM_MEMBER' && m.isActive);
+    let activeMembers = teamMembers.filter((m) => m.role === 'TEAM_MEMBER' && m.isActive);
+
+    if (targetMemberIds && targetMemberIds.length > 0) {
+      activeMembers = activeMembers.filter((m) => targetMemberIds.includes(m.id));
+    }
 
     if (activeMembers.length === 0) {
-      throw new Error('No active team members found to receive allocations.');
+      throw new Error('No selected active team members found to receive allocations.');
     }
 
     // Fetch contacts
@@ -69,7 +74,7 @@ export class AllocationService {
       action: 'CONTACT_ALLOCATED',
       entityType: 'Allocation',
       entityId: batchId,
-      description: `Allocated ${contactsToAllocate.length} contacts across ${activeMembers.length} active team members (Batch #${batchId})`,
+      description: `Allocated ${contactsToAllocate.length} contacts across ${activeMembers.length} selected team members (Batch #${batchId})`,
     });
 
     return { batchId, result };
