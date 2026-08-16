@@ -170,6 +170,51 @@ export class OrderService {
     return updatedOrder;
   }
 
+  static async updateOrderRemark(
+    orderId: string,
+    remarks: string,
+    actor: User
+  ): Promise<Order> {
+    const order = await orderRepository.getById(orderId);
+    if (!order) throw new Error('Order not found');
+
+    const updatedOrder = await orderRepository.updateStatus(orderId, order.status, remarks);
+
+    await deliveryStatusHistoryRepository.create({
+      orderId,
+      previousStatus: order.status,
+      newStatus: order.status,
+      remarks: `Remark updated: ${remarks}`,
+      actorUserId: actor.id,
+    });
+
+    await ActivityLogService.logAction({
+      userId: actor.id,
+      userRole: actor.role,
+      userName: actor.fullName,
+      teamId: order.teamId,
+      action: 'DELIVERY_STATUS_CHANGED',
+      entityType: 'Order',
+      entityId: order.id,
+      description: `Updated remark for Order #${order.orderNumber}`,
+    });
+
+    return updatedOrder;
+  }
+
+  static async bulkUpdateOrderStatus(
+    orderIds: string[],
+    newStatus: OrderStatus,
+    actor: User
+  ): Promise<number> {
+    let count = 0;
+    for (const orderId of orderIds) {
+      await this.updateOrderStatus(orderId, newStatus, actor);
+      count++;
+    }
+    return count;
+  }
+
   static async getOrderHistory(orderId: string) {
     return deliveryStatusHistoryRepository.getByOrderId(orderId);
   }

@@ -110,7 +110,7 @@ export const SupervisorDashboard: React.FC = () => {
               onClick={() => navigate('/supervisor/customers')}
               className="justify-start"
             >
-              Interested Customers
+              Interested Leads
             </Button>
             <Button
               variant="secondary"

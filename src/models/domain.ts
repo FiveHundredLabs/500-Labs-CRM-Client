@@ -6,7 +6,9 @@ export type ContactStatus =
   | 'NOT_ANSWERED'
   | 'PHONE_OFF'
   | 'INTERESTED'
-  | 'NOT_INTERESTED';
+  | 'NOT_INTERESTED'
+  | 'DISPATCHED'
+  | 'DELIVERED';
 
 export type OrderStatus =
   | 'DRAFT'
