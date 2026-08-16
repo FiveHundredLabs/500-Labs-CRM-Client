@@ -11,6 +11,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { DollarSign, Plus, Layers, ArrowRight, Calendar, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { formatCurrency } from '../../utils/currency';
 
 export const FinanceDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -117,21 +118,21 @@ export const FinanceDashboard: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           title={`${getFilterLabel()} Total Expenses`}
-          value={`$${totalExpenseAmount.toFixed(2)}`}
+          value={formatCurrency(totalExpenseAmount)}
           subtitle={`${filteredExpenses.length} vouchers recorded`}
           icon={<DollarSign className="w-4 h-4" />}
           accentColor="blue"
         />
         <StatCard
           title={`${getFilterLabel()} Postal & Shipping`}
-          value={`$${(categoryTotals['Postal Charges'] || 0).toFixed(2)}`}
+          value={formatCurrency(categoryTotals['Postal Charges'] || 0)}
           subtitle="Fulfillment courier dispatch fees"
           icon={<Layers className="w-4 h-4" />}
           accentColor="green"
         />
         <StatCard
           title={`${getFilterLabel()} Printing & Stationery`}
-          value={`$${(categoryTotals['Printing'] || 0).toFixed(2)}`}
+          value={formatCurrency(categoryTotals['Printing'] || 0)}
           subtitle="A4/A6 Labels and thermal rolls"
           icon={<DollarSign className="w-4 h-4" />}
           accentColor="purple"
@@ -169,7 +170,7 @@ export const FinanceDashboard: React.FC = () => {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(val: any) => `$${Number(val).toFixed(2)}`}
+                      formatter={(val: any) => formatCurrency(Number(val))}
                       contentStyle={{
                         backgroundColor: '#FFFFFF',
                         border: '1px solid #E2E8F0',
@@ -196,7 +197,7 @@ export const FinanceDashboard: React.FC = () => {
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-slate-900 truncate">{item.name}</div>
                         <div className="text-[11px] text-slate-500 font-mono">
-                          ${item.value.toFixed(2)} ({percentage}%)
+                          {formatCurrency(item.value)} ({percentage}%)
                         </div>
                       </div>
                     </div>
@@ -232,7 +233,7 @@ export const FinanceDashboard: React.FC = () => {
                     <div className="font-semibold text-slate-900">{exp.categoryName}</div>
                     <div className="text-slate-400 truncate max-w-[180px]">{exp.remarks}</div>
                   </div>
-                  <div className="font-bold text-slate-900 text-sm font-mono">${exp.amount.toFixed(2)}</div>
+                  <div className="font-bold text-slate-900 text-sm font-mono">{formatCurrency(exp.amount)}</div>
                 </div>
               ))
             )}

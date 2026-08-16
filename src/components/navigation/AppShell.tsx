@@ -8,8 +8,8 @@ export const AppShell: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-800">
-      <div className="flex flex-1 overflow-hidden">
+    <div className="h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-800 overflow-hidden">
+      <div className="flex flex-1 h-full min-h-0 overflow-hidden">
         {/* Desktop Sidebar */}
         <DesktopSidebar
           isCollapsed={isSidebarCollapsed}
@@ -17,7 +17,7 @@ export const AppShell: React.FC = () => {
         />
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-20 md:pb-6">
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto pb-20 md:pb-6">
           <TopHeader />
           <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full">
             <Outlet />
