@@ -20,19 +20,20 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
     Finance: true,
   });
 
-  if (!user || !role) return null;
-
-  const navItems = ROLE_NAVIGATION[role] || [];
-  const teamBrand = getTeamBranding(user.teamId || undefined);
+  const navItems = (role && ROLE_NAVIGATION[role]) || [];
+  const teamBrand = getTeamBranding(user?.teamId || undefined);
 
   // Auto-expand group if current path is inside that group's children
   useEffect(() => {
+    if (!navItems.length) return;
     navItems.forEach((item) => {
       if (item.children && item.children.some((c) => location.pathname.startsWith(c.path))) {
         setOpenGroups((prev) => ({ ...prev, [item.label]: true }));
       }
     });
   }, [location.pathname, navItems]);
+
+  if (!user || !role) return null;
 
   const toggleGroup = (groupLabel: string) => {
     setOpenGroups((prev) => ({

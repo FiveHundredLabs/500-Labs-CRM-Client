@@ -30,6 +30,7 @@ import { AdminUsersPage } from '../views/admin/AdminUsersPage';
 import { AdminEmployeeDetailPage } from '../views/admin/AdminEmployeeDetailPage';
 import { AdminReportsPage } from '../views/admin/AdminReportsPage';
 import { AdminActivityPage } from '../views/admin/AdminActivityPage';
+import { AdminLeaderboardsPage } from '../views/admin/AdminLeaderboardsPage';
 import { AdminProfilePage } from '../views/admin/AdminProfilePage';
 
 // Finance Views
@@ -98,6 +99,7 @@ export const router = createBrowserRouter([
               { path: 'users/:id', element: <AdminEmployeeDetailPage /> },
               { path: 'customers', element: <SupervisorInterestedPage /> },
               { path: 'reports', element: <AdminReportsPage /> },
+              { path: 'leaderboards', element: <AdminLeaderboardsPage /> },
               { path: 'activity', element: <AdminActivityPage /> },
               { path: 'profile', element: <AdminProfilePage /> },
               { path: 'customers/:id', element: <SupervisorCustomerDetailPage /> },

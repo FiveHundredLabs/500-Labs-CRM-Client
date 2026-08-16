@@ -13,17 +13,12 @@ import { useSelection } from '../../hooks/useSelection';
 import { downloadBillingPDF } from '../../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 
-<<<<<<< HEAD:src/views/supervisor/SupervisorInterestedPage.tsx
-export const SupervisorInterestedPage: React.FC = () => {
-=======
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
 
-export const SupervisorCustomersPage: React.FC = () => {
+export const SupervisorInterestedPage: React.FC = () => {
   const { user } = useAuth();
   const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
-
->>>>>>> 3a1cc5b1c3f29a7c7bd420e5680009956842715d:src/views/supervisor/SupervisorCustomersPage.tsx
   const {
     customers,
     teamMembers,

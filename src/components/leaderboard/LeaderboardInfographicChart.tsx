@@ -67,7 +67,7 @@ export const LeaderboardInfographicChart: React.FC<LeaderboardInfographicChartPr
 
                   {/* Glossy 3D Orb Badge on the Bar Tip */}
                   <div
-                    className={`absolute -right-3 sm:-right-4 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-9 sm:h-9 rounded-full shadow-md border-2 border-white flex items-center justify-center font-extrabold text-white text-[10px] sm:text-xs bg-gradient-to-tr ${theme.orb} ring-2 ring-slate-900/10 z-10 transition-transform group-hover:scale-110 shrink-0`}
+                    className={`absolute -right-3 sm:-right-4 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-9 sm:h-9 rounded-full shadow-md border-2 border-white flex items-center justify-center font-extrabold text-white text-[10px] sm:text-xs bg-gradient-to-tr ${theme.orb} ring-2 ring-slate-200 z-10 transition-transform group-hover:scale-110 shrink-0`}
                   >
                     {item.avatarUrl ? (
                       <img

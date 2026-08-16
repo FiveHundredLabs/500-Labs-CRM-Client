@@ -163,7 +163,6 @@ export class SupervisorAnalyticsService {
 
     // Compute delivery rate & final stats list
     const statsList: LeaderboardMemberStats[] = Array.from(statsMap.values()).map((s) => {
-      const finished = s.deliveredOrders + s.rejectedOrders;
       // Rate based on delivered out of total or completed orders
       const rate = s.totalOrders > 0 ? (s.deliveredOrders / s.totalOrders) * 100 : 0;
       return {

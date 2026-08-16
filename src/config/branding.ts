@@ -5,8 +5,8 @@ export const PREDEFINED_TEAMS: Record<string, Team> = {
     id: 'team_001',
     name: 'Brand Alpha',
     code: 'ALPHA',
-    brandColor: '#2563EB', // Primary Blue
-    accentColor: '#EFF6FF', // Soft Blue Tint
+    brandColor: '#7C3AED', // Primary Purple
+    accentColor: '#F5F3FF', // Soft Purple Tint
     logoText: 'ALPHA CRM & SALES',
     contactEmail: 'support@brandalpha.com',
     contactPhone: '+1 (800) 555-0199',
@@ -17,8 +17,8 @@ export const PREDEFINED_TEAMS: Record<string, Team> = {
     id: 'team_002',
     name: 'Brand Beta',
     code: 'BETA',
-    brandColor: '#0284C7', // Slate Cyan Blue
-    accentColor: '#F0F9FF', // Light Cyan Tint
+    brandColor: '#2563EB', // Royal Blue
+    accentColor: '#EFF6FF', // Soft Blue Tint
     logoText: 'BETA DIRECT SALES',
     contactEmail: 'contact@brandbeta.com',
     contactPhone: '+1 (800) 555-0288',

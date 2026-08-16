@@ -98,9 +98,9 @@ export const LeaderboardCompactWidget: React.FC<LeaderboardCompactWidgetProps> =
             </div>
           </div>
         ) : (
-          /* Top 2 & 3 preview list if no current user match */
+          /* Remaining preview list if no current user match */
           <div className="space-y-2">
-            {items.slice(1, 4).map((item) => (
+            {items.slice(1).map((item) => (
               <div key={item.id} className="p-2.5 bg-slate-50/80 rounded-xl flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center shrink-0">
