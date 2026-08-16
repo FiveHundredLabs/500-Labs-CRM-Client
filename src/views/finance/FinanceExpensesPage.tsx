@@ -10,6 +10,7 @@ import { LoadingState } from '../../components/shared/LoadingState';
 import { Plus, Calendar, Filter, X, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { formatCurrency } from '../../utils/currency';
 
 export const FinanceExpensesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -206,7 +207,7 @@ export const FinanceExpensesPage: React.FC = () => {
         {/* Filter Summary Stats */}
         <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
           <span>Showing <strong className="text-slate-900">{filtered.length}</strong> of {expenses.length} expense vouchers</span>
-          <span>Total Filtered: <strong className="text-emerald-700 font-mono text-sm">${totalFilteredAmount.toFixed(2)}</strong></span>
+          <span>Total Filtered: <strong className="text-emerald-700 font-mono text-sm">{formatCurrency(totalFilteredAmount)}</strong></span>
         </div>
       </div>
 
@@ -238,7 +239,7 @@ export const FinanceExpensesPage: React.FC = () => {
                     {format(new Date(exp.expenseDate), 'MMM dd, yyyy')}
                   </td>
                   <td className="py-3.5 px-4 text-right font-bold text-slate-900 font-mono">
-                    ${exp.amount.toFixed(2)}
+                    {formatCurrency(exp.amount)}
                   </td>
                 </tr>
               ))}

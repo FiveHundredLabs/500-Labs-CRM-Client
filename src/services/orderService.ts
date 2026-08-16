@@ -52,7 +52,7 @@ export class OrderService {
       status: 'DRAFT',
       itemsDescription: input.itemsDescription,
       totalAmount: input.totalAmount,
-      currency: input.currency || 'USD',
+      currency: input.currency || 'LKR',
       remarks: input.remarks,
     });
 
@@ -74,7 +74,7 @@ export class OrderService {
       action: 'ORDER_CREATED',
       entityType: 'Order',
       entityId: newOrder.id,
-      description: `Created Order #${orderNumber} for customer ${customer.fullName} ($${input.totalAmount})`,
+      description: `Created Order #${orderNumber} for customer ${customer.fullName} (LKR ${input.totalAmount})`,
     });
 
     return newOrder;

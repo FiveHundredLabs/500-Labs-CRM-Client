@@ -40,7 +40,6 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Import Contacts', path: '/supervisor/import', icon: Upload, isBottomNav: false },
     { label: 'Allocation', path: '/supervisor/allocation', icon: Layers, isBottomNav: false },
     { label: 'Allocation History', path: '/supervisor/allocation/history', icon: Clock, isBottomNav: false },
-    { label: 'Print Labels', path: '/supervisor/print', icon: Package, isBottomNav: false },
     { label: 'Profile', path: '/supervisor/profile', icon: User, isBottomNav: false },
     { label: 'More', path: '#more', icon: MoreHorizontal, isBottomNav: true },
   ],
