@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   role: UserRole | null;
   loading: boolean;
-  login: (emailOrUsername: string) => Promise<User>;
+  login: (emailOrUsername: string, password?: string) => Promise<User>;
   logout: () => void;
   updateCurrentUser: (updatedUser: User) => void;
   isAdmin: boolean;
@@ -28,9 +28,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
-  const login = async (emailOrUsername: string): Promise<User> => {
+  const login = async (emailOrUsername: string, password?: string): Promise<User> => {
     try {
-      const loggedUser = await AuthService.login(emailOrUsername);
+      const loggedUser = await AuthService.login(emailOrUsername, password);
       setUser(loggedUser);
       toast.success(`Welcome back, ${loggedUser.fullName}!`);
       return loggedUser;
