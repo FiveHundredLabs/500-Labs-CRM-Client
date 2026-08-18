@@ -94,32 +94,38 @@ export const SupervisorInterestedPage: React.FC = () => {
       };
     });
 
-  // PDF Download Trigger
+  // PDF Download Trigger - Downloads PDF first, then prompts for status change to Dispatched
   const handleDownloadPDF = () => {
     if (selectedPrintItems.length === 0) return;
-    const success = downloadBillingPDF(selectedPrintItems);
-    if (success) {
+    const pdfSuccess = downloadBillingPDF(selectedPrintItems);
+    if (pdfSuccess) {
       toast.success('Billing slips PDF downloaded!');
       setIsPdfConfirmOpen(true);
     }
   };
 
-  // Native Browser Print Trigger
-  const handleNativePrint = () => {
+  // Native Browser Print Trigger - Triggers print window & AUTO-DISPATCHES selected leads
+  const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
     window.print();
-    setIsPrintConfirmOpen(true);
+    setIsDispatching(true);
+    try {
+      await dispatchInterestedLeads(selectedIds);
+      clearSelection();
+    } finally {
+      setIsDispatching(false);
+    }
   };
 
-  // Status Transition Handler: INTERESTED -> DISPATCHED
+  // Status Change Confirmation Handler (Executed after PDF download)
   const handleConfirmDispatched = async () => {
+    if (selectedPrintItems.length === 0) return;
     setIsDispatching(true);
     try {
       const success = await dispatchInterestedLeads(selectedIds);
       if (success) {
         clearSelection();
         setIsPdfConfirmOpen(false);
-        setIsPrintConfirmOpen(false);
       }
     } finally {
       setIsDispatching(false);
@@ -168,11 +174,12 @@ export const SupervisorInterestedPage: React.FC = () => {
       <InterestedList
         filteredCustomers={filteredCustomers}
         membersMap={membersMap}
+        ordersMap={ordersMap}
         selectedIds={selectedIds}
         onToggleSelectCard={toggleSelectCard}
       />
 
-      {/* Bottom-Right Floating Action Panel */}
+      {/* Bottom-Right Floating Action Panel (Manual dispatch button removed per Change 2) */}
       <PrintFloatingPanel
         selectedCount={selectedIds.length}
         countLabel="Selected"
@@ -180,20 +187,12 @@ export const SupervisorInterestedPage: React.FC = () => {
         onNativePrint={handleNativePrint}
       />
 
-      {/* Dialog Modals */}
+      {/* PDF Download + Auto-Dispatch Confirmation Dialog */}
       <InterestedPdfConfirmDialog
         isOpen={isPdfConfirmOpen}
         selectedCount={selectedIds.length}
         isDispatching={isDispatching}
         onClose={() => setIsPdfConfirmOpen(false)}
-        onConfirmDispatched={handleConfirmDispatched}
-      />
-
-      <InterestedPrintConfirmDialog
-        isOpen={isPrintConfirmOpen}
-        selectedCount={selectedIds.length}
-        isDispatching={isDispatching}
-        onClose={() => setIsPrintConfirmOpen(false)}
         onConfirmDispatched={handleConfirmDispatched}
       />
     </div>

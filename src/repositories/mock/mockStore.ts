@@ -10,27 +10,40 @@ import activityLogsSeed from '../../data/seed/activity_logs.json';
 import expenseCategoriesSeed from '../../data/seed/expense_categories.json';
 import expensesSeed from '../../data/seed/expenses.json';
 import emailNotificationsSeed from '../../data/seed/email_notifications.json';
+import productsSeed from '../../data/seed/products.json';
+import stockActivityLogsSeed from '../../data/seed/stock_activity_logs.json';
+import approvalRequestsSeed from '../../data/seed/approval_requests.json';
+import pettyCashWalletSeed from '../../data/seed/petty_cash_wallet.json';
+import pettyCashTransactionsSeed from '../../data/seed/petty_cash_transactions.json';
 
 const STORAGE_KEYS = {
-  TEAMS: 'crm_teams_lk_v10',
-  USERS: 'crm_users_lk_v10',
-  CONTACTS: 'crm_contacts_lk_v10',
-  ALLOCATIONS: 'crm_allocations_lk_v10',
-  CALL_LOGS: 'crm_call_logs_lk_v10',
-  CUSTOMERS: 'crm_customers_lk_v10',
-  ORDERS: 'crm_orders_lk_v10',
-  DELIVERY_HISTORIES: 'crm_delivery_histories_lk_v10',
-  ACTIVITY_LOGS: 'crm_activity_logs_lk_v10',
-  EXPENSE_CATEGORIES: 'crm_expense_categories_lk_v10',
-  EXPENSES: 'crm_expenses_lk_v10',
-  EMAIL_NOTIFICATIONS: 'crm_email_notifications_lk_v10',
-  CURRENT_USER: 'crm_auth_user_lk_v10',
+  TEAMS: 'crm_teams_lk_v13',
+  USERS: 'crm_users_lk_v13',
+  CONTACTS: 'crm_contacts_lk_v13',
+  ALLOCATIONS: 'crm_allocations_lk_v13',
+  CALL_LOGS: 'crm_call_logs_lk_v13',
+  CUSTOMERS: 'crm_customers_lk_v13',
+  ORDERS: 'crm_orders_lk_v13',
+  DELIVERY_HISTORIES: 'crm_delivery_histories_lk_v13',
+  ACTIVITY_LOGS: 'crm_activity_logs_lk_v13',
+  EXPENSE_CATEGORIES: 'crm_expense_categories_lk_v13',
+  EXPENSES: 'crm_expenses_lk_v13',
+  EMAIL_NOTIFICATIONS: 'crm_email_notifications_lk_v13',
+  PRODUCTS: 'crm_products_lk_v13',
+  STOCK_ACTIVITY_LOGS: 'crm_stock_activity_logs_lk_v13',
+  APPROVAL_REQUESTS: 'crm_approval_requests_lk_v13',
+  PETTY_CASH_WALLET: 'crm_petty_cash_wallet_lk_v13',
+  PETTY_CASH_TRANSACTIONS: 'crm_petty_cash_transactions_lk_v13',
+  CURRENT_USER: 'crm_auth_user_lk_v13',
 };
 
 export const delay = (ms = 100): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
 export const initMockStorage = (forceReset = false) => {
-  if (forceReset || !localStorage.getItem(STORAGE_KEYS.USERS)) {
+  const existingUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+  const isUsersEmpty = !existingUsers || existingUsers === '[]';
+
+  if (forceReset || isUsersEmpty) {
     localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teamsSeed));
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(usersSeed));
     localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(contactsSeed));
@@ -43,10 +56,17 @@ export const initMockStorage = (forceReset = false) => {
     localStorage.setItem(STORAGE_KEYS.EXPENSE_CATEGORIES, JSON.stringify(expenseCategoriesSeed));
     localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expensesSeed));
     localStorage.setItem(STORAGE_KEYS.EMAIL_NOTIFICATIONS, JSON.stringify(emailNotificationsSeed));
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(productsSeed));
+    localStorage.setItem(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, JSON.stringify(stockActivityLogsSeed));
+    localStorage.setItem(STORAGE_KEYS.APPROVAL_REQUESTS, JSON.stringify(approvalRequestsSeed));
+    localStorage.setItem(STORAGE_KEYS.PETTY_CASH_WALLET, JSON.stringify(pettyCashWalletSeed));
+    localStorage.setItem(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, JSON.stringify(pettyCashTransactionsSeed));
 
-    // Force default active logged in user to Pathum Nishshanka
-    const defaultUser = (usersSeed as any[]).find((u) => u.id === 'usr_mem_01') || usersSeed[0];
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(defaultUser));
+    // Set first available user as default if storage is empty
+    const firstUser = (usersSeed as any[])[0];
+    if (firstUser) {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(firstUser));
+    }
   }
 };
 
@@ -70,3 +90,4 @@ export function setStoredItem<T>(key: string, data: T[]): void {
 }
 
 export { STORAGE_KEYS };
+

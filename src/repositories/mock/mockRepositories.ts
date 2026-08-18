@@ -10,6 +10,10 @@ import {
   IActivityLogRepository,
   IExpenseRepository,
   IEmailNotificationRepository,
+  IProductRepository,
+  IStockActivityLogRepository,
+  IApprovalRequestRepository,
+  IPettyCashRepository,
 } from '../interfaces';
 import {
   Team,
@@ -27,6 +31,12 @@ import {
   UserRole,
   ContactStatus,
   OrderStatus,
+  Product,
+  StockActivityLog,
+  ApprovalRequest,
+  ApprovalStatus,
+  PettyCashWallet,
+  PettyCashTransaction,
 } from '../../models/domain';
 import { STORAGE_KEYS, getStoredItem, setStoredItem, delay } from './mockStore';
 
@@ -207,6 +217,75 @@ export class MockContactRepository implements IContactRepository {
       }
     });
     if (changed) setStoredItem(STORAGE_KEYS.CONTACTS, contacts);
+  }
+
+  async addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string }): Promise<Contact> {
+    await delay();
+    const contacts = getStoredItem<Contact>(STORAGE_KEYS.CONTACTS, []);
+    const existingIndex = contacts.findIndex((c) => c.phone.trim() === data.phone.trim());
+    const now = new Date().toISOString();
+
+    let targetContact: Contact;
+    if (existingIndex !== -1) {
+      targetContact = {
+        ...contacts[existingIndex],
+        allocatedToId: data.memberId,
+        autoAllocatedTo: data.memberId,
+        isAllocated: true,
+        allocatedAt: now,
+        isSelfAdded: true,
+        addedBy: data.memberId,
+        allocationSource: 'SELF_ADDED',
+        city: data.city || contacts[existingIndex].city,
+        secondaryMobile: data.secondaryMobile || contacts[existingIndex].secondaryMobile,
+        updatedAt: now,
+      };
+      contacts[existingIndex] = targetContact;
+    } else {
+      targetContact = {
+        id: `cnt_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        phone: data.phone.trim(),
+        status: 'NEW',
+        teamId: data.teamId,
+        importedAt: now,
+        importedBy: data.memberId,
+        addedBy: data.memberId,
+        importBatchId: `bat_self_${Date.now()}`,
+        isAllocated: true,
+        allocatedToId: data.memberId,
+        allocatedAt: now,
+        allocationBatchId: `alc_self_${Date.now()}`,
+        autoAllocatedTo: data.memberId,
+        allocationSource: 'SELF_ADDED',
+        isSelfAdded: true,
+        city: data.city,
+        secondaryMobile: data.secondaryMobile,
+        attemptCount: 0,
+        lastCalledAt: null,
+        isFollowUp: false,
+        updatedAt: now,
+      };
+      contacts.push(targetContact);
+    }
+    setStoredItem(STORAGE_KEYS.CONTACTS, contacts);
+
+    // Record allocation history entry
+    const allocations = getStoredItem<ContactAllocation>(STORAGE_KEYS.ALLOCATIONS, []);
+    const newAllocation: ContactAllocation = {
+      id: `alc_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      allocationBatchId: `alc_self_${Date.now()}`,
+      contactId: targetContact.id,
+      teamMemberId: data.memberId,
+      supervisorId: data.memberId,
+      teamId: data.teamId,
+      allocatedAt: now,
+      isSelfAdded: true,
+      allocationSource: 'SELF_ADDED',
+    };
+    allocations.push(newAllocation);
+    setStoredItem(STORAGE_KEYS.ALLOCATIONS, allocations);
+
+    return targetContact;
   }
 }
 
@@ -459,6 +538,22 @@ export class MockActivityLogRepository implements IActivityLogRepository {
     return logs.filter((l) => l.userId === userId);
   }
 
+  async getRecentWithinMonth(userId?: string): Promise<ActivityLog[]> {
+    await delay();
+    const logs = getStoredItem<ActivityLog>(STORAGE_KEYS.ACTIVITY_LOGS, []);
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+    const cutoffTime = oneMonthAgo.getTime();
+
+    return logs
+      .filter((l) => {
+        const matchesUser = !userId || l.userId === userId;
+        const isRecent = new Date(l.createdAt).getTime() >= cutoffTime;
+        return matchesUser && isRecent;
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
   async getByEntity(entityType: string, entityId: string): Promise<ActivityLog[]> {
     await delay();
     const logs = getStoredItem<ActivityLog>(STORAGE_KEYS.ACTIVITY_LOGS, []);
@@ -545,5 +640,359 @@ export class MockEmailNotificationRepository implements IEmailNotificationReposi
     list.push(newRecord);
     setStoredItem(STORAGE_KEYS.EMAIL_NOTIFICATIONS, list);
     return newRecord;
+  }
+}
+
+export class MockProductRepository implements IProductRepository {
+  async getAll(): Promise<Product[]> {
+    await delay();
+    return getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+  }
+
+  async getById(id: string): Promise<Product | null> {
+    await delay();
+    const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+    return products.find((p) => p.id === id) || null;
+  }
+
+  async getByTeamId(teamId: string): Promise<Product[]> {
+    await delay();
+    const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+    return products.filter((p) => p.teamId === teamId);
+  }
+
+  async create(productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product> {
+    await delay();
+    const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+    const now = new Date().toISOString();
+    const newProduct: Product = {
+      ...productData,
+      id: `prd_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    products.push(newProduct);
+    setStoredItem(STORAGE_KEYS.PRODUCTS, products);
+    return newProduct;
+  }
+
+  async update(id: string, updates: Partial<Product>): Promise<Product> {
+    await delay();
+    const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+    const idx = products.findIndex((p) => p.id === id);
+    if (idx === -1) throw new Error('Product not found');
+    const updated = { ...products[idx], ...updates, updatedAt: new Date().toISOString() };
+    products[idx] = updated;
+    setStoredItem(STORAGE_KEYS.PRODUCTS, products);
+    return updated;
+  }
+
+  async updateStock(id: string, stockDelta: number): Promise<Product> {
+    await delay();
+    const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+    const idx = products.findIndex((p) => p.id === id);
+    if (idx === -1) throw new Error('Product not found');
+    const newStock = Math.max(0, products[idx].currentStock + stockDelta);
+    const updated = { ...products[idx], currentStock: newStock, updatedAt: new Date().toISOString() };
+    products[idx] = updated;
+    setStoredItem(STORAGE_KEYS.PRODUCTS, products);
+    return updated;
+  }
+}
+
+export class MockStockActivityLogRepository implements IStockActivityLogRepository {
+  async getAll(): Promise<StockActivityLog[]> {
+    await delay();
+    const logs = getStoredItem<StockActivityLog>(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, []);
+    return logs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getByProductId(productId: string): Promise<StockActivityLog[]> {
+    await delay();
+    const logs = getStoredItem<StockActivityLog>(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, []);
+    return logs.filter((l) => l.productId === productId);
+  }
+
+  async getByTeamId(teamId: string): Promise<StockActivityLog[]> {
+    await delay();
+    const logs = getStoredItem<StockActivityLog>(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, []);
+    return logs.filter((l) => l.teamId === teamId);
+  }
+
+  async create(logData: Omit<StockActivityLog, 'id' | 'createdAt'>): Promise<StockActivityLog> {
+    await delay();
+    const logs = getStoredItem<StockActivityLog>(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, []);
+    const newLog: StockActivityLog = {
+      ...logData,
+      id: `skl_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      createdAt: new Date().toISOString(),
+    };
+    logs.push(newLog);
+    setStoredItem(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, logs);
+    return newLog;
+  }
+}
+
+export class MockApprovalRequestRepository implements IApprovalRequestRepository {
+  async getAll(): Promise<ApprovalRequest[]> {
+    await delay();
+    const requests = getStoredItem<ApprovalRequest>(STORAGE_KEYS.APPROVAL_REQUESTS, []);
+    return requests.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getById(id: string): Promise<ApprovalRequest | null> {
+    await delay();
+    const requests = getStoredItem<ApprovalRequest>(STORAGE_KEYS.APPROVAL_REQUESTS, []);
+    return requests.find((r) => r.id === id) || null;
+  }
+
+  async getByStatus(status: ApprovalStatus): Promise<ApprovalRequest[]> {
+    await delay();
+    const requests = getStoredItem<ApprovalRequest>(STORAGE_KEYS.APPROVAL_REQUESTS, []);
+    return requests.filter((r) => r.status === status);
+  }
+
+  async getByTeamId(teamId: string): Promise<ApprovalRequest[]> {
+    await delay();
+    const requests = getStoredItem<ApprovalRequest>(STORAGE_KEYS.APPROVAL_REQUESTS, []);
+    return requests.filter((r) => r.teamId === teamId);
+  }
+
+  async create(requestData: Omit<ApprovalRequest, 'id' | 'createdAt' | 'status'>): Promise<ApprovalRequest> {
+    await delay();
+    const requests = getStoredItem<ApprovalRequest>(STORAGE_KEYS.APPROVAL_REQUESTS, []);
+    const newReq: ApprovalRequest = {
+      ...requestData,
+      id: `apr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      status: 'PENDING',
+      createdAt: new Date().toISOString(),
+    };
+    requests.push(newReq);
+    setStoredItem(STORAGE_KEYS.APPROVAL_REQUESTS, requests);
+    return newReq;
+  }
+
+  async review(id: string, status: 'APPROVED' | 'REJECTED', reviewedBy: User, rejectionReason?: string): Promise<ApprovalRequest> {
+    await delay();
+    const requests = getStoredItem<ApprovalRequest>(STORAGE_KEYS.APPROVAL_REQUESTS, []);
+    const idx = requests.findIndex((r) => r.id === id);
+    if (idx === -1) throw new Error('Approval request not found');
+
+    const updated: ApprovalRequest = {
+      ...requests[idx],
+      status,
+      reviewedById: reviewedBy.id,
+      reviewedByName: reviewedBy.fullName,
+      reviewedDate: new Date().toISOString(),
+      rejectionReason: status === 'REJECTED' ? rejectionReason : undefined,
+    };
+    requests[idx] = updated;
+    setStoredItem(STORAGE_KEYS.APPROVAL_REQUESTS, requests);
+
+    // Apply approved changes to Product & StockActivityLog automatically
+    if (status === 'APPROVED') {
+      const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+      const stockLogs = getStoredItem<StockActivityLog>(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, []);
+
+      // Case A: Multi-product bulk stock addition
+      if (updated.requestType === 'STOCK_ADDITION' && updated.items && updated.items.length > 0) {
+        for (const item of updated.items) {
+          const pIdx = products.findIndex((p) => p.id === item.productId);
+          if (pIdx !== -1) {
+            const prod = products[pIdx];
+            const prevStock = prod.currentStock;
+            const newStock = prod.currentStock + item.quantity;
+            products[pIdx].currentStock = newStock;
+            products[pIdx].updatedAt = new Date().toISOString();
+
+            stockLogs.push({
+              id: `skl_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+              productId: item.productId,
+              productName: item.productName,
+              teamId: updated.teamId,
+              action: 'ADD',
+              quantity: item.quantity,
+              previousStock: prevStock,
+              newStock: newStock,
+              performedBy: updated.requestedById,
+              performedByName: updated.requestedByName,
+              approvalRequestId: updated.id,
+              approvalStatus: 'APPROVED',
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+        setStoredItem(STORAGE_KEYS.PRODUCTS, products);
+        setStoredItem(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, stockLogs);
+      } else {
+        // Case B: Single product stock addition or price change
+        const pIdx = products.findIndex((p) => p.id === updated.productId);
+        if (pIdx !== -1) {
+          const prod = products[pIdx];
+          let actionType: 'ADD' | 'REMOVE' | 'ADJUST' | 'PRICE_CHANGE' = 'ADD';
+          let prevStock = prod.currentStock;
+          let newStock = prod.currentStock;
+          let prevCost = prod.costPrice;
+          let newCost = prod.costPrice;
+          let prevSelling = prod.sellingPrice;
+          let newSelling = prod.sellingPrice;
+
+          if (updated.requestType === 'STOCK_ADDITION' && updated.quantity) {
+            actionType = 'ADD';
+            newStock = prod.currentStock + updated.quantity;
+            products[pIdx].currentStock = newStock;
+          } else if (updated.requestType === 'PRODUCT_COST_PRICE_CHANGE' && updated.newValue !== undefined) {
+            actionType = 'PRICE_CHANGE';
+            newCost = updated.newValue;
+            products[pIdx].costPrice = newCost;
+          } else if (updated.requestType === 'PRODUCT_SELLING_PRICE_CHANGE' && updated.newValue !== undefined) {
+            actionType = 'PRICE_CHANGE';
+            newSelling = updated.newValue;
+            products[pIdx].sellingPrice = newSelling;
+          }
+          products[pIdx].updatedAt = new Date().toISOString();
+          setStoredItem(STORAGE_KEYS.PRODUCTS, products);
+
+          // Record stock log
+          stockLogs.push({
+            id: `skl_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            productId: prod.id,
+            productName: prod.name,
+            teamId: prod.teamId,
+            action: actionType,
+            quantity: updated.quantity || 0,
+            previousStock: prevStock,
+            newStock: newStock,
+            previousCostPrice: prevCost,
+            newCostPrice: newCost,
+            previousSellingPrice: prevSelling,
+            newSellingPrice: newSelling,
+            performedBy: updated.requestedById,
+            performedByName: updated.requestedByName,
+            approvalRequestId: updated.id,
+            approvalStatus: 'APPROVED',
+            createdAt: new Date().toISOString(),
+          });
+          setStoredItem(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, stockLogs);
+        }
+      }
+    }
+
+    return updated;
+  }
+}
+
+export class MockPettyCashRepository implements IPettyCashRepository {
+  async getWallet(teamId?: string): Promise<PettyCashWallet> {
+    await delay();
+    const wallets = getStoredItem<PettyCashWallet>(STORAGE_KEYS.PETTY_CASH_WALLET, []);
+    let wallet = wallets.find((w) => !teamId || w.teamId === teamId);
+
+    if (!wallet) {
+      wallet = {
+        id: `wallet_${teamId || 'main'}`,
+        teamId: teamId || 'team_001',
+        allocatedAmount: 50000,
+        usedAmount: 0,
+        remainingBalance: 50000,
+        updatedAt: new Date().toISOString(),
+      };
+      wallets.push(wallet);
+      setStoredItem(STORAGE_KEYS.PETTY_CASH_WALLET, wallets);
+    }
+    return wallet;
+  }
+
+  async getTransactions(): Promise<PettyCashTransaction[]> {
+    await delay();
+    const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
+    return txs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async allocate(amount: number, user: User, reason = 'Petty Cash Allocation'): Promise<PettyCashWallet> {
+    await delay();
+    const wallet = await this.getWallet(user.teamId || undefined);
+    const wallets = getStoredItem<PettyCashWallet>(STORAGE_KEYS.PETTY_CASH_WALLET, []);
+    const idx = wallets.findIndex((w) => w.id === wallet.id);
+
+    const newAllocated = wallet.allocatedAmount + amount;
+    const newRemaining = wallet.remainingBalance + amount;
+    const updatedWallet: PettyCashWallet = {
+      ...wallet,
+      allocatedAmount: newAllocated,
+      remainingBalance: newRemaining,
+      updatedAt: new Date().toISOString(),
+    };
+    if (idx !== -1) {
+      wallets[idx] = updatedWallet;
+    } else {
+      wallets.push(updatedWallet);
+    }
+    setStoredItem(STORAGE_KEYS.PETTY_CASH_WALLET, wallets);
+
+    // Record transaction
+    const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
+    txs.push({
+      id: `pct_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      transactionType: 'ALLOCATION',
+      reason,
+      category: 'Allocation',
+      amount,
+      date: new Date().toISOString().split('T')[0],
+      description: `Allocated LKR ${amount.toLocaleString()} by ${user.fullName}`,
+      userId: user.id,
+      userName: user.fullName,
+      remainingBalance: newRemaining,
+      createdAt: new Date().toISOString(),
+    });
+    setStoredItem(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, txs);
+
+    return updatedWallet;
+  }
+
+  async recordExpense(
+    data: { amount: number; reason: string; category: string; description: string; date: string },
+    user: User
+  ): Promise<PettyCashTransaction> {
+    await delay();
+    const wallet = await this.getWallet(user.teamId || undefined);
+
+    if (data.amount > wallet.remainingBalance) {
+      throw new Error(`Expense amount (LKR ${data.amount.toLocaleString()}) exceeds available petty cash balance (LKR ${wallet.remainingBalance.toLocaleString()})`);
+    }
+
+    const wallets = getStoredItem<PettyCashWallet>(STORAGE_KEYS.PETTY_CASH_WALLET, []);
+    const idx = wallets.findIndex((w) => w.id === wallet.id);
+
+    const newUsed = wallet.usedAmount + data.amount;
+    const newRemaining = wallet.remainingBalance - data.amount;
+
+    const updatedWallet: PettyCashWallet = {
+      ...wallet,
+      usedAmount: newUsed,
+      remainingBalance: newRemaining,
+      updatedAt: new Date().toISOString(),
+    };
+    if (idx !== -1) wallets[idx] = updatedWallet;
+    setStoredItem(STORAGE_KEYS.PETTY_CASH_WALLET, wallets);
+
+    const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
+    const newTx: PettyCashTransaction = {
+      id: `pct_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      transactionType: 'EXPENSE',
+      reason: data.reason,
+      category: data.category,
+      amount: data.amount,
+      date: data.date,
+      description: data.description,
+      userId: user.id,
+      userName: user.fullName,
+      remainingBalance: newRemaining,
+      createdAt: new Date().toISOString(),
+    };
+    txs.push(newTx);
+    setStoredItem(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, txs);
+
+    return newTx;
   }
 }

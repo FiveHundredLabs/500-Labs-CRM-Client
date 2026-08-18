@@ -6,28 +6,35 @@ import {
   contactRepository,
   orderRepository,
   activityLogRepository,
-  deliveryStatusHistoryRepository,
   expenseRepository,
-  callLogRepository,
+  approvalRequestRepository,
+  emailNotificationRepository,
 } from '../../repositories';
-import { Team, User, Contact, Order, ActivityLog, DeliveryStatusHistory, Expense, CallLog } from '../../models/domain';
-import { SupervisorAnalyticsService } from '../../services/supervisorAnalyticsService';
-import { AdminAnalyticsService } from '../../services/adminAnalyticsService';
+import { Team, User, Contact, Order, ActivityLog, Expense, ApprovalRequest, EmailNotification } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
 import { ActivityTimeline } from '../../components/shared/ActivityTimeline';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { Leaderboard } from '../../components/leaderboard';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
-import { PhoneCall, CheckCircle2, Package, Trophy, ArrowRight, DollarSign } from 'lucide-react';
+import {
+  PhoneCall,
+  CheckCircle2,
+  Package,
+  Trophy,
+  ArrowRight,
+  DollarSign,
+  Users,
+  Shield,
+  Layers,
+  FileSpreadsheet,
+  PieChart as PieChartIcon,
+  Bell,
+  Clock,
+  AlertTriangle,
+} from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
-
-const COMPANY_LINE_COLORS: Record<string, string> = {
-  'Brand Alpha': '#7c3aed', // Primary Purple
-  'Brand Beta': '#2563eb',  // Royal Blue
-};
-const FALLBACK_COLORS = ['#7c3aed', '#2563EB', '#16A34A', '#D97706', '#4F46E5', '#EC4899'];
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -36,203 +43,279 @@ export const AdminDashboard: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
-  const [histories, setHistories] = useState<DeliveryStatusHistory[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [callLogs, setCallLogs] = useState<CallLog[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
+  const [emailLogs, setEmailLogs] = useState<EmailNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
+    const loadAll = async () => {
       setLoading(true);
       try {
-        const [tList, uList, cList, oList, logs, dshList, expList, clList] = await Promise.all([
+        const [tList, uList, cList, oList, logs, expList, reqList, eLogs] = await Promise.all([
           teamRepository.getAll(),
           userRepository.getAll(),
           contactRepository.getAll(),
           orderRepository.getAll(),
           activityLogRepository.getAll(),
-          deliveryStatusHistoryRepository.getAll(),
           expenseRepository.getAll(),
-          callLogRepository.getAll(),
+          approvalRequestRepository.getAll(),
+          emailNotificationRepository.getAll(),
         ]);
         setTeams(tList);
         setUsers(uList);
         setContacts(cList);
         setOrders(oList);
-        setActivities(logs.slice(0, 5));
-        setHistories(dshList);
+        setActivities(logs);
         setExpenses(expList);
-        setCallLogs(clList);
+        setPendingApprovals(reqList.filter((r) => r.status === 'PENDING'));
+        setEmailLogs(eLogs);
       } finally {
         setLoading(false);
       }
     };
-    load();
+    loadAll();
   }, []);
 
-  if (loading) return <LoadingState rows={6} />;
+  // Dynamic KPI Metrics
+  const lastDispatchedCount = orders.filter((o) => o.status === 'DISPATCHED').length;
+  const totalDeliveredOrders = orders.filter((o) => o.status === 'DELIVERED').length;
+  const todayInterestedCount = contacts.filter((c) => c.status === 'INTERESTED').length;
+  const totalMonthlyExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
 
-  // 1. Dynamic KPI Calculations via AdminAnalyticsService
-  const thisMonthDeliveredOrders = AdminAnalyticsService.getThisMonthDeliveredOrders(orders, histories);
-  const todayInterestedCount = AdminAnalyticsService.getTodayInterestedCount(contacts, callLogs);
-  const { count: lastDispatchedCount, latestDate: lastDispatchedDate } = AdminAnalyticsService.getLastDispatchedInfo(orders, histories);
-  const thisMonthExpenses = AdminAnalyticsService.getThisMonthExpenses(expenses);
-
-  // 2. Line Chart Data (Last 12 Months Delivered Orders by Company)
-  const monthlyDeliveredData = AdminAnalyticsService.getMonthlyDeliveredOrdersByCompany(orders, teams, histories);
-
-  // 3. Dynamic calculation for Team Leaderboards Section
-  const teamLeaderboardSummaries = teams.map((team) => {
-    const teamMembers = users.filter(
-      (u) => u.teamId === team.id && u.role === 'TEAM_MEMBER' && u.isActive
-    );
-    const teamOrders = orders.filter((o) => o.teamId === team.id);
-    const stats = SupervisorAnalyticsService.computeLeaderboard(teamMembers, teamOrders);
-
-    return {
-      team,
-      stats,
-    };
+  // Dynamic Per-Team Leaderboards based on loaded teams
+  const teamLeaderboards = teams.map((team) => {
+    const teamMembers = users.filter((u) => u.teamId === team.id && u.role === 'TEAM_MEMBER');
+    const list = teamMembers.map((m) => {
+      const memberOrders = orders.filter((o) => o.teamMemberId === m.id);
+      const deliveredCount = memberOrders.filter((o) => o.status === 'DELIVERED').length;
+      return {
+        id: m.id,
+        rank: 0,
+        name: m.fullName,
+        avatarUrl: m.avatarUrl,
+        primaryValue: deliveredCount,
+        secondaryValue: memberOrders.length,
+        primaryLabel: 'Delivered',
+        secondaryLabel: 'Handled Orders',
+        unitLabel: 'orders',
+      };
+    });
+    list.sort((a, b) => b.primaryValue - a.primaryValue || b.secondaryValue - a.secondaryValue);
+    list.forEach((item, idx) => {
+      item.rank = idx + 1;
+    });
+    return { team, items: list.slice(0, 5) };
   });
 
+  const recentActivities: ActivityLog[] = activities.slice(0, 6);
+
+  if (loading) return <LoadingState rows={8} />;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <PageHeader
-        title="Executive Dashboard"
-        description="System-wide metrics, sales trends, and team performance audit"
+        title="Executive Overview"
+        description="System-wide performance metrics, multi-brand sales trends, and cross-team audit"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Bell className="w-4 h-4 text-amber-600" />}
+              onClick={() => navigate('/admin/approvals')}
+            >
+              Approvals Queue ({pendingApprovals.length})
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<PieChartIcon className="w-4 h-4 text-blue-600" />}
+              onClick={() => navigate('/admin/reports')}
+            >
+              System Reports
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Users className="w-4 h-4" />}
+              onClick={() => navigate('/admin/users')}
+            >
+              Manage Users
+            </Button>
+          </div>
+        }
       />
 
-      {/* Dynamic Metric Cards */}
+      {/* In-System Notifications & Pending Approvals Banner (Section 6) */}
+      {pendingApprovals.length > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-wrap items-center justify-between gap-3 text-amber-900 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="font-bold text-xs uppercase tracking-wider text-amber-800 flex items-center gap-2">
+                <span>In-System Notification: Pending Approval Requests</span>
+                <span className="bg-amber-200 text-amber-900 px-2 py-0.2 rounded-full font-extrabold text-[10px]">
+                  {pendingApprovals.length} Pending
+                </span>
+              </div>
+              <div className="text-xs text-amber-900 mt-0.5">
+                {pendingApprovals.map((r) => `${r.requestedByName}: ${r.requestType.replace(/_/g, ' ')} (${r.productName})`).join(' • ')}
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => navigate('/admin/approvals')}
+            className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs"
+          >
+            Review Approvals Center
+          </Button>
+        </div>
+      )}
+
+      {/* 1. Executive KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="This Month Delivered Orders"
-          value={thisMonthDeliveredOrders}
-          subtitle="Delivered in current calendar month"
-          icon={<CheckCircle2 className="w-4 h-4" />}
+          title="Last Dispatched Batch"
+          value={`${lastDispatchedCount} Orders`}
+          subtitle="Total dispatched orders"
+          icon={<Package className="w-4 h-4 text-emerald-600" />}
           accentColor="green"
         />
+
         <StatCard
-          title="Today's Interested Count"
-          value={todayInterestedCount}
-          subtitle="Interested leads recorded today"
-          icon={<PhoneCall className="w-4 h-4" />}
+          title="This Month Delivered Orders"
+          value={totalDeliveredOrders}
+          subtitle="Successful customer handovers"
+          icon={<CheckCircle2 className="w-4 h-4 text-blue-600" />}
           accentColor="blue"
         />
+
         <StatCard
-          title="Last Dispatched Count"
-          value={lastDispatchedCount}
-          subtitle={lastDispatchedDate ? `Latest dispatch: ${lastDispatchedDate}` : 'Most recent dispatch date'}
-          icon={<Package className="w-4 h-4" />}
-          accentColor="amber"
-        />
-        <StatCard
-          title="This Month Expenses"
-          value={formatCurrency(thisMonthExpenses)}
-          subtitle="Current calendar month total expenses"
-          icon={<DollarSign className="w-4 h-4" />}
+          title="Today's Interested Leads"
+          value={todayInterestedCount}
+          subtitle="Qualified from live tele-calling"
+          icon={<PhoneCall className="w-4 h-4 text-purple-600" />}
           accentColor="purple"
+        />
+
+        <StatCard
+          title="Monthly Operating Expenses"
+          value={formatCurrency(totalMonthlyExpenses)}
+          subtitle="Finance logged expenditures"
+          icon={<DollarSign className="w-4 h-4 text-amber-600" />}
+          accentColor="amber"
         />
       </div>
 
-      {/* Monthly Delivered Orders Line Chart (Last 12 Months) */}
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Monthly Delivered Orders</CardTitle>
-            <CardDescription>Last 12 Months Delivered Orders</CardDescription>
+      {/* 2. Quick Executive Action Navigation Strip */}
+      <Card className="border-slate-200 shadow-2xs">
+        <CardContent className="p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Shield className="w-4 h-4 text-blue-600" />
+              <span>Multi-Team Management Shortcuts:</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}
+                onClick={() => navigate('/admin/import')}
+              >
+                Import Leads
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<Layers className="w-3.5 h-3.5 text-blue-600" />}
+                onClick={() => navigate('/admin/allocation')}
+              >
+                Allocate Contacts
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<Package className="w-3.5 h-3.5 text-amber-600" />}
+                onClick={() => navigate('/admin/orders')}
+              >
+                Dispatched Orders
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<DollarSign className="w-3.5 h-3.5 text-purple-600" />}
+                onClick={() => navigate('/admin/finance/expenses')}
+              >
+                Expenses Register
+              </Button>
+            </div>
           </div>
-        </CardHeader>
-        <CardContent className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={monthlyDeliveredData} margin={{ top: 20, right: 30, left: -10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-              <XAxis dataKey="monthLabel" stroke="#64748B" fontSize={12} tickLine={false} axisLine={{ stroke: '#E2E8F0' }} />
-              <YAxis stroke="#64748B" fontSize={12} tickLine={false} axisLine={{ stroke: '#E2E8F0' }} allowDecimals={false} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #E2E8F0',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 12px rgba(15, 23, 42, 0.08)',
-                  color: '#0F172A',
-                  fontSize: '12px',
-                }}
-              />
-              <Legend wrapperStyle={{ paddingTop: '10px' }} />
-              {teams.map((team, idx) => (
-                <Line
-                  key={team.id}
-                  type="monotone"
-                  dataKey={team.name}
-                  name={team.name}
-                  stroke={COMPANY_LINE_COLORS[team.name] || team.brandColor || FALLBACK_COLORS[idx % FALLBACK_COLORS.length]}
-                  strokeWidth={2.5}
-                  dot={{ r: 4, strokeWidth: 2 }}
-                  activeDot={{ r: 6 }}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Dynamic Team Leaderboards Comparison Section */}
+      {/* 3. Team Leaderboards Comparison Section */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-amber-500" />
-              <span>Team Performance Leaderboards</span>
+              <span>Top Tele-Calling Specialists Ranking</span>
             </h2>
             <p className="text-xs text-slate-500">
-              Comparative view of member rankings across teams
+              Performance leaderboard by verified delivered orders across teams
             </p>
           </div>
-          <button
-            onClick={() => navigate('/admin/leaderboards')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer self-start sm:self-auto"
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<ArrowRight className="w-3.5 h-3.5" />}
+            onClick={() => navigate('/supervisor/team-members')}
           >
-            <span>View Full Leaderboards Module</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+            Full Performance Report
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {teamLeaderboardSummaries.map(({ team, stats }) => {
-            const isBrandAlpha = team.name.toLowerCase().includes('alpha');
-            return (
-              <Leaderboard
-                key={team.id}
-                items={stats.map((m) => ({
-                  id: m.memberId,
-                  rank: m.rank,
-                  name: m.memberName,
-                  avatarUrl: m.avatarUrl,
-                  primaryValue: m.deliveredOrders,
-                  secondaryValue: m.totalOrders,
-                  primaryLabel: 'Delivered',
-                  secondaryLabel: 'Handled Orders',
-                  unitLabel: 'orders',
-                }))}
-                compact={true}
-                limit={isBrandAlpha ? 3 : undefined}
-                title={`${team.name} Leaderboard`}
-                unitLabel="orders"
-                onViewFullLeaderboard={() => navigate('/admin/leaderboards')}
-              />
-            );
-          })}
+          {teamLeaderboards.map(({ team, items }) => (
+            <Leaderboard
+              key={team.id}
+              items={items}
+              compact={true}
+              title={`${team.name} Leaderboard`}
+              unitLabel="orders"
+              onViewFullLeaderboard={() => navigate('/supervisor/team-members')}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Audit Log */}
-      <Card>
-        <CardHeader>
-          <CardTitle>System Activity Audit</CardTitle>
-          <CardDescription>Recent cross-team operations and user actions</CardDescription>
+      {/* 6. Live System Activity Audit Stream */}
+      <Card className="border-slate-200 shadow-2xs">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="w-4 h-4 text-blue-600" />
+              <span>System Activity Audit Stream</span>
+            </CardTitle>
+            <CardDescription>Live record of multi-team operations and platform state transitions</CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={<ArrowRight className="w-3.5 h-3.5" />}
+            onClick={() => navigate('/admin/activity')}
+          >
+            View All Logs
+          </Button>
         </CardHeader>
-        <CardContent className="max-h-[350px] overflow-y-auto">
-          <ActivityTimeline activities={activities} />
+        <CardContent className="p-4 sm:p-6 max-h-[360px] overflow-y-auto">
+          <ActivityTimeline activities={recentActivities} />
         </CardContent>
       </Card>
     </div>

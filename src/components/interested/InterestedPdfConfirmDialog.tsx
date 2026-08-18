@@ -23,13 +23,13 @@ export const InterestedPdfConfirmDialog: React.FC<InterestedPdfConfirmDialogProp
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="PDF Downloaded"
-      description="Have you printed these billing slips?"
+      title="PDF Downloaded Successfully"
+      description="Update order status for downloaded billing slips"
       maxWidth="sm"
     >
       <div className="space-y-4">
         <p className="text-xs text-slate-600 leading-relaxed">
-          Confirming will transition the <strong>{selectedCount}</strong> selected lead(s) from <strong>INTERESTED</strong> to <strong>DISPATCHED</strong> and remove them from this list.
+          The PDF billing slips file has been downloaded. Would you like to transition the <strong>{selectedCount}</strong> selected lead(s) from <strong>INTERESTED</strong> to <strong>DISPATCHED</strong>?
         </p>
         <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
           <Button
@@ -38,7 +38,7 @@ export const InterestedPdfConfirmDialog: React.FC<InterestedPdfConfirmDialogProp
             onClick={onClose}
             disabled={isDispatching}
           >
-            Cancel
+            Keep as Interested
           </Button>
           <Button
             variant="primary"
@@ -46,7 +46,7 @@ export const InterestedPdfConfirmDialog: React.FC<InterestedPdfConfirmDialogProp
             onClick={onConfirmDispatched}
             isLoading={isDispatching}
           >
-            OK / Mark as Dispatched
+            Change Status to Dispatched
           </Button>
         </div>
       </div>

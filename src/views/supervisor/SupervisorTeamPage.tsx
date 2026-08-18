@@ -12,6 +12,7 @@ import { ProfileAvatar } from '../../components/shared/ProfileAvatar';
 import { EditableProfileAvatar } from '../../components/shared/EditableProfileAvatar';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
+import { UserProfileDossier } from '../../components/profile/UserProfileDossier';
 import toast from 'react-hot-toast';
 import { UserPlus, Edit2, UserX, Eye, Mail, Phone, MapPin, Calendar, CreditCard, Shield } from 'lucide-react';
 import { format } from 'date-fns';
@@ -22,7 +23,7 @@ export const SupervisorTeamPage: React.FC = () => {
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // View Member Details Modal State
+  // View Member Details State
   const [viewingMember, setViewingMember] = useState<User | null>(null);
 
   // Add/Edit Modal
@@ -36,6 +37,7 @@ export const SupervisorTeamPage: React.FC = () => {
   const [city, setCity] = useState('');
   const [nic, setNic] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('1995-05-15');
+  const [joiningDate, setJoiningDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -65,6 +67,7 @@ export const SupervisorTeamPage: React.FC = () => {
     setCity('');
     setNic('');
     setDateOfBirth('1995-05-15');
+    setJoiningDate(format(new Date(), 'yyyy-MM-dd'));
     setAvatarUrl('');
     setIsModalOpen(true);
   };
@@ -77,6 +80,7 @@ export const SupervisorTeamPage: React.FC = () => {
     setCity(member.city);
     setNic(member.nic || '');
     setDateOfBirth(member.dateOfBirth || '1995-05-15');
+    setJoiningDate(member.joiningDate ? member.joiningDate.split('T')[0] : format(new Date(), 'yyyy-MM-dd'));
     setAvatarUrl(member.avatarUrl || '');
     setIsModalOpen(true);
   };
@@ -90,7 +94,7 @@ export const SupervisorTeamPage: React.FC = () => {
       if (editingMember) {
         await UserService.updateUser(
           editingMember.id,
-          { fullName, email, phone, city, nic, dateOfBirth, avatarUrl },
+          { fullName, email, phone, city, nic, dateOfBirth, joiningDate, joinedDate: joiningDate, avatarUrl },
           user!
         );
         toast.success(`Updated details for ${fullName}`);
@@ -107,8 +111,9 @@ export const SupervisorTeamPage: React.FC = () => {
             phone,
             nic,
             dateOfBirth,
-            avatarUrl,
-            joiningDate: new Date().toISOString(),
+            joiningDate,
+            joinedDate: joiningDate,
+            avatarUrl: '', // DO NOT allow profile photo upload during creation
             isActive: true,
           },
           user!
@@ -141,11 +146,20 @@ export const SupervisorTeamPage: React.FC = () => {
 
   if (loading) return <LoadingState rows={6} />;
 
+  if (viewingMember) {
+    return (
+      <UserProfileDossier
+        user={viewingMember}
+        onClose={() => setViewingMember(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Team Members"
-        description="Manage tele-calling team specialists and account permissions"
+        description="Manage tele-calling team specialists, performance analytics, and profile accounts."
         actions={
           <Button variant="primary" leftIcon={<UserPlus className="w-4 h-4" />} onClick={openAddModal}>
             Add Team Member
@@ -160,7 +174,7 @@ export const SupervisorTeamPage: React.FC = () => {
               <th className="py-3 px-3 sm:px-4">Member</th>
               <th className="py-3 px-4 hidden md:table-cell">Contact Info</th>
               <th className="py-3 px-4 hidden md:table-cell">Location</th>
-              <th className="py-3 px-4 hidden md:table-cell">Joined Date</th>
+              <th className="py-3 px-4 hidden md:table-cell">Joining Date</th>
               <th className="py-3 px-4 hidden md:table-cell">Status</th>
               <th className="py-3 px-3 sm:px-4 text-right">Actions</th>
             </tr>
@@ -168,7 +182,6 @@ export const SupervisorTeamPage: React.FC = () => {
           <tbody className="divide-y divide-slate-100">
             {members.map((member) => (
               <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
-                {/* Member Name Column (Always Visible) */}
                 <td className="py-3.5 px-3 sm:px-4">
                   <div className="flex items-center gap-2.5 sm:gap-3">
                     <ProfileAvatar name={member.fullName} avatarUrl={member.avatarUrl} size="sm" />
@@ -181,38 +194,32 @@ export const SupervisorTeamPage: React.FC = () => {
                   </div>
                 </td>
 
-                {/* Contact Info (Desktop Only) */}
                 <td className="py-3.5 px-4 text-xs hidden md:table-cell">
                   <div className="text-slate-800">{member.email}</div>
                   <div className="text-slate-400 font-mono mt-0.5">{member.phone}</div>
                 </td>
 
-                {/* Location (Desktop Only) */}
                 <td className="py-3.5 px-4 text-xs text-slate-600 hidden md:table-cell">{member.city}</td>
 
-                {/* Joined Date (Desktop Only) */}
                 <td className="py-3.5 px-4 text-xs text-slate-500 hidden md:table-cell">
                   {format(new Date(member.joiningDate), 'MMM dd, yyyy')}
                 </td>
 
-                {/* Status (Desktop Only) */}
                 <td className="py-3.5 px-4 hidden md:table-cell">
                   <StatusBadge type="user" status={String(member.isActive)} />
                 </td>
 
-                {/* Actions (Always Visible on all mobile screens) */}
                 <td className="py-3.5 px-3 sm:px-4 text-right whitespace-nowrap">
                   <div className="flex items-center justify-end gap-1 sm:gap-1.5">
-                    {/* View Button */}
                     <Button
                       variant="outline"
                       size="sm"
                       leftIcon={<Eye className="w-3.5 h-3.5 text-blue-600" />}
                       onClick={() => setViewingMember(member)}
                       className="px-2 sm:px-3 text-xs"
-                      title="View Member Profile Details"
+                      title="View Detailed Analytics & Performance"
                     >
-                      <span className="hidden sm:inline">View</span>
+                      <span className="hidden sm:inline">View Details</span>
                     </Button>
 
                     <Button
@@ -246,116 +253,6 @@ export const SupervisorTeamPage: React.FC = () => {
         </table>
       </div>
 
-      {/* Member Details Pop-up Modal */}
-      {viewingMember && (
-        <Dialog
-          isOpen={!!viewingMember}
-          onClose={() => setViewingMember(null)}
-          title="Team Member Profile"
-          description="Complete personal information and employee profile details"
-          maxWidth="md"
-        >
-          <div className="space-y-4">
-            {/* Header Profile Info */}
-            <div className="flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 bg-slate-50 border border-slate-200 rounded-xl">
-              <ProfileAvatar
-                name={viewingMember.fullName}
-                avatarUrl={viewingMember.avatarUrl}
-                size="lg"
-              />
-              <div className="space-y-1 min-w-0">
-                <div className="font-bold text-sm sm:text-base text-slate-900 flex flex-wrap items-center gap-2">
-                  <span className="truncate">{viewingMember.fullName}</span>
-                  <StatusBadge type="user" status={String(viewingMember.isActive)} />
-                </div>
-                <div className="text-xs text-slate-500 font-mono">ID: {viewingMember.id}</div>
-                <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
-                  <Shield className="w-3 h-3" />
-                  <span>Sales Specialist</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Detailed Properties Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs">
-              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
-                <div className="text-slate-400 font-medium flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Email Address</span>
-                </div>
-                <div className="font-semibold text-slate-900 break-all">{viewingMember.email}</div>
-              </div>
-
-              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
-                <div className="text-slate-400 font-medium flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Phone Number</span>
-                </div>
-                <div className="font-semibold font-mono text-slate-900">{viewingMember.phone}</div>
-              </div>
-
-              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
-                <div className="text-slate-400 font-medium flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                  <span>City / Location</span>
-                </div>
-                <div className="font-semibold text-slate-900">{viewingMember.city || 'Not Specified'}</div>
-              </div>
-
-              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
-                <div className="text-slate-400 font-medium flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-                  <span>NIC / National ID</span>
-                </div>
-                <div className="font-semibold font-mono text-slate-900">{viewingMember.nic || 'Not Specified'}</div>
-              </div>
-
-              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
-                <div className="text-slate-400 font-medium flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Date of Birth</span>
-                </div>
-                <div className="font-semibold text-slate-900">
-                  {viewingMember.dateOfBirth
-                    ? format(new Date(viewingMember.dateOfBirth), 'MMMM dd, yyyy')
-                    : 'Not Specified'}
-                </div>
-              </div>
-
-              <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
-                <div className="text-slate-400 font-medium flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Joining Date</span>
-                </div>
-                <div className="font-semibold text-slate-900">
-                  {format(new Date(viewingMember.joiningDate), 'MMMM dd, yyyy')}
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<Edit2 className="w-3.5 h-3.5" />}
-                onClick={() => {
-                  const m = viewingMember;
-                  setViewingMember(null);
-                  openEditModal(m);
-                }}
-              >
-                Edit Member Details
-              </Button>
-
-              <Button variant="secondary" size="sm" onClick={() => setViewingMember(null)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        </Dialog>
-      )}
-
       {/* Add/Edit Modal */}
       <Dialog
         isOpen={isModalOpen}
@@ -363,18 +260,21 @@ export const SupervisorTeamPage: React.FC = () => {
         title={editingMember ? 'Edit Team Member' : 'Add New Team Member'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-            <EditableProfileAvatar
-              name={fullName || 'Member'}
-              avatarUrl={avatarUrl}
-              onChangeAvatar={setAvatarUrl}
-              size="lg"
-            />
-            <div>
-              <div className="text-xs font-bold text-slate-900">Profile Photo</div>
-              <div className="text-[11px] text-slate-500">Click camera icon to upload photo</div>
+          {/* Profile photo upload strictly hidden during creation (Requirement 2.4) */}
+          {editingMember && (
+            <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <EditableProfileAvatar
+                name={fullName || 'Member'}
+                avatarUrl={avatarUrl}
+                onChangeAvatar={setAvatarUrl}
+                size="lg"
+              />
+              <div>
+                <div className="text-xs font-bold text-slate-900">Profile Photo</div>
+                <div className="text-[11px] text-slate-500">Click camera icon to update photo</div>
+              </div>
             </div>
-          </div>
+          )}
 
           <Input
             label="Full Name *"
@@ -412,6 +312,13 @@ export const SupervisorTeamPage: React.FC = () => {
             value={dateOfBirth}
             onChange={(e) => setDateOfBirth(e.target.value)}
           />
+          <Input
+            label="Joining Date *"
+            type="date"
+            value={joiningDate}
+            onChange={(e) => setJoiningDate(e.target.value)}
+            required
+          />
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
@@ -437,3 +344,4 @@ export const SupervisorTeamPage: React.FC = () => {
     </div>
   );
 };
+

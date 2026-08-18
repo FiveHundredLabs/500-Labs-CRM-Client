@@ -18,8 +18,8 @@
   },
   {
     "id": "usr_sup_01",
-    "username": "sup_alpha",
-    "email": "supervisor.alpha@crm.com",
+    "username": "supervisor",
+    "email": "supervisor@gmail.com",
     "fullName": "Chamara Silva",
     "role": "SUPERVISOR",
     "teamId": "team_001",
@@ -52,8 +52,8 @@
   },
   {
     "id": "usr_mem_01",
-    "username": "member_a1",
-    "email": "member.a1@crm.com",
+    "username": "member",
+    "email": "member@crm.com",
     "fullName": "Pathum Nishshanka",
     "role": "TEAM_MEMBER",
     "teamId": "team_001",

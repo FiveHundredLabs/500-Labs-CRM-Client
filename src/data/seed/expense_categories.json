@@ -1,32 +1,38 @@
 [
   {
     "id": "cat_001",
-    "name": "Petty Cash",
+    "name": "Postal & Courier Charges",
     "isCustom": false,
-    "description": "Daily office supplies and minor cash expenditures"
+    "description": "SpeedPost and City Courier dispatch fees for customer parcels"
   },
   {
     "id": "cat_002",
-    "name": "Postal Charges",
+    "name": "Printing & Stationery",
     "isCustom": false,
-    "description": "Parcel delivery, postage stamps, and shipping dispatch fees"
+    "description": "A4 Billing sheets, A6 parcel slips, and thermal rolls"
   },
   {
     "id": "cat_003",
-    "name": "Transport",
+    "name": "Petty Cash",
     "isCustom": false,
-    "description": "Local courier travel, field visits, and vehicle logistics"
+    "description": "Daily office refreshments, tea supplies, and sundries"
   },
   {
     "id": "cat_004",
-    "name": "Printing",
+    "name": "Transport & Fuel",
     "isCustom": false,
-    "description": "Delivery label printing, thermal paper rolls, and marketing brochures"
+    "description": "Local courier pickup transport and dispatch van fuel allowance"
   },
   {
     "id": "cat_005",
-    "name": "Other",
-    "isCustom": false,
-    "description": "Miscellaneous operational expenditures requiring custom description"
+    "name": "Office Utilities & Internet",
+    "isCustom": true,
+    "description": "Fiber broadband connection for call center agents"
+  },
+  {
+    "id": "cat_006",
+    "name": "Packaging Materials",
+    "isCustom": true,
+    "description": "Corrugated cartons, bubble wrap, and security tape rolls"
   }
 ]

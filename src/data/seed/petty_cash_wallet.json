@@ -1,0 +1,10 @@
+[
+  {
+    "id": "wallet_main",
+    "teamId": "team_001",
+    "allocatedAmount": 50000,
+    "usedAmount": 2000,
+    "remainingBalance": 48000,
+    "updatedAt": "2026-08-18T12:00:00Z"
+  }
+]

@@ -3,24 +3,24 @@
     "id": "team_001",
     "name": "Brand Alpha",
     "code": "ALPHA",
-    "brandColor": "#7c3aed",
-    "accentColor": "#f5f3ff",
-    "logoText": "ALPHA SALES & LOGISTICS",
+    "brandColor": "#7C3AED",
+    "accentColor": "#F5F3FF",
+    "logoText": "ALPHA CRM & SALES",
     "contactEmail": "support@brandalpha.com",
     "contactPhone": "+1 (800) 555-0199",
-    "address": "100 Commerce Boulevard, Suite 400, Industrial Zone A",
+    "address": "100 Commerce Boulevard, Suite 400, Colombo 03",
     "createdAt": "2026-01-01T00:00:00Z"
   },
   {
     "id": "team_002",
     "name": "Brand Beta",
     "code": "BETA",
-    "brandColor": "#2563eb",
-    "accentColor": "#eff6ff",
-    "logoText": "BETA DIRECT FULFILLMENT",
+    "brandColor": "#2563EB",
+    "accentColor": "#EFF6FF",
+    "logoText": "BETA DIRECT SALES",
     "contactEmail": "contact@brandbeta.com",
     "contactPhone": "+1 (800) 555-0288",
-    "address": "250 Enterprise Way, Building 2, Logistics Park",
+    "address": "250 Enterprise Way, Building 2, Kandy",
     "createdAt": "2026-01-01T00:00:00Z"
   }
 ]

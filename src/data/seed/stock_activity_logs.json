@@ -1,0 +1,31 @@
+[
+  {
+    "id": "skl_001",
+    "productId": "prd_001",
+    "productName": "Adult Package",
+    "teamId": "team_001",
+    "action": "ADD",
+    "quantity": 100,
+    "previousStock": 50,
+    "newStock": 150,
+    "performedBy": "usr_sup_01",
+    "performedByName": "Chamara Silva",
+    "approvalRequestId": "apr_001",
+    "approvalStatus": "APPROVED",
+    "createdAt": "2026-08-15T10:00:00Z"
+  },
+  {
+    "id": "skl_002",
+    "productId": "prd_003",
+    "productName": "Herbal Vitality Supplement A",
+    "teamId": "team_001",
+    "action": "REMOVE",
+    "quantity": 10,
+    "previousStock": 15,
+    "newStock": 5,
+    "performedBy": "usr_sup_01",
+    "performedByName": "Chamara Silva",
+    "approvalStatus": "APPROVED",
+    "createdAt": "2026-08-17T14:20:00Z"
+  }
+]

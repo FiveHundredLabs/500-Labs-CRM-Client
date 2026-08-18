@@ -32,7 +32,7 @@ export const OrdersStats: React.FC<OrdersStatsProps> = ({
         `}
       >
         <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-700">
-          Dispatched
+          Current Dispatched Count
         </div>
         <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-slate-900">
           {dispatchedCount}
@@ -54,7 +54,7 @@ export const OrdersStats: React.FC<OrdersStatsProps> = ({
         `}
       >
         <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-700">
-          Delivered
+          Total Delivered Orders
         </div>
         <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-slate-900">
           {deliveredCount}
@@ -76,7 +76,7 @@ export const OrdersStats: React.FC<OrdersStatsProps> = ({
         `}
       >
         <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-700">
-          Rejected
+          Total Rejected Orders
         </div>
         <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-slate-900">
           {rejectedCount}
