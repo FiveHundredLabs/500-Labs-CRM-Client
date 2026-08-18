@@ -33,6 +33,8 @@ import { AdminReportsPage } from '../views/admin/AdminReportsPage';
 import { AdminActivityPage } from '../views/admin/AdminActivityPage';
 import { AdminLeaderboardsPage } from '../views/admin/AdminLeaderboardsPage';
 import { AdminProfilePage } from '../views/admin/AdminProfilePage';
+import { AdminApprovalsPage } from '../views/admin/AdminApprovalsPage';
+import { AdminProductsPage } from '../views/admin/AdminProductsPage';
 
 // Finance Views
 import { FinanceDashboard } from '../views/finance/FinanceDashboard';
@@ -97,6 +99,8 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute allowedRoles={['ADMIN']} />,
             children: [
               { path: 'dashboard', element: <AdminDashboard /> },
+              { path: 'approvals', element: <AdminApprovalsPage /> },
+              { path: 'products', element: <AdminProductsPage /> },
               { path: 'users', element: <AdminUsersPage /> },
               { path: 'users/:id', element: <AdminEmployeeDetailPage /> },
               { path: 'customers', element: <SupervisorInterestedPage /> },

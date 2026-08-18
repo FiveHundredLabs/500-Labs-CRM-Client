@@ -8,6 +8,7 @@ import { LoadingState } from '../../components/shared/LoadingState';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
+import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import toast from 'react-hot-toast';
 import { Package, PlusCircle, DollarSign, AlertTriangle, Clock, CheckCircle2, XCircle, History, Send } from 'lucide-react';
 import { format } from 'date-fns';
@@ -32,6 +33,10 @@ export const SupervisorStockPage: React.FC = () => {
   const [newSellingPrice, setNewSellingPrice] = useState<number>(0);
   const [priceReason, setPriceReason] = useState<string>('');
   const [isSubmittingPrice, setIsSubmittingPrice] = useState(false);
+
+  // Critical Action Confirmation States
+  const [confirmingStockSubmit, setConfirmingStockSubmit] = useState(false);
+  const [confirmingPriceSubmit, setConfirmingPriceSubmit] = useState(false);
 
   const loadData = async () => {
     if (!user || !user.teamId) return;
@@ -363,7 +368,13 @@ export const SupervisorStockPage: React.FC = () => {
         title="Request Stock Addition"
         description="Submit stock quantity request for Admin approval"
       >
-        <form onSubmit={handleRequestStockAddition} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setConfirmingStockSubmit(true);
+          }}
+          className="space-y-4"
+        >
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1">
             <div className="font-bold text-blue-900">{stockModalProduct?.name}</div>
             <div className="text-blue-700">
@@ -406,7 +417,13 @@ export const SupervisorStockPage: React.FC = () => {
         title="Request Product Price Change"
         description="Submit proposed cost price or selling price adjustments for Admin approval"
       >
-        <form onSubmit={handleRequestPriceChange} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setConfirmingPriceSubmit(true);
+          }}
+          className="space-y-4"
+        >
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
             <div className="font-bold text-slate-900">{priceModalProduct?.name}</div>
             <div className="text-slate-600">
@@ -450,6 +467,34 @@ export const SupervisorStockPage: React.FC = () => {
           </div>
         </form>
       </Dialog>
+
+      {/* Confirmation for Stock Addition Request */}
+      <ConfirmDialog
+        isOpen={confirmingStockSubmit}
+        onClose={() => setConfirmingStockSubmit(false)}
+        onConfirm={() => {
+          setConfirmingStockSubmit(false);
+          const fakeEvent = { preventDefault: () => {} } as any;
+          handleRequestStockAddition(fakeEvent);
+        }}
+        title="Submit Stock Addition Request"
+        message={`Are you sure you want to submit a stock addition request (+${addQty} units) for product "${stockModalProduct?.name}" to Admin for approval?`}
+        confirmText="Submit Request"
+      />
+
+      {/* Confirmation for Price Change Request */}
+      <ConfirmDialog
+        isOpen={confirmingPriceSubmit}
+        onClose={() => setConfirmingPriceSubmit(false)}
+        onConfirm={() => {
+          setConfirmingPriceSubmit(false);
+          const fakeEvent = { preventDefault: () => {} } as any;
+          handleRequestPriceChange(fakeEvent);
+        }}
+        title="Submit Price Change Request"
+        message={`Are you sure you want to submit price adjustment proposals for product "${priceModalProduct?.name}" and send an email alert to the Administrator?`}
+        confirmText="Submit & Notify Admin"
+      />
     </div>
   );
 };

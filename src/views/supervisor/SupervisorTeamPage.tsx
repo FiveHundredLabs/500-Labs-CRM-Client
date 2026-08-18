@@ -12,7 +12,7 @@ import { ProfileAvatar } from '../../components/shared/ProfileAvatar';
 import { EditableProfileAvatar } from '../../components/shared/EditableProfileAvatar';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
-import { TeamMemberDetailedView } from '../../components/supervisor/team/TeamMemberDetailedView';
+import { UserProfileDossier } from '../../components/profile/UserProfileDossier';
 import toast from 'react-hot-toast';
 import { UserPlus, Edit2, UserX, Eye, Mail, Phone, MapPin, Calendar, CreditCard, Shield } from 'lucide-react';
 import { format } from 'date-fns';
@@ -148,8 +148,8 @@ export const SupervisorTeamPage: React.FC = () => {
 
   if (viewingMember) {
     return (
-      <TeamMemberDetailedView
-        member={viewingMember}
+      <UserProfileDossier
+        user={viewingMember}
         onClose={() => setViewingMember(null)}
       />
     );

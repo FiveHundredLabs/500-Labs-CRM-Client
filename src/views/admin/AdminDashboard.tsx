@@ -7,8 +7,10 @@ import {
   orderRepository,
   activityLogRepository,
   expenseRepository,
+  approvalRequestRepository,
+  emailNotificationRepository,
 } from '../../repositories';
-import { Team, User, Contact, Order, ActivityLog, Expense } from '../../models/domain';
+import { Team, User, Contact, Order, ActivityLog, Expense, ApprovalRequest, EmailNotification } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -28,6 +30,9 @@ import {
   Layers,
   FileSpreadsheet,
   PieChart as PieChartIcon,
+  Bell,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
 
@@ -39,19 +44,23 @@ export const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
+  const [emailLogs, setEmailLogs] = useState<EmailNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadAll = async () => {
       setLoading(true);
       try {
-        const [tList, uList, cList, oList, logs, expList] = await Promise.all([
+        const [tList, uList, cList, oList, logs, expList, reqList, eLogs] = await Promise.all([
           teamRepository.getAll(),
           userRepository.getAll(),
           contactRepository.getAll(),
           orderRepository.getAll(),
           activityLogRepository.getAll(),
           expenseRepository.getAll(),
+          approvalRequestRepository.getAll(),
+          emailNotificationRepository.getAll(),
         ]);
         setTeams(tList);
         setUsers(uList);
@@ -59,6 +68,8 @@ export const AdminDashboard: React.FC = () => {
         setOrders(oList);
         setActivities(logs);
         setExpenses(expList);
+        setPendingApprovals(reqList.filter((r) => r.status === 'PENDING'));
+        setEmailLogs(eLogs);
       } finally {
         setLoading(false);
       }
@@ -111,6 +122,14 @@ export const AdminDashboard: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
+              leftIcon={<Bell className="w-4 h-4 text-amber-600" />}
+              onClick={() => navigate('/admin/approvals')}
+            >
+              Approvals Queue ({pendingApprovals.length})
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               leftIcon={<PieChartIcon className="w-4 h-4 text-blue-600" />}
               onClick={() => navigate('/admin/reports')}
             >
@@ -127,6 +146,36 @@ export const AdminDashboard: React.FC = () => {
           </div>
         }
       />
+
+      {/* In-System Notifications & Pending Approvals Banner (Section 6) */}
+      {pendingApprovals.length > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-wrap items-center justify-between gap-3 text-amber-900 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="font-bold text-xs uppercase tracking-wider text-amber-800 flex items-center gap-2">
+                <span>In-System Notification: Pending Approval Requests</span>
+                <span className="bg-amber-200 text-amber-900 px-2 py-0.2 rounded-full font-extrabold text-[10px]">
+                  {pendingApprovals.length} Pending
+                </span>
+              </div>
+              <div className="text-xs text-amber-900 mt-0.5">
+                {pendingApprovals.map((r) => `${r.requestedByName}: ${r.requestType.replace(/_/g, ' ')} (${r.productName})`).join(' • ')}
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => navigate('/admin/approvals')}
+            className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs"
+          >
+            Review Approvals Center
+          </Button>
+        </div>
+      )}
 
       {/* 1. Executive KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
