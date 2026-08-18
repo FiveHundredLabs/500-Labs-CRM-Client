@@ -10,6 +10,10 @@ import {
   MockActivityLogRepository,
   MockExpenseRepository,
   MockEmailNotificationRepository,
+  MockProductRepository,
+  MockStockActivityLogRepository,
+  MockApprovalRequestRepository,
+  MockPettyCashRepository,
 } from './mock/mockRepositories';
 
 // Export instantiated repositories.
@@ -25,3 +29,8 @@ export const deliveryStatusHistoryRepository = new MockDeliveryStatusHistoryRepo
 export const activityLogRepository = new MockActivityLogRepository();
 export const expenseRepository = new MockExpenseRepository();
 export const emailNotificationRepository = new MockEmailNotificationRepository();
+export const productRepository = new MockProductRepository();
+export const stockActivityLogRepository = new MockStockActivityLogRepository();
+export const approvalRequestRepository = new MockApprovalRequestRepository();
+export const pettyCashRepository = new MockPettyCashRepository();
+

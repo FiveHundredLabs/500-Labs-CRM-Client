@@ -1,0 +1,72 @@
+[
+  {
+    "id": "prd_001",
+    "teamId": "team_001",
+    "name": "Adult Package",
+    "code": "PKG-ADULT-A",
+    "category": "Packages",
+    "currentStock": 150,
+    "minStockThreshold": 15,
+    "costPrice": 3500,
+    "sellingPrice": 6000,
+    "isActive": true,
+    "createdAt": "2026-08-01T08:00:00Z",
+    "updatedAt": "2026-08-18T10:00:00Z"
+  },
+  {
+    "id": "prd_002",
+    "teamId": "team_001",
+    "name": "Kids Package",
+    "code": "PKG-KIDS-A",
+    "category": "Packages",
+    "currentStock": 100,
+    "minStockThreshold": 10,
+    "costPrice": 2000,
+    "sellingPrice": 3500,
+    "isActive": true,
+    "createdAt": "2026-08-01T08:00:00Z",
+    "updatedAt": "2026-08-18T10:00:00Z"
+  },
+  {
+    "id": "prd_003",
+    "teamId": "team_001",
+    "name": "Herbal Vitality Supplement A",
+    "code": "PRD-VIT-A",
+    "category": "Supplements",
+    "currentStock": 5,
+    "minStockThreshold": 10,
+    "costPrice": 2800,
+    "sellingPrice": 5000,
+    "isActive": true,
+    "createdAt": "2026-08-01T08:00:00Z",
+    "updatedAt": "2026-08-18T10:00:00Z"
+  },
+  {
+    "id": "prd_004",
+    "teamId": "team_002",
+    "name": "Adult Package (Beta)",
+    "code": "PKG-ADULT-B",
+    "category": "Packages",
+    "currentStock": 120,
+    "minStockThreshold": 15,
+    "costPrice": 3500,
+    "sellingPrice": 6000,
+    "isActive": true,
+    "createdAt": "2026-08-01T08:00:00Z",
+    "updatedAt": "2026-08-18T10:00:00Z"
+  },
+  {
+    "id": "prd_005",
+    "teamId": "team_002",
+    "name": "Kids Package (Beta)",
+    "code": "PKG-KIDS-B",
+    "category": "Packages",
+    "currentStock": 80,
+    "minStockThreshold": 10,
+    "costPrice": 2000,
+    "sellingPrice": 3500,
+    "isActive": true,
+    "createdAt": "2026-08-01T08:00:00Z",
+    "updatedAt": "2026-08-18T10:00:00Z"
+  }
+]

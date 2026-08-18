@@ -1,0 +1,49 @@
+[
+  {
+    "id": "apr_001",
+    "requestType": "STOCK_ADDITION",
+    "requestedById": "usr_sup_01",
+    "requestedByName": "Chamara Silva",
+    "teamId": "team_001",
+    "productId": "prd_001",
+    "productName": "Adult Package",
+    "oldValue": 50,
+    "newValue": 150,
+    "quantity": 100,
+    "reason": "Replenishing inventory for August promo campaign",
+    "status": "APPROVED",
+    "reviewedById": "usr_admin",
+    "reviewedByName": "Kasun Perera",
+    "reviewedDate": "2026-08-15T10:00:00Z",
+    "createdAt": "2026-08-15T08:30:00Z"
+  },
+  {
+    "id": "apr_002",
+    "requestType": "STOCK_ADDITION",
+    "requestedById": "usr_sup_01",
+    "requestedByName": "Chamara Silva",
+    "teamId": "team_001",
+    "productId": "prd_003",
+    "productName": "Herbal Vitality Supplement A",
+    "oldValue": 5,
+    "newValue": 55,
+    "quantity": 50,
+    "reason": "Stock addition for low-inventory product",
+    "status": "PENDING",
+    "createdAt": "2026-08-18T16:00:00Z"
+  },
+  {
+    "id": "apr_003",
+    "requestType": "PRODUCT_SELLING_PRICE_CHANGE",
+    "requestedById": "usr_sup_01",
+    "requestedByName": "Chamara Silva",
+    "teamId": "team_001",
+    "productId": "prd_003",
+    "productName": "Herbal Vitality Supplement A",
+    "oldValue": 5000,
+    "newValue": 5500,
+    "reason": "Cost inflation adjustment requested by supervisor",
+    "status": "PENDING",
+    "createdAt": "2026-08-18T17:15:00Z"
+  }
+]
