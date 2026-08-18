@@ -68,7 +68,7 @@ export const SupervisorDashboard: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="Supervisor Overview"
-        description={`${user?.teamId === 'team_001' ? 'Brand Alpha' : 'Brand Beta'} Operational & Sales Control Center`}
+        description="Operational & Sales Control Center"
         actions={
           <div className="flex items-center gap-2">
             <Button

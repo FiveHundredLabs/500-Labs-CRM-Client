@@ -12,7 +12,6 @@ import { LoadingState } from '../../components/shared/LoadingState';
 import { PhoneCall, CheckCircle2, Trophy, Phone, ArrowRight, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Leaderboard } from '../../components/leaderboard';
-import usersSeed from '../../data/seed/users.json';
 
 interface LeaderboardMember {
   user: User;
@@ -56,7 +55,7 @@ export const MemberDashboard: React.FC = () => {
         (u) => u.role === 'TEAM_MEMBER' && (u.teamId === currentTeamId || !u.teamId || currentTeamId === 'team_001')
       );
 
-      const rosterUsers = membersOnly.length >= 7 ? membersOnly : (usersSeed as User[]).filter((u) => u.role === 'TEAM_MEMBER');
+      const rosterUsers = membersOnly;
 
       const computedRoster: LeaderboardMember[] = rosterUsers.slice(0, 7).map((u) => {
         const uContacts = teamContacts.filter((c) => c.allocatedToId === u.id);
