@@ -9,8 +9,22 @@ import { CallLogService } from '../../services/callLogService';
 import { callLogRepository } from '../../repositories';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
-import { Phone, CheckCircle2, History, AlertCircle, ChevronRight, Star } from 'lucide-react';
+import { 
+  Phone, 
+  CheckCircle2, 
+  History, 
+  AlertCircle, 
+  ChevronRight, 
+  Star, 
+  MapPin, 
+  Package, 
+  Plus, 
+  Minus, 
+  DollarSign, 
+  HelpCircle 
+} from 'lucide-react';
 import { format } from 'date-fns';
+import { formatCurrency } from '../../utils/currency';
 
 export interface PostCallModalProps {
   isOpen: boolean;
@@ -18,6 +32,9 @@ export interface PostCallModalProps {
   contact: Contact | null;
   onSuccess: () => void;
 }
+
+const ADULT_PACKAGE_PRICE = 6000;
+const KIDS_PACKAGE_PRICE = 3500;
 
 export const PostCallModal: React.FC<PostCallModalProps> = ({
   isOpen,
@@ -35,9 +52,30 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   const [isFollowUp, setIsFollowUp] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [secondaryMobile, setSecondaryMobile] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [remarks, setRemarks] = useState('');
+
+  // Package Quantities & COD
+  const [adultQty, setAdultQty] = useState(1);
+  const [kidsQty, setKidsQty] = useState(0);
+  const [codAmount, setCodAmount] = useState<string>('6000');
+  const [customCodManual, setCustomCodManual] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
+
+  // Calculated package totals
+  const adultSubtotal = adultQty * ADULT_PACKAGE_PRICE;
+  const kidsSubtotal = kidsQty * KIDS_PACKAGE_PRICE;
+  const totalPackageValue = adultSubtotal + kidsSubtotal;
+
+  // Auto-sync COD amount with package total unless user manually overrides it
+  useEffect(() => {
+    if (!customCodManual) {
+      setCodAmount(totalPackageValue > 0 ? totalPackageValue.toString() : '');
+    }
+  }, [adultQty, kidsQty, customCodManual, totalPackageValue]);
 
   // Reset state and fetch history when contact changes or modal opens
   useEffect(() => {
@@ -48,8 +86,14 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     setIsFollowUp(Boolean(contact.isFollowUp));
     setCustomerName('');
     setCustomerAddress('');
+    setCity(contact.city || '');
+    setSecondaryMobile(contact.secondaryMobile || '');
     setCustomerEmail('');
     setRemarks('');
+    setAdultQty(1);
+    setKidsQty(0);
+    setCodAmount('6000');
+    setCustomCodManual(false);
 
     const loadHistory = async () => {
       setLoadingHistory(true);
@@ -71,7 +115,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
   const isNew = contact.status === 'NEW';
   const isInterested = status === 'INTERESTED';
-  const showCustomerFields = status === 'ANSWERED' || status === 'INTERESTED' || status === 'NOT_INTERESTED';
+  const isAnswered = status === 'ANSWERED';
 
   const triggerNativeDialer = () => {
     window.location.href = `tel:${contact.phone.replace(/[^0-9+]/g, '')}`;
@@ -79,23 +123,71 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     toast.success('Dialer launched! Fill outcome details below.');
   };
 
+  const handleCodChange = (val: string) => {
+    setCodAmount(val);
+    setCustomCodManual(true);
+  };
+
+  const handleResetCodToTotal = () => {
+    setCodAmount(totalPackageValue.toString());
+    setCustomCodManual(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isInterested && (!customerName.trim() || !customerAddress.trim())) {
-      toast.error('Customer Name and Delivery Address are required for INTERESTED status.');
-      return;
+
+    if (isInterested) {
+      if (!customerName.trim()) {
+        toast.error('Customer Full Name is required for INTERESTED status.');
+        return;
+      }
+      if (!customerAddress.trim()) {
+        toast.error('Delivery Address is required for INTERESTED status.');
+        return;
+      }
+      if (!city.trim()) {
+        toast.error('City / Town is required for INTERESTED status.');
+        return;
+      }
+      if (secondaryMobile.trim() && secondaryMobile.trim().length < 7) {
+        toast.error('Secondary mobile number must be at least 7 digits.');
+        return;
+      }
+      if (adultQty === 0 && kidsQty === 0) {
+        toast.error('Please select at least 1 Adult or Kids package quantity.');
+        return;
+      }
+      const parsedCod = parseFloat(codAmount);
+      if (isNaN(parsedCod) || parsedCod < 0) {
+        toast.error('Please enter a valid Cash on Delivery (COD) amount.');
+        return;
+      }
     }
 
     setIsLoading(true);
     try {
+      const selectedPkgType = 
+        adultQty > 0 && kidsQty > 0 ? 'BOTH' : adultQty > 0 ? 'ADULT' : kidsQty > 0 ? 'KIDS' : 'NONE';
+
       await CallLogService.submitCallResult(
         {
           contactId: contact.id,
           status,
           isFollowUp,
           customerName: customerName.trim() || undefined,
-          customerAddress: customerAddress.trim() || undefined,
+          customerAddress: isInterested ? customerAddress.trim() : undefined,
+          city: isInterested ? city.trim() : undefined,
+          secondaryMobile: isInterested && secondaryMobile.trim() ? secondaryMobile.trim() : undefined,
           customerEmail: customerEmail.trim() || undefined,
+          selectedPackage: isInterested ? selectedPkgType : undefined,
+          adultQty: isInterested ? adultQty : undefined,
+          adultUnitPrice: isInterested ? ADULT_PACKAGE_PRICE : undefined,
+          adultSubtotal: isInterested ? adultSubtotal : undefined,
+          kidsQty: isInterested ? kidsQty : undefined,
+          kidsUnitPrice: isInterested ? KIDS_PACKAGE_PRICE : undefined,
+          kidsSubtotal: isInterested ? kidsSubtotal : undefined,
+          totalPackageValue: isInterested ? totalPackageValue : undefined,
+          codAmount: isInterested ? parseFloat(codAmount) || totalPackageValue : undefined,
           remarks: remarks.trim() || undefined,
           callDurationSeconds: Math.floor(Math.random() * 120) + 30,
         },
@@ -104,7 +196,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
       toast.success(
         isInterested
-          ? `Call logged & Interested Customer record created for ${customerName}!`
+          ? `Lead recorded for ${customerName} (COD: ${formatCurrency(parseFloat(codAmount) || totalPackageValue)})!`
           : `Call outcome saved as ${status}`
       );
       onSuccess();
@@ -124,8 +216,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
       description={`Contact Phone: ${contact.phone}`}
       maxWidth="lg"
     >
-      <div className="space-y-4">
-        {/* Original Clean Style Launch Dialer Bar */}
+      <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
+        {/* Launch Dialer Bar */}
         <div className="bg-blue-50/60 border border-blue-100 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-xs">
@@ -148,7 +240,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           </Button>
         </div>
 
-        {/* Call History Section (Shown for non-NEW contacts) */}
+        {/* Call History Section */}
         {!isNew && (
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
             <div className="flex items-center justify-between text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -166,7 +258,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                 No prior call history recorded for this contact.
               </div>
             ) : (
-              <div className="max-h-40 overflow-y-auto space-y-2 pr-1">
+              <div className="max-h-36 overflow-y-auto space-y-2 pr-1">
                 {history.map((log) => (
                   <div
                     key={log.id}
@@ -186,7 +278,13 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
                     {log.customerName && (
                       <div className="text-slate-900 font-semibold">
-                        {log.customerName} {log.customerAddress && <span className="text-slate-500 font-normal">&bull; {log.customerAddress}</span>}
+                        {log.customerName} {log.city && <span className="text-slate-500 font-normal">&bull; {log.city}</span>}
+                      </div>
+                    )}
+
+                    {log.codAmount && log.codAmount > 0 && (
+                      <div className="text-emerald-700 font-semibold text-[11px]">
+                        COD: {formatCurrency(log.codAmount)}
                       </div>
                     )}
 
@@ -216,7 +314,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           </div>
         )}
 
-        {/* Form Fields (Revealed after Launch Dialer is clicked) */}
+        {/* Form Fields (Revealed after Launch Dialer is clicked or skipped) */}
         {hasDialed && (
           <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in duration-150">
             <Select
@@ -227,18 +325,18 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                 { value: 'ANSWERED', label: 'Answered' },
                 { value: 'NOT_ANSWERED', label: 'Not Answered' },
                 { value: 'PHONE_OFF', label: 'Phone Switched Off' },
-                { value: 'INTERESTED', label: 'Interested (Creates Customer Lead Record)' },
+                { value: 'INTERESTED', label: 'Interested (Creates Customer & Order Record)' },
                 { value: 'NOT_INTERESTED', label: 'Not Interested' },
               ]}
             />
 
-            {/* Follow-Up Star Mark Option Box */}
+            {/* Follow-Up Star Option */}
             <div className="bg-amber-50/70 border border-amber-200 p-3 rounded-xl flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <Star className={`w-4 h-4 ${isFollowUp ? 'fill-amber-400 text-amber-500' : 'text-slate-400'}`} />
                 <div>
                   <div className="text-xs font-bold text-slate-800">Add to Follow-Up List</div>
-                  <div className="text-[11px] text-slate-500">Stars this contact for priority callback tracking</div>
+                  <div className="text-[11px] text-slate-500">Priority callback tracking</div>
                 </div>
               </div>
               <button
@@ -255,44 +353,201 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
               </button>
             </div>
 
-            {/* Customer Details Form Container (Hidden for NOT_ANSWERED & PHONE_OFF) */}
-            {showCustomerFields && (
-              <div
-                className={`p-4 rounded-xl space-y-3.5 transition-colors ${
-                  isInterested
-                    ? 'bg-emerald-50/60 border border-emerald-200'
-                    : 'bg-slate-50/70 border border-slate-200'
-                }`}
-              >
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-700">
-                  <CheckCircle2 className={`w-4 h-4 ${isInterested ? 'text-emerald-600' : 'text-blue-600'}`} />
-                  <span>Customer &amp; Delivery Details {isInterested ? '*' : '(Optional)'}</span>
+            {/* ANSWERED ONLY: Optional Customer Name */}
+            {isAnswered && (
+              <div className="p-3.5 bg-blue-50/50 border border-blue-100 rounded-xl space-y-3">
+                <div className="text-xs font-semibold text-blue-900 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Call Details (Optional)</span>
                 </div>
-
                 <Input
-                  label={`Customer Full Name ${isInterested ? '*' : '(Optional)'}`}
+                  label="Customer Name (Optional)"
                   placeholder="e.g. Roshan Mahanama"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  required={isInterested}
                 />
+              </div>
+            )}
+
+            {/* INTERESTED STATUS: Comprehensive Customer, Location & Package Details */}
+            {isInterested && (
+              <div className="p-4 rounded-xl space-y-4 bg-emerald-50/50 border border-emerald-200">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-800 border-b border-emerald-200 pb-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Customer &amp; Delivery Information *</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input
+                    label="Customer Full Name *"
+                    placeholder="e.g. Roshan Mahanama"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    required
+                  />
+
+                  <Input
+                    label="City / Town *"
+                    placeholder="e.g. Colombo 03, Kandy, Galle"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    leftIcon={<MapPin className="w-4 h-4 text-slate-400" />}
+                    required
+                  />
+                </div>
 
                 <Input
-                  label={`Delivery Address ${isInterested ? '*' : '(Optional)'}`}
+                  label="Delivery Address *"
                   placeholder="e.g. No. 45, Galle Road, Colombo 03"
                   value={customerAddress}
                   onChange={(e) => setCustomerAddress(e.target.value)}
-                  required={isInterested}
+                  required
                 />
 
-                <Input
-                  label="Email Address (Optional)"
-                  type="email"
-                  placeholder="e.g. roshan.mahanama@gmail.com"
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  helperText="Used for automated delivery confirmation email simulation"
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input
+                    label="Another Mobile Number (Optional)"
+                    placeholder="e.g. +94 71 234 5678"
+                    value={secondaryMobile}
+                    onChange={(e) => setSecondaryMobile(e.target.value)}
+                    leftIcon={<Phone className="w-4 h-4 text-slate-400" />}
+                  />
+
+                  <Input
+                    label="Email Address (Optional)"
+                    type="email"
+                    placeholder="e.g. roshan@gmail.com"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                  />
+                </div>
+
+                {/* 1.6 Package Selection & Pricing Breakdown */}
+                <div className="pt-3 border-t border-emerald-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
+                      <Package className="w-4 h-4 text-emerald-700" />
+                      <span>Package Selection &amp; Quantities *</span>
+                    </div>
+                    <span className="text-[11px] text-slate-500">Select product bundles</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Adult Package Counter */}
+                    <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-slate-900">Adult Package</div>
+                          <div className="text-[11px] text-emerald-600 font-semibold">{formatCurrency(ADULT_PACKAGE_PRICE)} / unit</div>
+                        </div>
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1">
+                          <button
+                            type="button"
+                            onClick={() => setAdultQty(Math.max(0, adultQty - 1))}
+                            className="w-6 h-6 rounded flex items-center justify-center bg-white hover:bg-slate-100 text-slate-700 shadow-2xs cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="w-6 text-center font-bold text-xs text-slate-900">{adultQty}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAdultQty(adultQty + 1)}
+                            className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-slate-500 flex justify-between border-t border-slate-100 pt-1.5">
+                        <span>Subtotal:</span>
+                        <span className="font-bold text-slate-800">{formatCurrency(adultSubtotal)}</span>
+                      </div>
+                    </div>
+
+                    {/* Kids Package Counter */}
+                    <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-slate-900">Kids Package</div>
+                          <div className="text-[11px] text-emerald-600 font-semibold">{formatCurrency(KIDS_PACKAGE_PRICE)} / unit</div>
+                        </div>
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1">
+                          <button
+                            type="button"
+                            onClick={() => setKidsQty(Math.max(0, kidsQty - 1))}
+                            className="w-6 h-6 rounded flex items-center justify-center bg-white hover:bg-slate-100 text-slate-700 shadow-2xs cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="w-6 text-center font-bold text-xs text-slate-900">{kidsQty}</span>
+                          <button
+                            type="button"
+                            onClick={() => setKidsQty(kidsQty + 1)}
+                            className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-slate-500 flex justify-between border-t border-slate-100 pt-1.5">
+                        <span>Subtotal:</span>
+                        <span className="font-bold text-slate-800">{formatCurrency(kidsSubtotal)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cash on Delivery (COD) Amount Entry */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Cash on Delivery (COD) Amount *</span>
+                      </label>
+                      {customCodManual && (
+                        <button
+                          type="button"
+                          onClick={handleResetCodToTotal}
+                          className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer"
+                        >
+                          Auto-fill Package Total ({formatCurrency(totalPackageValue)})
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        step="1"
+                        min="0"
+                        placeholder="Enter COD amount to collect"
+                        value={codAmount}
+                        onChange={(e) => handleCodChange(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    {/* Transparent Price Summary Box */}
+                    <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-xs space-y-1.5">
+                      <div className="font-bold text-slate-700 mb-1 text-[11px] uppercase tracking-wider">Pricing Breakdown</div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Adult Package ({formatCurrency(ADULT_PACKAGE_PRICE)} × {adultQty}):</span>
+                        <span className="font-mono font-medium">{formatCurrency(adultSubtotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Kids Package ({formatCurrency(KIDS_PACKAGE_PRICE)} × {kidsQty}):</span>
+                        <span className="font-mono font-medium">{formatCurrency(kidsSubtotal)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-slate-800 border-t border-slate-200 pt-1">
+                        <span>Total Package Value:</span>
+                        <span className="font-mono text-emerald-700">{formatCurrency(totalPackageValue)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-blue-900 border-t border-slate-200 pt-1">
+                        <span>COD Collection Amount:</span>
+                        <span className="font-mono text-blue-700">{formatCurrency(parseFloat(codAmount) || 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -304,7 +559,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                 rows={3}
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Add key notes, preferred follow-up times, customer queries..."
+                placeholder="Add key notes, customer queries, preferred callback times..."
                 className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-colors"
               />
             </div>
@@ -319,7 +574,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary" isLoading={isLoading}>
-                  Save Call
+                  Save Call Outcome
                 </Button>
               </div>
             </div>

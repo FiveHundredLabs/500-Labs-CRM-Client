@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { Contact } from '../../models/domain';
+import { Contact, ContactStatus } from '../../models/domain';
 import { contactRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SearchInput } from '../../components/shared/SearchInput';
@@ -9,11 +9,23 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { PostCallModal } from '../../components/calling/PostCallModal';
-import { Clock, PhoneCall, RotateCcw, Star } from 'lucide-react';
+import { AddPersonalNumberModal } from '../../components/calling/AddPersonalNumberModal';
+import { Clock, PhoneCall, RotateCcw, Star, Plus, MapPin, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
-type TabCategory = 'NEW' | 'FOLLOW_UP' | 'ANSWERED' | 'NOT_ANSWERED' | 'PHONE_OFF' | 'INTERESTED' | 'NOT_INTERESTED' | 'ALL';
+type TabCategory =
+  | 'ALL'
+  | 'DISPATCHED'
+  | 'DELIVERED'
+  | 'REJECTED'
+  | 'NEW'
+  | 'FOLLOW_UP'
+  | 'ANSWERED'
+  | 'NOT_ANSWERED'
+  | 'PHONE_OFF'
+  | 'INTERESTED'
+  | 'NOT_INTERESTED';
 
 interface TabConfig {
   key: TabCategory;
@@ -21,6 +33,10 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
+  { key: 'ALL', label: 'All' },
+  { key: 'DISPATCHED', label: 'Dispatched' },
+  { key: 'DELIVERED', label: 'Delivered' },
+  { key: 'REJECTED', label: 'Rejected' },
   { key: 'NEW', label: 'New' },
   { key: 'FOLLOW_UP', label: 'Follow-Up' },
   { key: 'ANSWERED', label: 'Answered' },
@@ -28,7 +44,6 @@ const TABS: TabConfig[] = [
   { key: 'PHONE_OFF', label: 'Phone Off' },
   { key: 'INTERESTED', label: 'Interested' },
   { key: 'NOT_INTERESTED', label: 'Not Interested' },
-  { key: 'ALL', label: 'All' },
 ];
 
 export const MemberContactsPage: React.FC = () => {
@@ -37,8 +52,9 @@ export const MemberContactsPage: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<TabCategory>('NEW'); // Default tab is NEW
+  const [activeTab, setActiveTab] = useState<TabCategory>('ALL');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const loadContacts = async () => {
     if (!user) return;
@@ -69,8 +85,12 @@ export const MemberContactsPage: React.FC = () => {
     }
   };
 
-  // Compute counts per category
+  // Compute counts per category accurately reflecting team member's contacts
   const countMap: Record<TabCategory, number> = {
+    ALL: contacts.length,
+    DISPATCHED: contacts.filter((c) => c.status === 'DISPATCHED').length,
+    DELIVERED: contacts.filter((c) => c.status === 'DELIVERED').length,
+    REJECTED: contacts.filter((c) => c.status === 'REJECTED').length,
     NEW: contacts.filter((c) => c.status === 'NEW').length,
     FOLLOW_UP: contacts.filter((c) => c.status !== 'NEW' && c.isFollowUp).length,
     ANSWERED: contacts.filter((c) => c.status === 'ANSWERED').length,
@@ -78,18 +98,21 @@ export const MemberContactsPage: React.FC = () => {
     PHONE_OFF: contacts.filter((c) => c.status === 'PHONE_OFF').length,
     INTERESTED: contacts.filter((c) => c.status === 'INTERESTED').length,
     NOT_INTERESTED: contacts.filter((c) => c.status === 'NOT_INTERESTED').length,
-    ALL: contacts.length,
   };
 
   // Filter contacts by active tab & search
   const filteredContacts = contacts.filter((c) => {
-    const matchesSearch = c.phone.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch =
+      c.phone.toLowerCase().includes(search.toLowerCase()) ||
+      (c.city && c.city.toLowerCase().includes(search.toLowerCase())) ||
+      (c.secondaryMobile && c.secondaryMobile.toLowerCase().includes(search.toLowerCase()));
+
     if (!matchesSearch) return false;
 
+    if (activeTab === 'ALL') return true;
     if (activeTab === 'FOLLOW_UP') {
       return c.status !== 'NEW' && Boolean(c.isFollowUp);
     }
-    if (activeTab === 'ALL') return true;
     return c.status === activeTab;
   });
 
@@ -98,30 +121,57 @@ export const MemberContactsPage: React.FC = () => {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Contacts"
-        description="Browse assigned leads by status category, filter follow-ups, and launch calls"
+        title="My Contacts & Leads"
+        description="Browse, filter, add personal numbers, and launch calling queue"
+        actions={
+          <Button
+            variant="primary"
+            leftIcon={<Plus className="w-4 h-4" />}
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            Add Personal Number
+          </Button>
+        }
       />
 
-      {/* Status Filter Boxes */}
+      {/* Filter Tabs Header */}
       <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
         <div className="flex flex-wrap gap-2">
           {TABS.map((tab) => {
             const count = countMap[tab.key];
             const isActive = activeTab === tab.key;
             const isFollowUpTab = tab.key === 'FOLLOW_UP';
+            const isDelivered = tab.key === 'DELIVERED';
+            const isDispatched = tab.key === 'DISPATCHED';
+            const isRejected = tab.key === 'REJECTED';
+
+            let activeBadgeStyle = 'bg-blue-600 text-white';
+            let activeContainerStyle = 'bg-blue-50 text-blue-700 font-bold border border-blue-200 shadow-2xs';
+
+            if (isFollowUpTab) {
+              activeBadgeStyle = 'bg-amber-500 text-white font-bold';
+              activeContainerStyle = 'bg-amber-100/90 text-amber-900 font-bold border border-amber-300 shadow-2xs';
+            } else if (isDelivered) {
+              activeBadgeStyle = 'bg-emerald-600 text-white font-bold';
+              activeContainerStyle = 'bg-emerald-50 text-emerald-800 font-bold border border-emerald-300 shadow-2xs';
+            } else if (isDispatched) {
+              activeBadgeStyle = 'bg-indigo-600 text-white font-bold';
+              activeContainerStyle = 'bg-indigo-50 text-indigo-800 font-bold border border-indigo-300 shadow-2xs';
+            } else if (isRejected) {
+              activeBadgeStyle = 'bg-rose-600 text-white font-bold';
+              activeContainerStyle = 'bg-rose-50 text-rose-800 font-bold border border-rose-300 shadow-2xs';
+            }
 
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center justify-between gap-2.5 px-3.5 py-2 rounded-lg text-xs transition-all cursor-pointer flex-1 sm:flex-initial min-w-[135px] sm:min-w-0 ${
+                className={`flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex-1 sm:flex-initial min-w-[120px] sm:min-w-0 ${
                   isActive
-                    ? isFollowUpTab
-                      ? 'bg-amber-100/90 text-amber-900 font-bold border border-amber-300 shadow-2xs'
-                      : 'bg-blue-50 text-blue-600 font-semibold border border-blue-200 shadow-2xs'
+                    ? activeContainerStyle
                     : isFollowUpTab
                     ? 'bg-amber-50/70 hover:bg-amber-100/80 text-amber-800 border border-amber-200/80 font-medium'
-                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-transparent'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/60'
                 }`}
               >
                 <span className="whitespace-nowrap flex items-center gap-1.5">
@@ -130,13 +180,7 @@ export const MemberContactsPage: React.FC = () => {
                 </span>
                 <span
                   className={`px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0 ${
-                    isActive
-                      ? isFollowUpTab
-                        ? 'bg-amber-500 text-white font-bold'
-                        : 'bg-blue-600 text-white'
-                      : isFollowUpTab
-                      ? 'bg-amber-200 text-amber-900 font-bold'
-                      : 'bg-slate-200 text-slate-600'
+                    isActive ? activeBadgeStyle : 'bg-slate-200 text-slate-600'
                   }`}
                 >
                   {count}
@@ -147,19 +191,17 @@ export const MemberContactsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Search Input Bar */}
+      {/* Search Bar */}
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <SearchInput
             value={search}
             onChange={setSearch}
             placeholder={`Search ${
-              activeTab === 'FOLLOW_UP'
-                ? 'follow-up'
-                : activeTab === 'ALL'
+              activeTab === 'ALL'
                 ? 'all'
                 : activeTab.toLowerCase().replace('_', ' ')
-            } contacts by phone...`}
+            } contacts by phone or city...`}
           />
         </div>
         {search && (
@@ -169,13 +211,11 @@ export const MemberContactsPage: React.FC = () => {
         )}
       </div>
 
-      {/* Single-Row Contact Cards List */}
+      {/* Contact Cards List */}
       {filteredContacts.length === 0 ? (
         <EmptyState
           title={`No ${
-            activeTab === 'FOLLOW_UP'
-              ? 'Follow-Up'
-              : activeTab === 'ALL'
+            activeTab === 'ALL'
               ? ''
               : activeTab.toLowerCase().replace('_', ' ')
           } contacts found`}
@@ -183,23 +223,32 @@ export const MemberContactsPage: React.FC = () => {
             search
               ? `No contacts in this category match "${search}".`
               : activeTab === 'FOLLOW_UP'
-              ? 'No contacts have been added to your Follow-Up list yet. Click the star mark on any called contact to add it to your Follow-Up list!'
+              ? 'No contacts have been starred for follow-up yet.'
               : `You currently have 0 contacts in the "${TABS.find((t) => t.key === activeTab)?.label}" category.`
           }
           action={
-            activeTab !== 'NEW' ? (
+            activeTab !== 'ALL' ? (
               <Button
                 variant="secondary"
                 size="sm"
                 leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
                 onClick={() => {
-                  setActiveTab('NEW');
+                  setActiveTab('ALL');
                   setSearch('');
                 }}
               >
-                Switch to New Contacts
+                Show All Contacts
               </Button>
-            ) : undefined
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => setIsAddModalOpen(true)}
+              >
+                Add First Personal Number
+              </Button>
+            )
           }
         />
       ) : (
@@ -208,7 +257,7 @@ export const MemberContactsPage: React.FC = () => {
             <div
               key={contact.id}
               className={`bg-white border rounded-xl p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between gap-3 ${
-                contact.isFollowUp ? 'border-amber-200/90' : 'border-slate-200 hover:border-slate-300'
+                contact.isFollowUp ? 'border-amber-200/90 bg-amber-50/20' : 'border-slate-200 hover:border-slate-300'
               }`}
             >
               {/* Left Info Column */}
@@ -233,15 +282,33 @@ export const MemberContactsPage: React.FC = () => {
                   <span className="font-bold text-sm sm:text-base text-slate-900 font-mono tracking-tight">
                     {contact.phone}
                   </span>
+                  
                   <StatusBadge type="contact" status={contact.status} />
+
+                  {contact.isSelfAdded && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
+                      <UserCheck className="w-3 h-3" />
+                      <span>Self-Added</span>
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                  {contact.city && (
+                    <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
+                      <MapPin className="w-3 h-3 text-slate-400" />
+                      <span>{contact.city}</span>
+                    </span>
+                  )}
+                  {contact.secondaryMobile && (
+                    <span>
+                      <span className="text-slate-400">Alt:</span> <span className="font-mono text-slate-700">{contact.secondaryMobile}</span>
+                    </span>
+                  )}
                   <span>
                     <span className="text-slate-400 font-normal">Attempts:</span>{' '}
                     <span className="font-semibold text-slate-700">{contact.attemptCount}</span>
                   </span>
-                  <span className="text-slate-300 hidden sm:inline">&bull;</span>
                   <span>
                     {contact.lastCalledAt ? (
                       <span className="inline-flex items-center gap-1 font-normal text-slate-600">
@@ -279,6 +346,13 @@ export const MemberContactsPage: React.FC = () => {
           onSuccess={loadContacts}
         />
       )}
+
+      {/* Add Personal Number Dialog */}
+      <AddPersonalNumberModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={loadContacts}
+      />
     </div>
   );
 };

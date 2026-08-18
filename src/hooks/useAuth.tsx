@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const updateCurrentUser = (updatedUser: User) => {
     setUser(updatedUser);
-    localStorage.setItem('crm_auth_user_lk_v8', JSON.stringify(updatedUser));
+    AuthService.setCurrentUser(updatedUser);
   };
 
   const value: AuthContextType = {
@@ -67,10 +67,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    // Safe fallback if called before context initialization
+    const fallbackUser = AuthService.getCurrentUser();
+    return {
+      user: fallbackUser,
+      role: fallbackUser ? fallbackUser.role : null,
+      loading: false,
+      login: async (emailOrUsername: string, password?: string) => {
+        return AuthService.login(emailOrUsername, password);
+      },
+      logout: () => {
+        AuthService.logout();
+      },
+      updateCurrentUser: (u: User) => {
+        AuthService.setCurrentUser(u);
+      },
+      isAdmin: fallbackUser?.role === 'ADMIN',
+      isSupervisor: fallbackUser?.role === 'SUPERVISOR',
+      isTeamMember: fallbackUser?.role === 'TEAM_MEMBER',
+      isFinance: fallbackUser?.role === 'FINANCE',
+    };
   }
   return context;
 };

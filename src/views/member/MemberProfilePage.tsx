@@ -156,6 +156,18 @@ export const MemberProfilePage: React.FC = () => {
                   </div>
 
                   <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 font-medium">Joined Date:</span>
+                    <div className="font-semibold text-slate-800 mt-0.5 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                      <span>
+                        {user.joiningDate || user.joinedDate
+                          ? format(new Date(user.joiningDate || user.joinedDate!), 'MMM dd, yyyy')
+                          : 'Not set'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200">
                     <span className="text-slate-400 font-medium">Date of Birth:</span>
                     <div className="font-semibold text-slate-800 mt-0.5 flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-slate-400" />
