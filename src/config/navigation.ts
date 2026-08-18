@@ -38,6 +38,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Home', path: '/supervisor/dashboard', icon: Home, isBottomNav: true },
     { label: 'Interested', path: '/supervisor/interested', icon: FileCheck, isBottomNav: true },
     { label: 'Orders', path: '/supervisor/orders', icon: Package, isBottomNav: true },
+    { label: 'Stock', path: '/supervisor/stock', icon: Package, isBottomNav: false },
     { label: 'Import Contacts', path: '/supervisor/import', icon: Upload, isBottomNav: false },
     { label: 'Allocation', path: '/supervisor/allocation', icon: Layers, isBottomNav: false },
     { label: 'Allocation History', path: '/supervisor/allocation/history', icon: Clock, isBottomNav: false },

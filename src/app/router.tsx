@@ -23,6 +23,7 @@ import { SupervisorOrdersPage } from '../views/supervisor/SupervisorOrdersPage';
 import { SupervisorReportsPage } from '../views/supervisor/SupervisorReportsPage';
 import { SupervisorTeamMembersPage } from '../views/supervisor/SupervisorTeamMembersPage';
 import { SupervisorProfilePage } from '../views/supervisor/SupervisorProfilePage';
+import { SupervisorStockPage } from '../views/supervisor/SupervisorStockPage';
 
 // Admin Views
 import { AdminDashboard } from '../views/admin/AdminDashboard';
@@ -78,6 +79,7 @@ export const router = createBrowserRouter([
               { path: 'team', element: <SupervisorTeamPage /> },
               { path: 'team-members', element: <SupervisorTeamMembersPage /> },
               { path: 'reports', element: <SupervisorReportsPage /> },
+              { path: 'stock', element: <SupervisorStockPage /> },
               { path: 'import', element: <SupervisorImportPage /> },
               { path: 'allocation', element: <SupervisorAllocationPage /> },
               { path: 'allocation/history', element: <SupervisorAllocationHistoryPage /> },
