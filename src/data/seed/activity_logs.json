@@ -1,1 +1,119 @@
-[]
+[
+  {
+    "id": "act_001",
+    "userId": "usr_admin",
+    "userRole": "ADMIN",
+    "userName": "Kasun Perera",
+    "action": "USER_CREATED",
+    "entityType": "User",
+    "entityId": "usr_mem_13",
+    "description": "Created new tele-calling specialist account Shehani Peiris under Brand Alpha.",
+    "createdAt": "2026-08-01T08:00:00Z"
+  },
+  {
+    "id": "act_002",
+    "userId": "usr_sup_01",
+    "userRole": "SUPERVISOR",
+    "userName": "Chamara Silva",
+    "teamId": "team_001",
+    "action": "CONTACT_IMPORTED",
+    "entityType": "Contact",
+    "entityId": "bat_imp_001",
+    "description": "Imported batch of 150 new prospective customer leads into Brand Alpha workspace.",
+    "createdAt": "2026-08-01T08:30:00Z"
+  },
+  {
+    "id": "act_003",
+    "userId": "usr_sup_01",
+    "userRole": "SUPERVISOR",
+    "userName": "Chamara Silva",
+    "teamId": "team_001",
+    "action": "CONTACT_ALLOCATED",
+    "entityType": "Allocation",
+    "entityId": "alc_bat_001",
+    "description": "Allocated 40 contacts to telecaller Pathum Nishshanka (Round-Robin).",
+    "createdAt": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "act_004",
+    "userId": "usr_mem_01",
+    "userRole": "TEAM_MEMBER",
+    "userName": "Pathum Nishshanka",
+    "teamId": "team_001",
+    "action": "CALL_COMPLETED",
+    "entityType": "CallLog",
+    "entityId": "cll_001",
+    "description": "Completed call with Ramesh Senanayake. Status set to INTERESTED.",
+    "createdAt": "2026-08-16T10:15:00Z"
+  },
+  {
+    "id": "act_005",
+    "userId": "usr_mem_01",
+    "userRole": "TEAM_MEMBER",
+    "userName": "Pathum Nishshanka",
+    "teamId": "team_001",
+    "action": "ORDER_CREATED",
+    "entityType": "Order",
+    "entityId": "ord_001",
+    "description": "Generated Order #ORD-2026-001 for customer Ramesh Senanayake (LKR 7,800).",
+    "createdAt": "2026-08-16T10:30:00Z"
+  },
+  {
+    "id": "act_006",
+    "userId": "usr_sup_01",
+    "userRole": "SUPERVISOR",
+    "userName": "Chamara Silva",
+    "teamId": "team_001",
+    "action": "ORDER_DISPATCHED",
+    "entityType": "Order",
+    "entityId": "ord_001",
+    "description": "Marked Order #ORD-2026-001 as DISPATCHED via City Courier.",
+    "createdAt": "2026-08-16T14:00:00Z"
+  },
+  {
+    "id": "act_007",
+    "userId": "usr_sup_01",
+    "userRole": "SUPERVISOR",
+    "userName": "Chamara Silva",
+    "teamId": "team_001",
+    "action": "DELIVERY_STATUS_CHANGED",
+    "entityType": "Order",
+    "entityId": "ord_001",
+    "description": "Updated Order #ORD-2026-001 status from DISPATCHED to DELIVERED.",
+    "createdAt": "2026-08-17T16:00:00Z"
+  },
+  {
+    "id": "act_008",
+    "userId": "usr_fin",
+    "userRole": "FINANCE",
+    "userName": "Janaka Rajapaksha",
+    "action": "EXPENSE_CREATED",
+    "entityType": "Expense",
+    "entityId": "exp_001",
+    "description": "Recorded expense voucher LKR 42,500 under Postal & Courier Charges.",
+    "createdAt": "2026-08-05T11:30:00Z"
+  },
+  {
+    "id": "act_009",
+    "userId": "usr_admin",
+    "userRole": "ADMIN",
+    "userName": "Kasun Perera",
+    "action": "USER_UPDATED",
+    "entityType": "User",
+    "entityId": "usr_sup_01",
+    "description": "Updated profile contact phone for supervisor Chamara Silva.",
+    "createdAt": "2026-08-15T09:00:00Z"
+  },
+  {
+    "id": "act_010",
+    "userId": "usr_sup_02",
+    "userRole": "SUPERVISOR",
+    "userName": "Dilini Jayawardena",
+    "teamId": "team_002",
+    "action": "ORDER_PRINTED",
+    "entityType": "Order",
+    "entityId": "ord_006",
+    "description": "Generated and printed A4 billing slip batch for Brand Beta orders.",
+    "createdAt": "2026-08-16T12:15:00Z"
+  }
+]

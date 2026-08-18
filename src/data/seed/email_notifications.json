@@ -1,1 +1,47 @@
-[]
+[
+  {
+    "id": "eml_001",
+    "orderId": "ord_001",
+    "customerId": "cst_001",
+    "recipientEmail": "ramesh.s@gmail.com",
+    "notificationType": "DELIVERY_CONFIRMATION",
+    "status": "SENT",
+    "sentAt": "2026-08-17T16:05:00Z"
+  },
+  {
+    "id": "eml_002",
+    "orderId": "ord_002",
+    "customerId": "cst_002",
+    "recipientEmail": "anoma.w@yahoo.com",
+    "notificationType": "DELIVERY_CONFIRMATION",
+    "status": "SENT",
+    "sentAt": "2026-08-17T17:35:00Z"
+  },
+  {
+    "id": "eml_003",
+    "orderId": "ord_006",
+    "customerId": "cst_006",
+    "recipientEmail": "dilan.a@gmail.com",
+    "notificationType": "DELIVERY_CONFIRMATION",
+    "status": "SENT",
+    "sentAt": "2026-08-17T14:05:00Z"
+  },
+  {
+    "id": "eml_004",
+    "orderId": "ord_008",
+    "customerId": "cst_008",
+    "recipientEmail": "malini.f@yahoo.com",
+    "notificationType": "DELIVERY_CONFIRMATION",
+    "status": "SENT",
+    "sentAt": "2026-08-12T11:05:00Z"
+  },
+  {
+    "id": "eml_005",
+    "orderId": "ord_009",
+    "customerId": "cst_009",
+    "recipientEmail": "sanjaya.g@gmail.com",
+    "notificationType": "DELIVERY_CONFIRMATION",
+    "status": "SENT",
+    "sentAt": "2026-08-13T10:20:00Z"
+  }
+]

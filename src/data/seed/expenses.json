@@ -1,1 +1,112 @@
-[]
+[
+  {
+    "id": "exp_001",
+    "categoryId": "cat_001",
+    "categoryName": "Postal & Courier Charges",
+    "amount": 42500,
+    "expenseDate": "2026-08-05",
+    "remarks": "SpeedPost courier invoice payment for Colombo & suburbs dispatch batch #SP-102",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-05T11:30:00Z"
+  },
+  {
+    "id": "exp_002",
+    "categoryId": "cat_002",
+    "categoryName": "Printing & Stationery",
+    "amount": 18200,
+    "expenseDate": "2026-08-07",
+    "remarks": "Purchased 15 reams of A4 paper and 20 packs of A6 shipping label rolls",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-07T14:15:00Z"
+  },
+  {
+    "id": "exp_003",
+    "categoryId": "cat_006",
+    "categoryName": "Packaging Materials",
+    "amount": 28500,
+    "expenseDate": "2026-08-09",
+    "remarks": "500 corrugated boxes and 10 bubble wrap rolls for parcel warehouse",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-09T09:45:00Z"
+  },
+  {
+    "id": "exp_004",
+    "categoryId": "cat_004",
+    "categoryName": "Transport & Fuel",
+    "amount": 14000,
+    "expenseDate": "2026-08-11",
+    "remarks": "Weekly fuel reimbursement for dispatch vehicle #WP-CAA-8890",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-11T16:00:00Z"
+  },
+  {
+    "id": "exp_005",
+    "categoryId": "cat_003",
+    "categoryName": "Petty Cash",
+    "amount": 7500,
+    "expenseDate": "2026-08-13",
+    "remarks": "Call center refreshments, tea supplies, and mineral water bottles",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-13T10:30:00Z"
+  },
+  {
+    "id": "exp_006",
+    "categoryId": "cat_005",
+    "categoryName": "Office Utilities & Internet",
+    "amount": 19800,
+    "expenseDate": "2026-08-14",
+    "remarks": "SLT Fiber business broadband connection monthly bill for telecaller floor",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-14T15:20:00Z"
+  },
+  {
+    "id": "exp_007",
+    "categoryId": "cat_001",
+    "categoryName": "Postal & Courier Charges",
+    "amount": 36400,
+    "expenseDate": "2026-08-15",
+    "remarks": "Outstation delivery charges for Kandy and Galle customer shipments",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-15T11:00:00Z"
+  },
+  {
+    "id": "exp_008",
+    "categoryId": "cat_002",
+    "categoryName": "Printing & Stationery",
+    "amount": 12500,
+    "expenseDate": "2026-08-16",
+    "remarks": "Canon laser printer black toner cartridges (2 units)",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-16T13:40:00Z"
+  },
+  {
+    "id": "exp_009",
+    "categoryId": "cat_003",
+    "categoryName": "Petty Cash",
+    "amount": 5400,
+    "expenseDate": "2026-08-17",
+    "remarks": "Emergency office supplies and courier receipt books",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-17T09:15:00Z"
+  },
+  {
+    "id": "exp_010",
+    "categoryId": "cat_004",
+    "categoryName": "Transport & Fuel",
+    "amount": 16500,
+    "expenseDate": "2026-08-18",
+    "remarks": "Dispatch van maintenance, brake pad replacement and wheel alignment",
+    "createdBy": "usr_fin",
+    "createdByName": "Janaka Rajapaksha",
+    "createdAt": "2026-08-18T10:00:00Z"
+  }
+]
