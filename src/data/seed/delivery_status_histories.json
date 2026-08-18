@@ -2,64 +2,91 @@
   {
     "id": "dsh_001",
     "orderId": "ord_001",
-    "previousStatus": null,
-    "newStatus": "DRAFT",
-    "remarks": "Order drafted upon customer agreement.",
-    "actorUserId": "usr_mem_01",
-    "createdAt": "2026-08-10T11:00:00Z"
+    "previousStatus": "DRAFT",
+    "newStatus": "PREPARED",
+    "remarks": "Order package verified and packed.",
+    "actorUserId": "usr_sup_01",
+    "createdAt": "2026-08-16T11:00:00Z"
   },
   {
     "id": "dsh_002",
     "orderId": "ord_001",
-    "previousStatus": "DRAFT",
-    "newStatus": "PREPARED",
-    "remarks": "Parcel packed and print label attached.",
+    "previousStatus": "PREPARED",
+    "newStatus": "DISPATCHED",
+    "remarks": "Handed over to City Courier.",
     "actorUserId": "usr_sup_01",
-    "createdAt": "2026-08-10T15:00:00Z"
+    "createdAt": "2026-08-16T14:00:00Z"
   },
   {
     "id": "dsh_003",
     "orderId": "ord_001",
-    "previousStatus": "PREPARED",
-    "newStatus": "DISPATCHED",
-    "remarks": "Handed over to Express Courier Service.",
+    "previousStatus": "DISPATCHED",
+    "newStatus": "DELIVERED",
+    "remarks": "Customer received order. Cash collected.",
     "actorUserId": "usr_sup_01",
-    "createdAt": "2026-08-11T09:00:00Z"
+    "createdAt": "2026-08-17T16:00:00Z"
   },
   {
     "id": "dsh_004",
-    "orderId": "ord_001",
-    "previousStatus": "DISPATCHED",
-    "newStatus": "DELIVERED",
-    "remarks": "Delivered successfully with customer signature.",
+    "orderId": "ord_002",
+    "previousStatus": "DRAFT",
+    "newStatus": "DISPATCHED",
+    "remarks": "Dispatched with evening batch.",
     "actorUserId": "usr_sup_01",
-    "createdAt": "2026-08-12T16:30:00Z"
+    "createdAt": "2026-08-16T14:30:00Z"
   },
   {
     "id": "dsh_005",
     "orderId": "ord_002",
-    "previousStatus": null,
-    "newStatus": "DRAFT",
-    "remarks": "Order created by member.",
-    "actorUserId": "usr_mem_02",
-    "createdAt": "2026-08-11T12:00:00Z"
+    "previousStatus": "DISPATCHED",
+    "newStatus": "DELIVERED",
+    "remarks": "Delivered successfully.",
+    "actorUserId": "usr_sup_01",
+    "createdAt": "2026-08-17T17:30:00Z"
   },
   {
     "id": "dsh_006",
-    "orderId": "ord_002",
+    "orderId": "ord_003",
     "previousStatus": "DRAFT",
-    "newStatus": "PREPARED",
-    "remarks": "Parcel prepared.",
+    "newStatus": "DISPATCHED",
+    "remarks": "Assigned tracking number #SP-4091.",
     "actorUserId": "usr_sup_01",
-    "createdAt": "2026-08-12T14:00:00Z"
+    "createdAt": "2026-08-18T08:00:00Z"
   },
   {
     "id": "dsh_007",
-    "orderId": "ord_002",
-    "previousStatus": "PREPARED",
+    "orderId": "ord_004",
+    "previousStatus": "DRAFT",
     "newStatus": "DISPATCHED",
-    "remarks": "Dispatched via standard shipping.",
+    "remarks": "Dispatched to Negombo courier partner.",
     "actorUserId": "usr_sup_01",
-    "createdAt": "2026-08-13T10:00:00Z"
+    "createdAt": "2026-08-18T08:30:00Z"
+  },
+  {
+    "id": "dsh_008",
+    "orderId": "ord_005",
+    "previousStatus": "DRAFT",
+    "newStatus": "PREPARED",
+    "remarks": "A4 Billing sheet printed.",
+    "actorUserId": "usr_sup_01",
+    "createdAt": "2026-08-18T10:00:00Z"
+  },
+  {
+    "id": "dsh_009",
+    "orderId": "ord_006",
+    "previousStatus": "DISPATCHED",
+    "newStatus": "DELIVERED",
+    "remarks": "Kandy delivery confirmed.",
+    "actorUserId": "usr_sup_02",
+    "createdAt": "2026-08-17T14:00:00Z"
+  },
+  {
+    "id": "dsh_010",
+    "orderId": "ord_010",
+    "previousStatus": "DISPATCHED",
+    "newStatus": "REJECTED",
+    "remarks": "Returned to warehouse. Customer cancelled at doorstep.",
+    "actorUserId": "usr_sup_01",
+    "createdAt": "2026-08-14T12:00:00Z"
   }
 ]

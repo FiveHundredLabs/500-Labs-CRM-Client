@@ -4,7 +4,6 @@ import { User } from '../../models/domain';
 import { userRepository, contactRepository, callLogRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Leaderboard, LeaderboardItem } from '../../components/leaderboard';
-import usersSeed from '../../data/seed/users.json';
 
 export const MemberLeaderboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -16,16 +15,7 @@ export const MemberLeaderboardPage: React.FC = () => {
       setLoading(true);
       try {
         const currentTeamId = user?.teamId || 'team_001';
-        let teamUsers = await userRepository.getByTeamId(currentTeamId);
-
-        // Ensure active team members are loaded
-        if (teamUsers.length < 7) {
-          const fallbackSeed = (usersSeed as User[]).filter(
-            (u) => u.role === 'TEAM_MEMBER' && (u.teamId === currentTeamId || u.teamId === 'team_001') && u.isActive
-          );
-          teamUsers = fallbackSeed;
-        }
-
+        const teamUsers = await userRepository.getByTeamId(currentTeamId);
         const members = teamUsers.filter((u) => u.role === 'TEAM_MEMBER' && u.isActive).slice(0, 7);
 
         const [allContacts, allLogs] = await Promise.all([

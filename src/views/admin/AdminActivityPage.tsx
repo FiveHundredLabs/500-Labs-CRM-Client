@@ -240,7 +240,7 @@ export const AdminActivityPage: React.FC = () => {
                   { value: 'ALL', label: 'All Users (Everyone)' },
                   ...users.map((u) => ({
                     value: u.id,
-                    label: `${u.fullName} (${u.role}${u.teamId ? (u.teamId === 'team_001' ? ' - Alpha' : ' - Beta') : ''})`,
+                    label: `${u.fullName} (${u.role}${u.teamId ? ` - ${u.teamId}` : ''})`,
                   })),
                 ]}
               />

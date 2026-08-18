@@ -6,8 +6,9 @@ import {
   userRepository,
   expenseRepository,
   activityLogRepository,
+  teamRepository,
 } from '../../repositories';
-import { Contact, Order, Customer, User, Expense, ActivityLog } from '../../models/domain';
+import { Contact, Order, Customer, User, Expense, ActivityLog, Team } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
 import { Select } from '../../components/ui/Select';
@@ -32,12 +33,18 @@ interface EnrichedOrder extends Order {
   customer?: Customer;
 }
 
+const getTeamName = (teamsMap: Record<string, Team>, teamId?: string | null): string => {
+  if (!teamId) return 'All Teams';
+  return teamsMap[teamId]?.name || teamId;
+};
+
 export const AdminReportsPage: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [orders, setOrders] = useState<EnrichedOrder[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
 
   // 1. Report Name & Team Filter
@@ -59,13 +66,14 @@ export const AdminReportsPage: React.FC = () => {
     const loadAllSystemData = async () => {
       setLoading(true);
       try {
-        const [cList, oList, custList, uList, eList, aList] = await Promise.all([
+        const [cList, oList, custList, uList, eList, aList, tList] = await Promise.all([
           contactRepository.getAll(),
           orderRepository.getAll(),
           customerRepository.getAll(),
           userRepository.getAll(),
           expenseRepository.getAll(),
           activityLogRepository.getAll(),
+          teamRepository.getAll(),
         ]);
 
         const custMap: Record<string, Customer> = {};
@@ -81,6 +89,7 @@ export const AdminReportsPage: React.FC = () => {
         setUsers(uList);
         setExpenses(eList);
         setActivities(aList);
+        setTeams(tList);
       } finally {
         setLoading(false);
       }
@@ -126,6 +135,12 @@ export const AdminReportsPage: React.FC = () => {
     users.forEach((u) => (map[u.id] = u));
     return map;
   }, [users]);
+
+  const teamsMap = useMemo(() => {
+    const map: Record<string, Team> = {};
+    teams.forEach((t) => (map[t.id] = t));
+    return map;
+  }, [teams]);
 
   // Helper date checker
   const isDateInRange = (dateStr: string) => {
@@ -243,7 +258,7 @@ export const AdminReportsPage: React.FC = () => {
         c.id,
         c.phone,
         c.status,
-        c.teamId === 'team_001' ? 'Brand Alpha' : 'Brand Beta',
+        getTeamName(teamsMap, c.teamId),
         c.allocatedToId && usersMap[c.allocatedToId] ? usersMap[c.allocatedToId].fullName : 'Unallocated',
         c.importedAt ? format(new Date(c.importedAt), 'yyyy-MM-dd') : '',
         String(c.attemptCount || 0),
@@ -258,7 +273,7 @@ export const AdminReportsPage: React.FC = () => {
         `"${o.itemsDescription.replace(/"/g, '""')}"`,
         o.totalAmount.toFixed(2),
         o.status,
-        o.teamId === 'team_001' ? 'Brand Alpha' : 'Brand Beta',
+        getTeamName(teamsMap, o.teamId),
         format(new Date(o.createdAt), 'yyyy-MM-dd HH:mm'),
       ]);
     } else if (reportType === 'TELECALLER_PERFORMANCE') {
@@ -267,7 +282,7 @@ export const AdminReportsPage: React.FC = () => {
         r.id,
         `"${r.name.replace(/"/g, '""')}"`,
         r.phone,
-        r.teamId === 'team_001' ? 'Brand Alpha' : 'Brand Beta',
+        getTeamName(teamsMap, r.teamId),
         r.city,
         String(r.totalAssigned),
         String(r.totalCalled),
@@ -304,7 +319,7 @@ export const AdminReportsPage: React.FC = () => {
         u.email,
         u.phone,
         u.role,
-        u.teamId ? (u.teamId === 'team_001' ? 'Brand Alpha' : 'Brand Beta') : 'All Teams',
+        getTeamName(teamsMap, u.teamId),
         u.city,
         u.nic || '',
         u.isActive ? 'ACTIVE' : 'DISABLED',
@@ -315,7 +330,7 @@ export const AdminReportsPage: React.FC = () => {
     const csvContent = [
       `"Report Name","${getReportTitleLabel()}"`,
       `"Generated Date","${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}"`,
-      `"Team / Brand Filter","${teamFilter === 'ALL' ? 'All Teams' : teamFilter === 'team_001' ? 'Brand Alpha' : 'Brand Beta'}"`,
+      `"Team / Brand Filter","${teamFilter === 'ALL' ? 'All Teams' : getTeamName(teamsMap, teamFilter)}"`,
       `"Date Range","${startDate || 'All Time'} to ${endDate || 'Present'}"`,
       `"Total Records","${reportData.length}"`,
       '',
@@ -402,9 +417,8 @@ export const AdminReportsPage: React.FC = () => {
                     value={teamFilter}
                     onChange={(e) => setTeamFilter(e.target.value)}
                     options={[
-                      { value: 'ALL', label: 'All Teams (Alpha & Beta)' },
-                      { value: 'team_001', label: 'Brand Alpha' },
-                      { value: 'team_002', label: 'Brand Beta' },
+                      { value: 'ALL', label: 'All Teams' },
+                      ...teams.map((t) => ({ value: t.id, label: t.name })),
                     ]}
                   />
                 </div>
@@ -626,7 +640,7 @@ export const AdminReportsPage: React.FC = () => {
                         <td className="py-3 px-4">
                           <StatusBadge type="contact" status={c.status} />
                         </td>
-                        <td className="py-3 px-4">{c.teamId === 'team_001' ? 'Brand Alpha' : 'Brand Beta'}</td>
+                        <td className="py-3 px-4">{getTeamName(teamsMap, c.teamId)}</td>
                         <td className="py-3 px-4">
                           {c.allocatedToId && usersMap[c.allocatedToId] ? usersMap[c.allocatedToId].fullName : 'Unallocated'}
                         </td>
@@ -656,7 +670,7 @@ export const AdminReportsPage: React.FC = () => {
                     (reportData as any[]).map((r) => (
                       <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-4 font-bold text-slate-900">{r.name}</td>
-                        <td className="py-3 px-4">{r.teamId === 'team_001' ? 'Brand Alpha' : 'Brand Beta'}</td>
+                        <td className="py-3 px-4">{getTeamName(teamsMap, r.teamId)}</td>
                         <td className="py-3 px-4 text-center font-mono">{r.totalAssigned}</td>
                         <td className="py-3 px-4 text-center font-mono">{r.totalCalled}</td>
                         <td className="py-3 px-4 text-center font-mono font-semibold text-blue-600">{r.interested}</td>
@@ -707,7 +721,7 @@ export const AdminReportsPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-xs font-semibold">{u.role}</td>
                         <td className="py-3 px-4 text-xs">
-                          {u.teamId ? (u.teamId === 'team_001' ? 'Brand Alpha' : 'Brand Beta') : 'All Teams'}
+                          {getTeamName(teamsMap, u.teamId)}
                         </td>
                         <td className="py-3 px-4">
                           <StatusBadge type="user" status={String(u.isActive)} />
@@ -800,7 +814,7 @@ export const AdminReportsPage: React.FC = () => {
                           {row.phone || row.customer?.fullName || row.name || row.categoryName || row.userName || row.fullName}
                         </td>
                         <td className="py-2 px-3 text-slate-600">
-                          {row.teamId === 'team_001' ? 'Brand Alpha' : row.teamId === 'team_002' ? 'Brand Beta' : row.role || row.action || 'General'}
+                          {row.teamId ? getTeamName(teamsMap, row.teamId) : row.role || row.action || 'General'}
                         </td>
                         <td className="py-2 px-3 font-mono text-slate-600">
                           {row.status || row.expenseDate || row.createdAt?.slice(0, 10) || row.joiningDate?.slice(0, 10) || 'ACTIVE'}
