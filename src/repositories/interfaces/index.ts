@@ -13,6 +13,12 @@ import {
   EmailNotification,
   UserRole,
   ContactStatus,
+  Product,
+  StockActivityLog,
+  ApprovalRequest,
+  PettyCashWallet,
+  PettyCashTransaction,
+  ApprovalStatus,
 } from '../../models/domain';
 
 export interface ITeamRepository {
@@ -40,6 +46,7 @@ export interface IContactRepository {
   getByPhone(phone: string): Promise<Contact | null>;
   create(contact: Omit<Contact, 'id' | 'updatedAt'>): Promise<Contact>;
   createMany(contacts: Array<Omit<Contact, 'id' | 'updatedAt'>>): Promise<Contact[]>;
+  addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string }): Promise<Contact>;
   update(id: string, updates: Partial<Contact>): Promise<Contact>;
   updateManyStatus(ids: string[], status: ContactStatus): Promise<void>;
 }
@@ -91,6 +98,7 @@ export interface IDeliveryStatusHistoryRepository {
 export interface IActivityLogRepository {
   getAll(): Promise<ActivityLog[]>;
   getByUserId(userId: string): Promise<ActivityLog[]>;
+  getRecentWithinMonth(userId?: string): Promise<ActivityLog[]>;
   getByEntity(entityType: string, entityId: string): Promise<ActivityLog[]>;
   create(log: Omit<ActivityLog, 'id' | 'createdAt'>): Promise<ActivityLog>;
 }
@@ -108,3 +116,36 @@ export interface IEmailNotificationRepository {
   getByOrderId(orderId: string): Promise<EmailNotification[]>;
   create(data: Omit<EmailNotification, 'id' | 'sentAt'>): Promise<EmailNotification>;
 }
+
+export interface IProductRepository {
+  getAll(): Promise<Product[]>;
+  getById(id: string): Promise<Product | null>;
+  getByTeamId(teamId: string): Promise<Product[]>;
+  create(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product>;
+  update(id: string, updates: Partial<Product>): Promise<Product>;
+  updateStock(id: string, stockDelta: number): Promise<Product>;
+}
+
+export interface IStockActivityLogRepository {
+  getAll(): Promise<StockActivityLog[]>;
+  getByProductId(productId: string): Promise<StockActivityLog[]>;
+  getByTeamId(teamId: string): Promise<StockActivityLog[]>;
+  create(log: Omit<StockActivityLog, 'id' | 'createdAt'>): Promise<StockActivityLog>;
+}
+
+export interface IApprovalRequestRepository {
+  getAll(): Promise<ApprovalRequest[]>;
+  getById(id: string): Promise<ApprovalRequest | null>;
+  getByStatus(status: ApprovalStatus): Promise<ApprovalRequest[]>;
+  getByTeamId(teamId: string): Promise<ApprovalRequest[]>;
+  create(request: Omit<ApprovalRequest, 'id' | 'createdAt' | 'status'>): Promise<ApprovalRequest>;
+  review(id: string, status: 'APPROVED' | 'REJECTED', reviewedBy: User, rejectionReason?: string): Promise<ApprovalRequest>;
+}
+
+export interface IPettyCashRepository {
+  getWallet(teamId?: string): Promise<PettyCashWallet>;
+  getTransactions(): Promise<PettyCashTransaction[]>;
+  allocate(amount: number, user: User, reason?: string): Promise<PettyCashWallet>;
+  recordExpense(data: { amount: number; reason: string; category: string; description: string; date: string }, user: User): Promise<PettyCashTransaction>;
+}
+

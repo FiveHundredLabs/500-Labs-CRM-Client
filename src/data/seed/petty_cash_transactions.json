@@ -1,0 +1,28 @@
+[
+  {
+    "id": "pct_001",
+    "transactionType": "ALLOCATION",
+    "reason": "Monthly Petty Cash Allocation",
+    "category": "Petty Cash",
+    "amount": 50000,
+    "date": "2026-08-01",
+    "description": "Initial monthly petty cash allocation from main finance module",
+    "userId": "usr_fin",
+    "userName": "Janaka Rajapaksha",
+    "remainingBalance": 50000,
+    "createdAt": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "pct_002",
+    "transactionType": "EXPENSE",
+    "reason": "Courier Transport Charge",
+    "category": "Transport",
+    "amount": 2000,
+    "date": "2026-08-15",
+    "description": "Emergency document dispatch transport fee",
+    "userId": "usr_fin",
+    "userName": "Janaka Rajapaksha",
+    "remainingBalance": 48000,
+    "createdAt": "2026-08-15T14:30:00Z"
+  }
+]

@@ -63,6 +63,11 @@ export const CONTACT_STATUS_CONFIG: Record<ContactStatus, StatusMeta> = {
     badgeClass: 'badge-green',
     icon: CheckCheck,
   },
+  REJECTED: {
+    label: 'Rejected',
+    badgeClass: 'badge-red',
+    icon: XCircle,
+  },
 };
 
 export const ORDER_STATUS_CONFIG: Record<OrderStatus, StatusMeta> = {

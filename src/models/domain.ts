@@ -8,7 +8,8 @@ export type ContactStatus =
   | 'INTERESTED'
   | 'NOT_INTERESTED'
   | 'DISPATCHED'
-  | 'DELIVERED';
+  | 'DELIVERED'
+  | 'REJECTED';
 
 export type OrderStatus =
   | 'DRAFT'
@@ -47,6 +48,10 @@ export interface User {
   nic?: string;
   dateOfBirth?: string;
   joiningDate: string;
+  joinedDate?: string; // Read-only alias for joiningDate
+  salary?: number; // Base salary in LKR
+  monthlyGoal?: number; // Monthly sales target in LKR (default 25,000)
+  incentiveAmount?: number; // Calculated incentive amount
   isActive: boolean;
   createdAt: string;
 }
@@ -57,12 +62,19 @@ export interface Contact {
   status: ContactStatus;
   teamId: string;
   importedAt: string;
-  importedBy: string; // supervisor User ID
+  importedBy: string; // supervisor User ID or team member who added
+  addedBy?: string; // User ID who added this contact number
+  addedByName?: string; // Name of user who added
   importBatchId: string; // Batch ID
   isAllocated: boolean;
   allocatedToId: string | null; // teamMember User ID
   allocatedAt: string | null;
   allocationBatchId: string | null;
+  autoAllocatedTo?: string | null; // Auto-allocated team member User ID
+  allocationSource?: 'SELF_ADDED' | 'SUPERVISOR_ALLOCATED' | 'BULK_IMPORT' | string;
+  isSelfAdded?: boolean;
+  city?: string;
+  secondaryMobile?: string;
   attemptCount: number;
   lastCalledAt: string | null;
   isFollowUp?: boolean; // Starred for Follow-Up List
@@ -77,6 +89,8 @@ export interface ContactAllocation {
   supervisorId: string; // User ID
   teamId: string;
   allocatedAt: string;
+  isSelfAdded?: boolean;
+  allocationSource?: 'SELF_ADDED' | 'SUPERVISOR_ALLOCATED' | 'BULK_IMPORT' | string;
 }
 
 export interface CallLog {
@@ -88,6 +102,17 @@ export interface CallLog {
   customerName?: string;
   customerAddress?: string;
   customerEmail?: string;
+  city?: string;
+  secondaryMobile?: string;
+  selectedPackage?: 'ADULT' | 'KIDS' | 'BOTH' | 'NONE' | string;
+  adultQty?: number;
+  adultUnitPrice?: number;
+  adultSubtotal?: number;
+  kidsQty?: number;
+  kidsUnitPrice?: number;
+  kidsSubtotal?: number;
+  totalPackageValue?: number;
+  codAmount?: number;
   remarks?: string;
   callDurationSeconds?: number;
   isFollowUp?: boolean; // Starred for Follow-Up List
@@ -99,6 +124,8 @@ export interface Customer {
   contactId: string;
   fullName: string;
   phone: string;
+  secondaryMobile?: string;
+  city?: string;
   address: string;
   email?: string;
   teamId: string;
@@ -106,6 +133,26 @@ export interface Customer {
   supervisorId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PreviousDispatchInfo {
+  hasPreviousDispatch: boolean;
+  lastDispatchDate?: string;
+  lastOrderRef?: string;
+  packageSummary?: string;
+  codAmount?: number;
+  lastStatus?: OrderStatus;
+}
+
+export interface OrderDispatchRecord {
+  id: string;
+  dispatchDate: string;
+  dispatchStatus: OrderStatus;
+  orderRef?: string;
+  packageSummary?: string;
+  codAmount?: number;
+  deliveredAt?: string;
+  rejectedAt?: string;
 }
 
 export interface Order {
@@ -117,9 +164,22 @@ export interface Order {
   supervisorId: string;
   status: OrderStatus;
   itemsDescription: string;
+  selectedPackage?: 'ADULT' | 'KIDS' | 'BOTH' | string;
+  adultQty?: number;
+  adultUnitPrice?: number;
+  adultSubtotal?: number;
+  kidsQty?: number;
+  kidsUnitPrice?: number;
+  kidsSubtotal?: number;
+  totalPackageValue?: number;
+  codAmount?: number;
   totalAmount: number;
   currency: string;
   remarks?: string;
+  deliveredAt?: string;
+  rejectedAt?: string;
+  dispatchHistory?: OrderDispatchRecord[];
+  previousDispatchInfo?: PreviousDispatchInfo;
   createdAt: string;
   updatedAt: string;
 }
@@ -134,28 +194,42 @@ export interface DeliveryStatusHistory {
   createdAt: string;
 }
 
+export type ActivityAction = 
+  | 'LOGIN'
+  | 'USER_CREATED'
+  | 'USER_UPDATED'
+  | 'USER_DISABLED'
+  | 'NUMBER_ADDED'
+  | 'CONTACT_IMPORTED'
+  | 'CONTACT_ALLOCATED'
+  | 'CALL_COMPLETED'
+  | 'STATUS_CHANGED'
+  | 'INTERESTED_CREATED'
+  | 'CUSTOMER_CREATED'
+  | 'ORDER_CREATED'
+  | 'ORDER_PRINTED'
+  | 'ORDER_PREPARED'
+  | 'ORDER_DISPATCHED'
+  | 'DELIVERY_STATUS_CHANGED'
+  | 'EMAIL_NOTIFICATION_SENT'
+  | 'EXPENSE_CREATED'
+  | 'STOCK_REQUESTED'
+  | 'STOCK_APPROVED'
+  | 'STOCK_REJECTED'
+  | 'PRICE_CHANGE_REQUESTED'
+  | 'PRICE_CHANGE_APPROVED'
+  | 'PRICE_CHANGE_REJECTED'
+  | 'PETTY_CASH_ALLOCATED'
+  | 'PETTY_CASH_EXPENSE';
+
 export interface ActivityLog {
   id: string; // e.g., 'act_001'
   userId: string;
   userRole: UserRole;
   userName: string;
   teamId?: string;
-  action: 
-    | 'USER_CREATED'
-    | 'USER_UPDATED'
-    | 'USER_DISABLED'
-    | 'CONTACT_IMPORTED'
-    | 'CONTACT_ALLOCATED'
-    | 'CALL_COMPLETED'
-    | 'CUSTOMER_CREATED'
-    | 'ORDER_CREATED'
-    | 'ORDER_PRINTED'
-    | 'ORDER_PREPARED'
-    | 'ORDER_DISPATCHED'
-    | 'DELIVERY_STATUS_CHANGED'
-    | 'EMAIL_NOTIFICATION_SENT'
-    | 'EXPENSE_CREATED';
-  entityType: 'User' | 'Contact' | 'Allocation' | 'CallLog' | 'Customer' | 'Order' | 'Expense' | 'Email';
+  action: ActivityAction;
+  entityType: 'User' | 'Contact' | 'Allocation' | 'CallLog' | 'Customer' | 'Order' | 'Expense' | 'Email' | 'Product' | 'Approval' | 'PettyCash';
   entityId: string;
   description: string;
   metadata?: Record<string, any>;
@@ -191,3 +265,89 @@ export interface EmailNotification {
   reason?: string;
   sentAt: string;
 }
+
+export interface Product {
+  id: string; // e.g., 'prd_001'
+  teamId: string; // 'team_001' (Team Alpha), 'team_002' (Team Beta)
+  name: string; // e.g., 'Adult Package', 'Kids Package', 'Product A'
+  code: string; // e.g., 'PKG-ADULT', 'PKG-KIDS'
+  category?: string;
+  currentStock: number;
+  minStockThreshold: number; // Configurable low-stock alert limit (e.g., 10)
+  costPrice: number; // LKR
+  sellingPrice: number; // LKR
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockActivityLog {
+  id: string; // e.g., 'skl_001'
+  productId: string;
+  productName: string;
+  teamId: string;
+  action: 'ADD' | 'REMOVE' | 'ADJUST' | 'PRICE_CHANGE';
+  quantity: number;
+  previousStock: number;
+  newStock: number;
+  previousCostPrice?: number;
+  newCostPrice?: number;
+  previousSellingPrice?: number;
+  newSellingPrice?: number;
+  performedBy: string; // User ID
+  performedByName: string;
+  approvalRequestId?: string;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  createdAt: string;
+}
+
+export type ApprovalType = 
+  | 'STOCK_ADDITION'
+  | 'PRODUCT_COST_PRICE_CHANGE'
+  | 'PRODUCT_SELLING_PRICE_CHANGE';
+
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface ApprovalRequest {
+  id: string; // e.g., 'apr_001'
+  requestType: ApprovalType;
+  requestedById: string;
+  requestedByName: string;
+  teamId: string;
+  productId: string;
+  productName: string;
+  oldValue?: number; // Previous stock or previous cost/selling price
+  newValue?: number; // Proposed new stock addition or new cost/selling price
+  quantity?: number; // Requested stock addition quantity
+  reason: string;
+  status: ApprovalStatus;
+  reviewedById?: string;
+  reviewedByName?: string;
+  reviewedDate?: string;
+  rejectionReason?: string;
+  createdAt: string;
+}
+
+export interface PettyCashWallet {
+  id: string; // e.g., 'wallet_main'
+  teamId?: string;
+  allocatedAmount: number;
+  usedAmount: number;
+  remainingBalance: number;
+  updatedAt: string;
+}
+
+export interface PettyCashTransaction {
+  id: string; // e.g., 'pct_001'
+  transactionType: 'ALLOCATION' | 'EXPENSE';
+  reason: string;
+  category: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  description: string;
+  userId: string;
+  userName: string;
+  remainingBalance: number;
+  createdAt: string;
+}
+
