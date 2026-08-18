@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { User } from '../../models/domain';
-import { userRepository, contactRepository, callLogRepository } from '../../repositories';
+import { userRepository, orderRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Leaderboard, LeaderboardItem } from '../../components/leaderboard';
 
@@ -15,20 +14,17 @@ export const MemberLeaderboardPage: React.FC = () => {
       setLoading(true);
       try {
         const currentTeamId = user?.teamId || 'team_001';
-        const teamUsers = await userRepository.getByTeamId(currentTeamId);
-        const members = teamUsers.filter((u) => u.role === 'TEAM_MEMBER' && u.isActive).slice(0, 7);
-
-        const [allContacts, allLogs] = await Promise.all([
-          contactRepository.getByTeamId(currentTeamId),
-          callLogRepository.getByTeamId(currentTeamId),
+        const [teamUsers, allOrders] = await Promise.all([
+          userRepository.getByTeamId(currentTeamId),
+          orderRepository.getByTeamId(currentTeamId),
         ]);
 
-        const list: LeaderboardItem[] = members.map((m) => {
-          const mContacts = allContacts.filter((c) => c.allocatedToId === m.id);
-          const mLogs = allLogs.filter((l) => l.teamMemberId === m.id);
+        const members = teamUsers.filter((u) => u.role === 'TEAM_MEMBER' && u.isActive);
 
-          const totalCalls = mLogs.length > 0 ? mLogs.length : mContacts.reduce((acc, c) => acc + (c.attemptCount || 1), 0);
-          const interestedCount = mContacts.filter((c) => c.status === 'INTERESTED').length;
+        const list: LeaderboardItem[] = members.map((m) => {
+          const mOrders = allOrders.filter((o) => o.teamMemberId === m.id);
+          const deliveredOrdersCount = mOrders.filter((o) => o.status === 'DELIVERED').length;
+          const totalOrdersCount = mOrders.length;
 
           return {
             id: m.id,
@@ -36,15 +32,15 @@ export const MemberLeaderboardPage: React.FC = () => {
             name: m.fullName,
             avatarUrl: m.avatarUrl,
             isCurrentUser: m.id === user?.id,
-            primaryValue: interestedCount,
-            secondaryValue: totalCalls,
-            primaryLabel: 'Interested',
-            secondaryLabel: 'Total Calls',
-            unitLabel: 'calls',
+            primaryValue: deliveredOrdersCount,
+            secondaryValue: totalOrdersCount,
+            primaryLabel: 'Delivered',
+            secondaryLabel: 'Total Orders',
+            unitLabel: 'orders',
           };
         });
 
-        // Rank by interested calls (most interest calls first)
+        // 1.2 Rank by Delivered Orders (highest delivered count first)
         list.sort((a, b) => b.primaryValue - a.primaryValue || b.secondaryValue - a.secondaryValue);
 
         list.forEach((item, idx) => {
@@ -63,18 +59,18 @@ export const MemberLeaderboardPage: React.FC = () => {
   return (
     <div className="space-y-6 max-w-full overflow-hidden">
       <PageHeader
-        title="Leaderboard &amp; Performance"
-        description="Monthly ranking of tele-calling specialists by interested lead volume"
+        title="Delivered Orders Leaderboard"
+        description="Team member rankings ranked by verified delivered customer orders"
       />
 
       <Leaderboard
         items={items}
         loading={loading}
-        chartTitle="This Month Interested Calls Ranking"
-        tableTitle="Leaderboard Data Table"
-        primaryLabel="Interested"
-        secondaryLabel="Total Calls"
-        unitLabel="calls"
+        chartTitle="Delivered Orders Ranking"
+        tableTitle="Delivered Orders Performance Table"
+        primaryLabel="Delivered"
+        secondaryLabel="Total Orders"
+        unitLabel="orders"
       />
     </div>
   );

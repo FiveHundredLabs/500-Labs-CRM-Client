@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { expenseRepository } from '../../repositories';
-import { Expense } from '../../models/domain';
+import { expenseRepository, pettyCashRepository } from '../../repositories';
+import { Expense, PettyCashWallet } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
-import { DollarSign, Plus, Layers, ArrowRight, Calendar, Filter } from 'lucide-react';
+import { DollarSign, Plus, Layers, ArrowRight, Calendar, Filter, Wallet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
@@ -16,6 +16,7 @@ import { formatCurrency } from '../../utils/currency';
 export const FinanceDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Date Filter States
@@ -27,8 +28,12 @@ export const FinanceDashboard: React.FC = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const data = await expenseRepository.getAll();
+        const [data, walletData] = await Promise.all([
+          expenseRepository.getAll(),
+          pettyCashRepository.getWallet(),
+        ]);
         setExpenses(data);
+        setWallet(walletData);
       } finally {
         setLoading(false);
       }
@@ -104,18 +109,27 @@ export const FinanceDashboard: React.FC = () => {
       <PageHeader
         title="Finance & Expenditure Dashboard"
         actions={
-          <Button
-            variant="primary"
-            leftIcon={<Plus className="w-4 h-4" />}
-            onClick={() => navigate('/finance/expenses/new')}
-          >
-            Record Expense
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              leftIcon={<Wallet className="w-4 h-4 text-emerald-600" />}
+              onClick={() => navigate('/finance/petty-cash')}
+            >
+              Petty Cash Wallet
+            </Button>
+            <Button
+              variant="primary"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => navigate('/finance/expenses/new')}
+            >
+              Record Expense
+            </Button>
+          </div>
         }
       />
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title={`${getFilterLabel()} Total Expenses`}
           value={formatCurrency(totalExpenseAmount)}
@@ -124,18 +138,25 @@ export const FinanceDashboard: React.FC = () => {
           accentColor="blue"
         />
         <StatCard
+          title="Petty Cash Balance"
+          value={formatCurrency(wallet?.remainingBalance || 0)}
+          subtitle={`Allocated: ${formatCurrency(wallet?.allocatedAmount || 0)}`}
+          icon={<Wallet className="w-4 h-4" />}
+          accentColor="green"
+        />
+        <StatCard
           title={`${getFilterLabel()} Postal & Shipping`}
           value={formatCurrency(categoryTotals['Postal Charges'] || 0)}
           subtitle="Fulfillment courier dispatch fees"
           icon={<Layers className="w-4 h-4" />}
-          accentColor="green"
+          accentColor="purple"
         />
         <StatCard
           title={`${getFilterLabel()} Printing & Stationery`}
           value={formatCurrency(categoryTotals['Printing'] || 0)}
           subtitle="A4/A6 Labels and thermal rolls"
           icon={<DollarSign className="w-4 h-4" />}
-          accentColor="purple"
+          accentColor="amber"
         />
       </div>
 
