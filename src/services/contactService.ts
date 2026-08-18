@@ -32,7 +32,7 @@ export class ContactService {
     return contacts.filter((c) => !c.isAllocated && c.status === 'NEW');
   }
 
-  static async addManualContact(phone: string, supervisor: User): Promise<Contact> {
+  static async addManualContact(phone: string, actor: User): Promise<Contact> {
     const cleanPhone = phone.trim();
     if (!cleanPhone || cleanPhone.length < 7) {
       throw new Error('Please enter a valid phone number with at least 7 digits.');
@@ -44,31 +44,39 @@ export class ContactService {
       throw new Error(`Duplicate entry: Phone number ${cleanPhone} already exists in the system.`);
     }
 
+    const isMember = actor.role === 'TEAM_MEMBER';
+    const now = new Date().toISOString();
     const batchId = `batch_imp_manual_${Date.now()}`;
+
     const newContact = await contactRepository.create({
       phone: cleanPhone,
       status: 'NEW',
-      teamId: supervisor.teamId!,
-      importedAt: new Date().toISOString(),
-      importedBy: supervisor.id,
+      teamId: actor.teamId || 'team_001',
+      importedAt: now,
+      importedBy: actor.id,
       importBatchId: batchId,
-      isAllocated: false,
-      allocatedToId: null,
-      allocatedAt: null,
-      allocationBatchId: null,
+      isAllocated: isMember,
+      allocatedToId: isMember ? actor.id : null,
+      allocatedAt: isMember ? now : null,
+      allocationBatchId: isMember ? batchId : null,
+      isSelfAdded: isMember,
+      addedBy: isMember ? actor.id : undefined,
+      allocationSource: isMember ? 'SELF_ADDED' : undefined,
       attemptCount: 0,
       lastCalledAt: null,
     });
 
     await ActivityLogService.logAction({
-      userId: supervisor.id,
-      userRole: supervisor.role,
-      userName: supervisor.fullName,
-      teamId: supervisor.teamId!,
-      action: 'CONTACT_IMPORTED',
+      userId: actor.id,
+      userRole: actor.role,
+      userName: actor.fullName,
+      teamId: actor.teamId || 'team_001',
+      action: isMember ? 'NUMBER_ADDED' : 'CONTACT_IMPORTED',
       entityType: 'Contact',
       entityId: newContact.id,
-      description: `Manually added contact number ${cleanPhone}`,
+      description: isMember
+        ? `Team member ${actor.fullName} self-added contact ${cleanPhone}`
+        : `Manually added contact number ${cleanPhone}`,
     });
 
     return newContact;
@@ -76,7 +84,7 @@ export class ContactService {
 
   static async processBulkImport(
     rawPhones: string[],
-    supervisor: User
+    actor: User
   ): Promise<{ summary: ImportSummary; executeImport: () => Promise<Contact[]> }> {
     const existingContacts = await contactRepository.getAll();
     const existingPhoneSet = new Set(existingContacts.map((c) => c.phone.trim()));
@@ -90,7 +98,7 @@ export class ContactService {
 
     rawPhones.forEach((raw) => {
       const clean = raw.trim();
-      // Basic phone format check: 7-15 digits, allowing spaces, hyphens, plus
+      // Basic phone format check: 7-20 digits, allowing spaces, hyphens, plus
       const isValid = /^\+?[0-9\s\-()]{7,20}$/.test(clean);
 
       if (!isValid) {
@@ -126,18 +134,22 @@ export class ContactService {
         throw new Error('No valid unique phone numbers to import.');
       }
 
+      const isMember = actor.role === 'TEAM_MEMBER';
       const now = new Date().toISOString();
       const contactsToCreate = validUniquePhones.map((phone) => ({
         phone,
         status: 'NEW' as const,
-        teamId: supervisor.teamId!,
+        teamId: actor.teamId || 'team_001',
         importedAt: now,
-        importedBy: supervisor.id,
+        importedBy: actor.id,
         importBatchId: batchId,
-        isAllocated: false,
-        allocatedToId: null,
-        allocatedAt: null,
-        allocationBatchId: null,
+        isAllocated: isMember,
+        allocatedToId: isMember ? actor.id : null,
+        allocatedAt: isMember ? now : null,
+        allocationBatchId: isMember ? batchId : null,
+        isSelfAdded: isMember,
+        addedBy: isMember ? actor.id : undefined,
+        allocationSource: (isMember ? 'SELF_ADDED' : undefined) as any,
         attemptCount: 0,
         lastCalledAt: null,
       }));
@@ -145,14 +157,16 @@ export class ContactService {
       const created = await contactRepository.createMany(contactsToCreate);
 
       await ActivityLogService.logAction({
-        userId: supervisor.id,
-        userRole: supervisor.role,
-        userName: supervisor.fullName,
-        teamId: supervisor.teamId!,
-        action: 'CONTACT_IMPORTED',
+        userId: actor.id,
+        userRole: actor.role,
+        userName: actor.fullName,
+        teamId: actor.teamId || 'team_001',
+        action: isMember ? 'NUMBER_ADDED' : 'CONTACT_IMPORTED',
         entityType: 'Contact',
         entityId: batchId,
-        description: `Imported ${created.length} phone numbers via Bulk Import (Batch #${batchId})`,
+        description: isMember
+          ? `Team member ${actor.fullName} imported and self-allocated ${created.length} numbers (Batch #${batchId})`
+          : `Imported ${created.length} phone numbers via Bulk Import (Batch #${batchId})`,
       });
 
       return created;
