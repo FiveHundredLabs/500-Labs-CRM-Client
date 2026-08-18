@@ -9,6 +9,7 @@ import { AppProviders } from './providers';
 import { MemberDashboard } from '../views/member/MemberDashboard';
 import { MemberContactsPage } from '../views/member/MemberContactsPage';
 import { MemberFollowUpsPage } from '../views/member/MemberFollowUpsPage';
+import { MemberImportPage } from '../views/member/MemberImportPage';
 import { MemberLeaderboardPage } from '../views/member/MemberLeaderboardPage';
 import { MemberProfilePage } from '../views/member/MemberProfilePage';
 
@@ -81,6 +82,7 @@ export const router = createBrowserRouter([
                   { path: 'dashboard', element: <MemberDashboard /> },
                   { path: 'contacts', element: <MemberContactsPage /> },
                   { path: 'follow-ups', element: <MemberFollowUpsPage /> },
+                  { path: 'import', element: <MemberImportPage /> },
                   { path: 'leaderboard', element: <MemberLeaderboardPage /> },
                   { path: 'profile', element: <MemberProfilePage /> },
                 ],

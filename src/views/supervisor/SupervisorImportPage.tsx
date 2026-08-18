@@ -126,7 +126,13 @@ export const SupervisorImportPage: React.FC = () => {
       setFile(null);
       setBulkText('');
       setExecuteFn(null);
-      navigate(user?.role === 'ADMIN' ? '/admin/allocation' : '/supervisor/allocation');
+      navigate(
+        user?.role === 'ADMIN'
+          ? '/admin/allocation'
+          : user?.role === 'TEAM_MEMBER'
+          ? '/member/contacts'
+          : '/supervisor/allocation'
+      );
     } catch (err: any) {
       toast.error(err.message || 'Import failed.');
     } finally {

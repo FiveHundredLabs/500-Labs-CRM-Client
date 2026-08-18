@@ -28,7 +28,18 @@ import { format } from 'date-fns';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
-type LogFilterTab = 'ALL' | 'FOLLOW_UP' | 'ANSWERED' | 'NOT_ANSWERED' | 'PHONE_OFF' | 'INTERESTED' | 'NOT_INTERESTED' | 'SAVED_CONTACTS';
+type LogFilterTab =
+  | 'ALL'
+  | 'FOLLOW_UP'
+  | 'ANSWERED'
+  | 'NOT_ANSWERED'
+  | 'PHONE_OFF'
+  | 'INTERESTED'
+  | 'NOT_INTERESTED'
+  | 'DISPATCHED'
+  | 'REJECTED'
+  | 'DELIVERED'
+  | 'SAVED_CONTACTS';
 
 interface FilterConfig {
   key: LogFilterTab;
@@ -37,12 +48,15 @@ interface FilterConfig {
 
 const FILTER_TABS: FilterConfig[] = [
   { key: 'ALL', label: 'All Calls' },
-  { key: 'FOLLOW_UP', label: 'Follow-Up' },
+  { key: 'FOLLOW_UP', label: 'Follow Up' },
   { key: 'ANSWERED', label: 'Answered' },
   { key: 'NOT_ANSWERED', label: 'Not Answered' },
   { key: 'PHONE_OFF', label: 'Phone Off' },
   { key: 'INTERESTED', label: 'Interested' },
   { key: 'NOT_INTERESTED', label: 'Not Interested' },
+  { key: 'DISPATCHED', label: 'Dispatch' },
+  { key: 'REJECTED', label: 'Rejected' },
+  { key: 'DELIVERED', label: 'Delivered' },
   { key: 'SAVED_CONTACTS', label: 'Saved Contacts' },
 ];
 
@@ -162,12 +176,15 @@ export const MemberFollowUpsPage: React.FC = () => {
   const countMap: Record<LogFilterTab, number> = {
     ALL: callLogs.length,
     FOLLOW_UP: callLogs.filter((l) => Boolean(l.isFollowUp || contactsMap[l.contactId]?.isFollowUp)).length,
-    ANSWERED: callLogs.filter((l) => l.status === 'ANSWERED').length,
-    NOT_ANSWERED: callLogs.filter((l) => l.status === 'NOT_ANSWERED').length,
-    PHONE_OFF: callLogs.filter((l) => l.status === 'PHONE_OFF').length,
-    INTERESTED: callLogs.filter((l) => l.status === 'INTERESTED').length,
-    NOT_INTERESTED: callLogs.filter((l) => l.status === 'NOT_INTERESTED').length,
-    SAVED_CONTACTS: callLogs.filter((l) => Boolean(l.customerName && l.customerAddress)).length,
+    ANSWERED: callLogs.filter((l) => l.status === 'ANSWERED' || contactsMap[l.contactId]?.status === 'ANSWERED').length,
+    NOT_ANSWERED: callLogs.filter((l) => l.status === 'NOT_ANSWERED' || contactsMap[l.contactId]?.status === 'NOT_ANSWERED').length,
+    PHONE_OFF: callLogs.filter((l) => l.status === 'PHONE_OFF' || contactsMap[l.contactId]?.status === 'PHONE_OFF').length,
+    INTERESTED: callLogs.filter((l) => l.status === 'INTERESTED' || contactsMap[l.contactId]?.status === 'INTERESTED').length,
+    NOT_INTERESTED: callLogs.filter((l) => l.status === 'NOT_INTERESTED' || contactsMap[l.contactId]?.status === 'NOT_INTERESTED').length,
+    DISPATCHED: callLogs.filter((l) => l.status === 'DISPATCHED' || contactsMap[l.contactId]?.status === 'DISPATCHED').length,
+    REJECTED: callLogs.filter((l) => l.status === 'REJECTED' || contactsMap[l.contactId]?.status === 'REJECTED').length,
+    DELIVERED: callLogs.filter((l) => l.status === 'DELIVERED' || contactsMap[l.contactId]?.status === 'DELIVERED').length,
+    SAVED_CONTACTS: callLogs.filter((l) => Boolean(l.customerName && l.customerAddress) || contactsMap[l.contactId]?.isSelfAdded).length,
   };
 
   // Filter call logs by tab & search
@@ -183,17 +200,17 @@ export const MemberFollowUpsPage: React.FC = () => {
     if (!matchesSearch) return false;
 
     if (activeTab === 'SAVED_CONTACTS') {
-      return Boolean(log.customerName && log.customerAddress);
+      return Boolean(log.customerName && log.customerAddress) || Boolean(contact?.isSelfAdded);
     }
     if (activeTab === 'FOLLOW_UP') {
       return Boolean(log.isFollowUp || contact?.isFollowUp);
     }
     if (activeTab === 'ALL') return true;
-    return log.status === activeTab;
+    return log.status === activeTab || contact?.status === activeTab;
   });
 
   // Saved contacts unique list
-  const savedContactsList = callLogs.filter((l) => Boolean(l.customerName && l.customerAddress));
+  const savedContactsList = callLogs.filter((l) => Boolean(l.customerName && l.customerAddress) || contactsMap[l.contactId]?.isSelfAdded);
 
   if (loading) return <LoadingState rows={8} />;
 
@@ -204,7 +221,7 @@ export const MemberFollowUpsPage: React.FC = () => {
         description="View past call history, manage follow-up star lists, and update call remarks"
       />
 
-      {/* Top Filter Bar (Statuses EXCEPT 'New' + Visually Highlighted Follow-Up & Saved Contacts Tabs) */}
+      {/* Top Filter Bar (Ordered without 'New' + Yellow Follow-Up, Red Rejected, Green Delivered) */}
       <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
         <div className="flex flex-wrap gap-2">
           {FILTER_TABS.map((tab) => {
@@ -212,21 +229,31 @@ export const MemberFollowUpsPage: React.FC = () => {
             const isActive = activeTab === tab.key;
             const isSavedTab = tab.key === 'SAVED_CONTACTS';
             const isFollowUpTab = tab.key === 'FOLLOW_UP';
+            const isDelivered = tab.key === 'DELIVERED';
+            const isRejected = tab.key === 'REJECTED';
 
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center justify-between gap-2.5 px-3.5 py-2 rounded-lg text-xs transition-all cursor-pointer flex-1 sm:flex-initial min-w-[130px] sm:min-w-0 ${
+                className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex-1 sm:flex-initial min-w-[115px] sm:min-w-0 ${
                   isActive
                     ? isFollowUpTab
                       ? 'bg-amber-100/90 text-amber-900 font-bold border border-amber-300 shadow-2xs'
+                      : isRejected
+                      ? 'bg-rose-50 text-rose-800 font-bold border border-rose-300 shadow-2xs'
+                      : isDelivered
+                      ? 'bg-emerald-50 text-emerald-800 font-bold border border-emerald-300 shadow-2xs'
                       : isSavedTab
                       ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-300 shadow-2xs'
-                      : 'bg-blue-50 text-blue-600 font-semibold border border-blue-200 shadow-2xs'
+                      : 'bg-blue-50 text-blue-700 font-bold border border-blue-200 shadow-2xs'
                     : isFollowUpTab
                     ? 'bg-amber-50/70 hover:bg-amber-100/80 text-amber-800 border border-amber-200/80 font-medium'
-                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-transparent'
+                    : isRejected
+                    ? 'bg-rose-50/50 hover:bg-rose-100/70 text-rose-700 border border-rose-200/60 font-medium'
+                    : isDelivered
+                    ? 'bg-emerald-50/50 hover:bg-emerald-100/70 text-emerald-700 border border-emerald-200/60 font-medium'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/60'
                 }`}
               >
                 <span className="whitespace-nowrap flex items-center gap-1.5">
@@ -239,11 +266,19 @@ export const MemberFollowUpsPage: React.FC = () => {
                     isActive
                       ? isFollowUpTab
                         ? 'bg-amber-500 text-white font-bold'
+                        : isRejected
+                        ? 'bg-rose-600 text-white'
+                        : isDelivered
+                        ? 'bg-emerald-600 text-white'
                         : isSavedTab
                         ? 'bg-emerald-600 text-white'
                         : 'bg-blue-600 text-white'
                       : isFollowUpTab
                       ? 'bg-amber-200 text-amber-900 font-bold'
+                      : isRejected
+                      ? 'bg-rose-100 text-rose-800'
+                      : isDelivered
+                      ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-slate-200 text-slate-600'
                   }`}
                 >

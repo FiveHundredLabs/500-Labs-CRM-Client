@@ -11,7 +11,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import toast from 'react-hot-toast';
-import { CheckCircle2, XCircle, Clock, ShieldAlert, Package, DollarSign, Eye, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, ShieldAlert, Package, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const AdminApprovalsPage: React.FC = () => {
@@ -20,9 +20,6 @@ export const AdminApprovalsPage: React.FC = () => {
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<ApprovalStatus | 'ALL'>('PENDING');
-
-  // View Details Modal State
-  const [viewingRequest, setViewingRequest] = useState<ApprovalRequest | null>(null);
 
   // Approval Confirm Dialog State
   const [approvingRequest, setApprovingRequest] = useState<ApprovalRequest | null>(null);
@@ -46,21 +43,6 @@ export const AdminApprovalsPage: React.FC = () => {
     loadRequests();
   }, []);
 
-  // Format Approval ID as 26apr19-3 format
-  const formatApprovalId = (req: ApprovalRequest, idx: number) => {
-    try {
-      const date = new Date(req.createdAt);
-      const yy = format(date, 'yy'); // e.g. 26
-      const dd = format(date, 'dd'); // e.g. 19
-      const seqParts = req.id.split('_');
-      const lastPart = seqParts[seqParts.length - 1];
-      const seqNum = lastPart.length > 2 ? lastPart.slice(-1) : lastPart;
-      return `${yy}apr${dd}-${seqNum || idx + 1}`;
-    } catch {
-      return req.id;
-    }
-  };
-
   // Handle Approval Action
   const handleConfirmApprove = async () => {
     if (!approvingRequest || !user) return;
@@ -79,9 +61,6 @@ export const AdminApprovalsPage: React.FC = () => {
 
       toast.success(`Approved ${approvingRequest.requestType.replace(/_/g, ' ')} request! Product data updated.`);
       setApprovingRequest(null);
-      if (viewingRequest && viewingRequest.id === approvingRequest.id) {
-        setViewingRequest(null);
-      }
       loadRequests();
     } catch (err: any) {
       toast.error(err.message || 'Failed to approve request.');
@@ -107,12 +86,9 @@ export const AdminApprovalsPage: React.FC = () => {
         description: `Rejected ${rejectingRequest.requestType.replace(/_/g, ' ')} for product ${rejectingRequest.productName}. Reason: ${rejectionReason}`,
       });
 
-      toast.success(`Rejected request.`);
+      toast.success(`Rejected request ${rejectingRequest.id}.`);
       setRejectingRequest(null);
       setRejectionReason('');
-      if (viewingRequest && viewingRequest.id === rejectingRequest.id) {
-        setViewingRequest(null);
-      }
       loadRequests();
     } catch (err: any) {
       toast.error(err.message || 'Failed to reject request.');
@@ -192,7 +168,7 @@ export const AdminApprovalsPage: React.FC = () => {
                 onClick={() => setStatusFilter(item.key as any)}
                 className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   statusFilter === item.key
-                    ? 'bg-blue-600 text-white shadow-xs'
+                    ? 'bg-slate-900 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -202,267 +178,120 @@ export const AdminApprovalsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Requests Table strictly keeping Type, Requested, Target Product Names, Date, Actions */}
+        {/* Requests Table */}
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left text-xs text-slate-700">
             <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
               <tr>
+                <th className="py-3 px-3">Request ID</th>
                 <th className="py-3 px-3">Type</th>
-                <th className="py-3 px-3">Requested</th>
-                <th className="py-3 px-3">Target Product Names</th>
+                <th className="py-3 px-3">Requested By</th>
+                <th className="py-3 px-3">Target Product</th>
+                <th className="py-3 px-3">Old Value</th>
+                <th className="py-3 px-3">New Value / Qty</th>
+                <th className="py-3 px-3">Reason</th>
                 <th className="py-3 px-3">Date</th>
+                <th className="py-3 px-3">Status</th>
                 <th className="py-3 px-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
+                  <td colSpan={10} className="py-8 text-center text-slate-400 text-xs">
                     No approval requests found matching status filter "{statusFilter}".
                   </td>
                 </tr>
               ) : (
-                filteredRequests.map((req, idx) => {
-                  const formattedId = formatApprovalId(req, idx);
-                  return (
-                    <tr key={req.id} className="hover:bg-slate-50 transition-colors">
-                      {/* Type Column */}
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            req.requestType === 'STOCK_ADDITION'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : 'bg-purple-50 text-purple-700 border border-purple-200'
-                          }`}>
-                            {req.requestType === 'STOCK_ADDITION' ? <Package className="w-3 h-3" /> : <DollarSign className="w-3 h-3" />}
-                            {req.requestType.replace(/_/g, ' ')}
-                          </span>
-                          <span className="font-mono text-[10px] text-slate-500 font-semibold">
-                            ({formattedId})
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Requested Column */}
-                      <td className="py-3 px-3 font-medium text-slate-900">
-                        <div>{req.requestedByName}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">Team: {req.teamId}</div>
-                      </td>
-
-                      {/* Target Product Names Column */}
-                      <td className="py-3 px-3 font-semibold text-slate-900">
-                        {req.items && req.items.length > 0 ? (
-                          <div>
-                            <div className="text-blue-900 font-bold">{req.productName}</div>
-                            <div className="text-[10px] text-slate-500 font-normal">
-                              Products: {req.items.map((it) => `${it.productName} (+${it.quantity})`).join(', ')}
+                filteredRequests.map((req) => (
+                  <tr key={req.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3 px-3 font-mono font-semibold text-slate-800">{req.id}</td>
+                    <td className="py-3 px-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        req.requestType === 'STOCK_ADDITION'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : 'bg-purple-50 text-purple-700 border border-purple-200'
+                      }`}>
+                        {req.requestType === 'STOCK_ADDITION' ? <Package className="w-3 h-3" /> : <DollarSign className="w-3 h-3" />}
+                        {req.requestType.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 font-medium text-slate-900">
+                      <div>{req.requestedByName}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">Team: {req.teamId}</div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="font-bold text-slate-900">{req.productName}</div>
+                      {req.items && req.items.length > 0 && (
+                        <div className="text-[10px] text-blue-800 bg-blue-50/80 p-1.5 rounded-lg border border-blue-200 mt-1 space-y-0.5 min-w-[160px]">
+                          <div className="font-bold border-b border-blue-200 pb-0.5">1 Approval for {req.items.length} Products:</div>
+                          {req.items.map((it, idx) => (
+                            <div key={idx} className="flex items-center justify-between font-mono">
+                              <span className="truncate max-w-[100px]">{it.productName}:</span>
+                              <span className="font-bold text-emerald-700">+{it.quantity}</span>
                             </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div>{req.productName}</div>
-                            {req.quantity ? (
-                              <div className="text-[10px] text-emerald-700 font-mono font-bold">+${req.quantity} units requested</div>
-                            ) : req.newValue !== undefined ? (
-                              <div className="text-[10px] text-purple-700 font-mono font-bold">New Price: LKR {req.newValue.toLocaleString()}</div>
-                            ) : null}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Date Column */}
-                      <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">
-                        {format(new Date(req.createdAt), 'MMM dd, yyyy HH:mm')}
-                      </td>
-
-                      {/* Actions Column */}
-                      <td className="py-3 px-3 text-right whitespace-nowrap">
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 font-mono text-slate-500">
+                      {req.requestType === 'STOCK_ADDITION' ? (req.oldValue !== undefined ? `${req.oldValue} units` : 'Multi-Item') : `LKR ${req.oldValue?.toLocaleString()}`}
+                    </td>
+                    <td className="py-3 px-3 font-mono font-bold text-emerald-700">
+                      {req.requestType === 'STOCK_ADDITION' ? `+${req.quantity} Total` : `LKR ${req.newValue?.toLocaleString()}`}
+                    </td>
+                    <td className="py-3 px-3 text-slate-600 max-w-[150px] truncate" title={req.reason}>
+                      {req.reason}
+                    </td>
+                    <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">
+                      {format(new Date(req.createdAt), 'MMM dd, HH:mm')}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800 animate-pulse'
+                      }`}>
+                        {req.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right whitespace-nowrap">
+                      {req.status === 'PENDING' ? (
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* View Detailed Breakdown Modal Action */}
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                            onClick={() => setApprovingRequest(req)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-xs px-2.5 py-1"
+                          >
+                            Approve
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            leftIcon={<Eye className="w-3.5 h-3.5 text-blue-600" />}
-                            onClick={() => setViewingRequest(req)}
-                            className="text-xs px-2.5 py-1"
-                            title="View Complete Stock Approval Details"
+                            leftIcon={<XCircle className="w-3.5 h-3.5 text-rose-600" />}
+                            onClick={() => {
+                              setRejectingRequest(req);
+                              setRejectionReason('');
+                            }}
+                            className="border-rose-300 text-rose-700 hover:bg-rose-50 text-xs px-2.5 py-1"
                           >
-                            View
+                            Reject
                           </Button>
-
-                          {req.status === 'PENDING' ? (
-                            <>
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
-                                onClick={() => setApprovingRequest(req)}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-xs px-2.5 py-1"
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                leftIcon={<XCircle className="w-3.5 h-3.5 text-rose-600" />}
-                                onClick={() => {
-                                  setRejectingRequest(req);
-                                  setRejectionReason('');
-                                }}
-                                className="border-rose-300 text-rose-700 hover:bg-rose-50 text-xs px-2.5 py-1"
-                              >
-                                Reject
-                              </Button>
-                            </>
-                          ) : (
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                            }`}>
-                              {req.status}
-                            </span>
-                          )}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                      ) : (
+                        <div className="text-[10px] text-slate-400">
+                          Reviewed by {req.reviewedByName || 'Admin'} on {req.reviewedDate ? format(new Date(req.reviewedDate), 'MMM dd') : '-'}
+                          {req.rejectionReason && <div className="text-rose-600 truncate max-w-[120px]">{req.rejectionReason}</div>}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
-
-      {/* Detailed Stock Approval View Modal */}
-      {viewingRequest && (
-        <Dialog
-          isOpen={!!viewingRequest}
-          onClose={() => setViewingRequest(null)}
-          title={`Stock Approval Details — #${formatApprovalId(viewingRequest, requests.indexOf(viewingRequest))}`}
-          description="Detailed breakdown of requested product stock additions, pricing proposals, and supervisor remarks"
-          maxWidth="md"
-        >
-          <div className="space-y-4 text-xs">
-            {/* Header Status Bar */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
-              <div>
-                <div className="font-bold text-slate-900 text-sm">{viewingRequest.productName}</div>
-                <div className="text-[11px] text-slate-500 font-mono">
-                  Requested by {viewingRequest.requestedByName} ({viewingRequest.teamId}) on {format(new Date(viewingRequest.createdAt), 'MMMM dd, yyyy HH:mm')}
-                </div>
-              </div>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold ${
-                viewingRequest.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : viewingRequest.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800 animate-pulse'
-              }`}>
-                {viewingRequest.status}
-              </span>
-            </div>
-
-            {/* Target Products Breakdown Table */}
-            <div className="space-y-2">
-              <div className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Product Breakdown & Quantity Additions</div>
-
-              {viewingRequest.items && viewingRequest.items.length > 0 ? (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-semibold text-slate-500">
-                      <tr>
-                        <th className="py-2 px-3">Product Name</th>
-                        <th className="py-2 px-3">Current Stock</th>
-                        <th className="py-2 px-3">Addition (+Qty)</th>
-                        <th className="py-2 px-3">Projected Stock</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {viewingRequest.items.map((it, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 font-bold text-slate-900">{it.productName}</td>
-                          <td className="py-2 px-3 font-mono text-slate-500">{it.oldStock ?? '-'}</td>
-                          <td className="py-2 px-3 font-mono font-bold text-emerald-700">+{it.quantity}</td>
-                          <td className="py-2 px-3 font-mono font-bold text-slate-900">{it.newStock ?? '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1.5">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Target Product:</span>
-                    <span className="font-bold text-slate-900">{viewingRequest.productName}</span>
-                  </div>
-                  {viewingRequest.oldValue !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Previous Value / Stock:</span>
-                      <span className="font-mono">{viewingRequest.oldValue}</span>
-                    </div>
-                  )}
-                  {viewingRequest.newValue !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Proposed New Value / Stock:</span>
-                      <span className="font-mono font-bold text-emerald-700">{viewingRequest.newValue}</span>
-                    </div>
-                  )}
-                  {viewingRequest.quantity && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Requested Addition (+Qty):</span>
-                      <span className="font-mono font-bold text-blue-700">+{viewingRequest.quantity} units</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Supervisor Remarks */}
-            <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-lg space-y-1">
-              <div className="font-bold text-blue-900 text-[11px]">Supervisor Reason & Remarks:</div>
-              <div className="text-blue-800">{viewingRequest.reason}</div>
-            </div>
-
-            {/* Reviewer Information if reviewed */}
-            {viewingRequest.reviewedByName && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 space-y-1">
-                <div className="font-bold text-slate-900 text-[11px]">Reviewer Record:</div>
-                <div>Reviewed by: <strong>{viewingRequest.reviewedByName}</strong></div>
-                <div>Date: {viewingRequest.reviewedDate ? format(new Date(viewingRequest.reviewedDate), 'MMMM dd, yyyy HH:mm') : '-'}</div>
-                {viewingRequest.rejectionReason && (
-                  <div className="text-rose-700 font-medium">Rejection Reason: {viewingRequest.rejectionReason}</div>
-                )}
-              </div>
-            )}
-
-            {/* Action Buttons inside Modal */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <Button variant="secondary" size="sm" onClick={() => setViewingRequest(null)}>
-                Close
-              </Button>
-
-              {viewingRequest.status === 'PENDING' && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-rose-300 text-rose-700 hover:bg-rose-50"
-                    onClick={() => {
-                      setRejectingRequest(viewingRequest);
-                      setRejectionReason('');
-                    }}
-                  >
-                    Reject Request
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                    onClick={() => setApprovingRequest(viewingRequest)}
-                  >
-                    Approve Request
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </Dialog>
-      )}
 
       {/* Confirmation Dialog for Approving Request */}
       <ConfirmDialog
@@ -483,7 +312,7 @@ export const AdminApprovalsPage: React.FC = () => {
         isOpen={!!rejectingRequest}
         onClose={() => setRejectingRequest(null)}
         title="Reject Approval Request"
-        description={`Provide a reason for rejecting request #${rejectingRequest ? formatApprovalId(rejectingRequest, requests.indexOf(rejectingRequest)) : ''}`}
+        description={`Provide a reason for rejecting request #${rejectingRequest?.id}`}
       >
         <form onSubmit={handleConfirmReject} className="space-y-4">
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 space-y-1">
@@ -512,4 +341,3 @@ export const AdminApprovalsPage: React.FC = () => {
     </div>
   );
 };
-

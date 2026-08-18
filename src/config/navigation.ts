@@ -14,7 +14,8 @@ import {
   Upload, 
   Layers,
   MoreHorizontal,
-  Wallet
+  Wallet,
+  Boxes
 } from 'lucide-react';
 
 export interface NavItem {
@@ -30,6 +31,7 @@ export interface NavItem {
 export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   TEAM_MEMBER: [
     { label: 'Home', path: '/member/dashboard', icon: Home, isBottomNav: true },
+    { label: 'Import', path: '/member/import', icon: Upload, isBottomNav: true },
     { label: 'Contacts', path: '/member/contacts', icon: PhoneCall, isBottomNav: true },
     { label: 'Call Logs', path: '/member/follow-ups', icon: Clock, isBottomNav: true },
     { label: 'Leaderboard', path: '/member/leaderboard', icon: Trophy, isBottomNav: true },
@@ -37,10 +39,10 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   ],
   SUPERVISOR: [
     { label: 'Home', path: '/supervisor/dashboard', icon: Home, isBottomNav: true },
+    { label: 'Import', path: '/supervisor/import', icon: Upload, isBottomNav: true },
     { label: 'Interested', path: '/supervisor/interested', icon: FileCheck, isBottomNav: true },
     { label: 'Orders', path: '/supervisor/orders', icon: Package, isBottomNav: true },
-    { label: 'Stock', path: '/supervisor/stock', icon: Package, isBottomNav: false },
-    { label: 'Import Contacts', path: '/supervisor/import', icon: Upload, isBottomNav: false },
+    { label: 'Stock', path: '/supervisor/stock', icon: Boxes, isBottomNav: false },
     { label: 'Allocation', path: '/supervisor/allocation', icon: Layers, isBottomNav: false },
     { label: 'Allocation History', path: '/supervisor/allocation/history', icon: Clock, isBottomNav: false },
     { label: 'Team', path: '/supervisor/team', icon: Users, isBottomNav: true },
@@ -53,8 +55,6 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     // Admin Specific Items
     { label: 'Home', path: '/admin/dashboard', icon: Home, isBottomNav: true, group: 'Admin' },
     { label: 'Users', path: '/admin/users', icon: Users, isBottomNav: true, group: 'Admin' },
-    { label: 'Approvals', path: '/admin/approvals', icon: FileCheck, isBottomNav: true, group: 'Admin' },
-    { label: 'Products', path: '/admin/products', icon: Package, isBottomNav: true, group: 'Admin' },
     { label: 'Reports', path: '/admin/reports', icon: PieChart, isBottomNav: true, group: 'Admin' },
     { label: 'Leaderboards', path: '/admin/leaderboards', icon: Trophy, isBottomNav: true, group: 'Admin' },
     { label: 'Activity', path: '/admin/activity', icon: Activity, isBottomNav: true, group: 'Admin' },
@@ -67,10 +67,9 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
       icon: Layers,
       group: 'Supervisor',
       children: [
+        { label: 'Import Contacts', path: '/admin/import', icon: Upload },
         { label: 'Interested', path: '/admin/customers', icon: FileCheck },
         { label: 'Orders', path: '/admin/orders', icon: Package },
-        { label: 'Stock', path: '/supervisor/stock', icon: Package },
-        { label: 'Import Contacts', path: '/admin/import', icon: Upload },
         { label: 'Allocation', path: '/admin/allocation', icon: Layers },
         { label: 'Allocation History', path: '/admin/allocation/history', icon: Clock },
       ],
