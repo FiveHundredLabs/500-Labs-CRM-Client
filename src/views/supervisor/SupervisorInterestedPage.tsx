@@ -94,23 +94,32 @@ export const SupervisorInterestedPage: React.FC = () => {
       };
     });
 
-  // PDF Download Trigger - Only generates PDF
+  // PDF Download Trigger - Downloads PDF first, then prompts for status change to Dispatched
   const handleDownloadPDF = () => {
     if (selectedPrintItems.length === 0) return;
-    const success = downloadBillingPDF(selectedPrintItems);
-    if (success) {
+    const pdfSuccess = downloadBillingPDF(selectedPrintItems);
+    if (pdfSuccess) {
       toast.success('Billing slips PDF downloaded!');
+      setIsPdfConfirmOpen(true);
     }
   };
 
-  // Native Browser Print Trigger - Only triggers print window
-  const handleNativePrint = () => {
+  // Native Browser Print Trigger - Triggers print window & AUTO-DISPATCHES selected leads
+  const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
     window.print();
+    setIsDispatching(true);
+    try {
+      await dispatchInterestedLeads(selectedIds);
+      clearSelection();
+    } finally {
+      setIsDispatching(false);
+    }
   };
 
-  // Status Transition Handler: INTERESTED -> DISPATCHED (Triggered via explicit button)
+  // Status Change Confirmation Handler (Executed after PDF download)
   const handleConfirmDispatched = async () => {
+    if (selectedPrintItems.length === 0) return;
     setIsDispatching(true);
     try {
       const success = await dispatchInterestedLeads(selectedIds);
@@ -170,25 +179,15 @@ export const SupervisorInterestedPage: React.FC = () => {
         onToggleSelectCard={toggleSelectCard}
       />
 
-      {/* Bottom-Right Floating Action Panel */}
+      {/* Bottom-Right Floating Action Panel (Manual dispatch button removed per Change 2) */}
       <PrintFloatingPanel
         selectedCount={selectedIds.length}
         countLabel="Selected"
         onDownloadPDF={handleDownloadPDF}
         onNativePrint={handleNativePrint}
-        extraActions={
-          <button
-            type="button"
-            onClick={() => setIsPdfConfirmOpen(true)}
-            className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/20 cursor-pointer"
-            title="Mark Selected Leads as Dispatched"
-          >
-            <span>Dispatch Selected</span>
-          </button>
-        }
       />
 
-      {/* Explicit Dispatch Confirmation Dialog */}
+      {/* PDF Download + Auto-Dispatch Confirmation Dialog */}
       <InterestedPdfConfirmDialog
         isOpen={isPdfConfirmOpen}
         selectedCount={selectedIds.length}
