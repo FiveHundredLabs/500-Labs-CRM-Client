@@ -23,6 +23,7 @@ import { SupervisorOrdersPage } from '../views/supervisor/SupervisorOrdersPage';
 import { SupervisorReportsPage } from '../views/supervisor/SupervisorReportsPage';
 import { SupervisorTeamMembersPage } from '../views/supervisor/SupervisorTeamMembersPage';
 import { SupervisorProfilePage } from '../views/supervisor/SupervisorProfilePage';
+import { SupervisorStockPage } from '../views/supervisor/SupervisorStockPage';
 
 // Admin Views
 import { AdminDashboard } from '../views/admin/AdminDashboard';
@@ -32,6 +33,8 @@ import { AdminReportsPage } from '../views/admin/AdminReportsPage';
 import { AdminActivityPage } from '../views/admin/AdminActivityPage';
 import { AdminLeaderboardsPage } from '../views/admin/AdminLeaderboardsPage';
 import { AdminProfilePage } from '../views/admin/AdminProfilePage';
+import { AdminApprovalsPage } from '../views/admin/AdminApprovalsPage';
+import { AdminProductsPage } from '../views/admin/AdminProductsPage';
 
 // Finance Views
 import { FinanceDashboard } from '../views/finance/FinanceDashboard';
@@ -78,6 +81,7 @@ export const router = createBrowserRouter([
               { path: 'team', element: <SupervisorTeamPage /> },
               { path: 'team-members', element: <SupervisorTeamMembersPage /> },
               { path: 'reports', element: <SupervisorReportsPage /> },
+              { path: 'stock', element: <SupervisorStockPage /> },
               { path: 'import', element: <SupervisorImportPage /> },
               { path: 'allocation', element: <SupervisorAllocationPage /> },
               { path: 'allocation/history', element: <SupervisorAllocationHistoryPage /> },
@@ -95,6 +99,8 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute allowedRoles={['ADMIN']} />,
             children: [
               { path: 'dashboard', element: <AdminDashboard /> },
+              { path: 'approvals', element: <AdminApprovalsPage /> },
+              { path: 'products', element: <AdminProductsPage /> },
               { path: 'users', element: <AdminUsersPage /> },
               { path: 'users/:id', element: <AdminEmployeeDetailPage /> },
               { path: 'customers', element: <SupervisorInterestedPage /> },

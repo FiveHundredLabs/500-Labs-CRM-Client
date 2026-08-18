@@ -94,24 +94,22 @@ export const SupervisorInterestedPage: React.FC = () => {
       };
     });
 
-  // PDF Download Trigger
+  // PDF Download Trigger - Only generates PDF
   const handleDownloadPDF = () => {
     if (selectedPrintItems.length === 0) return;
     const success = downloadBillingPDF(selectedPrintItems);
     if (success) {
       toast.success('Billing slips PDF downloaded!');
-      setIsPdfConfirmOpen(true);
     }
   };
 
-  // Native Browser Print Trigger
+  // Native Browser Print Trigger - Only triggers print window
   const handleNativePrint = () => {
     if (selectedPrintItems.length === 0) return;
     window.print();
-    setIsPrintConfirmOpen(true);
   };
 
-  // Status Transition Handler: INTERESTED -> DISPATCHED
+  // Status Transition Handler: INTERESTED -> DISPATCHED (Triggered via explicit button)
   const handleConfirmDispatched = async () => {
     setIsDispatching(true);
     try {
@@ -119,7 +117,6 @@ export const SupervisorInterestedPage: React.FC = () => {
       if (success) {
         clearSelection();
         setIsPdfConfirmOpen(false);
-        setIsPrintConfirmOpen(false);
       }
     } finally {
       setIsDispatching(false);
@@ -168,6 +165,7 @@ export const SupervisorInterestedPage: React.FC = () => {
       <InterestedList
         filteredCustomers={filteredCustomers}
         membersMap={membersMap}
+        ordersMap={ordersMap}
         selectedIds={selectedIds}
         onToggleSelectCard={toggleSelectCard}
       />
@@ -178,22 +176,24 @@ export const SupervisorInterestedPage: React.FC = () => {
         countLabel="Selected"
         onDownloadPDF={handleDownloadPDF}
         onNativePrint={handleNativePrint}
+        extraActions={
+          <button
+            type="button"
+            onClick={() => setIsPdfConfirmOpen(true)}
+            className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/20 cursor-pointer"
+            title="Mark Selected Leads as Dispatched"
+          >
+            <span>Dispatch Selected</span>
+          </button>
+        }
       />
 
-      {/* Dialog Modals */}
+      {/* Explicit Dispatch Confirmation Dialog */}
       <InterestedPdfConfirmDialog
         isOpen={isPdfConfirmOpen}
         selectedCount={selectedIds.length}
         isDispatching={isDispatching}
         onClose={() => setIsPdfConfirmOpen(false)}
-        onConfirmDispatched={handleConfirmDispatched}
-      />
-
-      <InterestedPrintConfirmDialog
-        isOpen={isPrintConfirmOpen}
-        selectedCount={selectedIds.length}
-        isDispatching={isDispatching}
-        onClose={() => setIsPrintConfirmOpen(false)}
         onConfirmDispatched={handleConfirmDispatched}
       />
     </div>

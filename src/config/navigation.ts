@@ -38,6 +38,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Home', path: '/supervisor/dashboard', icon: Home, isBottomNav: true },
     { label: 'Interested', path: '/supervisor/interested', icon: FileCheck, isBottomNav: true },
     { label: 'Orders', path: '/supervisor/orders', icon: Package, isBottomNav: true },
+    { label: 'Stock', path: '/supervisor/stock', icon: Package, isBottomNav: false },
     { label: 'Import Contacts', path: '/supervisor/import', icon: Upload, isBottomNav: false },
     { label: 'Allocation', path: '/supervisor/allocation', icon: Layers, isBottomNav: false },
     { label: 'Allocation History', path: '/supervisor/allocation/history', icon: Clock, isBottomNav: false },
@@ -50,10 +51,12 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   ADMIN: [
     // Admin Specific Items
     { label: 'Home', path: '/admin/dashboard', icon: Home, isBottomNav: true, group: 'Admin' },
+    { label: 'Approvals', path: '/admin/approvals', icon: FileCheck, isBottomNav: true, group: 'Admin' },
+    { label: 'Products', path: '/admin/products', icon: Package, isBottomNav: false, group: 'Admin' },
     { label: 'Users', path: '/admin/users', icon: Users, isBottomNav: true, group: 'Admin' },
     { label: 'Reports', path: '/admin/reports', icon: PieChart, isBottomNav: true, group: 'Admin' },
-    { label: 'Leaderboards', path: '/admin/leaderboards', icon: Trophy, isBottomNav: true, group: 'Admin' },
-    { label: 'Activity', path: '/admin/activity', icon: Activity, isBottomNav: true, group: 'Admin' },
+    { label: 'Leaderboards', path: '/admin/leaderboards', icon: Trophy, isBottomNav: false, group: 'Admin' },
+    { label: 'Activity', path: '/admin/activity', icon: Activity, isBottomNav: false, group: 'Admin' },
     { label: 'Profile', path: '/admin/profile', icon: User, isBottomNav: false, group: 'Admin' },
 
     // Supervisor Section (Expandable Group)
