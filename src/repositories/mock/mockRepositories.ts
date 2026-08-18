@@ -792,55 +792,89 @@ export class MockApprovalRequestRepository implements IApprovalRequestRepository
     // Apply approved changes to Product & StockActivityLog automatically
     if (status === 'APPROVED') {
       const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
-      const pIdx = products.findIndex((p) => p.id === updated.productId);
-      if (pIdx !== -1) {
-        const prod = products[pIdx];
-        let actionType: 'ADD' | 'REMOVE' | 'ADJUST' | 'PRICE_CHANGE' = 'ADD';
-        let prevStock = prod.currentStock;
-        let newStock = prod.currentStock;
-        let prevCost = prod.costPrice;
-        let newCost = prod.costPrice;
-        let prevSelling = prod.sellingPrice;
-        let newSelling = prod.sellingPrice;
+      const stockLogs = getStoredItem<StockActivityLog>(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, []);
 
-        if (updated.requestType === 'STOCK_ADDITION' && updated.quantity) {
-          actionType = 'ADD';
-          newStock = prod.currentStock + updated.quantity;
-          products[pIdx].currentStock = newStock;
-        } else if (updated.requestType === 'PRODUCT_COST_PRICE_CHANGE' && updated.newValue !== undefined) {
-          actionType = 'PRICE_CHANGE';
-          newCost = updated.newValue;
-          products[pIdx].costPrice = newCost;
-        } else if (updated.requestType === 'PRODUCT_SELLING_PRICE_CHANGE' && updated.newValue !== undefined) {
-          actionType = 'PRICE_CHANGE';
-          newSelling = updated.newValue;
-          products[pIdx].sellingPrice = newSelling;
+      // Case A: Multi-product bulk stock addition
+      if (updated.requestType === 'STOCK_ADDITION' && updated.items && updated.items.length > 0) {
+        for (const item of updated.items) {
+          const pIdx = products.findIndex((p) => p.id === item.productId);
+          if (pIdx !== -1) {
+            const prod = products[pIdx];
+            const prevStock = prod.currentStock;
+            const newStock = prod.currentStock + item.quantity;
+            products[pIdx].currentStock = newStock;
+            products[pIdx].updatedAt = new Date().toISOString();
+
+            stockLogs.push({
+              id: `skl_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+              productId: item.productId,
+              productName: item.productName,
+              teamId: updated.teamId,
+              action: 'ADD',
+              quantity: item.quantity,
+              previousStock: prevStock,
+              newStock: newStock,
+              performedBy: updated.requestedById,
+              performedByName: updated.requestedByName,
+              approvalRequestId: updated.id,
+              approvalStatus: 'APPROVED',
+              createdAt: new Date().toISOString(),
+            });
+          }
         }
-        products[pIdx].updatedAt = new Date().toISOString();
         setStoredItem(STORAGE_KEYS.PRODUCTS, products);
-
-        // Record stock log
-        const stockLogs = getStoredItem<StockActivityLog>(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, []);
-        stockLogs.push({
-          id: `skl_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-          productId: prod.id,
-          productName: prod.name,
-          teamId: prod.teamId,
-          action: actionType,
-          quantity: updated.quantity || 0,
-          previousStock: prevStock,
-          newStock: newStock,
-          previousCostPrice: prevCost,
-          newCostPrice: newCost,
-          previousSellingPrice: prevSelling,
-          newSellingPrice: newSelling,
-          performedBy: updated.requestedById,
-          performedByName: updated.requestedByName,
-          approvalRequestId: updated.id,
-          approvalStatus: 'APPROVED',
-          createdAt: new Date().toISOString(),
-        });
         setStoredItem(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, stockLogs);
+      } else {
+        // Case B: Single product stock addition or price change
+        const pIdx = products.findIndex((p) => p.id === updated.productId);
+        if (pIdx !== -1) {
+          const prod = products[pIdx];
+          let actionType: 'ADD' | 'REMOVE' | 'ADJUST' | 'PRICE_CHANGE' = 'ADD';
+          let prevStock = prod.currentStock;
+          let newStock = prod.currentStock;
+          let prevCost = prod.costPrice;
+          let newCost = prod.costPrice;
+          let prevSelling = prod.sellingPrice;
+          let newSelling = prod.sellingPrice;
+
+          if (updated.requestType === 'STOCK_ADDITION' && updated.quantity) {
+            actionType = 'ADD';
+            newStock = prod.currentStock + updated.quantity;
+            products[pIdx].currentStock = newStock;
+          } else if (updated.requestType === 'PRODUCT_COST_PRICE_CHANGE' && updated.newValue !== undefined) {
+            actionType = 'PRICE_CHANGE';
+            newCost = updated.newValue;
+            products[pIdx].costPrice = newCost;
+          } else if (updated.requestType === 'PRODUCT_SELLING_PRICE_CHANGE' && updated.newValue !== undefined) {
+            actionType = 'PRICE_CHANGE';
+            newSelling = updated.newValue;
+            products[pIdx].sellingPrice = newSelling;
+          }
+          products[pIdx].updatedAt = new Date().toISOString();
+          setStoredItem(STORAGE_KEYS.PRODUCTS, products);
+
+          // Record stock log
+          stockLogs.push({
+            id: `skl_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            productId: prod.id,
+            productName: prod.name,
+            teamId: prod.teamId,
+            action: actionType,
+            quantity: updated.quantity || 0,
+            previousStock: prevStock,
+            newStock: newStock,
+            previousCostPrice: prevCost,
+            newCostPrice: newCost,
+            previousSellingPrice: prevSelling,
+            newSellingPrice: newSelling,
+            performedBy: updated.requestedById,
+            performedByName: updated.requestedByName,
+            approvalRequestId: updated.id,
+            approvalStatus: 'APPROVED',
+            createdAt: new Date().toISOString(),
+          });
+          setStoredItem(STORAGE_KEYS.STOCK_ACTIVITY_LOGS, stockLogs);
+        }
       }
     }
 

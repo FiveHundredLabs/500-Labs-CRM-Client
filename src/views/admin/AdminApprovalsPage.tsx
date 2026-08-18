@@ -220,12 +220,25 @@ export const AdminApprovalsPage: React.FC = () => {
                       <div>{req.requestedByName}</div>
                       <div className="text-[10px] text-slate-400 font-mono">Team: {req.teamId}</div>
                     </td>
-                    <td className="py-3 px-3 font-bold text-slate-900">{req.productName}</td>
+                    <td className="py-3 px-3">
+                      <div className="font-bold text-slate-900">{req.productName}</div>
+                      {req.items && req.items.length > 0 && (
+                        <div className="text-[10px] text-blue-800 bg-blue-50/80 p-1.5 rounded-lg border border-blue-200 mt-1 space-y-0.5 min-w-[160px]">
+                          <div className="font-bold border-b border-blue-200 pb-0.5">1 Approval for {req.items.length} Products:</div>
+                          {req.items.map((it, idx) => (
+                            <div key={idx} className="flex items-center justify-between font-mono">
+                              <span className="truncate max-w-[100px]">{it.productName}:</span>
+                              <span className="font-bold text-emerald-700">+{it.quantity}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="py-3 px-3 font-mono text-slate-500">
-                      {req.requestType === 'STOCK_ADDITION' ? `${req.oldValue} units` : `LKR ${req.oldValue?.toLocaleString()}`}
+                      {req.requestType === 'STOCK_ADDITION' ? (req.oldValue !== undefined ? `${req.oldValue} units` : 'Multi-Item') : `LKR ${req.oldValue?.toLocaleString()}`}
                     </td>
                     <td className="py-3 px-3 font-mono font-bold text-emerald-700">
-                      {req.requestType === 'STOCK_ADDITION' ? `+${req.quantity} (Total ${req.newValue})` : `LKR ${req.newValue?.toLocaleString()}`}
+                      {req.requestType === 'STOCK_ADDITION' ? `+${req.quantity} Total` : `LKR ${req.newValue?.toLocaleString()}`}
                     </td>
                     <td className="py-3 px-3 text-slate-600 max-w-[150px] truncate" title={req.reason}>
                       {req.reason}
@@ -286,7 +299,11 @@ export const AdminApprovalsPage: React.FC = () => {
         onClose={() => setApprovingRequest(null)}
         onConfirm={handleConfirmApprove}
         title="Approve Request & Update Product Data"
-        message={`Are you sure you want to approve this ${approvingRequest?.requestType.replace(/_/g, ' ')} for product "${approvingRequest?.productName}"? The changes will be applied directly to the database.`}
+        message={
+          approvingRequest?.items && approvingRequest.items.length > 0
+            ? `Are you sure you want to approve this 1-click bulk stock request for ${approvingRequest.items.length} products? Stock quantities for all requested products will be updated in the database.`
+            : `Are you sure you want to approve this ${approvingRequest?.requestType.replace(/_/g, ' ')} for product "${approvingRequest?.productName}"? The changes will be applied directly to the database.`
+        }
         confirmText="Approve & Apply"
       />
 

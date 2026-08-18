@@ -308,6 +308,14 @@ export type ApprovalType =
 
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
+export interface ApprovalRequestItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  oldStock?: number;
+  newStock?: number;
+}
+
 export interface ApprovalRequest {
   id: string; // e.g., 'apr_001'
   requestType: ApprovalType;
@@ -316,6 +324,7 @@ export interface ApprovalRequest {
   teamId: string;
   productId: string;
   productName: string;
+  items?: ApprovalRequestItem[]; // Multi-product stock addition items
   oldValue?: number; // Previous stock or previous cost/selling price
   newValue?: number; // Proposed new stock addition or new cost/selling price
   quantity?: number; // Requested stock addition quantity

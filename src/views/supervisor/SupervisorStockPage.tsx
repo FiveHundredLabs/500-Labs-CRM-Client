@@ -34,15 +34,21 @@ export const SupervisorStockPage: React.FC = () => {
   const [priceReason, setPriceReason] = useState<string>('');
   const [isSubmittingPrice, setIsSubmittingPrice] = useState(false);
 
+  // Bulk Multi-Product Stock Addition Modal (Requirement 1)
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkQuantities, setBulkQuantities] = useState<Record<string, number>>({});
+  const [bulkReason, setBulkReason] = useState<string>('');
+  const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
+
   // Critical Action Confirmation States
   const [confirmingStockSubmit, setConfirmingStockSubmit] = useState(false);
   const [confirmingPriceSubmit, setConfirmingPriceSubmit] = useState(false);
+  const [confirmingBulkSubmit, setConfirmingBulkSubmit] = useState(false);
 
   const loadData = async () => {
     if (!user || !user.teamId) return;
     setLoading(true);
     try {
-      // Requirement 2.9: Only load products belonging to supervisor's team!
       const [teamProducts, logs, requests] = await Promise.all([
         productRepository.getByTeamId(user.teamId),
         stockActivityLogRepository.getByTeamId(user.teamId),
@@ -60,6 +66,62 @@ export const SupervisorStockPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [user]);
+
+  const openBulkModal = () => {
+    const initialMap: Record<string, number> = {};
+    products.forEach((p) => {
+      initialMap[p.id] = 0;
+    });
+    setBulkQuantities(initialMap);
+    setBulkReason('');
+    setIsBulkModalOpen(true);
+  };
+
+  // Bulk Multi-Product Stock Addition Submit
+  const handleRequestBulkStockAddition = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    const itemsToAdd = products
+      .filter((p) => (bulkQuantities[p.id] || 0) > 0)
+      .map((p) => ({
+        productId: p.id,
+        productName: p.name,
+        quantity: bulkQuantities[p.id],
+        oldStock: p.currentStock,
+        newStock: p.currentStock + bulkQuantities[p.id],
+      }));
+
+    if (itemsToAdd.length === 0) {
+      toast.error('Please enter additional stock quantity for at least one product.');
+      return;
+    }
+
+    setIsSubmittingBulk(true);
+    try {
+      const totalQty = itemsToAdd.reduce((sum, item) => sum + item.quantity, 0);
+
+      await approvalRequestRepository.create({
+        requestType: 'STOCK_ADDITION',
+        requestedById: user.id,
+        requestedByName: user.fullName,
+        teamId: user.teamId || 'team_001',
+        productId: 'multi_products',
+        productName: `Bulk Stock Addition (${itemsToAdd.length} Products, +${totalQty} Units)`,
+        items: itemsToAdd,
+        quantity: totalQty,
+        reason: bulkReason || `Bulk stock addition request for ${itemsToAdd.length} products (+${totalQty} units total)`,
+      });
+
+      toast.success(`Submitted 1 bulk approval request for ${itemsToAdd.length} products to Admin.`);
+      setIsBulkModalOpen(false);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit bulk stock request.');
+    } finally {
+      setIsSubmittingBulk(false);
+    }
+  };
 
   // Requirement 2.10: Supervisor requests stock addition (Creates pending ApprovalRequest)
   const handleRequestStockAddition = async (e: React.FormEvent) => {
@@ -167,6 +229,17 @@ export const SupervisorStockPage: React.FC = () => {
       <PageHeader
         title="Stock & Inventory Management"
         description="Monitor team-specific product stock, request inventory additions, and request price adjustments"
+        actions={
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<PlusCircle className="w-4 h-4" />}
+            onClick={openBulkModal}
+            className="bg-blue-600 hover:bg-blue-700 font-bold shadow-xs"
+          >
+            Bulk Add Stock Request
+          </Button>
+        }
       />
 
       {/* KPI Cards */}
@@ -494,6 +567,96 @@ export const SupervisorStockPage: React.FC = () => {
         title="Submit Price Change Request"
         message={`Are you sure you want to submit price adjustment proposals for product "${priceModalProduct?.name}" and send an email alert to the Administrator?`}
         confirmText="Submit & Notify Admin"
+      />
+
+      {/* Multi-Product Bulk Stock Addition Modal (Requirement 1) */}
+      <Dialog
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        title="Bulk Add Stock Request (1 Approval for Multiple Products)"
+        description="Enter stock quantities to add across multiple team products. Admin will confirm with a single 1-approval action."
+        maxWidth="lg"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setConfirmingBulkSubmit(true);
+          }}
+          className="space-y-4"
+        >
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-500 uppercase">
+                <tr>
+                  <th className="py-2.5 px-3">Product</th>
+                  <th className="py-2.5 px-3">Code</th>
+                  <th className="py-2.5 px-3">Current Stock</th>
+                  <th className="py-2.5 px-3">Add Stock (+Qty)</th>
+                  <th className="py-2.5 px-3">New Projected Stock</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {products.map((p) => {
+                  const qty = bulkQuantities[p.id] || 0;
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-semibold text-slate-900">{p.name}</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-500">{p.code}</td>
+                      <td className="py-2.5 px-3 font-mono">{p.currentStock}</td>
+                      <td className="py-2.5 px-3">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={qty === 0 ? '' : qty}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setBulkQuantities((prev) => ({ ...prev, [p.id]: val }));
+                          }}
+                          placeholder="0"
+                          className="w-24 text-xs py-1 font-bold"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3 font-mono font-bold text-emerald-700">
+                        {p.currentStock + qty}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <Input
+            label="Reason / Remarks for Bulk Addition *"
+            placeholder="e.g. Monthly stock inventory replenishment for all team products"
+            value={bulkReason}
+            onChange={(e) => setBulkReason(e.target.value)}
+            required
+          />
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button type="button" variant="secondary" onClick={() => setIsBulkModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" isLoading={isSubmittingBulk} leftIcon={<Send className="w-3.5 h-3.5" />}>
+              Submit 1 Approval Request for All Products
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Confirmation for Bulk Stock Request */}
+      <ConfirmDialog
+        isOpen={confirmingBulkSubmit}
+        onClose={() => setConfirmingBulkSubmit(false)}
+        onConfirm={() => {
+          setConfirmingBulkSubmit(false);
+          const fakeEvent = { preventDefault: () => {} } as any;
+          handleRequestBulkStockAddition(fakeEvent);
+        }}
+        title="Submit Multi-Product Bulk Stock Request"
+        message="Are you sure you want to submit a single multi-product stock addition request to Admin for 1-click approval?"
+        confirmText="Submit Bulk Request"
       />
     </div>
   );
