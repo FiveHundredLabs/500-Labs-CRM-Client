@@ -14,7 +14,7 @@ import { LoadingState } from '../../components/shared/LoadingState';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { UserProfileDossier } from '../../components/profile/UserProfileDossier';
 import toast from 'react-hot-toast';
-import { UserPlus, Edit2, UserX, Eye, Mail, Phone, MapPin, Calendar, CreditCard, Shield } from 'lucide-react';
+import { UserPlus, Edit2, UserX, Eye, EyeOff, Mail, Phone, MapPin, Calendar, CreditCard, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const SupervisorTeamPage: React.FC = () => {
@@ -33,6 +33,10 @@ export const SupervisorTeamPage: React.FC = () => {
   // Form fields
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [nic, setNic] = useState('');
@@ -63,6 +67,10 @@ export const SupervisorTeamPage: React.FC = () => {
     setEditingMember(null);
     setFullName('');
     setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setPhone('');
     setCity('');
     setNic('');
@@ -76,6 +84,10 @@ export const SupervisorTeamPage: React.FC = () => {
     setEditingMember(member);
     setFullName(member.fullName);
     setEmail(member.email);
+    setPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setPhone(member.phone);
     setCity(member.city);
     setNic(member.nic || '');
@@ -89,12 +101,48 @@ export const SupervisorTeamPage: React.FC = () => {
     e.preventDefault();
     if (!fullName.trim() || !email.trim()) return;
 
+    if (!editingMember) {
+      if (!password) {
+        toast.error('Please enter a password');
+        return;
+      }
+      if (password.length < 10) {
+        toast.error('Password must be at least 10 characters long');
+        return;
+      }
+      if (password !== confirmPassword) {
+        toast.error('Passwords do not match. Please re-enter your password.');
+        return;
+      }
+    } else {
+      if (password.trim().length > 0) {
+        if (password.trim().length < 10) {
+          toast.error('New password must be at least 10 characters long');
+          return;
+        }
+        if (password !== confirmPassword) {
+          toast.error('Passwords do not match. Please re-enter your password.');
+          return;
+        }
+      }
+    }
+
     setIsSubmitting(true);
     try {
       if (editingMember) {
         await UserService.updateUser(
           editingMember.id,
-          { fullName, email, phone, city, nic, dateOfBirth, joiningDate, joinedDate: joiningDate, avatarUrl },
+          {
+            fullName,
+            email,
+            password: password.trim() ? password.trim() : undefined,
+            phone,
+            city,
+            nic,
+            dateOfBirth,
+            joiningDate,
+            avatarUrl,
+          },
           user!
         );
         toast.success(`Updated details for ${fullName}`);
@@ -103,6 +151,7 @@ export const SupervisorTeamPage: React.FC = () => {
           {
             username: email.split('@')[0],
             email,
+            password,
             fullName,
             role: 'TEAM_MEMBER',
             teamId: user!.teamId!,
@@ -112,7 +161,6 @@ export const SupervisorTeamPage: React.FC = () => {
             nic,
             dateOfBirth,
             joiningDate,
-            joinedDate: joiningDate,
             avatarUrl: '', // DO NOT allow profile photo upload during creation
             isActive: true,
           },
@@ -259,7 +307,7 @@ export const SupervisorTeamPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         title={editingMember ? 'Edit Team Member' : 'Add New Team Member'}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           {/* Profile photo upload strictly hidden during creation (Requirement 2.4) */}
           {editingMember && (
             <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
@@ -280,6 +328,7 @@ export const SupervisorTeamPage: React.FC = () => {
             label="Full Name *"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
+            autoComplete="off"
             required
           />
           <Input
@@ -287,8 +336,53 @@ export const SupervisorTeamPage: React.FC = () => {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="off"
             required
           />
+          <Input
+            label={editingMember ? "Reset / Change Password" : "Account Password *"}
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={editingMember ? "Leave blank to keep current, or enter new password" : "Enter password (min. 10 chars)"}
+            helperText={editingMember ? (password ? "Must be at least 10 characters" : "Leave blank to keep existing password") : "Must be at least 10 characters"}
+            autoComplete="new-password"
+            rightIcon={
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="p-1 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            }
+            required={!editingMember}
+          />
+
+          {(!editingMember || password.length > 0) && (
+            <Input
+              label={editingMember ? "Confirm New Password *" : "Confirm Password *"}
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter password"
+              helperText={confirmPassword && password !== confirmPassword ? 'Passwords do not match' : undefined}
+              error={confirmPassword && password !== confirmPassword ? 'Passwords do not match' : undefined}
+              autoComplete="new-password"
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="p-1 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              }
+              required
+            />
+          )}
           <Input
             label="Phone Number *"
             value={phone}

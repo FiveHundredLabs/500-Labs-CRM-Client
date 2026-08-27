@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { User, UserRole } from '../../models/domain';
-import { userRepository } from '../../repositories';
+import { User, UserRole, Team } from '../../models/domain';
+import { userRepository, teamRepository } from '../../repositories';
 import { UserService } from '../../services/userService';
 import { PREDEFINED_TEAMS } from '../../config/branding';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -16,7 +16,7 @@ import { EditableProfileAvatar } from '../../components/shared/EditableProfileAv
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { LoadingState } from '../../components/shared/LoadingState';
 import toast from 'react-hot-toast';
-import { UserPlus, Edit2, UserX, Eye } from 'lucide-react';
+import { UserPlus, Edit2, UserX, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const AdminUsersPage: React.FC = () => {
@@ -24,6 +24,7 @@ export const AdminUsersPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [users, setUsers] = useState<User[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
@@ -36,9 +37,13 @@ export const AdminUsersPage: React.FC = () => {
   const [role, setRole] = useState<UserRole>('SUPERVISOR');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
-  const [teamId, setTeamId] = useState<string>('team_001');
+  const [teamId, setTeamId] = useState<string>('');
   const [supervisorId, setSupervisorId] = useState<string>('');
   const [nic, setNic] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('1995-05-15');
@@ -51,8 +56,15 @@ export const AdminUsersPage: React.FC = () => {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const data = await userRepository.getAll();
-      setUsers(data);
+      const [usersData, teamsData] = await Promise.all([
+        userRepository.getAll(),
+        teamRepository.getAll().catch(() => []),
+      ]);
+      setUsers(usersData);
+      setTeams(teamsData);
+      if (teamsData.length > 0 && !teamId) {
+        setTeamId(teamsData[0].id);
+      }
     } finally {
       setLoading(false);
     }
@@ -67,9 +79,13 @@ export const AdminUsersPage: React.FC = () => {
     setRole('SUPERVISOR');
     setFullName('');
     setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setPhone('');
     setCity('');
-    setTeamId('team_001');
+    setTeamId(teams.length > 0 ? teams[0].id : '');
     setSupervisorId('');
     setNic('');
     setDateOfBirth('1995-05-15');
@@ -82,9 +98,13 @@ export const AdminUsersPage: React.FC = () => {
     setRole(u.role);
     setFullName(u.fullName);
     setEmail(u.email);
+    setPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setPhone(u.phone);
     setCity(u.city);
-    setTeamId(u.teamId || 'team_001');
+    setTeamId(u.teamId || (teams.length > 0 ? teams[0].id : ''));
     setSupervisorId(u.supervisorId || '');
     setNic(u.nic || '');
     setDateOfBirth(u.dateOfBirth || '1995-05-15');
@@ -96,6 +116,33 @@ export const AdminUsersPage: React.FC = () => {
     e.preventDefault();
     if (!fullName.trim() || !email.trim()) return;
 
+    if (!editingUser) {
+      if (!password) {
+        toast.error('Please enter a password');
+        return;
+      }
+      if (password.length < 10) {
+        toast.error('Password must be at least 10 characters long');
+        return;
+      }
+      if (password !== confirmPassword) {
+        toast.error('Passwords do not match. Please re-enter your password.');
+        return;
+      }
+    } else {
+      // If editing and password was entered
+      if (password.trim().length > 0) {
+        if (password.trim().length < 10) {
+          toast.error('New password must be at least 10 characters long');
+          return;
+        }
+        if (password !== confirmPassword) {
+          toast.error('Passwords do not match. Please re-enter your password.');
+          return;
+        }
+      }
+    }
+
     setIsSubmitting(true);
     try {
       if (editingUser) {
@@ -104,11 +151,12 @@ export const AdminUsersPage: React.FC = () => {
           {
             fullName,
             email,
+            password: password.trim() ? password.trim() : undefined,
             phone,
             city,
             role,
-            teamId: role === 'ADMIN' || role === 'FINANCE' ? null : teamId,
-            supervisorId: role === 'TEAM_MEMBER' ? supervisorId : null,
+            teamId: role === 'ADMIN' || role === 'FINANCE' ? null : (teamId || null),
+            supervisorId: role === 'TEAM_MEMBER' ? (supervisorId || null) : null,
             nic,
             dateOfBirth,
             avatarUrl,
@@ -124,15 +172,16 @@ export const AdminUsersPage: React.FC = () => {
           {
             username: email.split('@')[0],
             email,
+            password,
             fullName,
             role,
-            teamId: role === 'ADMIN' || role === 'FINANCE' ? null : teamId,
-            supervisorId: role === 'TEAM_MEMBER' ? supervisorId : null,
+            teamId: role === 'ADMIN' || role === 'FINANCE' ? null : (teamId || null),
+            supervisorId: role === 'TEAM_MEMBER' ? (supervisorId || null) : null,
             city,
             phone,
             nic,
             dateOfBirth,
-            avatarUrl,
+            avatarUrl: '', // No attached photo during creation
             joiningDate: new Date().toISOString(),
             isActive: true,
           },
@@ -254,7 +303,7 @@ export const AdminUsersPage: React.FC = () => {
                       leftIcon={<Eye className="w-3.5 h-3.5" />}
                       onClick={() => navigate(`/admin/users/${u.id}`)}
                     >
-                      Dossier
+                      View
                     </Button>
                     <Button
                       variant="ghost"
@@ -289,19 +338,21 @@ export const AdminUsersPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         title={editingUser ? 'Edit User Account' : 'Create User Account'}
       >
-        <form onSubmit={handleSaveUser} className="space-y-4">
-          <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-            <EditableProfileAvatar
-              name={fullName || 'User'}
-              avatarUrl={avatarUrl}
-              onChangeAvatar={setAvatarUrl}
-              size="lg"
-            />
-            <div>
-              <div className="text-xs font-bold text-slate-900">User Photo</div>
-              <div className="text-[11px] text-slate-500">Click camera icon to upload profile photo</div>
+        <form onSubmit={handleSaveUser} className="space-y-4" autoComplete="off">
+          {editingUser && (
+            <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <EditableProfileAvatar
+                name={fullName || 'User'}
+                avatarUrl={avatarUrl}
+                onChangeAvatar={setAvatarUrl}
+                size="lg"
+              />
+              <div>
+                <div className="text-xs font-bold text-slate-900">User Photo</div>
+                <div className="text-[11px] text-slate-500">Click camera icon to upload profile photo</div>
+              </div>
             </div>
-          </div>
+          )}
 
           <Select
             label="System Role *"
@@ -315,20 +366,70 @@ export const AdminUsersPage: React.FC = () => {
             ]}
           />
 
-          <Input label="Full Name *" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-          <Input label="Email Address *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Input label="Full Name *" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoComplete="off" />
+          <Input label="Email Address *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="off" />
+          
+          <Input
+            label={editingUser ? "Reset / Change Password" : "Account Password *"}
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={editingUser ? "Leave blank to keep current, or enter new password" : "Enter password (min. 10 chars)"}
+            helperText={editingUser ? (password ? "Must be at least 10 characters" : "Leave blank to keep existing password") : "Must be at least 10 characters"}
+            autoComplete="new-password"
+            rightIcon={
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="p-1 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            }
+            required={!editingUser}
+          />
+
+          {(!editingUser || password.length > 0) && (
+            <Input
+              label={editingUser ? "Confirm New Password *" : "Confirm Password *"}
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter password"
+              helperText={confirmPassword && password !== confirmPassword ? 'Passwords do not match' : undefined}
+              error={confirmPassword && password !== confirmPassword ? 'Passwords do not match' : undefined}
+              autoComplete="new-password"
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="p-1 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              }
+              required
+            />
+          )}
+
           <Input label="Phone Number *" value={phone} onChange={(e) => setPhone(e.target.value)} required />
           <Input label="City / Region *" value={city} onChange={(e) => setCity(e.target.value)} required />
 
           {(role === 'SUPERVISOR' || role === 'TEAM_MEMBER') && (
             <Select
-              label="Assigned Predefined Brand / Team *"
+              label="Assigned Brand / Team *"
               value={teamId}
               onChange={(e) => setTeamId(e.target.value)}
-              options={[
-                { value: 'team_001', label: 'Brand Alpha (Team 1)' },
-                { value: 'team_002', label: 'Brand Beta (Team 2)' },
-              ]}
+              options={
+                teams.length > 0
+                  ? teams.map((t) => ({ value: t.id, label: `${t.name} (${t.code})` }))
+                  : [
+                      { value: 'team_001', label: 'Brand Alpha (Team 1)' },
+                      { value: 'team_002', label: 'Brand Beta (Team 2)' },
+                    ]
+              }
             />
           )}
 

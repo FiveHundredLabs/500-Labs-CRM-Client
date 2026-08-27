@@ -38,6 +38,7 @@ export interface User {
   id: string; // e.g., 'usr_admin', 'usr_sup_01'
   username: string;
   email: string;
+  password?: string;
   fullName: string;
   role: UserRole;
   teamId: string | null; // null for ADMIN & FINANCE if multi-team
