@@ -186,10 +186,48 @@ export class ApiContactRepository implements IContactRepository {
     }
   }
   async create(contact: Omit<Contact, 'id' | 'updatedAt'>): Promise<Contact> {
-    return unwrap(await apiClient.post<{ data: Contact }>('/contacts', contact));
+    const payload = {
+      phone: contact.phone,
+      status: contact.status,
+      teamId: contact.teamId,
+      importedById: (contact as any).importedById || contact.importedBy,
+      addedById: (contact as any).addedById || contact.addedBy,
+      importBatchId: contact.importBatchId,
+      isAllocated: contact.isAllocated,
+      allocatedToId: contact.allocatedToId,
+      allocatedAt: contact.allocatedAt,
+      allocationBatchId: contact.allocationBatchId,
+      allocationSource: contact.allocationSource,
+      isSelfAdded: contact.isSelfAdded,
+      city: contact.city,
+      secondaryMobile: contact.secondaryMobile,
+      attemptCount: contact.attemptCount,
+      lastCalledAt: contact.lastCalledAt,
+      isFollowUp: contact.isFollowUp,
+    };
+    return unwrap(await apiClient.post<{ data: Contact }>('/contacts', payload));
   }
   async createMany(contacts: Array<Omit<Contact, 'id' | 'updatedAt'>>): Promise<Contact[]> {
-    return unwrap(await apiClient.post<{ data: Contact[] }>('/contacts/bulk', { contacts }));
+    const cleaned = contacts.map((c) => ({
+      phone: c.phone,
+      status: c.status,
+      teamId: c.teamId,
+      importedById: (c as any).importedById || c.importedBy,
+      addedById: (c as any).addedById || c.addedBy,
+      importBatchId: c.importBatchId,
+      isAllocated: c.isAllocated,
+      allocatedToId: c.allocatedToId,
+      allocatedAt: c.allocatedAt,
+      allocationBatchId: c.allocationBatchId,
+      allocationSource: c.allocationSource,
+      isSelfAdded: c.isSelfAdded,
+      city: c.city,
+      secondaryMobile: c.secondaryMobile,
+      attemptCount: c.attemptCount,
+      lastCalledAt: c.lastCalledAt,
+      isFollowUp: c.isFollowUp,
+    }));
+    return unwrap(await apiClient.post<{ data: Contact[] }>('/contacts/bulk', { contacts: cleaned }));
   }
   async addPersonalNumber(data: {
     phone: string;

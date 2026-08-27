@@ -2,6 +2,7 @@ export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'TEAM_MEMBER' | 'FINANCE';
 
 export type ContactStatus = 
   | 'NEW'
+  | 'FOLLOW_UP'
   | 'ANSWERED'
   | 'NOT_ANSWERED'
   | 'PHONE_OFF'
@@ -9,7 +10,8 @@ export type ContactStatus =
   | 'NOT_INTERESTED'
   | 'DISPATCHED'
   | 'DELIVERED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'SAVED_CONTACTS';
 
 export type OrderStatus =
   | 'DRAFT'

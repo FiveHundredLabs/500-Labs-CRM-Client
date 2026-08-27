@@ -59,11 +59,11 @@ export const MemberDashboard: React.FC = () => {
     try {
       const currentTeamId = user.teamId || 'team_001';
       const [mContacts, mLogs, mOrders, allUsers, teamOrders] = await Promise.all([
-        contactRepository.getByMemberId(user.id),
-        callLogRepository.getByMemberId(user.id),
-        orderRepository.getByMemberId(user.id),
-        userRepository.getAll(),
-        orderRepository.getByTeamId(currentTeamId),
+        contactRepository.getByMemberId(user.id).catch(() => []),
+        callLogRepository.getByMemberId(user.id).catch(() => []),
+        orderRepository.getByMemberId(user.id).catch(() => []),
+        userRepository.getAll().catch(() => []),
+        orderRepository.getByTeamId(currentTeamId).catch(() => []),
       ]);
 
       setContacts(mContacts);
