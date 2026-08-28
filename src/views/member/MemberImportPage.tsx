@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { ContactService, ImportSummary } from '../../services/contactService';
+import { parseExcelContactSheet, extractPhonesFromBulkText, ExcelContactParseResult } from '../../utils/phoneUtils';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -36,6 +37,7 @@ export const MemberImportPage: React.FC = () => {
 
   // Bulk import file state
   const [file, setFile] = useState<File | null>(null);
+  const [parsedFileInfo, setParsedFileInfo] = useState<ExcelContactParseResult | null>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
   const [executeFn, setExecuteFn] = useState<(() => Promise<any>) | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -55,6 +57,8 @@ export const MemberImportPage: React.FC = () => {
       setExecuteFn(() => executeImport);
       if (summary.duplicateCount > 0) {
         toast.error(`Phone number ${manualPhone} already exists in database and was filtered.`);
+      } else if (summary.invalidCount > 0) {
+        toast.error(`Invalid Sri Lankan mobile format. Must be 10 digits starting with 07.`);
       } else {
         toast.success(`Processed contact ${manualPhone}. Confirm below to add to your queue.`);
       }
@@ -66,7 +70,7 @@ export const MemberImportPage: React.FC = () => {
     }
   };
 
-  // Bulk Text / Message Numbers Extraction & Parse (No Excel required!)
+  // Bulk Text / Message Numbers Extraction & Parse
   const handleProcessBulkText = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bulkText.trim() || !user) {
@@ -76,14 +80,10 @@ export const MemberImportPage: React.FC = () => {
 
     setIsBulkTextProcessing(true);
     try {
-      // Split by spaces, newlines, commas, semicolons, tabs
-      const extractedNumbers = bulkText
-        .split(/[\s,;\t\r\n]+/)
-        .map((n) => n.trim())
-        .filter((n) => n.length >= 7);
+      const extractedNumbers = extractPhonesFromBulkText(bulkText);
 
       if (extractedNumbers.length === 0) {
-        toast.error('No valid phone numbers found in input text.');
+        toast.error('No valid Sri Lankan mobile numbers found in input text.');
         setIsBulkTextProcessing(false);
         return;
       }
@@ -91,7 +91,7 @@ export const MemberImportPage: React.FC = () => {
       const { summary, executeImport } = await ContactService.processBulkImport(extractedNumbers, user);
       setImportSummary(summary);
       setExecuteFn(() => executeImport);
-      toast.success(`Extracted & analyzed ${extractedNumbers.length} numbers without Excel!`);
+      toast.success(`Extracted & normalized ${extractedNumbers.length} Sri Lankan mobile numbers!`);
     } catch (err: any) {
       toast.error(err.message || 'Failed to process bulk numbers.');
     } finally {
@@ -99,25 +99,32 @@ export const MemberImportPage: React.FC = () => {
     }
   };
 
-  // Optional CSV File Change & Parse
+  // Excel / CSV File Change & Parse
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected || !user) return;
     setFile(selected);
 
     try {
-      const text = await selected.text();
-      const rawLines = text
-        .split(/[\r\n]+/)
-        .map((l) => l.split(/[,;\t]/)[0].trim())
-        .filter((l) => l.length > 0 && !l.toLowerCase().includes('phone'));
+      const parseResult = await parseExcelContactSheet(selected);
+      setParsedFileInfo(parseResult);
 
-      const { summary, executeImport } = await ContactService.processBulkImport(rawLines, user);
+      if (parseResult.contactNumbers.length === 0) {
+        toast.error(`No valid contact numbers found in column "${parseResult.contactColumnName}".`);
+        return;
+      }
+
+      const { summary, executeImport } = await ContactService.processBulkImport(
+        parseResult.contactNumbers,
+        user
+      );
       setImportSummary(summary);
       setExecuteFn(() => executeImport);
-      toast.success(`Parsed ${rawLines.length} numbers from ${selected.name}`);
+      toast.success(
+        `Extracted ${parseResult.contactNumbers.length} contacts from "${parseResult.contactColumnName}" column. Normalized to 07XXXXXXXX.`
+      );
     } catch (err: any) {
-      toast.error('Error parsing CSV file: ' + err.message);
+      toast.error('Error parsing spreadsheet: ' + err.message);
     }
   };
 
@@ -273,29 +280,37 @@ export const MemberImportPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Card 3: CSV File Upload */}
+        {/* Card 3: Excel / CSV File Upload */}
         <Card className="flex flex-col justify-between border-emerald-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span>CSV Spreadsheet Upload</span>
+              <span>Excel / CSV Spreadsheet Upload</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 flex-1 flex flex-col justify-between">
             <div className="border border-dashed border-slate-300 rounded-xl p-4 text-center bg-slate-50/60 hover:bg-emerald-50/30 hover:border-emerald-400 transition-colors relative">
               <Upload className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-              <p className="text-xs text-slate-600 font-medium mb-3">
-                Select CSV spreadsheet file from your device
+              <p className="text-xs text-slate-600 font-medium mb-1">
+                Upload Excel or CSV contact spreadsheet
+              </p>
+              <p className="text-[11px] text-slate-400 mb-3">
+                Reads <strong>only</strong> the <code className="text-emerald-700 font-semibold">Contact</code> column.
               </p>
               <div className="flex items-center justify-center gap-2">
                 <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 shadow-xs cursor-pointer transition-colors">
-                  <span>Select CSV File</span>
-                  <input type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
+                  <span>Select Excel / CSV File</span>
+                  <input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileChange} className="hidden" />
                 </label>
                 {file && (
                   <button
                     type="button"
-                    onClick={() => setFile(null)}
+                    onClick={() => {
+                      setFile(null);
+                      setParsedFileInfo(null);
+                      setImportSummary(null);
+                      setExecuteFn(null);
+                    }}
                     className="p-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                     title="Remove selected file"
                   >
@@ -309,7 +324,26 @@ export const MemberImportPage: React.FC = () => {
                 </div>
               )}
             </div>
-            <p className="text-[11px] text-slate-400 text-center">Optional: For bulk contact spreadsheets</p>
+
+            {parsedFileInfo && (
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg p-2.5 text-[11px] space-y-1 text-slate-700">
+                <div className="flex items-center gap-1.5 text-emerald-800 font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Column Identified: "{parsedFileInfo.contactColumnName}"</span>
+                </div>
+                {/* <div className="text-slate-500">
+                  Scanned {parsedFileInfo.totalRowsScanned} rows &bull; Extracted {parsedFileInfo.contactNumbers.length} numbers ({parsedFileInfo.uniqueContactNumbers.length} unique)
+                </div>
+                {parsedFileInfo.ignoredColumns.length > 0 && (
+                  <div className="text-slate-400 text-[10px] truncate">
+                    Ignored non-contact columns: {parsedFileInfo.ignoredColumns.slice(0, 4).join(', ')}
+                    {parsedFileInfo.ignoredColumns.length > 4 ? '...' : ''}
+                  </div>
+                )} */}
+              </div>
+            )}
+
+            <p className="text-[11px] text-slate-400 text-center">Supports .xlsx, .xls, and .csv formats</p>
           </CardContent>
         </Card>
       </div>

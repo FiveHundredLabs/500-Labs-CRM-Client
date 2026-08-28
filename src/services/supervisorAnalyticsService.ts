@@ -153,7 +153,7 @@ export class SupervisorAnalyticsService {
 
       if (order.status === 'DELIVERED') {
         stats.deliveredOrders += 1;
-        stats.totalSalesValue += order.totalAmount || 0;
+        stats.totalSalesValue += Number(order.totalAmount) || 0;
       } else if (order.status === 'DISPATCHED') {
         stats.dispatchedOrders += 1;
       } else if (order.status === 'REJECTED' || order.status === 'RETURNED') {
@@ -200,7 +200,7 @@ export class SupervisorAnalyticsService {
     let rejectedOrderValue = 0;
 
     orders.forEach((o) => {
-      const amt = o.totalAmount || 0;
+      const amt = Number(o.totalAmount) || 0;
       totalOrderValue += amt;
 
       if (o.status === 'DELIVERED') {
@@ -246,7 +246,7 @@ export class SupervisorAnalyticsService {
         counts[o.status] = { count: 0, value: 0 };
       }
       counts[o.status].count += 1;
-      counts[o.status].value += o.totalAmount || 0;
+      counts[o.status].value += Number(o.totalAmount) || 0;
     });
 
     const allStatuses: OrderStatus[] = ['DRAFT', 'PREPARED', 'DISPATCHED', 'DELIVERED', 'REJECTED', 'RETURNED'];
