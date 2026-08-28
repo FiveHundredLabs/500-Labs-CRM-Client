@@ -14,6 +14,7 @@ import {
   IStockActivityLogRepository,
   IApprovalRequestRepository,
   IPettyCashRepository,
+  ISalesTargetRepository,
 } from '../interfaces';
 import {
   Team,
@@ -37,6 +38,8 @@ import {
   ApprovalStatus,
   PettyCashWallet,
   PettyCashTransaction,
+  TeamSalesTarget,
+  TeamTargetTier,
 } from '../../models/domain';
 import { STORAGE_KEYS, getStoredItem, setStoredItem, delay } from './mockStore';
 
@@ -1014,5 +1017,78 @@ export class MockPettyCashRepository implements IPettyCashRepository {
     setStoredItem(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, txs);
 
     return newTx;
+  }
+}
+
+export class MockSalesTargetRepository implements ISalesTargetRepository {
+  private getStorageKey(): string {
+    return 'crm_sales_targets';
+  }
+
+  async getAll(month?: string, teamId?: string): Promise<TeamSalesTarget[]> {
+    await delay();
+    const targets = getStoredItem<TeamSalesTarget>(this.getStorageKey(), []);
+    return targets.filter((t) => (!month || t.month === month) && (!teamId || t.teamId === teamId));
+  }
+
+  async getById(id: string): Promise<TeamSalesTarget | null> {
+    await delay();
+    const targets = getStoredItem<TeamSalesTarget>(this.getStorageKey(), []);
+    return targets.find((t) => t.id === id) || null;
+  }
+
+  async upsert(target: {
+    teamId: string;
+    month: string;
+    targetAmount: number;
+    notes?: string;
+    tiers: TeamTargetTier[];
+  }): Promise<TeamSalesTarget> {
+    await delay();
+    const targets = getStoredItem<TeamSalesTarget>(this.getStorageKey(), []);
+    const idx = targets.findIndex((t) => t.teamId === target.teamId && t.month === target.month);
+
+    const now = new Date().toISOString();
+    const newTarget: TeamSalesTarget = {
+      id: idx !== -1 ? targets[idx].id : `target_${Date.now()}`,
+      teamId: target.teamId,
+      month: target.month,
+      targetAmount: target.targetAmount,
+      notes: target.notes,
+      tiers: target.tiers.map((t, i) => ({
+        id: t.id || `tier_${Date.now()}_${i}`,
+        minPercentage: t.minPercentage,
+        allowanceAmount: t.allowanceAmount,
+        title: t.title || `${t.minPercentage}% Tier`,
+      })),
+      createdAt: idx !== -1 ? targets[idx].createdAt : now,
+      updatedAt: now,
+    };
+
+    if (idx !== -1) {
+      targets[idx] = newTarget;
+    } else {
+      targets.push(newTarget);
+    }
+    setStoredItem(this.getStorageKey(), targets);
+    return newTarget;
+  }
+
+  async update(id: string, updates: Partial<TeamSalesTarget>): Promise<TeamSalesTarget> {
+    await delay();
+    const targets = getStoredItem<TeamSalesTarget>(this.getStorageKey(), []);
+    const idx = targets.findIndex((t) => t.id === id);
+    if (idx === -1) throw new Error('Sales target not found');
+    const updated = { ...targets[idx], ...updates, updatedAt: new Date().toISOString() };
+    targets[idx] = updated;
+    setStoredItem(this.getStorageKey(), targets);
+    return updated;
+  }
+
+  async delete(id: string): Promise<void> {
+    await delay();
+    const targets = getStoredItem<TeamSalesTarget>(this.getStorageKey(), []);
+    const filtered = targets.filter((t) => t.id !== id);
+    setStoredItem(this.getStorageKey(), filtered);
   }
 }

@@ -19,6 +19,8 @@ import {
   PettyCashWallet,
   PettyCashTransaction,
   ApprovalStatus,
+  TeamSalesTarget,
+  TeamTargetTier,
 } from '../../models/domain';
 
 export interface ITeamRepository {
@@ -149,5 +151,19 @@ export interface IPettyCashRepository {
   getTransactions(): Promise<PettyCashTransaction[]>;
   allocate(amount: number, user: User, reason?: string): Promise<PettyCashWallet>;
   recordExpense(data: { amount: number; reason: string; category: string; description: string; date: string }, user: User): Promise<PettyCashTransaction>;
+}
+
+export interface ISalesTargetRepository {
+  getAll(month?: string, teamId?: string): Promise<TeamSalesTarget[]>;
+  getById(id: string): Promise<TeamSalesTarget | null>;
+  upsert(target: {
+    teamId: string;
+    month: string;
+    targetAmount: number;
+    notes?: string;
+    tiers: TeamTargetTier[];
+  }): Promise<TeamSalesTarget>;
+  update(id: string, updates: Partial<TeamSalesTarget>): Promise<TeamSalesTarget>;
+  delete(id: string): Promise<void>;
 }
 

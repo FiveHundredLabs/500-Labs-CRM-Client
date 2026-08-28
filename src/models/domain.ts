@@ -415,3 +415,33 @@ export interface PettyCashTransaction {
   createdAt: string;
 }
 
+export interface TeamTargetTier {
+  id?: string;
+  targetId?: string;
+  minPercentage: number; // e.g. 80, 100, 120
+  allowanceAmount: number; // e.g. 10000, 20000, 35000
+  title?: string;
+  isUnlocked?: boolean;
+}
+
+export interface TeamSalesTarget {
+  id: string;
+  teamId: string;
+  month: string; // YYYY-MM
+  targetAmount: number; // Monthly sales goal in LKR
+  notes?: string;
+  team?: {
+    id: string;
+    name: string;
+    code: string;
+    brandColor?: string;
+  };
+  tiers: TeamTargetTier[];
+  actualSales?: number;
+  achievementPercentage?: number;
+  unlockedAllowance?: number;
+  highestUnlockedTier?: TeamTargetTier | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
