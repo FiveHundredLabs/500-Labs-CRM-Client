@@ -33,11 +33,12 @@ export interface NavItem {
 export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   TEAM_MEMBER: [
     { label: 'Home', path: '/member/dashboard', icon: Home, isBottomNav: true },
-    { label: 'My Sales', path: '/member/sales', icon: TrendingUp, isBottomNav: true },
-    { label: 'Import', path: '/member/import', icon: Upload, isBottomNav: true },
     { label: 'Contacts', path: '/member/contacts', icon: PhoneCall, isBottomNav: true },
-    { label: 'Call Logs', path: '/member/follow-ups', icon: Clock, isBottomNav: false },
-    { label: 'Leaderboard', path: '/member/leaderboard', icon: Trophy, isBottomNav: true },
+    { label: 'Call Logs', path: '/member/follow-ups', icon: Clock, isBottomNav: true },
+    { label: 'Import', path: '/member/import', icon: Upload, isBottomNav: true },
+    { label: 'More', path: '#more', icon: MoreHorizontal, isBottomNav: true },
+    { label: 'My Sales', path: '/member/sales', icon: TrendingUp, isBottomNav: false },
+    { label: 'Leaderboard', path: '/member/leaderboard', icon: Trophy, isBottomNav: false },
     { label: 'Profile', path: '/member/profile', icon: User, isBottomNav: false },
   ],
   SUPERVISOR: [

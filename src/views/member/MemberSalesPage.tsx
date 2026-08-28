@@ -33,12 +33,19 @@ import {
   Layers,
   Clock,
   Ban,
+  PhoneForwarded,
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
 import toast from 'react-hot-toast';
 
 type ActiveTab = 'ALL' | 'INTERESTED' | 'DISPATCHED' | 'DELIVERED' | 'REJECTED' | 'CANCELLED';
+
+interface TabConfig {
+  key: ActiveTab;
+  label: string;
+  icon?: React.ReactNode;
+}
 
 export const MemberSalesPage: React.FC = () => {
   const { user } = useAuth();
@@ -213,6 +220,27 @@ export const MemberSalesPage: React.FC = () => {
   }, [dateFilteredOrders, interestedContacts]);
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Tabs Definition matching Call Logs Style
+  // ─────────────────────────────────────────────────────────────────────────────
+  const FILTER_TABS: TabConfig[] = [
+    { key: 'ALL', label: 'All Orders' },
+    { key: 'INTERESTED', label: 'Interested', icon: <Sparkles className="w-3.5 h-3.5" /> },
+    { key: 'DISPATCHED', label: 'Dispatched', icon: <Truck className="w-3.5 h-3.5" /> },
+    { key: 'DELIVERED', label: 'Delivered', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+    { key: 'REJECTED', label: 'Rejected', icon: <XCircle className="w-3.5 h-3.5" /> },
+    { key: 'CANCELLED', label: 'Cancelled', icon: <Ban className="w-3.5 h-3.5" /> },
+  ];
+
+  const tabCounts: Record<ActiveTab, number> = {
+    ALL: dateFilteredOrders.length,
+    INTERESTED: metrics.interestedCount,
+    DISPATCHED: metrics.dispatchedCount,
+    DELIVERED: metrics.deliveredCount,
+    REJECTED: metrics.rejectedCount,
+    CANCELLED: metrics.cancelledCount,
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Combined Table Rows for Active Tab & Search
   // ─────────────────────────────────────────────────────────────────────────────
   const displayOrders = useMemo(() => {
@@ -253,159 +281,163 @@ export const MemberSalesPage: React.FC = () => {
     return list;
   }, [interestedContacts, searchQuery]);
 
-  // Clean Chart Data (Interested Leads -> Dispatched -> Delivered COD -> Rejected -> Cancelled)
+  // Clean, short labels so X-Axis NEVER drops or skips on mobile viewports
   const chartData = [
-    { name: 'Interested Leads', count: metrics.interestedCount, fill: '#8B5CF6' },
-    { name: 'Dispatched (In Transit)', count: metrics.dispatchedCount, fill: '#3B82F6' },
-    { name: 'Delivered (Realized COD)', count: metrics.deliveredCount, fill: '#10B981' },
-    { name: 'Rejected Returns', count: metrics.rejectedCount, fill: '#EF4444' },
-    { name: 'Cancelled Orders', count: metrics.cancelledCount, fill: '#64748B' },
+    { name: 'Interested', count: metrics.interestedCount, fill: '#8B5CF6' },
+    { name: 'Dispatched', count: metrics.dispatchedCount, fill: '#3B82F6' },
+    { name: 'Delivered', count: metrics.deliveredCount, fill: '#10B981' },
+    { name: 'Rejected', count: metrics.rejectedCount, fill: '#EF4444' },
+    { name: 'Cancelled', count: metrics.cancelledCount, fill: '#64748B' },
   ];
 
   if (loading) return <LoadingState rows={8} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5 max-w-full overflow-hidden pb-16">
       <PageHeader
-        title="My Sales & Fulfillment Dashboard"
-        description="Track your personal sales pipeline, interested customer leads, dispatched courier parcels, delivered COD collections, returned parcels, and cancelled orders."
+        title="My Sales & Fulfillment"
+        description="Your personal sales performance, interested pipeline, dispatched couriers, and delivered COD collections."
       />
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          1. Hero KPI Stat Cards
+          1. Hero KPI Stat Cards - Compact Mobile Grid
          ───────────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-        {/* Total Booked Sales */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3.5">
         <StatCard
-          title="Total Booked Sales"
+          title="Total Sales"
           value={formatCurrency(metrics.totalBookedSales)}
           subtitle={`${metrics.totalOrdersCount} Total Orders`}
           icon={<DollarSign className="w-4 h-4" />}
           accentColor="blue"
         />
 
-        {/* Delivered COD Collections */}
         <StatCard
-          title="Delivered (Realized COD)"
+          title="Delivered COD"
           value={formatCurrency(metrics.deliveredCODSales)}
-          subtitle={`${metrics.deliveredCount} Orders Handed Over`}
+          subtitle={`${metrics.deliveredCount} Orders Done`}
           icon={<CheckCircle2 className="w-4 h-4" />}
           accentColor="green"
         />
 
-        {/* Dispatched in Transit */}
         <StatCard
-          title="Dispatched in Transit"
+          title="Dispatched"
           value={`${metrics.dispatchedCount} Orders`}
           subtitle={formatCurrency(metrics.dispatchedCODSales)}
           icon={<Truck className="w-4 h-4" />}
           accentColor="blue"
         />
 
-        {/* Rejected / Returned */}
         <StatCard
-          title="Rejected Returns"
+          title="Rejected"
           value={`${metrics.rejectedCount} Orders`}
           subtitle={formatCurrency(metrics.rejectedCODSales)}
           icon={<XCircle className="w-4 h-4" />}
           accentColor="red"
         />
 
-        {/* Cancelled Orders */}
         <StatCard
-          title="Cancelled Orders"
+          title="Cancelled"
           value={`${metrics.cancelledCount} Orders`}
           subtitle={formatCurrency(metrics.cancelledCODSales)}
           icon={<Ban className="w-4 h-4" />}
           accentColor="amber"
         />
 
-        {/* Interested Leads */}
         <StatCard
-          title="Interested Leads"
+          title="Interested"
           value={`${metrics.interestedCount} Leads`}
-          subtitle="Awaiting dispatch by Supervisor"
+          subtitle="Awaiting dispatch"
           icon={<Sparkles className="w-4 h-4" />}
           accentColor="purple"
         />
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          2. Stage Breakdown Filter Tabs & Period Selector Toolbar
+          2. Stage Breakdown Filter Grid (Styled Exactly Like Call Logs)
          ───────────────────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-4 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Stage Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl">
-            <button
-              onClick={() => setActiveTab('ALL')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'ALL'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
-            >
-              All Orders ({dateFilteredOrders.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('INTERESTED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'INTERESTED'
-                  ? 'bg-purple-600 text-white shadow-2xs'
-                  : 'text-purple-700 hover:bg-purple-100/60'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Interested Leads ({metrics.interestedCount})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('DISPATCHED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'DISPATCHED'
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-blue-700 hover:bg-blue-100/60'
-              }`}
-            >
-              <Truck className="w-3.5 h-3.5" />
-              <span>Dispatched ({metrics.dispatchedCount})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('DELIVERED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'DELIVERED'
-                  ? 'bg-emerald-600 text-white shadow-2xs'
-                  : 'text-emerald-700 hover:bg-emerald-100/60'
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Delivered COD ({metrics.deliveredCount})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('REJECTED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'REJECTED'
-                  ? 'bg-rose-600 text-white shadow-2xs'
-                  : 'text-rose-700 hover:bg-rose-100/60'
-              }`}
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              <span>Rejected ({metrics.rejectedCount})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('CANCELLED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'CANCELLED'
-                  ? 'bg-slate-700 text-white shadow-2xs'
-                  : 'text-slate-700 hover:bg-slate-200/80'
-              }`}
-            >
-              <Ban className="w-3.5 h-3.5" />
-              <span>Cancelled ({metrics.cancelledCount})</span>
-            </button>
-          </div>
+      <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-2xs space-y-3">
+        {/* Wrapping Filter Tabs (Like Call Logs) */}
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+          {FILTER_TABS.map((tab) => {
+            const count = tabCounts[tab.key];
+            const isActive = activeTab === tab.key;
+            const isInterested = tab.key === 'INTERESTED';
+            const isDelivered = tab.key === 'DELIVERED';
+            const isDispatched = tab.key === 'DISPATCHED';
+            const isRejected = tab.key === 'REJECTED';
+            const isCancelled = tab.key === 'CANCELLED';
 
-          {/* Date Window Preset Selector */}
-          <div className="w-full md:w-56 shrink-0">
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer flex-1 sm:flex-initial min-w-[105px] sm:min-w-0 ${
+                  isActive
+                    ? isInterested
+                      ? 'bg-purple-100/90 text-purple-900 font-bold border border-purple-300 shadow-2xs'
+                      : isDispatched
+                      ? 'bg-blue-100 text-blue-900 font-bold border border-blue-300 shadow-2xs'
+                      : isDelivered
+                      ? 'bg-emerald-50 text-emerald-800 font-bold border border-emerald-300 shadow-2xs'
+                      : isRejected
+                      ? 'bg-rose-50 text-rose-800 font-bold border border-rose-300 shadow-2xs'
+                      : isCancelled
+                      ? 'bg-slate-200 text-slate-900 font-bold border border-slate-400 shadow-2xs'
+                      : 'bg-blue-50 text-blue-700 font-bold border border-blue-200 shadow-2xs'
+                    : isInterested
+                    ? 'bg-purple-50/70 hover:bg-purple-100/80 text-purple-800 border border-purple-200/80 font-medium'
+                    : isDispatched
+                    ? 'bg-blue-50/50 hover:bg-blue-100/70 text-blue-700 border border-blue-200/60 font-medium'
+                    : isDelivered
+                    ? 'bg-emerald-50/50 hover:bg-emerald-100/70 text-emerald-700 border border-emerald-200/60 font-medium'
+                    : isRejected
+                    ? 'bg-rose-50/50 hover:bg-rose-100/70 text-rose-700 border border-rose-200/60 font-medium'
+                    : isCancelled
+                    ? 'bg-slate-100/80 hover:bg-slate-200 text-slate-700 border border-slate-200 font-medium'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/60'
+                }`}
+              >
+                <span className="whitespace-nowrap flex items-center gap-1.5">
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0 ${
+                    isActive
+                      ? isInterested
+                        ? 'bg-purple-600 text-white font-bold'
+                        : isDispatched
+                        ? 'bg-blue-600 text-white font-bold'
+                        : isDelivered
+                        ? 'bg-emerald-600 text-white font-bold'
+                        : isRejected
+                        ? 'bg-rose-600 text-white font-bold'
+                        : isCancelled
+                        ? 'bg-slate-700 text-white font-bold'
+                        : 'bg-blue-600 text-white font-bold'
+                      : isInterested
+                      ? 'bg-purple-200 text-purple-900 font-bold'
+                      : isDispatched
+                      ? 'bg-blue-100 text-blue-800'
+                      : isDelivered
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : isRejected
+                      ? 'bg-rose-100 text-rose-800'
+                      : isCancelled
+                      ? 'bg-slate-200 text-slate-700'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Date Window & Search Toolbar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 border-t border-slate-100">
+          <div className="sm:col-span-1">
             <Select
               value={datePreset}
               onChange={(e) => setDatePreset(e.target.value)}
@@ -419,47 +451,194 @@ export const MemberSalesPage: React.FC = () => {
               ]}
             />
           </div>
-        </div>
 
-        {/* Search Input Bar */}
-        <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder={
-              activeTab === 'INTERESTED'
-                ? 'Search interested contacts by phone, city...'
-                : 'Search your orders by Order #, Customer Name, Phone, or City...'
-            }
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 pl-9.5 pr-4 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-2xs"
-          />
+          <div className="sm:col-span-2 relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder={
+                activeTab === 'INTERESTED'
+                  ? 'Search interested contacts...'
+                  : 'Search by Order #, Customer, Phone, or City...'
+              }
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-10 pl-9.5 pr-4 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-2xs"
+            />
+          </div>
         </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          3. Main Data Table: Orders or Interested Leads
+          3. Performance Distribution Recharts Visual (All X-Axis Stages Guaranteed)
+         ───────────────────────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-3.5 sm:p-4">
+        <h4 className="text-xs sm:text-sm font-bold text-slate-900 mb-0.5">My Pipeline & Fulfillment Distribution</h4>
+        <p className="text-[11px] text-slate-400 mb-3">Volume breakdown across all 5 active stages</p>
+
+        <div className="h-[210px] sm:h-[250px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+              <XAxis
+                dataKey="name"
+                interval={0}
+                tick={{ fontSize: 10, fill: '#334155', fontWeight: 600 }}
+              />
+              <YAxis tick={{ fontSize: 10, fill: '#64748B' }} allowDecimals={false} />
+              <Tooltip formatter={(val: any) => [val, 'Count']} />
+              <Bar dataKey="count" radius={[5, 5, 0, 0]}>
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-member-${index}`} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────────
+          4. Main Data Container: Adaptive Mobile Cards & Desktop Table
          ───────────────────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-        <div className="p-4 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between">
+        <div className="p-3.5 sm:p-4 border-b border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
           <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-blue-600" />
-            <h3 className="font-bold text-sm text-slate-900">
+            <Layers className="w-4 h-4 text-blue-600 shrink-0" />
+            <h3 className="font-bold text-xs sm:text-sm text-slate-900 truncate">
               {activeTab === 'INTERESTED'
                 ? `Interested Leads Register (${displayContacts.length})`
-                : `${activeTab === 'ALL' ? 'My Sales & Fulfillment Pipeline' : `${activeTab} Orders`} (${displayOrders.length})`}
+                : `${activeTab === 'ALL' ? 'My Sales Pipeline' : `${activeTab} Orders`} (${displayOrders.length})`}
             </h3>
           </div>
-          <span className="text-xs text-slate-500 font-medium">
-            Showing records for: <strong className="text-slate-800">{startDate || 'Inception'}</strong> to{' '}
-            <strong className="text-slate-800">{endDate || 'Present'}</strong>
+          <span className="text-[11px] text-slate-500 font-medium">
+            Period: <strong className="text-slate-800">{startDate || 'Start'}</strong> to{' '}
+            <strong className="text-slate-800">{endDate || 'Now'}</strong>
           </span>
         </div>
 
-        {/* IF INTERESTED TAB IS SELECTED */}
-        {activeTab === 'INTERESTED' ? (
-          <div className="overflow-x-auto">
+        {/* ── MOBILE CARD VIEW (Phone screens < 768px) ── */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {activeTab === 'INTERESTED' ? (
+            displayContacts.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400">No interested leads found.</div>
+            ) : (
+              displayContacts.map((contact) => (
+                <div key={contact.id} className="p-3.5 space-y-2 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-bold text-sm text-purple-700 flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-purple-500" />
+                      <span>{contact.phone}</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                      ⭐ Interested
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-600">
+                    <span>City: <strong className="text-slate-800">{contact.city || '-'}</strong></span>
+                    <span>Attempts: <strong className="text-slate-800">{contact.attemptCount}</strong></span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px] text-slate-400">
+                    <span>{contact.updatedAt?.split('T')[0] || '-'}</span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<Eye className="w-3 h-3 text-slate-600" />}
+                      onClick={() => setSelectedContact(contact)}
+                      className="text-[11px] h-6 px-2"
+                    >
+                      View Details
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )
+          ) : displayOrders.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-400">No orders found in this stage.</div>
+          ) : (
+            displayOrders.map((order) => {
+              const cust = customerMap[order.customerId] || (order as any).customer;
+              const codVal = Number(
+                order.codAmount !== undefined && order.codAmount !== null
+                  ? order.codAmount
+                  : (order.totalAmount || 0)
+              );
+
+              return (
+                <div key={order.id} className="p-3.5 space-y-2.5 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-bold text-xs text-blue-700">{order.orderNumber}</span>
+                    <div>
+                      {order.status === 'DELIVERED' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Delivered</span>
+                        </span>
+                      )}
+                      {order.status === 'DISPATCHED' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          <Truck className="w-3 h-3" />
+                          <span>Dispatched</span>
+                        </span>
+                      )}
+                      {order.status === 'REJECTED' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                          <XCircle className="w-3 h-3" />
+                          <span>Rejected</span>
+                        </span>
+                      )}
+                      {order.status === 'CANCELLED' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                          <Ban className="w-3 h-3 text-slate-500" />
+                          <span>Cancelled</span>
+                        </span>
+                      )}
+                      {order.status === 'PREPARED' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          <Clock className="w-3 h-3" />
+                          <span>Awaiting Dispatch</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="font-bold text-xs text-slate-900">{cust?.fullName || 'Customer'}</div>
+                    <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                      <span className="font-mono">{cust?.phone || '-'}</span>
+                      {cust?.city && <span>• {cust.city}</span>}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl text-xs">
+                    <span className="text-slate-600 font-medium truncate max-w-[150px]">
+                      {order.selectedPackage || order.itemsDescription}
+                    </span>
+                    <span className="font-mono font-extrabold text-slate-900 text-xs">
+                      {formatCurrency(codVal)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
+                    <span>{order.createdAt.split('T')[0]}</span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<Eye className="w-3 h-3 text-slate-600" />}
+                      onClick={() => setSelectedOrder(order)}
+                      className="text-[11px] h-6 px-2.5"
+                    >
+                      View Details
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* ── DESKTOP TABLE VIEW (Tablets & Desktops >= 768px) ── */}
+        <div className="hidden md:block overflow-x-auto">
+          {activeTab === 'INTERESTED' ? (
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-100/70 border-b border-slate-200 font-bold text-slate-600 uppercase tracking-wider text-[11px]">
                 <tr>
@@ -513,10 +692,7 @@ export const MemberSalesPage: React.FC = () => {
                 )}
               </tbody>
             </table>
-          </div>
-        ) : (
-          /* ORDERS TABLE (ALL, DISPATCHED, DELIVERED, REJECTED, CANCELLED) */
-          <div className="overflow-x-auto">
+          ) : (
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-100/70 border-b border-slate-200 font-bold text-slate-600 uppercase tracking-wider text-[11px]">
                 <tr>
@@ -548,9 +724,7 @@ export const MemberSalesPage: React.FC = () => {
 
                     return (
                       <tr key={order.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-4 font-mono font-bold text-blue-700">
-                          {order.orderNumber}
-                        </td>
+                        <td className="py-3 px-4 font-mono font-bold text-blue-700">{order.orderNumber}</td>
                         <td className="py-3 px-4">
                           <div className="font-bold text-slate-900">{cust?.fullName || 'Customer'}</div>
                           <div className="font-mono text-[11px] text-slate-500">{cust?.phone || '-'}</div>
@@ -604,9 +778,7 @@ export const MemberSalesPage: React.FC = () => {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 font-mono text-slate-500">
-                          {order.createdAt.split('T')[0]}
-                        </td>
+                        <td className="py-3 px-4 font-mono text-slate-500">{order.createdAt.split('T')[0]}</td>
                         <td className="py-3 px-4 text-center">
                           <Button
                             variant="secondary"
@@ -648,65 +820,50 @@ export const MemberSalesPage: React.FC = () => {
                 </tfoot>
               )}
             </table>
-          </div>
-        )}
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────────────────
-          4. Performance Distribution Recharts Visual (Includes Cancelled)
-         ───────────────────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-5">
-        <h4 className="text-sm font-bold text-slate-900 mb-1">My Pipeline & Fulfillment Distribution</h4>
-        <p className="text-xs text-slate-500 mb-4">Volume breakdown across your generated leads, dispatched, delivered, rejected, and cancelled orders</p>
-
-        <div className="h-[240px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#475569' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#64748B' }} allowDecimals={false} />
-              <Tooltip formatter={(val: any) => [val, 'Count']} />
-              <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-member-${index}`} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          )}
         </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          5. Order Detail Inspection Modal
+          5. Order Detail Inspection Modal - Mobile Responsive Sheet
          ───────────────────────────────────────────────────────────────────────── */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 p-0 sm:p-4 backdrop-blur-xs">
+          <div className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-900 text-white">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-900 text-white shrink-0">
               <div className="flex items-center gap-2">
                 <Package className="w-4 h-4 text-blue-400" />
-                <h3 className="font-bold text-sm text-white">Order Details: {selectedOrder.orderNumber}</h3>
+                <h3 className="font-bold text-xs sm:text-sm text-white">Order Details: {selectedOrder.orderNumber}</h3>
               </div>
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Body */}
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-4 sm:p-5 space-y-3.5 text-xs overflow-y-auto">
               {/* Customer Box */}
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                  <User className="w-4 h-4 text-blue-600" />
-                  <span>
-                    {customerMap[selectedOrder.customerId]?.fullName ||
-                      (selectedOrder as any).customer?.fullName ||
-                      'Customer'}
-                  </span>
+                <div className="font-bold text-slate-900 text-xs sm:text-sm flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-blue-600" />
+                    <span>
+                      {customerMap[selectedOrder.customerId]?.fullName ||
+                        (selectedOrder as any).customer?.fullName ||
+                        'Customer'}
+                    </span>
+                  </div>
+                  <a
+                    href={`tel:${customerMap[selectedOrder.customerId]?.phone || (selectedOrder as any).customer?.phone}`}
+                    className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-bold"
+                  >
+                    <PhoneForwarded className="w-3.5 h-3.5" />
+                    <span>Call</span>
+                  </a>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-slate-600">
                   <div>
@@ -750,7 +907,7 @@ export const MemberSalesPage: React.FC = () => {
                   <span>Kids Quantity</span>
                   <span className="font-bold">{selectedOrder.kidsQty || 0} Units</span>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t border-slate-200 font-extrabold text-sm">
+                <div className="flex justify-between items-center pt-2 border-t border-slate-200 font-extrabold text-xs sm:text-sm">
                   <span className="text-slate-900">Total COD Collectible</span>
                   <span className="font-mono text-emerald-700">
                     {formatCurrency(
@@ -774,7 +931,7 @@ export const MemberSalesPage: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="p-3 bg-slate-100/60 border-t border-slate-200 flex justify-end">
+            <div className="p-3 bg-slate-100/60 border-t border-slate-200 flex justify-end shrink-0">
               <Button variant="secondary" size="sm" onClick={() => setSelectedOrder(null)}>
                 Close
               </Button>
@@ -784,39 +941,48 @@ export const MemberSalesPage: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          6. Contact Detail Inspection Modal
+          6. Contact Detail Inspection Modal - Mobile Responsive Sheet
          ───────────────────────────────────────────────────────────────────────── */}
       {selectedContact && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-purple-900 text-white">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 p-0 sm:p-4 backdrop-blur-xs">
+          <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-purple-900 text-white shrink-0">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-purple-300" />
-                <h3 className="font-bold text-sm text-white">Interested Contact Lead</h3>
+                <h3 className="font-bold text-xs sm:text-sm text-white">Interested Contact Lead</h3>
               </div>
               <button
                 onClick={() => setSelectedContact(null)}
-                className="p-1 text-purple-200 hover:text-white rounded-lg hover:bg-purple-800 transition-colors"
+                className="p-1 text-purple-200 hover:text-white rounded-lg hover:bg-purple-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-3 text-xs">
-              <div className="p-3.5 rounded-xl bg-purple-50/60 border border-purple-200">
-                <span className="text-[10px] font-bold text-purple-700 uppercase block">Phone Number</span>
-                <span className="text-base font-extrabold font-mono text-purple-900 mt-0.5 block">
-                  {selectedContact.phone}
-                </span>
+            <div className="p-4 sm:p-5 space-y-3 text-xs overflow-y-auto">
+              <div className="p-3.5 rounded-xl bg-purple-50/60 border border-purple-200 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-purple-700 uppercase block">Phone Number</span>
+                  <span className="text-base font-extrabold font-mono text-purple-900 mt-0.5 block">
+                    {selectedContact.phone}
+                  </span>
+                </div>
+                <a
+                  href={`tel:${selectedContact.phone}`}
+                  className="px-3 py-1.5 rounded-xl bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-1 font-bold text-xs shadow-xs"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Call</span>
+                </a>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-slate-700">
+              <div className="grid grid-cols-2 gap-2.5 text-slate-700">
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">City</span>
                   <span className="font-bold mt-0.5 block">{selectedContact.city || 'Not specified'}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Call Attempts</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Attempts</span>
                   <span className="font-bold mt-0.5 block">{selectedContact.attemptCount} Attempts</span>
                 </div>
               </div>
@@ -827,7 +993,7 @@ export const MemberSalesPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-3 bg-slate-100/60 border-t border-slate-200 flex justify-end">
+            <div className="p-3 bg-slate-100/60 border-t border-slate-200 flex justify-end shrink-0">
               <Button variant="secondary" size="sm" onClick={() => setSelectedContact(null)}>
                 Close
               </Button>
