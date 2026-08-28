@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { LoadingState } from '../../components/shared/LoadingState';
-import { LeadPrintItem, BillingSlipPrintSheet } from '../../components/printing/BillingSlipPrintSheet';
-import { PrintDocumentStyles } from '../../components/printing/PrintDocumentStyles';
+import { LeadPrintItem } from '../../components/printing/BillingSlipPrintSheet';
 import { PrintFloatingPanel } from '../../components/printing/PrintFloatingPanel';
 import { InterestedFilters } from '../../components/interested/InterestedFilters';
 import { InterestedList } from '../../components/interested/InterestedList';
@@ -12,7 +11,7 @@ import { InterestedCancelConfirmDialog } from '../../components/interested/Inter
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
-import { downloadBillingPDF } from '../../utils/pdfGenerator';
+import { downloadBillingPDF, printBillingPDF } from '../../utils/pdfGenerator';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
 import { XCircle } from 'lucide-react';
@@ -81,28 +80,6 @@ export const SupervisorInterestedPage: React.FC = () => {
     return map;
   }, [teams]);
 
-  const waitForBillingSlipImages = async () => {
-    const images = Array.from(document.querySelectorAll<HTMLImageElement>('.print-billing-container img'));
-    await Promise.all(
-      images.map(async (image) => {
-        if (image.complete && image.naturalWidth > 0) return;
-        if (typeof image.decode === 'function') {
-          try {
-            await image.decode();
-            return;
-          } catch {
-            return;
-          }
-        }
-
-        await new Promise<void>((resolve) => {
-          image.onload = () => resolve();
-          image.onerror = () => resolve();
-        });
-      })
-    );
-  };
-
   // Filtered Interested Leads
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
@@ -153,34 +130,37 @@ export const SupervisorInterestedPage: React.FC = () => {
     .filter((c) => selectedIds.includes(c.id))
     .map((c) => {
       const custOrders = ordersMap[c.id] || [];
-      const latestOrder = custOrders[custOrders.length - 1];
+      const latestOrder = custOrders[0];
       return {
         customer: c,
         responsibleUser: membersMap[c.responsibleTeamMemberId],
         order: latestOrder,
-        team: teamsMap[c.teamId] || (user?.teamId === c.teamId ? user.team : undefined),
+        team: latestOrder?.team || teamsMap[c.teamId] || (user?.teamId === c.teamId ? user.team : undefined),
       };
     });
 
   // PDF Download Trigger - Downloads PDF first, then prompts for status change to Dispatched
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
-    const pdfSuccess = downloadBillingPDF(selectedPrintItems);
-    if (pdfSuccess) {
+    try {
+      await downloadBillingPDF(selectedPrintItems);
       toast.success('Billing slips PDF downloaded!');
       setIsPdfConfirmOpen(true);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate billing PDF.');
     }
   };
 
-  // Native Browser Print Trigger - Triggers print window & AUTO-DISPATCHES selected leads
+  // Generated PDF Print Trigger - prints only the assembled billing-slip PDF
   const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
-    await waitForBillingSlipImages();
-    window.print();
-    setIsDispatching(true);
     try {
+      await printBillingPDF(selectedPrintItems);
+      setIsDispatching(true);
       await dispatchInterestedLeads(selectedIds);
       clearSelection();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate billing print document.');
     } finally {
       setIsDispatching(false);
     }
@@ -205,13 +185,6 @@ export const SupervisorInterestedPage: React.FC = () => {
 
   return (
     <div className="space-y-4 pb-28">
-      <PrintDocumentStyles />
-
-      {/* Hidden Print Container rendered in DOM for window.print() */}
-      <div className="hidden print:block">
-        <BillingSlipPrintSheet items={selectedPrintItems} />
-      </div>
-
       {/* Admin Multi-Team Switcher */}
       <AdminTeamSelector
         activeTeamId={adminTeamId}
