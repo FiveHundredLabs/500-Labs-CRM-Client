@@ -101,6 +101,7 @@ export const AdminUsersPage: React.FC = () => {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setPhone(u.phone);
+    setCity(u.city || '');
     setTeamId(u.teamId || (teams.length > 0 ? teams[0].id : ''));
     setSupervisorId(u.supervisorId || '');
     setNic(u.nic || '');

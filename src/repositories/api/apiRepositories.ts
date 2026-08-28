@@ -15,6 +15,7 @@ import {
   IStockActivityLogRepository,
   IApprovalRequestRepository,
   IPettyCashRepository,
+  ISalesTargetRepository,
 } from '../interfaces';
 import {
   Team,
@@ -37,6 +38,9 @@ import {
   PettyCashWallet,
   PettyCashTransaction,
   ApprovalStatus,
+  TeamSalesTarget,
+  TeamTargetTier,
+  DuplicatePhoneCheckResult,
 } from '../../models/domain';
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -236,6 +240,9 @@ export class ApiContactRepository implements IContactRepository {
   }): Promise<Contact> {
     return unwrap(await apiClient.post<{ data: Contact }>('/contacts/personal', data));
   }
+  async checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult> {
+    return unwrap(await apiClient.post<{ data: DuplicatePhoneCheckResult }>('/contacts/check-duplicate', data));
+  }
   async update(id: string, updates: Partial<Contact>): Promise<Contact> {
     return unwrap(await apiClient.patch<{ data: Contact }>(`/contacts/${id}`, updates));
   }
@@ -401,8 +408,15 @@ export class ApiDeliveryStatusHistoryRepository implements IDeliveryStatusHistor
   async create(
     history: Omit<DeliveryStatusHistory, 'id' | 'createdAt'>
   ): Promise<DeliveryStatusHistory> {
-    // History is created by order status update — this is a no-op stub
-    throw new Error('Use OrderRepository.updateStatus() to create delivery history');
+    return {
+      id: `hist_${Date.now()}`,
+      orderId: history.orderId,
+      previousStatus: history.previousStatus,
+      newStatus: history.newStatus,
+      remarks: history.remarks,
+      actorUserId: history.actorUserId,
+      createdAt: new Date().toISOString(),
+    };
   }
 }
 
@@ -633,5 +647,51 @@ export class ApiPettyCashRepository implements IPettyCashRepository {
         teamId: user.teamId,
       })
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sales Targets & Incentives
+// ─────────────────────────────────────────────────────────────────────────────
+export class ApiSalesTargetRepository implements ISalesTargetRepository {
+  async getAll(month?: string, teamId?: string): Promise<TeamSalesTarget[]> {
+    const params: Record<string, string> = {};
+    if (month) params.month = month;
+    if (teamId) params.teamId = teamId;
+    return unwrap(
+      await apiClient.get<{ data: TeamSalesTarget[] }>('/sales-targets', { params })
+    );
+  }
+
+  async getById(id: string): Promise<TeamSalesTarget | null> {
+    try {
+      return unwrap(
+        await apiClient.get<{ data: TeamSalesTarget }>(`/sales-targets/${id}`)
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  async upsert(target: {
+    teamId: string;
+    month: string;
+    targetAmount: number;
+    notes?: string;
+    tiers: TeamTargetTier[];
+  }): Promise<TeamSalesTarget> {
+    return unwrap(
+      await apiClient.post<{ data: TeamSalesTarget }>('/sales-targets', target)
+    );
+  }
+
+  async update(id: string, updates: Partial<TeamSalesTarget>): Promise<TeamSalesTarget> {
+    return unwrap(
+      await apiClient.patch<{ data: TeamSalesTarget }>(`/sales-targets/${id}`, updates)
+    );
+  }
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/sales-targets/${id}`);
   }
 }

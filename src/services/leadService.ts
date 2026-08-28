@@ -35,7 +35,7 @@ export class LeadService {
       } else {
         const allOrders = await orderRepository.getAll();
         const orderNumber = `ORD-2026-${String(allOrders.length + 1).padStart(3, '0')}`;
-        const newOrder = await orderRepository.create({
+        await orderRepository.create({
           orderNumber,
           customerId: customer.id,
           teamId: customer.teamId,
@@ -46,14 +46,6 @@ export class LeadService {
           totalAmount: 5990.00,
           currency: 'LKR',
           remarks: 'Auto-generated order upon Interested Lead billing dispatch',
-        });
-
-        await deliveryStatusHistoryRepository.create({
-          orderId: newOrder.id,
-          previousStatus: null,
-          newStatus: 'DISPATCHED',
-          remarks: 'Order created and dispatched from Interested Leads workflow.',
-          actorUserId: actor.id,
         });
       }
 
@@ -73,5 +65,49 @@ export class LeadService {
     }
 
     return count;
+  }
+
+  /**
+   * Cancel an Interested Lead and any associated orders.
+   */
+  static async cancelInterestedLead(
+    customerId: string,
+    reason: string,
+    actor: User
+  ): Promise<boolean> {
+    const customer = await customerRepository.getById(customerId);
+    if (!customer) return false;
+
+    // 1. Update Contact status to CANCELLED
+    if (customer.contactId) {
+      await contactRepository.update(customer.contactId, { status: 'CANCELLED' });
+    }
+
+    // 2. Update any existing active Orders for this customer to CANCELLED
+    const existingOrders = await orderRepository.getByCustomerId(customerId);
+    for (const ord of existingOrders) {
+      if (['DRAFT', 'PREPARED', 'DISPATCHED'].includes(ord.status)) {
+        await OrderService.updateOrderStatus(
+          ord.id,
+          'CANCELLED',
+          actor,
+          reason || 'Cancelled duplicate/unwanted lead by supervisor'
+        );
+      }
+    }
+
+    // 3. Log Activity
+    await ActivityLogService.logAction({
+      userId: actor.id,
+      userRole: actor.role,
+      userName: actor.fullName,
+      teamId: customer.teamId,
+      action: 'ORDER_CANCELLED',
+      entityType: 'Customer',
+      entityId: customer.id,
+      description: `Supervisor cancelled interested lead/order for ${customer.fullName} (${customer.phone}): ${reason || 'Duplicate review'}`,
+    });
+
+    return true;
   }
 }

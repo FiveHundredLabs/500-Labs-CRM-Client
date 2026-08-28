@@ -7,11 +7,15 @@ import { PrintFloatingPanel } from '../../components/printing/PrintFloatingPanel
 import { InterestedFilters } from '../../components/interested/InterestedFilters';
 import { InterestedList } from '../../components/interested/InterestedList';
 import { InterestedPdfConfirmDialog } from '../../components/interested/InterestedPdfConfirmDialog';
+import { InterestedPrintConfirmDialog } from '../../components/interested/InterestedPrintConfirmDialog';
+import { InterestedCancelConfirmDialog } from '../../components/interested/InterestedCancelConfirmDialog';
+import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
 import { downloadBillingPDF } from '../../utils/pdfGenerator';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
+import { XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { teamRepository } from '../../repositories';
 import { Team } from '../../models/domain';
@@ -25,8 +29,11 @@ export const SupervisorInterestedPage: React.FC = () => {
     teamMembers,
     membersMap,
     ordersMap,
+    allCustomersMap,
+    interestedConflictMap,
     loading,
     dispatchInterestedLeads,
+    cancelInterestedLead,
   } = useInterestedLeads(user?.role === 'ADMIN' ? adminTeamId : undefined);
 
   // Filters State
@@ -35,7 +42,10 @@ export const SupervisorInterestedPage: React.FC = () => {
 
   // Workflow Dialog States
   const [isPdfConfirmOpen, setIsPdfConfirmOpen] = useState(false);
+  const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   const [isDispatching, setIsDispatching] = useState(false);
+  const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -234,16 +244,29 @@ export const SupervisorInterestedPage: React.FC = () => {
         filteredCustomers={filteredCustomers}
         membersMap={membersMap}
         ordersMap={ordersMap}
+        interestedConflictMap={interestedConflictMap}
         selectedIds={selectedIds}
         onToggleSelectCard={toggleSelectCard}
+        onInspectDuplicateOrders={(info) => setInspectConflictInfo(info)}
       />
 
-      {/* Bottom-Right Floating Action Panel (Manual dispatch button removed per Change 2) */}
+      {/* Bottom-Right Floating Action Panel */}
       <PrintFloatingPanel
         selectedCount={selectedIds.length}
         countLabel="Selected"
         onDownloadPDF={handleDownloadPDF}
         onNativePrint={handleNativePrint}
+        extraActions={
+          <button
+            type="button"
+            onClick={() => setIsCancelConfirmOpen(true)}
+            className="py-1 px-2 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer"
+            title="Cancel selected interested leads"
+          >
+            <XCircle className="w-3.5 h-3.5" />
+            <span>Cancel</span>
+          </button>
+        }
       />
 
       {/* PDF Download + Auto-Dispatch Confirmation Dialog */}
@@ -253,6 +276,40 @@ export const SupervisorInterestedPage: React.FC = () => {
         isDispatching={isDispatching}
         onClose={() => setIsPdfConfirmOpen(false)}
         onConfirmDispatched={handleConfirmDispatched}
+      />
+
+      {/* GitHub Style Strict Verification Cancel Dialog */}
+      <InterestedCancelConfirmDialog
+        isOpen={isCancelConfirmOpen}
+        selectedCustomers={customers.filter((c) => selectedIds.includes(c.id))}
+        membersMap={membersMap}
+        onClose={() => setIsCancelConfirmOpen(false)}
+        onConfirmCancel={async (reason) => {
+          let successCount = 0;
+          for (const id of selectedIds) {
+            const ok = await cancelInterestedLead(id, reason);
+            if (ok) successCount++;
+          }
+          if (successCount > 0) {
+            clearSelection();
+            return true;
+          }
+          return false;
+        }}
+      />
+
+      {/* Duplicate Order Conflict & History Inspection Dialog */}
+      <DuplicateOrderConflictDialog
+        isOpen={!!inspectConflictInfo}
+        onClose={() => setInspectConflictInfo(null)}
+        currentOrder={null}
+        conflictInfo={inspectConflictInfo}
+        customersMap={allCustomersMap}
+        membersMap={membersMap}
+        onCancelOrder={async (ord) => {
+          await cancelInterestedLead(ord.customerId, 'Cancelled duplicate order by supervisor');
+          setInspectConflictInfo(null);
+        }}
       />
     </div>
   );

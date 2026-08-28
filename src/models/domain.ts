@@ -11,6 +11,7 @@ export type ContactStatus =
   | 'DISPATCHED'
   | 'DELIVERED'
   | 'REJECTED'
+  | 'CANCELLED'
   | 'SAVED_CONTACTS';
 
 export type OrderStatus =
@@ -19,7 +20,8 @@ export type OrderStatus =
   | 'DISPATCHED'
   | 'DELIVERED'
   | 'REJECTED'
-  | 'RETURNED';
+  | 'RETURNED'
+  | 'CANCELLED';
 
 export type EmailNotificationStatus = 'SENT' | 'SKIPPED' | 'FAILED';
 
@@ -45,6 +47,7 @@ export interface User {
   role: UserRole;
   teamId: string | null; // null for ADMIN & FINANCE if multi-team
   supervisorId: string | null; // null for ADMIN, FINANCE, SUPERVISOR
+  city?: string;
   phone: string;
   avatarUrl?: string;
   nic?: string;
@@ -96,6 +99,40 @@ export interface ContactAllocation {
   allocationSource?: 'SELF_ADDED' | 'SUPERVISOR_ALLOCATED' | 'BULK_IMPORT' | string;
 }
 
+export interface DuplicatePhoneOrderHistory {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  totalAmount: number;
+  createdAt: string;
+  deliveredAt?: string | null;
+  rejectedAt?: string | null;
+  remarks?: string | null;
+  itemsDescription: string;
+  teamMemberName?: string;
+}
+
+export interface DuplicatePhoneIntelligence {
+  phone: string;
+  assignedMemberName: string;
+  teamName: string;
+  allocatedAt?: string | null;
+  lastCalledAt?: string | null;
+  lastCallStatus?: ContactStatus | string | null;
+  lastCallRemarks?: string | null;
+  lastCustomerName?: string | null;
+  deliveryAddress?: string | null;
+  city?: string | null;
+  previousOrders: DuplicatePhoneOrderHistory[];
+}
+
+export interface DuplicatePhoneCheckResult {
+  exists: boolean;
+  isOwnedBySelf: boolean;
+  message?: string;
+  intelligence?: DuplicatePhoneIntelligence;
+}
+
 export interface CallLog {
   id: string; // e.g., 'cll_001'
   contactId: string;
@@ -120,6 +157,14 @@ export interface CallLog {
   callDurationSeconds?: number;
   isFollowUp?: boolean; // Starred for Follow-Up List
   calledAt: string;
+  contactPhone?: string;
+  contact?: {
+    id: string;
+    phone: string;
+    secondaryMobile?: string;
+    city?: string;
+    status?: string;
+  };
 }
 
 export interface Customer {
@@ -213,6 +258,8 @@ export type ActivityAction =
   | 'ORDER_PRINTED'
   | 'ORDER_PREPARED'
   | 'ORDER_DISPATCHED'
+  | 'ORDER_CANCELLED'
+  | 'LEAD_CANCELLED'
   | 'DELIVERY_STATUS_CHANGED'
   | 'EMAIL_NOTIFICATION_SENT'
   | 'EXPENSE_CREATED'
@@ -413,5 +460,54 @@ export interface PettyCashTransaction {
   userName: string;
   remainingBalance: number;
   createdAt: string;
+}
+
+export interface TeamTargetTier {
+  id?: string;
+  targetId?: string;
+  minPercentage: number; // e.g. 80, 100, 120
+  allowanceAmount: number; // e.g. 10000, 20000, 35000
+  title?: string;
+  isUnlocked?: boolean;
+  unlockedMembersCount?: number;
+}
+
+export interface MemberSalesPerformance {
+  id: string;
+  fullName: string;
+  username: string;
+  email: string;
+  actualSales: number;
+  achievementPercentage: number;
+  unlockedAllowance: number;
+  highestUnlockedTier?: TeamTargetTier | null;
+  ordersCount: number;
+}
+
+export interface TeamSalesTarget {
+  id: string;
+  teamId: string;
+  month: string; // YYYY-MM (Effective start month)
+  targetAmount: number; // Monthly sales goal in LKR per member
+  notes?: string;
+  evaluatedMonth?: string; // Currently evaluated month
+  isInheritedStandingTarget?: boolean; // True if carrying over from an earlier month
+  effectiveFromMonth?: string;
+  team?: {
+    id: string;
+    name: string;
+    code: string;
+    brandColor?: string;
+  };
+  tiers: TeamTargetTier[];
+  actualSales?: number;
+  achievementPercentage?: number;
+  unlockedAllowance?: number;
+  highestUnlockedTier?: TeamTargetTier | null;
+  membersCount?: number;
+  totalAchieversCount?: number;
+  memberBreakdowns?: MemberSalesPerformance[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 

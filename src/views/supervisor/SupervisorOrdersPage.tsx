@@ -13,6 +13,7 @@ import { OrderRemarkDialog } from '../../components/orders/OrderRemarkDialog';
 import { BulkStatusChangeDialog } from '../../components/orders/BulkStatusChangeDialog';
 import { OrderHistoryDialog } from '../../components/orders/OrderHistoryDialog';
 import { OrderPrintConfirmDialog } from '../../components/orders/OrderPrintConfirmDialog';
+import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { useOrders } from '../../hooks/useOrders';
 import { useOrderFilters } from '../../hooks/useOrderFilters';
 import { useSelection } from '../../hooks/useSelection';
@@ -33,6 +34,7 @@ export const SupervisorOrdersPage: React.FC = () => {
     customersMap,
     teamMembers,
     membersMap,
+    orderConflictMap,
     loading,
     updateOrderStatus,
     updateOrderRemark,
@@ -80,84 +82,6 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-
-    if (user.role !== 'ADMIN') {
-      setTeams(user.team ? [user.team as Team] : []);
-      return;
-    }
-
-    let isMounted = true;
-    teamRepository.getAll()
-      .then((teamList) => {
-        if (!isMounted) return;
-        setTeams(teamList);
-        if (teamList.length > 0 && !teamList.some((team) => team.id === adminTeamId)) {
-          setAdminTeamId(teamList[0].id);
-        }
-      })
-      .catch(() => {
-        if (isMounted) setTeams([]);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [adminTeamId, user]);
-
-  const teamsMap = useMemo(() => {
-    const map: Record<string, Team> = {};
-    teams.forEach((team) => {
-      map[team.id] = team;
-    });
-    return map;
-  }, [teams]);
-
-  const buildPrintItem = (order: Order): LeadPrintItem => {
-    const customer = customersMap[order.customerId] || ({
-      id: `cst_temp_${order.id}`,
-      contactId: '',
-      fullName: 'Customer',
-      phone: 'N/A',
-      address: 'N/A',
-      teamId: order.teamId,
-      responsibleTeamMemberId: order.teamMemberId,
-      supervisorId: order.supervisorId,
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
-    } satisfies Customer);
-
-    return {
-      customer,
-      responsibleUser: membersMap[order.teamMemberId],
-      order,
-      team: teamsMap[order.teamId] || (user?.teamId === order.teamId ? user.team : undefined),
-    };
-  };
-
-  const waitForBillingSlipImages = async () => {
-    const images = Array.from(document.querySelectorAll<HTMLImageElement>('.print-billing-container img'));
-    await Promise.all(
-      images.map(async (image) => {
-        if (image.complete && image.naturalWidth > 0) return;
-        if (typeof image.decode === 'function') {
-          try {
-            await image.decode();
-            return;
-          } catch {
-            return;
-          }
-        }
-
-        await new Promise<void>((resolve) => {
-          image.onload = () => resolve();
-          image.onerror = () => resolve();
-        });
-      })
-    );
-  };
-
   // Status Change Modal Trigger
   const handleOpenStatusModal = (order: Order, defaultNewStatus: OrderStatus) => {
     setTargetOrder(order);
@@ -169,6 +93,12 @@ export const SupervisorOrdersPage: React.FC = () => {
     setHistoryOrder(order);
     const hist = await fetchOrderHistory(order.id);
     setOrderHistories(hist);
+  };
+
+  // Inspect Duplicate Orders Trigger
+  const handleInspectDuplicateOrders = (order: Order, conflictInfo: DuplicateOrderConflictInfo) => {
+    setInspectConflictOrder(order);
+    setInspectConflictInfo(conflictInfo);
   };
 
   // Selected Lead Print Items for PDF & Print
@@ -230,7 +160,7 @@ export const SupervisorOrdersPage: React.FC = () => {
 
       <PageHeader
         title="Supervisor Orders"
-        description="Monitor dispatched parcels, process delivery status updates with optional remarks, and manage team orders."
+        description="Monitor dispatched parcels, process delivery status updates, inspect duplicate order conflicts, and manage team orders."
       />
 
       {/* 1. Status Filter Summary Cards */}
@@ -269,11 +199,11 @@ export const SupervisorOrdersPage: React.FC = () => {
         customersMap={customersMap}
         membersMap={membersMap}
         selectedOrderIds={selectedOrderIds}
+        orderConflictMap={orderConflictMap}
         onToggleSelectCard={toggleSelectCard}
         onViewHistory={handleViewHistory}
         onOpenStatusModal={handleOpenStatusModal}
         onOpenRemarkModal={(order) => setRemarkOrder(order)}
-        onPrintBillingSlip={handlePrintBillingSlip}
       />
 
       {/* 4. Floating Action Panel */}
@@ -331,6 +261,24 @@ export const SupervisorOrdersPage: React.FC = () => {
         isOpen={isPrintConfirmOpen}
         onClose={() => setIsPrintConfirmOpen(false)}
         onClearSelection={clearSelection}
+      />
+
+      {/* Duplicate Order Conflict & History Inspection Dialog */}
+      <DuplicateOrderConflictDialog
+        isOpen={!!inspectConflictOrder}
+        onClose={() => {
+          setInspectConflictOrder(null);
+          setInspectConflictInfo(null);
+        }}
+        currentOrder={inspectConflictOrder}
+        conflictInfo={inspectConflictInfo}
+        customersMap={customersMap}
+        membersMap={membersMap}
+        onCancelOrder={async (ord) => {
+          await updateOrderStatus(ord, 'CANCELLED', 'Supervisor cancelled duplicate order');
+          setInspectConflictOrder(null);
+          setInspectConflictInfo(null);
+        }}
       />
     </div>
   );

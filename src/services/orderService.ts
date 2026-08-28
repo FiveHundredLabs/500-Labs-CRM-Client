@@ -1,6 +1,8 @@
 import {
   orderRepository,
   customerRepository,
+  contactRepository,
+  callLogRepository,
   deliveryStatusHistoryRepository,
   emailNotificationRepository,
 } from '../repositories';
@@ -102,6 +104,29 @@ export class OrderService {
       remarks: remarks || `Status changed to ${newStatus}`,
       actorUserId: actor.id,
     });
+
+    // Synchronize Contact and CallLog statuses for the team member view
+    try {
+      const customer = await customerRepository.getById(order.customerId);
+      const contactStatusMap: Partial<Record<OrderStatus, any>> = {
+        DELIVERED: 'DELIVERED',
+        REJECTED: 'REJECTED',
+        CANCELLED: 'CANCELLED',
+        DISPATCHED: 'DISPATCHED',
+      };
+      const newContactStatus = contactStatusMap[newStatus];
+      if (customer && newContactStatus) {
+        if (customer.contactId) {
+          await contactRepository.update(customer.contactId, { status: newContactStatus });
+          const callLogs = await callLogRepository.getByContactId(customer.contactId);
+          for (const cl of callLogs) {
+            await callLogRepository.update(cl.id, { status: newContactStatus });
+          }
+        }
+      }
+    } catch {
+      // Non-fatal sync
+    }
 
     // Log ActivityLog
     const actionType =

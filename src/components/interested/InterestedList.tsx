@@ -2,23 +2,28 @@ import React from 'react';
 import type { Customer, User, Order } from '../../models/domain';
 import { CustomerCard } from '../customer/CustomerCard';
 import { EmptyState } from '../shared/EmptyState';
-import { Sparkles, Truck } from 'lucide-react';
+import { Sparkles, Truck, AlertTriangle, Info } from 'lucide-react';
 import { format } from 'date-fns';
+import type { DuplicateOrderConflictInfo } from '../orders/DuplicateOrderConflictDialog';
 
 export interface InterestedListProps {
   filteredCustomers: Customer[];
   membersMap: Record<string, User>;
   ordersMap?: Record<string, Order[]>;
+  interestedConflictMap?: Record<string, DuplicateOrderConflictInfo>;
   selectedIds: string[];
   onToggleSelectCard: (id: string) => void;
+  onInspectDuplicateOrders?: (conflictInfo: DuplicateOrderConflictInfo) => void;
 }
 
 export const InterestedList: React.FC<InterestedListProps> = ({
   filteredCustomers,
   membersMap,
   ordersMap = {},
+  interestedConflictMap = {},
   selectedIds,
   onToggleSelectCard,
+  onInspectDuplicateOrders,
 }) => {
   if (filteredCustomers.length === 0) {
     return (
@@ -35,6 +40,7 @@ export const InterestedList: React.FC<InterestedListProps> = ({
         const member = membersMap[customer.responsibleTeamMemberId];
         const isSelected = selectedIds.includes(customer.id);
         const formattedDate = format(new Date(customer.createdAt), 'MMM dd');
+        const conflictInfo = interestedConflictMap[customer.id];
 
         // Check for previous dispatches
         const custOrders = ordersMap[customer.id] || [];
@@ -42,31 +48,117 @@ export const InterestedList: React.FC<InterestedListProps> = ({
           ['DISPATCHED', 'DELIVERED', 'REJECTED', 'RETURNED'].includes(o.status)
         );
 
-        const previousDispatchContent = previousOrder ? (
-          <div className="mt-1.5 p-1.5 rounded-lg bg-amber-50/90 border border-amber-200 text-[10px] space-y-0.5">
-            <div className="flex items-center justify-between font-bold text-amber-900">
-              <span className="flex items-center gap-1">
-                <Truck className="w-3 h-3 text-amber-600 shrink-0" />
-                Previous Dispatch
-              </span>
-              <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-800">
-                #{previousOrder.orderNumber}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-slate-700">
-              <span>Status: <strong className="font-semibold text-slate-900">{previousOrder.status}</strong></span>
-              <span>{format(new Date(previousOrder.createdAt), 'MMM dd, yyyy')}</span>
-            </div>
-            <div className="text-slate-600 truncate">
-              Item: {previousOrder.itemsDescription}
-            </div>
-            {previousOrder.totalAmount > 0 && (
-              <div className="font-medium text-slate-800">
-                COD: LKR {previousOrder.totalAmount.toLocaleString()}
+        const previousDispatchContent = (
+          <div className="space-y-1.5 mt-1.5">
+            {/* Early Duplicate Active Orders Warning Badge */}
+            {conflictInfo?.hasDuplicateActiveOrders && (
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] space-y-1">
+                <div className="flex items-center justify-between font-bold text-amber-900">
+                  <span className="flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>⚠️ Duplicate Active Orders ({conflictInfo.activeDuplicateOrders.length})</span>
+                  </span>
+                  {onInspectDuplicateOrders && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onInspectDuplicateOrders(conflictInfo);
+                      }}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-600 hover:bg-amber-700 text-white cursor-pointer transition-all"
+                    >
+                      Compare
+                    </button>
+                  )}
+                </div>
+                <div className="text-[10px] text-amber-800">
+                  Same phone number has {conflictInfo.activeDuplicateOrders.length} active orders in progress.
+                </div>
+              </div>
+            )}
+
+            {/* Early Previous Delivered Order Notice Badge */}
+            {conflictInfo?.hasPreviousDeliveredOrder && !conflictInfo?.hasDuplicateActiveOrders && !conflictInfo?.hasPreviousRejectedOrder && (
+              <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-[11px] space-y-1">
+                <div className="flex items-center justify-between font-bold text-indigo-900">
+                  <span className="flex items-center gap-1">
+                    <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span>ℹ️ Past Delivery: #{conflictInfo.previousDeliveredOrders[0].orderNumber}</span>
+                  </span>
+                  {onInspectDuplicateOrders && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onInspectDuplicateOrders(conflictInfo);
+                      }}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer transition-all"
+                    >
+                      History
+                    </button>
+                  )}
+                </div>
+                <div className="text-[10px] text-indigo-800">
+                  Delivered on {format(new Date(conflictInfo.previousDeliveredOrders[0].createdAt), 'MMM dd, yyyy')}.
+                </div>
+              </div>
+            )}
+
+            {/* Early Previous Rejected Order Notice Badge */}
+            {conflictInfo?.hasPreviousRejectedOrder && !conflictInfo?.hasDuplicateActiveOrders && (
+              <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-[11px] space-y-1">
+                <div className="flex items-center justify-between font-bold text-rose-900">
+                  <span className="flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span>⚠️ Past Order Rejected: #{conflictInfo.previousRejectedOrders?.[0]?.orderNumber}</span>
+                  </span>
+                  {onInspectDuplicateOrders && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onInspectDuplicateOrders(conflictInfo);
+                      }}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer transition-all"
+                    >
+                      History
+                    </button>
+                  )}
+                </div>
+                <div className="text-[10px] text-rose-800">
+                  Rejected on {format(new Date(conflictInfo.previousRejectedOrders?.[0]?.createdAt || Date.now()), 'MMM dd, yyyy')}.
+                  {(conflictInfo.previousRejectedOrders?.[0] as any)?.remarks ? ` Note: "${(conflictInfo.previousRejectedOrders?.[0] as any).remarks}"` : ''}
+                </div>
+              </div>
+            )}
+
+            {previousOrder && !conflictInfo && (
+              <div className="p-1.5 rounded-lg bg-amber-50/90 border border-amber-200 text-[10px] space-y-0.5">
+                <div className="flex items-center justify-between font-bold text-amber-900">
+                  <span className="flex items-center gap-1">
+                    <Truck className="w-3 h-3 text-amber-600 shrink-0" />
+                    Previous Dispatch
+                  </span>
+                  <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-800">
+                    #{previousOrder.orderNumber}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-700">
+                  <span>Status: <strong className="font-semibold text-slate-900">{previousOrder.status}</strong></span>
+                  <span>{format(new Date(previousOrder.createdAt), 'MMM dd, yyyy')}</span>
+                </div>
+                <div className="text-slate-600 truncate">
+                  Item: {previousOrder.itemsDescription}
+                </div>
+                {previousOrder.totalAmount > 0 && (
+                  <div className="font-medium text-slate-800">
+                    COD: LKR {previousOrder.totalAmount.toLocaleString()}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        ) : null;
+        );
 
         return (
           <CustomerCard

@@ -8,7 +8,9 @@ import { ActivityTimeline } from '../../shared/ActivityTimeline';
 import { LoadingState } from '../../shared/LoadingState';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
-import { DollarSign, CheckCircle2, XCircle, PhoneCall, Sparkles, Truck, Calendar, Filter, Clock } from 'lucide-react';
+import { Dialog } from '../../ui/Dialog';
+import { DollarSign, CheckCircle2, XCircle, PhoneCall, Sparkles, Truck, Calendar, Filter, Clock, Package, Eye, MapPin, User as UserIcon, Phone } from 'lucide-react';
+import { formatCurrency } from '../../../utils/currency';
 
 export interface TeamMemberDetailedViewProps {
   member: User;
@@ -24,6 +26,7 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
   const [orders, setOrders] = useState<Order[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [selectedCallDetails, setSelectedCallDetails] = useState<CallLog | null>(null);
 
   // Performance & Calls Table Date Filter
   const [perfDateFilter, setPerfDateFilter] = useState<PerformanceDateFilter>('THIS_MONTH');
@@ -108,6 +111,15 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
       dispatchedCount: dispatchedOrders.length,
     };
   }, [orders, contacts, callLogs, perfDateFilter, perfStartDate, perfEndDate, member.id]);
+
+  // Lookup map for fast contact phone resolution
+  const contactsMap = useMemo(() => {
+    const map = new Map<string, string>();
+    contacts.forEach((c) => {
+      map.set(c.id, c.phone);
+    });
+    return map;
+  }, [contacts]);
 
   // Filtered Calls Table Data
   const filteredCallLogs = useMemo(() => {
@@ -310,31 +322,63 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
                   </td>
                 </tr>
               ) : (
-                filteredCallLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-2.5 px-3 font-mono font-semibold text-blue-600">
-                      {log.secondaryMobile ? `${log.contactId} (${log.secondaryMobile})` : log.contactId}
-                    </td>
-                    <td className="py-2.5 px-3 font-medium text-slate-900">
-                      {log.customerName || 'N/A'}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-500">
-                      {format(new Date(log.calledAt), 'MMM dd, yyyy HH:mm')}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <StatusBadge type="contact" status={log.status} />
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-700">
-                      {log.selectedPackage || 'Standard Product'}
-                    </td>
-                    <td className="py-2.5 px-3 font-semibold text-slate-800">
-                      {(log.adultQty || 0) + (log.kidsQty || 0) || 1}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-900 font-bold">
-                      {log.codAmount ? `LKR ${log.codAmount.toLocaleString()}` : '-'}
-                    </td>
-                  </tr>
-                ))
+                filteredCallLogs.map((log) => {
+                  const phoneDisplay = log.contactPhone || log.contact?.phone || contactsMap.get(log.contactId) || log.contactId;
+                  const totalQty = (log.adultQty || 0) + (log.kidsQty || 0);
+                  const hasPackage = Boolean(log.selectedPackage && log.selectedPackage !== 'NONE' && totalQty > 0);
+
+                  let packageSummary = '-';
+                  if (hasPackage) {
+                    if (log.selectedPackage === 'BOTH') {
+                      packageSummary = `BOTH (${log.adultQty || 0}A + ${log.kidsQty || 0}K)`;
+                    } else if (log.selectedPackage === 'ADULT') {
+                      packageSummary = `Adult (${log.adultQty || totalQty})`;
+                    } else if (log.selectedPackage === 'KIDS') {
+                      packageSummary = `Kids (${log.kidsQty || totalQty})`;
+                    } else {
+                      packageSummary = `${log.selectedPackage} (${totalQty})`;
+                    }
+                  }
+
+                  return (
+                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                        {log.secondaryMobile ? `${phoneDisplay} (${log.secondaryMobile})` : phoneDisplay}
+                      </td>
+                      <td className="py-2.5 px-3 font-medium text-slate-900">
+                        {log.customerName || 'N/A'}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-500">
+                        {format(new Date(log.calledAt), 'MMM dd, yyyy HH:mm')}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <StatusBadge type="contact" status={log.status} />
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {hasPackage ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCallDetails(log)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md cursor-pointer transition-colors"
+                            title="Click to view full package order & customer details"
+                          >
+                            <Package className="w-3 h-3 text-blue-600" />
+                            <span>{packageSummary}</span>
+                            <Eye className="w-3 h-3 text-blue-500 opacity-60 ml-0.5" />
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 font-mono text-xs">-</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-800 font-mono">
+                        {hasPackage ? totalQty : 0}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-slate-900 font-bold">
+                        {log.codAmount && Number(log.codAmount) > 0 ? `LKR ${Number(log.codAmount).toLocaleString()}` : '-'}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -361,7 +405,7 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
                 key={tab}
                 type="button"
                 onClick={() => setActDateFilter(tab)}
-                className={`py-1 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                className={`py-1 px-2.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   actDateFilter === tab
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -401,6 +445,114 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
           )}
         </div>
       </div>
+
+      {/* Package Order & Call Details Modal */}
+      <Dialog
+        isOpen={!!selectedCallDetails}
+        onClose={() => setSelectedCallDetails(null)}
+        title="Package Order & Call Details"
+        description={`Logged call details for ${selectedCallDetails?.contactPhone || contactsMap.get(selectedCallDetails?.contactId || '') || selectedCallDetails?.contactId}`}
+        maxWidth="lg"
+      >
+        {selectedCallDetails && (
+          <div className="space-y-4">
+            {/* Customer & Call Meta */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+              <div>
+                <span className="text-slate-400 text-[11px] block">Customer Name</span>
+                <strong className="text-slate-900 text-sm mt-0.5 block">{selectedCallDetails.customerName || 'N/A'}</strong>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[11px] block">Contact Number</span>
+                <strong className="text-slate-900 font-mono text-sm mt-0.5 block">
+                  {selectedCallDetails.contactPhone || contactsMap.get(selectedCallDetails.contactId) || selectedCallDetails.contactId}
+                  {selectedCallDetails.secondaryMobile ? ` (${selectedCallDetails.secondaryMobile})` : ''}
+                </strong>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[11px] block">Call Status</span>
+                <div className="mt-1">
+                  <StatusBadge type="contact" status={selectedCallDetails.status} />
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[11px] block">Call Date & Time</span>
+                <span className="text-slate-700 font-mono mt-0.5 block">
+                  {format(new Date(selectedCallDetails.calledAt), 'MMM dd, yyyy HH:mm:ss')}
+                </span>
+              </div>
+            </div>
+
+            {/* Delivery Address & Location */}
+            {(selectedCallDetails.customerAddress || selectedCallDetails.city) && (
+              <div className="p-3 bg-white border border-slate-200 rounded-xl text-xs space-y-1">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Delivery Address</span>
+                </div>
+                <p className="text-slate-800 font-medium">
+                  {selectedCallDetails.customerAddress || ''}
+                  {selectedCallDetails.city ? `, ${selectedCallDetails.city}` : ''}
+                </p>
+              </div>
+            )}
+
+            {/* Package & Pricing Breakdown */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Selected Package: {selectedCallDetails.selectedPackage || 'Custom Order'}</span>
+                </span>
+                <span className="font-mono font-bold text-emerald-700">
+                  COD: {selectedCallDetails.codAmount ? formatCurrency(selectedCallDetails.codAmount) : '-'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-white text-xs space-y-2 font-mono">
+                {selectedCallDetails.adultQty && selectedCallDetails.adultQty > 0 ? (
+                  <div className="flex items-center justify-between py-1 border-b border-slate-100 font-sans">
+                    <span className="text-slate-700">Adult Package ({selectedCallDetails.adultQty} units)</span>
+                    <span className="font-mono font-semibold text-slate-900">
+                      {selectedCallDetails.adultSubtotal ? formatCurrency(selectedCallDetails.adultSubtotal) : `${selectedCallDetails.adultQty} qty`}
+                    </span>
+                  </div>
+                ) : null}
+
+                {selectedCallDetails.kidsQty && selectedCallDetails.kidsQty > 0 ? (
+                  <div className="flex items-center justify-between py-1 border-b border-slate-100 font-sans">
+                    <span className="text-slate-700">Kids Package ({selectedCallDetails.kidsQty} units)</span>
+                    <span className="font-mono font-semibold text-slate-900">
+                      {selectedCallDetails.kidsSubtotal ? formatCurrency(selectedCallDetails.kidsSubtotal) : `${selectedCallDetails.kidsQty} qty`}
+                    </span>
+                  </div>
+                ) : null}
+
+                {selectedCallDetails.totalPackageValue && (
+                  <div className="flex items-center justify-between pt-1 font-sans font-bold">
+                    <span className="text-slate-900">Total Order Value:</span>
+                    <span className="font-mono text-emerald-700 text-sm">{formatCurrency(selectedCallDetails.totalPackageValue)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Remarks */}
+            {selectedCallDetails.remarks && (
+              <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-xs space-y-1">
+                <span className="text-amber-800 font-bold uppercase tracking-wider text-[10px]">Call Remarks & Customer Notes</span>
+                <p className="text-slate-800">{selectedCallDetails.remarks}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <Button type="button" variant="secondary" onClick={() => setSelectedCallDetails(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 };

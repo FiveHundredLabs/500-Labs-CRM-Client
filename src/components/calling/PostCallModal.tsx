@@ -47,6 +47,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   const [hasDialed, setHasDialed] = useState(false);
   const [history, setHistory] = useState<CallLog[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [dupIntelligence, setDupIntelligence] = useState<any>(null);
 
   const [status, setStatus] = useState<ContactStatus>('ANSWERED');
   const [isFollowUp, setIsFollowUp] = useState(false);
@@ -77,9 +78,9 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     }
   }, [adultQty, kidsQty, customCodManual, totalPackageValue]);
 
-  // Reset state and fetch history when contact changes or modal opens
+  // Reset state and fetch history & duplicate check when contact changes or modal opens
   useEffect(() => {
-    if (!contact || !isOpen) return;
+    if (!contact || !isOpen || !user) return;
 
     setHasDialed(false);
     setStatus(contact.status === 'NEW' ? 'ANSWERED' : contact.status);
@@ -95,12 +96,30 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     setCodAmount('6000');
     setCustomCodManual(false);
 
-    const loadHistory = async () => {
+    const loadHistoryAndDuplicateCheck = async () => {
       setLoadingHistory(true);
       try {
-        const logs = await callLogRepository.getByContactId(contact.id);
-        logs.sort((a, b) => new Date(b.calledAt).getTime() - new Date(a.calledAt).getTime());
-        setHistory(logs);
+        const [logs, dupCheck] = await Promise.all([
+          callLogRepository.getByContactId(contact.id),
+          callLogRepository ? callLogRepository.getAll() : [],
+        ]);
+
+        const contactLogs = logs.filter((l) => l.contactId === contact.id);
+        contactLogs.sort((a, b) => new Date(b.calledAt).getTime() - new Date(a.calledAt).getTime());
+        setHistory(contactLogs);
+
+        // Fetch duplicate intelligence
+        try {
+          const { ContactService } = await import('../../services/contactService');
+          const dup = await ContactService.checkPhoneDuplicate(contact.phone, user);
+          if (dup.exists && dup.intelligence) {
+            setDupIntelligence(dup.intelligence);
+          } else {
+            setDupIntelligence(null);
+          }
+        } catch {
+          setDupIntelligence(null);
+        }
       } catch (err) {
         console.error('Failed to load call history:', err);
       } finally {
@@ -108,8 +127,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
       }
     };
 
-    loadHistory();
-  }, [contact, isOpen]);
+    loadHistoryAndDuplicateCheck();
+  }, [contact, isOpen, user]);
 
   if (!contact || !user) return null;
 
@@ -376,6 +395,65 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>Customer &amp; Delivery Information *</span>
                 </div>
+
+                {/* Duplicate Phone & Existing Orders Intelligence Alert */}
+                {dupIntelligence && (dupIntelligence.previousOrders?.length > 0 || (dupIntelligence.assignedMemberName && dupIntelligence.assignedMemberName !== user.fullName)) && (
+                  <div className="p-3.5 bg-amber-50/90 border-2 border-amber-300 rounded-xl space-y-2 text-xs text-amber-950 shadow-2xs">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <div className="font-bold text-amber-900 text-xs sm:text-sm flex items-center justify-between flex-wrap gap-1">
+                          <span>⚠️ Notice: Existing Activity / Order History Found</span>
+                          <span className="font-mono text-[11px] bg-amber-200/80 px-1.5 py-0.5 rounded text-amber-900">{contact.phone}</span>
+                        </div>
+                        <p className="text-[11px] text-amber-800 mt-1">
+                          This phone number is already recorded in the CRM. Please review existing orders and notes below before proceeding. You can still submit this interested lead/order.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-amber-200/70 text-[11px]">
+                      {dupIntelligence.assignedMemberName && (
+                        <div>
+                          <span className="text-amber-700 font-semibold">Associated Rep:</span>{' '}
+                          <span className="font-bold text-amber-950">{dupIntelligence.assignedMemberName}</span>{' '}
+                          {dupIntelligence.teamName && <span className="text-amber-700">({dupIntelligence.teamName})</span>}
+                        </div>
+                      )}
+                      {dupIntelligence.lastCustomerName && (
+                        <div>
+                          <span className="text-amber-700 font-semibold">Previous Customer:</span>{' '}
+                          <span className="font-bold text-amber-950">{dupIntelligence.lastCustomerName}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {dupIntelligence.previousOrders && dupIntelligence.previousOrders.length > 0 && (
+                      <div className="mt-2 space-y-1.5 pt-2 border-t border-amber-200/70">
+                        <div className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">
+                          Existing Order History ({dupIntelligence.previousOrders.length} order(s)):
+                        </div>
+                        <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                          {dupIntelligence.previousOrders.map((ord: any) => (
+                            <div key={ord.id} className="bg-white/90 border border-amber-200 rounded-lg p-2 flex items-center justify-between gap-2 text-[11px]">
+                              <div>
+                                <span className="font-mono font-bold text-blue-700">#{ord.orderNumber}</span>
+                                <span className="text-slate-500 ml-1.5">
+                                  by <strong className="text-slate-700">{ord.teamMemberName || 'Rep'}</strong> on {format(new Date(ord.createdAt), 'yyyy-MM-dd')}
+                                </span>
+                                <div className="text-slate-600 truncate">{ord.itemsDescription}</div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <StatusBadge type="order" status={ord.status} />
+                                <div className="font-mono font-bold text-slate-900 mt-0.5">{formatCurrency(ord.totalAmount)}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
