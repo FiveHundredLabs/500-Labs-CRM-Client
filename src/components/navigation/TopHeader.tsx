@@ -24,7 +24,7 @@ export const TopHeader: React.FC = () => {
 
   if (!user) return null;
 
-  const teamBrand = getTeamBranding(user.teamId || undefined);
+  const teamBrand = getTeamBranding(user.team || user.teamId);
 
   const getProfilePath = () => {
     switch (role) {

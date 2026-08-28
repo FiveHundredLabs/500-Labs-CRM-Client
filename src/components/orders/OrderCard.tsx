@@ -15,6 +15,7 @@ export interface OrderCardProps {
   onViewHistory: (order: Order) => void;
   onOpenStatusModal: (order: Order, defaultNewStatus: OrderStatus) => void;
   onOpenRemarkModal: (order: Order) => void;
+  onPrintBillingSlip: (order: Order) => void;
 }
 
 export const OrderCard: React.FC<OrderCardProps> = ({
@@ -26,6 +27,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onViewHistory,
   onOpenStatusModal,
   onOpenRemarkModal,
+  onPrintBillingSlip,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -72,6 +74,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             onViewHistory={onViewHistory}
             onOpenStatusModal={onOpenStatusModal}
             onOpenRemarkModal={onOpenRemarkModal}
+            onPrintBillingSlip={onPrintBillingSlip}
           />
         ) : null
       }

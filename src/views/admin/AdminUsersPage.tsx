@@ -206,6 +206,10 @@ export const AdminUsersPage: React.FC = () => {
   };
 
   const supervisors = users.filter((u) => u.role === 'SUPERVISOR' && u.teamId === teamId);
+  const teamsMap = teams.reduce<Record<string, Team>>((map, team) => {
+    map[team.id] = team;
+    return map;
+  }, {});
 
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
@@ -281,7 +285,7 @@ export const AdminUsersPage: React.FC = () => {
                   </span>
                 </td>
                 <td className="py-3.5 px-4 text-xs text-slate-600">
-                  {u.teamId ? PREDEFINED_TEAMS[u.teamId]?.name || u.teamId : 'System Wide'}
+                  {u.teamId ? teamsMap[u.teamId]?.name || PREDEFINED_TEAMS[u.teamId]?.name || u.teamId : 'System Wide'}
                 </td>
                 <td className="py-3.5 px-4 text-xs font-mono text-slate-800">
                   {u.phone}
@@ -419,8 +423,8 @@ export const AdminUsersPage: React.FC = () => {
                 teams.length > 0
                   ? teams.map((t) => ({ value: t.id, label: `${t.name} (${t.code})` }))
                   : [
-                      { value: 'team_001', label: 'Brand Alpha (Team 1)' },
-                      { value: 'team_002', label: 'Brand Beta (Team 2)' },
+                      { value: 'team_001', label: 'Easy Method English (Team 1)' },
+                      { value: 'team_002', label: 'Grow Mart (Team 2)' },
                     ]
               }
             />

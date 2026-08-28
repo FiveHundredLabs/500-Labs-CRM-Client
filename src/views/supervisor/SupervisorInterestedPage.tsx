@@ -1,23 +1,25 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { LoadingState } from '../../components/shared/LoadingState';
-import { LeadPrintItem, A4BillingPrintSheet } from '../../components/printing/A4BillingPrintSheet';
+import { LeadPrintItem, BillingSlipPrintSheet } from '../../components/printing/BillingSlipPrintSheet';
 import { PrintDocumentStyles } from '../../components/printing/PrintDocumentStyles';
 import { PrintFloatingPanel } from '../../components/printing/PrintFloatingPanel';
 import { InterestedFilters } from '../../components/interested/InterestedFilters';
 import { InterestedList } from '../../components/interested/InterestedList';
 import { InterestedPdfConfirmDialog } from '../../components/interested/InterestedPdfConfirmDialog';
-import { InterestedPrintConfirmDialog } from '../../components/interested/InterestedPrintConfirmDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
 import { downloadBillingPDF } from '../../utils/pdfGenerator';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
+import { teamRepository } from '../../repositories';
+import { Team } from '../../models/domain';
 
 export const SupervisorInterestedPage: React.FC = () => {
   const { user } = useAuth();
-  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
+  const [teams, setTeams] = useState<Team[]>([]);
   const {
     customers,
     teamMembers,
@@ -33,8 +35,63 @@ export const SupervisorInterestedPage: React.FC = () => {
 
   // Workflow Dialog States
   const [isPdfConfirmOpen, setIsPdfConfirmOpen] = useState(false);
-  const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
   const [isDispatching, setIsDispatching] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.role !== 'ADMIN') {
+      setTeams(user.team ? [user.team as Team] : []);
+      return;
+    }
+
+    let isMounted = true;
+    teamRepository.getAll()
+      .then((teamList) => {
+        if (!isMounted) return;
+        setTeams(teamList);
+        if (teamList.length > 0 && !teamList.some((team) => team.id === adminTeamId)) {
+          setAdminTeamId(teamList[0].id);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setTeams([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [adminTeamId, user]);
+
+  const teamsMap = useMemo(() => {
+    const map: Record<string, Team> = {};
+    teams.forEach((team) => {
+      map[team.id] = team;
+    });
+    return map;
+  }, [teams]);
+
+  const waitForBillingSlipImages = async () => {
+    const images = Array.from(document.querySelectorAll<HTMLImageElement>('.print-billing-container img'));
+    await Promise.all(
+      images.map(async (image) => {
+        if (image.complete && image.naturalWidth > 0) return;
+        if (typeof image.decode === 'function') {
+          try {
+            await image.decode();
+            return;
+          } catch {
+            return;
+          }
+        }
+
+        await new Promise<void>((resolve) => {
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+        });
+      })
+    );
+  };
 
   // Filtered Interested Leads
   const filteredCustomers = useMemo(() => {
@@ -91,6 +148,7 @@ export const SupervisorInterestedPage: React.FC = () => {
         customer: c,
         responsibleUser: membersMap[c.responsibleTeamMemberId],
         order: latestOrder,
+        team: teamsMap[c.teamId] || (user?.teamId === c.teamId ? user.team : undefined),
       };
     });
 
@@ -107,6 +165,7 @@ export const SupervisorInterestedPage: React.FC = () => {
   // Native Browser Print Trigger - Triggers print window & AUTO-DISPATCHES selected leads
   const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
+    await waitForBillingSlipImages();
     window.print();
     setIsDispatching(true);
     try {
@@ -140,7 +199,7 @@ export const SupervisorInterestedPage: React.FC = () => {
 
       {/* Hidden Print Container rendered in DOM for window.print() */}
       <div className="hidden print:block">
-        <A4BillingPrintSheet items={selectedPrintItems} />
+        <BillingSlipPrintSheet items={selectedPrintItems} />
       </div>
 
       {/* Admin Multi-Team Switcher */}

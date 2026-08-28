@@ -21,7 +21,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
   });
 
   const navItems = (role && ROLE_NAVIGATION[role]) || [];
-  const teamBrand = getTeamBranding(user?.teamId || undefined);
+  const teamBrand = getTeamBranding(user?.team || user?.teamId);
 
   // Auto-expand group if current path is inside that group's children
   useEffect(() => {

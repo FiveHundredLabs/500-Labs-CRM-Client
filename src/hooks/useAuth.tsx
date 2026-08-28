@@ -38,6 +38,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Refresh failed — clear stale user
             setUser(null);
             localStorage.removeItem(USER_STORAGE_KEY);
+          } else {
+            const currentUser = await AuthService.getCurrentUser();
+            if (currentUser) {
+              setUser(currentUser);
+              localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser));
+            }
           }
         } catch {
           setUser(null);

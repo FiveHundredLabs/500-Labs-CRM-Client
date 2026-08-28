@@ -9,10 +9,12 @@ import { ActivityTimeline } from '../../components/shared/ActivityTimeline';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { getTeamBranding } from '../../config/branding';
 import { ArrowLeft, Mail, MapPin, Phone } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 
 export const SupervisorCustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [member, setMember] = useState<User | null>(null);
@@ -63,7 +65,7 @@ export const SupervisorCustomerDetailPage: React.FC = () => {
   if (loading) return <LoadingState rows={8} />;
   if (!customer) return <div className="p-6 text-center text-slate-500">Customer record not found.</div>;
 
-  const teamBrand = getTeamBranding(customer.teamId);
+  const teamBrand = getTeamBranding(user?.teamId === customer.teamId ? user.team || customer.teamId : customer.teamId);
 
   return (
     <div className="space-y-6">

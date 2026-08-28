@@ -170,7 +170,7 @@ export const UserProfileDossier: React.FC<UserProfileDossierProps> = ({ user, on
 
   if (loading) return <LoadingState rows={8} />;
 
-  const teamBrand = getTeamBranding(user.teamId || undefined);
+  const teamBrand = getTeamBranding(user.team || user.teamId);
 
   return (
     <div className="space-y-6">

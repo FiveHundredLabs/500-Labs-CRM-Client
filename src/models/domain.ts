@@ -25,8 +25,8 @@ export type EmailNotificationStatus = 'SENT' | 'SKIPPED' | 'FAILED';
 
 export interface Team {
   id: string; // e.g., 'team_001', 'team_002'
-  name: string; // 'Brand Alpha', 'Brand Beta'
-  code: string; // 'ALPHA', 'BETA'
+  name: string; // e.g., 'Easy Method English', 'Grow Mart'
+  code: string; // e.g., 'EME', 'GM'
   brandColor: string; // Hex color for branding
   accentColor: string;
   logoText: string;
@@ -56,6 +56,7 @@ export interface User {
   incentiveAmount?: number; // Calculated incentive amount
   isActive: boolean;
   createdAt: string;
+  team?: Pick<Team, 'id' | 'name' | 'code'>;
 }
 
 export interface Contact {

@@ -44,7 +44,7 @@
   {
     "id": "prd_004",
     "teamId": "team_002",
-    "name": "Adult Package (Beta)",
+    "name": "Adult Package (Grow Mart)",
     "code": "PKG-ADULT-B",
     "category": "Packages",
     "currentStock": 120,
@@ -58,7 +58,7 @@
   {
     "id": "prd_005",
     "teamId": "team_002",
-    "name": "Kids Package (Beta)",
+    "name": "Kids Package (Grow Mart)",
     "code": "PKG-KIDS-B",
     "category": "Packages",
     "currentStock": 80,
