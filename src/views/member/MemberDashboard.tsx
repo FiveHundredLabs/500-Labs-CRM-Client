@@ -170,13 +170,22 @@ export const MemberDashboard: React.FC = () => {
         title={`Good morning, ${user?.fullName.split(' ')[0]} 👋`}
         description="Here is your monthly calling queue, personal sales goal achievement, and performance leaderboard."
         actions={
-          <Button
-            variant="primary"
-            leftIcon={<PhoneCall className="w-4 h-4" />}
-            onClick={() => navigate('/member/contacts')}
-          >
-            Start Calling Queue
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              leftIcon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
+              onClick={() => navigate('/member/sales')}
+            >
+              My Sales & Fulfillment
+            </Button>
+            <Button
+              variant="primary"
+              leftIcon={<PhoneCall className="w-4 h-4" />}
+              onClick={() => navigate('/member/contacts')}
+            >
+              Start Calling Queue
+            </Button>
+          </div>
         }
       />
 
