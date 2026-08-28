@@ -117,13 +117,23 @@ export const AdminProfilePage: React.FC = () => {
                 required
               />
 
-              <Input
-                label="Phone Number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                leftIcon={<Phone className="w-4 h-4 text-slate-400" />}
-                placeholder="+1 (555) 000-0000"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Phone Number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  leftIcon={<Phone className="w-4 h-4 text-slate-400" />}
+                  placeholder="+1 (555) 000-0000"
+                />
+
+                <Input
+                  label="NIC / National ID"
+                  value={nic}
+                  onChange={(e) => setNic(e.target.value)}
+                  leftIcon={<CreditCard className="w-4 h-4 text-slate-400" />}
+                  placeholder="National ID"
+                />
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input

@@ -262,7 +262,7 @@ export const AdminUsersPage: React.FC = () => {
               <th className="py-3 px-4">User</th>
               <th className="py-3 px-4">Role</th>
               <th className="py-3 px-4">Assigned Team</th>
-              <th className="py-3 px-4">Phone</th>
+              <th className="py-3 px-4">Phone Number</th>
               <th className="py-3 px-4">Status</th>
               <th className="py-3 px-4 text-right">Actions</th>
             </tr>

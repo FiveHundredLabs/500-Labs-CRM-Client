@@ -16,7 +16,8 @@ import {
   MoreHorizontal,
   Wallet,
   Boxes,
-  Target
+  Target,
+  TrendingUp
 } from 'lucide-react';
 
 export interface NavItem {
@@ -86,6 +87,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
       icon: DollarSign,
       group: 'Finance',
       children: [
+        { label: 'Sales Analysis', path: '/admin/finance/sales-analysis', icon: TrendingUp },
         { label: 'Petty Cash', path: '/admin/finance/petty-cash', icon: Wallet },
         { label: 'Expenses', path: '/admin/finance/expenses', icon: DollarSign },
         { label: 'Add Expense', path: '/admin/finance/expenses/new', icon: DollarSign },
@@ -96,6 +98,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   ],
   FINANCE: [
     { label: 'Overview', path: '/finance/dashboard', icon: Home, isBottomNav: true },
+    { label: 'Sales Analysis', path: '/finance/sales-analysis', icon: TrendingUp, isBottomNav: true },
     { label: 'Petty Cash', path: '/finance/petty-cash', icon: Wallet, isBottomNav: true },
     { label: 'Expenses', path: '/finance/expenses', icon: DollarSign, isBottomNav: true },
     { label: 'Reports', path: '/finance/reports', icon: PieChart, isBottomNav: true },
