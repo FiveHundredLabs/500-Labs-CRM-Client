@@ -24,7 +24,9 @@ import {
   Award,
   Layers,
   ChevronRight,
-  HelpCircle
+  HelpCircle,
+  Users,
+  UserCheck,
 } from 'lucide-react';
 
 export const AdminSalesGoalsPage: React.FC = () => {
@@ -32,10 +34,15 @@ export const AdminSalesGoalsPage: React.FC = () => {
   const [targets, setTargets] = useState<TeamSalesTarget[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Inspect Member-Wise Breakdown Modal State
+  const [inspectingMembersTarget, setInspectingMembersTarget] = useState<TeamSalesTarget | null>(null);
+
   // Filter States
   const currentMonthStr = new Date().toISOString().substring(0, 7); // e.g. "2026-08"
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('ALL');
+  const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('ALL');
+  const [viewMode, setViewMode] = useState<'TEAMS' | 'MEMBERS'>('TEAMS');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -199,7 +206,7 @@ export const AdminSalesGoalsPage: React.FC = () => {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="Monthly Sales Goals & Allowance Incentives"
-        description="Set team-wise monthly sales targets and configure tiered achievement allowances (e.g. 100% = 20,000 LKR, 80% = 10,000 LKR)"
+        description="Configure ongoing team-wise monthly sales goals and tiered achievement allowances. Standing targets apply automatically to every month until updated."
         actions={
           <Button
             variant="primary"
@@ -240,8 +247,9 @@ export const AdminSalesGoalsPage: React.FC = () => {
       </div>
 
       {/* Filter and Month Selection Bar */}
-      <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+      <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col lg:flex-row items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          {/* Month Filter */}
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-slate-400" />
             <label className="text-xs font-bold text-slate-700">Month:</label>
@@ -253,12 +261,16 @@ export const AdminSalesGoalsPage: React.FC = () => {
             />
           </div>
 
+          {/* Team Filter */}
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-slate-400" />
             <label className="text-xs font-bold text-slate-700">Team:</label>
             <select
               value={selectedTeamFilter}
-              onChange={(e) => setSelectedTeamFilter(e.target.value)}
+              onChange={(e) => {
+                setSelectedTeamFilter(e.target.value);
+                setSelectedMemberFilter('ALL');
+              }}
               className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="ALL">All Teams</option>
@@ -269,193 +281,443 @@ export const AdminSalesGoalsPage: React.FC = () => {
               ))}
             </select>
           </div>
+
+          {/* Member-Wise Filter */}
+          <div className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-indigo-600" />
+            <label className="text-xs font-bold text-slate-700">Member:</label>
+            <select
+              value={selectedMemberFilter}
+              onChange={(e) => {
+                setSelectedMemberFilter(e.target.value);
+                if (e.target.value !== 'ALL') setViewMode('MEMBERS');
+              }}
+              className="text-xs font-semibold bg-indigo-50/50 border border-indigo-200 rounded-lg px-2.5 py-1.5 text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="ALL">All Team Members</option>
+              {(() => {
+                const allReps = targets.flatMap((t) =>
+                  (t.memberBreakdowns || []).map((m) => ({
+                    ...m,
+                    teamId: t.teamId,
+                    teamName: t.team?.name || 'Team',
+                  }))
+                );
+                const uniqueReps = Array.from(new Map(allReps.map((r) => [r.id, r])).values());
+                return uniqueReps
+                  .filter((r) => selectedTeamFilter === 'ALL' || r.teamId === selectedTeamFilter)
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.fullName} ({r.teamName})
+                    </option>
+                  ));
+              })()}
+            </select>
+          </div>
         </div>
 
-        <div className="text-xs text-slate-500 font-sans flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          <span>Allowances unlock automatically as live sales reach configured tier percentages.</span>
+        {/* View Mode Toggle */}
+        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 self-stretch sm:self-auto justify-center">
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('TEAMS');
+              setSelectedMemberFilter('ALL');
+            }}
+            className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
+              viewMode === 'TEAMS' && selectedMemberFilter === 'ALL'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Teams View ({targets.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('MEMBERS')}
+            className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
+              viewMode === 'MEMBERS' || selectedMemberFilter !== 'ALL'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Individual Members View
+          </button>
         </div>
       </div>
 
-      {/* Team Targets Table */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-            <Target className="w-4 h-4 text-blue-600" />
-            <span>Team Sales Goals & Performance Overview ({selectedMonth || 'All Time'})</span>
-          </h3>
-          <span className="text-xs text-slate-500 font-mono">{targets.length} Teams Configured</span>
-        </div>
+      {/* Content Area: Dual View (Teams vs Individual Members) */}
+      {viewMode === 'MEMBERS' || selectedMemberFilter !== 'ALL' ? (
+        /* Individual Members Performance Table */
+        <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-indigo-600" />
+              <span>Individual Team Members Performance & Allowance Payouts ({selectedMonth || 'Current Month'})</span>
+            </h3>
+            {(() => {
+              const allReps = targets.flatMap((t) =>
+                (t.memberBreakdowns || []).map((m) => ({
+                  ...m,
+                  teamId: t.teamId,
+                  teamName: t.team?.name || 'Team',
+                  targetAmount: t.targetAmount,
+                }))
+              );
+              const filteredReps = allReps.filter((m) => {
+                if (selectedTeamFilter !== 'ALL' && m.teamId !== selectedTeamFilter) return false;
+                if (selectedMemberFilter !== 'ALL' && m.id !== selectedMemberFilter) return false;
+                return true;
+              });
+              return (
+                <span className="text-xs text-slate-500 font-mono">
+                  {filteredReps.length} Members Listed
+                </span>
+              );
+            })()}
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              <tr>
-                <th className="py-3 px-3.5">Team & Code</th>
-                <th className="py-3 px-3.5 font-mono">Month</th>
-                <th className="py-3 px-3.5 font-mono">Target Goal (LKR)</th>
-                <th className="py-3 px-3.5 font-mono">Actual Realized (LKR)</th>
-                <th className="py-3 px-3.5 w-48">Achievement Progress</th>
-                <th className="py-3 px-3.5">Unlocked Allowance</th>
-                <th className="py-3 px-3.5">Incentive Tiers</th>
-                <th className="py-3 px-3.5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-mono">
-              {targets.length === 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400 font-sans">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <Target className="w-8 h-8 text-slate-300" />
-                      <p className="font-semibold text-slate-600">No monthly sales targets configured for {selectedMonth}.</p>
-                      <p className="text-xs text-slate-400 max-w-sm">
-                        Click "Set Team Sales Goal" to establish monthly revenue targets and tiered achievement allowance bonuses.
-                      </p>
-                      <Button variant="outline" size="sm" onClick={openCreateModal} className="mt-2">
-                        Set Sales Goal
-                      </Button>
-                    </div>
-                  </td>
+                  <th className="py-3 px-3.5">Team Member</th>
+                  <th className="py-3 px-3.5">Assigned Team</th>
+                  <th className="py-3 px-3.5 font-mono">Monthly Goal</th>
+                  <th className="py-3 px-3.5 font-mono">Personal Sales (LKR)</th>
+                  <th className="py-3 px-3.5 w-48">Achievement Progress</th>
+                  <th className="py-3 px-3.5 font-mono">Earned Allowance</th>
+                  <th className="py-3 px-3.5">Milestone Status</th>
                 </tr>
-              ) : (
-                targets.map((target) => {
-                  const teamName = target.team?.name || 'Unknown Team';
-                  const pct = target.achievementPercentage || 0;
-                  const isAchieved = pct >= 100;
-                  const isNear = pct >= 80 && pct < 100;
-
-                  return (
-                    <tr key={target.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* Team */}
-                      <td className="py-3 px-3.5 font-sans">
-                        <div className="font-bold text-slate-900">{teamName}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{target.team?.code || target.teamId}</div>
-                      </td>
-
-                      {/* Month */}
-                      <td className="py-3 px-3.5 text-slate-600 text-xs font-semibold">
-                        {target.month}
-                      </td>
-
-                      {/* Target Goal */}
-                      <td className="py-3 px-3.5 text-slate-900 font-bold text-xs">
-                        {formatCurrency(target.targetAmount)}
-                      </td>
-
-                      {/* Actual Realized */}
-                      <td className="py-3 px-3.5 font-bold text-emerald-700 text-xs">
-                        {formatCurrency(target.actualSales || 0)}
-                      </td>
-
-                      {/* Achievement Progress Bar */}
-                      <td className="py-3 px-3.5">
-                        <div className="space-y-1 font-sans">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className={`font-bold font-mono ${isAchieved ? 'text-emerald-700' : isNear ? 'text-amber-700' : 'text-slate-700'}`}>
-                              {pct.toFixed(1)}%
-                            </span>
-                            {isAchieved ? (
-                              <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5">
-                                <Trophy className="w-3 h-3 text-amber-500" /> Goal Met
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                isAchieved
-                                  ? 'bg-emerald-500'
-                                  : isNear
-                                  ? 'bg-amber-500'
-                                  : 'bg-blue-500'
-                              }`}
-                              style={{ width: `${Math.min(100, pct)}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Unlocked Allowance */}
-                      <td className="py-3 px-3.5 font-sans">
-                        {target.unlockedAllowance && target.unlockedAllowance > 0 ? (
-                          <div className="flex flex-col">
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-mono w-fit">
-                              <Award className="w-3 h-3 text-amber-600" />
-                              {formatCurrency(target.unlockedAllowance)}
-                            </span>
-                            {target.highestUnlockedTier?.title && (
-                              <span className="text-[10px] text-slate-400 mt-0.5">
-                                {target.highestUnlockedTier.title}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 italic">
-                            0.00 LKR (Need &ge; {target.tiers[0]?.minPercentage || 80}%)
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Tiers summary */}
-                      <td className="py-3 px-3.5 font-sans">
-                        <div className="flex flex-wrap gap-1">
-                          {(target.tiers || []).map((tier, idx) => (
-                            <span
-                              key={idx}
-                              className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                                tier.isUnlocked
-                                  ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300'
-                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
-                              }`}
-                              title={`${tier.title || 'Tier'}: ${tier.minPercentage}% = ${formatCurrency(tier.allowanceAmount)}`}
-                            >
-                              {tier.minPercentage}%: {formatCurrency(tier.allowanceAmount)}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3 px-3.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1 font-sans">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<Edit2 className="w-3.5 h-3.5 text-blue-600" />}
-                            onClick={() => openEditModal(target)}
-                            className="text-xs px-2 py-1 text-slate-700 hover:text-blue-600 hover:bg-blue-50"
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
-                            onClick={() => setDeletingTarget(target)}
-                            className="text-xs px-2 py-1 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-mono">
+                {(() => {
+                  const allReps = targets.flatMap((t) =>
+                    (t.memberBreakdowns || []).map((m) => ({
+                      ...m,
+                      teamId: t.teamId,
+                      teamName: t.team?.name || 'Team',
+                      teamCode: t.team?.code || '',
+                      targetAmount: t.targetAmount,
+                    }))
                   );
-                })
-              )}
-            </tbody>
-          </table>
+                  const filteredReps = allReps.filter((m) => {
+                    if (selectedTeamFilter !== 'ALL' && m.teamId !== selectedTeamFilter) return false;
+                    if (selectedMemberFilter !== 'ALL' && m.id !== selectedMemberFilter) return false;
+                    return true;
+                  });
+
+                  if (filteredReps.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-400 font-sans">
+                          <div className="flex flex-col items-center justify-center space-y-2">
+                            <Users className="w-8 h-8 text-slate-300" />
+                            <p className="font-semibold text-slate-600">No team members match the selected filter criteria.</p>
+                            <p className="text-xs text-slate-400">
+                              Try clearing filters or selecting another team or month.
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return filteredReps.map((member) => {
+                    const pct = member.achievementPercentage || 0;
+                    const isAchieved = pct >= 100;
+                    const isNear = pct >= 80 && pct < 100;
+
+                    return (
+                      <tr key={member.id} className="hover:bg-slate-50/70 transition-colors">
+                        {/* Member */}
+                        <td className="py-3 px-3.5 font-sans">
+                          <div className="font-bold text-slate-900">{member.fullName}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            @{member.username} ({member.ordersCount} delivered orders)
+                          </div>
+                        </td>
+
+                        {/* Team */}
+                        <td className="py-3 px-3.5 font-sans">
+                          <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                            {member.teamName}
+                          </span>
+                        </td>
+
+                        {/* Target Goal */}
+                        <td className="py-3 px-3.5 font-mono text-slate-700 text-xs">
+                          {formatCurrency(member.targetAmount)}
+                        </td>
+
+                        {/* Personal Sales */}
+                        <td className="py-3 px-3.5 font-mono font-bold text-emerald-700 text-xs">
+                          {formatCurrency(member.actualSales)}
+                        </td>
+
+                        {/* Progress */}
+                        <td className="py-3 px-3.5">
+                          <div className="space-y-1 font-sans">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span
+                                className={`font-bold font-mono ${
+                                  isAchieved ? 'text-emerald-700' : isNear ? 'text-amber-700' : 'text-slate-700'
+                                }`}
+                              >
+                                {pct.toFixed(1)}%
+                              </span>
+                              {isAchieved ? (
+                                <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5">
+                                  <Trophy className="w-3 h-3 text-amber-500" /> Goal Met
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  isAchieved ? 'bg-emerald-500' : isNear ? 'bg-amber-500' : 'bg-blue-500'
+                                }`}
+                                style={{ width: `${Math.min(100, pct)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Earned Allowance */}
+                        <td className="py-3 px-3.5 font-sans">
+                          {member.unlockedAllowance > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-mono">
+                              <Award className="w-3 h-3 text-amber-600" />
+                              {formatCurrency(member.unlockedAllowance)}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">0.00 LKR</span>
+                          )}
+                        </td>
+
+                        {/* Milestone Status */}
+                        <td className="py-3 px-3.5 font-sans">
+                          {member.highestUnlockedTier?.title ? (
+                            <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              {member.highestUnlockedTier.title}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400">In Progress</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Teams Summary Table */
+        <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <Target className="w-4 h-4 text-blue-600" />
+              <span>Team Sales Goals & Performance Overview ({selectedMonth || 'All Time'})</span>
+            </h3>
+            <span className="text-xs text-slate-500 font-mono">{targets.length} Teams Configured</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-3.5">Team & Code</th>
+                  <th className="py-3 px-3.5 font-mono">Month</th>
+                  <th className="py-3 px-3.5 font-mono">Target Goal / Rep</th>
+                  <th className="py-3 px-3.5 font-mono">Team Total Sales (LKR)</th>
+                  <th className="py-3 px-3.5 w-48">Achievement Progress</th>
+                  <th className="py-3 px-3.5">Total Allowance Pool</th>
+                  <th className="py-3 px-3.5">Incentive Tiers</th>
+                  <th className="py-3 px-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-mono">
+                {targets.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-slate-400 font-sans">
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <Target className="w-8 h-8 text-slate-300" />
+                        <p className="font-semibold text-slate-600">No monthly sales targets configured for {selectedMonth}.</p>
+                        <p className="text-xs text-slate-400 max-w-sm">
+                          Click "Set Team Sales Goal" to establish monthly revenue targets and tiered achievement allowance bonuses.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={openCreateModal} className="mt-2">
+                          Set Sales Goal
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  targets.map((target) => {
+                    const teamName = target.team?.name || 'Unknown Team';
+                    const pct = target.achievementPercentage || 0;
+                    const isAchieved = pct >= 100;
+                    const isNear = pct >= 80 && pct < 100;
+
+                    return (
+                      <tr key={target.id} className="hover:bg-slate-50/70 transition-colors">
+                        {/* Team */}
+                        <td className="py-3 px-3.5 font-sans">
+                          <div className="font-bold text-slate-900">{teamName}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{target.team?.code || target.teamId}</div>
+                        </td>
+
+                        {/* Evaluated Month & Policy Info */}
+                        <td className="py-3 px-3.5 font-sans">
+                          <div className="font-bold text-slate-900 text-xs font-mono">{target.evaluatedMonth || selectedMonth}</div>
+                          <span className="inline-flex items-center text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded mt-0.5 font-sans">
+                            {target.isInheritedStandingTarget ? `Standing (from ${target.effectiveFromMonth || target.month})` : 'Active Policy'}
+                          </span>
+                        </td>
+
+                        {/* Target Goal */}
+                        <td className="py-3 px-3.5 whitespace-nowrap font-mono">
+                          <div className="text-slate-900 font-bold text-xs">
+                            {formatCurrency(target.targetAmount)}
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-sans">/ rep / mo</span>
+                        </td>
+
+                        {/* Actual Realized */}
+                        <td className="py-3 px-3.5 font-bold text-emerald-700 text-xs">
+                          {formatCurrency(target.actualSales || 0)}
+                        </td>
+
+                        {/* Achievement Progress Bar */}
+                        <td className="py-3 px-3.5">
+                          <div className="space-y-1 font-sans">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className={`font-bold font-mono ${isAchieved ? 'text-emerald-700' : isNear ? 'text-amber-700' : 'text-slate-700'}`}>
+                                {pct.toFixed(1)}%
+                              </span>
+                              {isAchieved ? (
+                                <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5">
+                                  <Trophy className="w-3 h-3 text-amber-500" /> Goal Met
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  isAchieved
+                                    ? 'bg-emerald-500'
+                                    : isNear
+                                    ? 'bg-amber-500'
+                                    : 'bg-blue-500'
+                                }`}
+                                style={{ width: `${Math.min(100, pct)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Unlocked Allowance */}
+                        <td className="py-3 px-3.5 font-sans">
+                          {target.unlockedAllowance && target.unlockedAllowance > 0 ? (
+                            <div className="flex flex-col">
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-mono w-fit">
+                                <Award className="w-3 h-3 text-amber-600" />
+                                {formatCurrency(target.unlockedAllowance)}
+                              </span>
+                              <span className="text-[10px] text-slate-400 mt-0.5">
+                                Across {target.memberBreakdowns?.filter((m) => m.unlockedAllowance > 0).length || 0} reps
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">
+                              0.00 LKR (Need &ge; {target.tiers[0]?.minPercentage || 80}%)
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Tiers summary */}
+                        <td className="py-3 px-3.5 font-sans">
+                          <div className="flex flex-wrap gap-1">
+                            {(target.tiers || []).map((tier, idx) => (
+                              <span
+                                key={idx}
+                                className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                                  tier.unlockedMembersCount && tier.unlockedMembersCount > 0
+                                    ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300'
+                                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}
+                                title={`${tier.title || 'Tier'}: ${tier.minPercentage}% = ${formatCurrency(tier.allowanceAmount)}`}
+                              >
+                                {tier.minPercentage}%: {formatCurrency(tier.allowanceAmount)}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1 font-sans">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              leftIcon={<Users className="w-3.5 h-3.5 text-indigo-600" />}
+                              onClick={() => setInspectingMembersTarget(target)}
+                              className="text-xs px-2.5 py-1 text-indigo-900 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100"
+                              title="Inspect individual member sales & allowance payouts"
+                            >
+                              Member Payouts ({target.memberBreakdowns?.length || 0})
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              leftIcon={<Edit2 className="w-3.5 h-3.5 text-blue-600" />}
+                              onClick={() => openEditModal(target)}
+                              className="text-xs px-2 py-1 text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              leftIcon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
+                              onClick={() => setDeletingTarget(target)}
+                              className="text-xs px-2 py-1 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Set / Edit Sales Goal & Allowance Tiers Modal */}
       <Dialog
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingTarget ? 'Edit Team Sales Goal & Tiers' : 'Set Monthly Team Sales Goal'}
-        description="Configure target sales revenue and define percentage-based achievement allowance incentives"
+        title={editingTarget ? 'Edit Ongoing Team Sales Goal & Tiers' : 'Set Ongoing Monthly Sales Goal'}
+        description="Configure target sales revenue and define percentage-based achievement allowance incentives. This policy applies every month automatically until updated."
         maxWidth="2xl"
       >
         <form onSubmit={handleSaveTarget} className="space-y-4">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1">
+            <div className="font-bold text-blue-900 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              <span>Ongoing Monthly Policy</span>
+            </div>
+            <p className="text-blue-700">
+              Once configured, this monthly sales goal and its allowance tiers will automatically carry over and apply to every month until you modify it.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Assigned Team *"
@@ -470,11 +732,10 @@ export const AdminSalesGoalsPage: React.FC = () => {
             />
 
             <Input
-              label="Target Month *"
+              label="Effective Starting Month *"
               type="month"
               value={formMonth}
               onChange={(e) => setFormMonth(e.target.value)}
-              disabled={!!editingTarget}
               required
             />
           </div>
@@ -615,6 +876,189 @@ export const AdminSalesGoalsPage: React.FC = () => {
         confirmText="Yes, Delete Target"
         isLoading={isDeleting}
       />
+
+      {/* Inspect Individual Team Members Sales & Allowance Payouts Modal */}
+      <Dialog
+        isOpen={!!inspectingMembersTarget}
+        onClose={() => setInspectingMembersTarget(null)}
+        title={`Member-Wise Sales & Allowance Payouts — ${inspectingMembersTarget?.team?.name || 'Team'}`}
+        description={`Individual performance, goal progress, and earned milestone allowances for ${inspectingMembersTarget?.evaluatedMonth || selectedMonth}`}
+        maxWidth="3xl"
+      >
+        {inspectingMembersTarget && (
+          <div className="space-y-4">
+            {/* Top Summary Info */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+              <div>
+                <span className="text-slate-400 text-[11px]">Monthly Goal / Rep</span>
+                <div className="text-sm font-bold text-slate-900 font-mono mt-0.5">
+                  {formatCurrency(inspectingMembersTarget.targetAmount)}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[11px]">Total Team Sales</span>
+                <div className="text-sm font-bold text-emerald-700 font-mono mt-0.5">
+                  {formatCurrency(inspectingMembersTarget.actualSales || 0)}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[11px]">Total Allowance Pool</span>
+                <div className="text-sm font-bold text-amber-900 font-mono mt-0.5">
+                  {formatCurrency(inspectingMembersTarget.unlockedAllowance || 0)}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[11px]">100%+ Achievers</span>
+                <div className="text-sm font-bold text-blue-700 font-mono mt-0.5">
+                  {inspectingMembersTarget.totalAchieversCount || 0} / {inspectingMembersTarget.membersCount || 0} reps
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Table View (sm: and up) */}
+            <div className="hidden sm:block border border-slate-200 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-2.5 px-3 w-[30%]">Team Member</th>
+                    <th className="py-2.5 px-3 w-[22%] font-mono">Personal Sales</th>
+                    <th className="py-2.5 px-3 w-[26%]">Goal Progress</th>
+                    <th className="py-2.5 px-3 w-[22%] font-mono text-right">Earned Allowance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono">
+                  {!inspectingMembersTarget.memberBreakdowns || inspectingMembersTarget.memberBreakdowns.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-6 text-center text-slate-400 font-sans italic">
+                        No team members registered under {inspectingMembersTarget.team?.name || 'this team'}.
+                      </td>
+                    </tr>
+                  ) : (
+                    inspectingMembersTarget.memberBreakdowns.map((member) => {
+                      const pct = member.achievementPercentage || 0;
+                      const isAchieved = pct >= 100;
+                      const isNear = pct >= 80 && pct < 100;
+
+                      return (
+                        <tr key={member.id} className="hover:bg-slate-50">
+                          {/* Member */}
+                          <td className="py-2.5 px-3 font-sans">
+                            <div className="font-bold text-slate-900">{member.fullName}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">@{member.username} ({member.ordersCount} orders)</div>
+                          </td>
+
+                          {/* Personal Sales */}
+                          <td className="py-2.5 px-3 font-bold text-emerald-700 text-xs">
+                            {formatCurrency(member.actualSales)}
+                          </td>
+
+                          {/* Goal Progress */}
+                          <td className="py-2.5 px-3">
+                            <div className="space-y-1 font-sans">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className={`font-bold font-mono ${isAchieved ? 'text-emerald-700' : isNear ? 'text-amber-700' : 'text-slate-700'}`}>
+                                  {pct.toFixed(1)}%
+                                </span>
+                                {isAchieved ? (
+                                  <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5">
+                                    <Trophy className="w-3 h-3 text-amber-500" /> Goal Met
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    isAchieved ? 'bg-emerald-500' : isNear ? 'bg-amber-500' : 'bg-blue-500'
+                                  }`}
+                                  style={{ width: `${Math.min(100, pct)}%` }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Earned Allowance */}
+                          <td className="py-2.5 px-3 text-right">
+                            {member.unlockedAllowance > 0 ? (
+                              <div className="flex flex-col items-end">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-mono">
+                                  <Award className="w-3 h-3 text-amber-600" />
+                                  {formatCurrency(member.unlockedAllowance)}
+                                </span>
+                                {member.highestUnlockedTier?.title && (
+                                  <span className="text-[10px] text-slate-400 font-sans mt-0.5">
+                                    {member.highestUnlockedTier.title}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-[11px] italic font-sans">
+                                0.00 LKR
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View (< sm) */}
+            <div className="block sm:hidden space-y-2.5">
+              {!inspectingMembersTarget.memberBreakdowns || inspectingMembersTarget.memberBreakdowns.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-400 italic bg-slate-50 rounded-xl border border-slate-200">
+                  No team members registered under {inspectingMembersTarget.team?.name || 'this team'}.
+                </div>
+              ) : (
+                inspectingMembersTarget.memberBreakdowns.map((member) => {
+                  const pct = member.achievementPercentage || 0;
+                  const isAchieved = pct >= 100;
+                  const isNear = pct >= 80 && pct < 100;
+
+                  return (
+                    <div key={member.id} className="p-3 bg-white border border-slate-200 rounded-xl space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-bold text-slate-900">{member.fullName}</div>
+                          <div className="text-[10px] text-slate-400">@{member.username}</div>
+                        </div>
+                        {member.unlockedAllowance > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-mono">
+                            <Award className="w-3 h-3 text-amber-600" />
+                            {formatCurrency(member.unlockedAllowance)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px] italic">0.00 LKR</span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 font-mono">
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-sans block">Personal Sales</span>
+                          <strong className="text-emerald-700">{formatCurrency(member.actualSales)}</strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-sans block">Goal Progress</span>
+                          <strong className={isAchieved ? 'text-emerald-700' : isNear ? 'text-amber-700' : 'text-slate-700'}>
+                            {pct.toFixed(1)}% {isAchieved ? '🎉' : ''}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <Button type="button" variant="secondary" onClick={() => setInspectingMembersTarget(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 };

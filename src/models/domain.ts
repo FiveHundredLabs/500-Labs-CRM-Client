@@ -422,14 +422,30 @@ export interface TeamTargetTier {
   allowanceAmount: number; // e.g. 10000, 20000, 35000
   title?: string;
   isUnlocked?: boolean;
+  unlockedMembersCount?: number;
+}
+
+export interface MemberSalesPerformance {
+  id: string;
+  fullName: string;
+  username: string;
+  email: string;
+  actualSales: number;
+  achievementPercentage: number;
+  unlockedAllowance: number;
+  highestUnlockedTier?: TeamTargetTier | null;
+  ordersCount: number;
 }
 
 export interface TeamSalesTarget {
   id: string;
   teamId: string;
-  month: string; // YYYY-MM
-  targetAmount: number; // Monthly sales goal in LKR
+  month: string; // YYYY-MM (Effective start month)
+  targetAmount: number; // Monthly sales goal in LKR per member
   notes?: string;
+  evaluatedMonth?: string; // Currently evaluated month
+  isInheritedStandingTarget?: boolean; // True if carrying over from an earlier month
+  effectiveFromMonth?: string;
   team?: {
     id: string;
     name: string;
@@ -441,6 +457,9 @@ export interface TeamSalesTarget {
   achievementPercentage?: number;
   unlockedAllowance?: number;
   highestUnlockedTier?: TeamTargetTier | null;
+  membersCount?: number;
+  totalAchieversCount?: number;
+  memberBreakdowns?: MemberSalesPerformance[];
   createdAt?: string;
   updatedAt?: string;
 }
