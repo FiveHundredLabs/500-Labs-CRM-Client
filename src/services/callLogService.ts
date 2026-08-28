@@ -125,7 +125,11 @@ export class CallLogService {
           if (input.adultQty) itemsDesc.push(`Adult Package x ${input.adultQty}`);
           if (input.kidsQty) itemsDesc.push(`Kids Package x ${input.kidsQty}`);
           
+          const allOrders = await orderRepository.getAll();
+          const orderNumber = `ORD-2026-${String(allOrders.length + 1).padStart(3, '0')}`;
+
           await orderRepository.create({
+            orderNumber,
             customerId: createdOrUpdatedCustomer.id,
             teamId: member.teamId!,
             teamMemberId: member.id,

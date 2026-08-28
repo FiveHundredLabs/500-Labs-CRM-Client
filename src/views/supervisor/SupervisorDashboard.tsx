@@ -14,6 +14,7 @@ import { Leaderboard } from '../../components/leaderboard';
 import { Users, Upload, Layers, Package, CheckCircle2, Truck, XCircle, PieChart, AlertTriangle, Calendar, PhoneCall, Sparkles, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subDays } from 'date-fns';
+import { formatCurrency } from '../../utils/currency';
 
 export type DashboardDateFilter = 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_6_MONTHS' | 'CUSTOM';
 
@@ -107,7 +108,9 @@ export const SupervisorDashboard: React.FC = () => {
   const dispatchedOrders = scopedOrders.filter((o) => o.status === 'DISPATCHED').length;
   const deliveredOrders = scopedOrders.filter((o) => o.status === 'DELIVERED').length;
   const rejectedOrders = scopedOrders.filter((o) => o.status === 'REJECTED' || o.status === 'RETURNED').length;
-  const totalSales = scopedOrders.filter((o) => o.status === 'DELIVERED').reduce((sum, o) => sum + o.totalAmount, 0);
+  const totalSales = scopedOrders
+    .filter((o) => o.status === 'DELIVERED')
+    .reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
 
   // Low Stock Alerts (Requirement 2.13)
   const lowStockProducts = useMemo(() => {
@@ -258,10 +261,10 @@ export const SupervisorDashboard: React.FC = () => {
           accentColor="purple"
         />
         <StatCard
-          title="Delivered Sales"
-          value={`LKR ${totalSales.toLocaleString()}`}
-          subtitle={`${deliveredOrders} delivered orders`}
-          icon={<DollarSign className="w-4 h-4 text-emerald-600" />}
+          title="Delivered Orders"
+          value={deliveredOrders}
+          subtitle={`${formatCurrency(totalSales)} total revenue`}
+          icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
           accentColor="green"
         />
         <StatCard

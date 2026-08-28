@@ -95,7 +95,7 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
     const rejectedOrders = scopedOrders.filter((o) => o.status === 'REJECTED' || o.status === 'RETURNED');
     const dispatchedOrders = scopedOrders.filter((o) => o.status === 'DISPATCHED');
 
-    const totalSalesAmount = deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const totalSalesAmount = deliveredOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
     const interestedCount = scopedCallLogs.filter((cl) => cl.status === 'INTERESTED').length;
     const totalNumbersAdded = scopedContacts.filter((c) => c.addedBy === member.id || c.isSelfAdded).length || scopedContacts.length;
 

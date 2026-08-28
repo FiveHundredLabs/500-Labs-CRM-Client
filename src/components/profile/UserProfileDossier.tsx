@@ -127,7 +127,7 @@ export const UserProfileDossier: React.FC<UserProfileDossierProps> = ({ user, on
     const rejected = scopedOrders.filter((o) => o.status === 'REJECTED' || o.status === 'RETURNED');
     const dispatched = scopedOrders.filter((o) => o.status === 'DISPATCHED');
 
-    const totalSales = delivered.reduce((sum, o) => sum + o.totalAmount, 0);
+    const totalSales = delivered.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
     const interested = scopedCallLogs.filter((cl) => cl.status === 'INTERESTED').length;
     const numbersAdded = scopedContacts.filter((c) => c.addedBy === user.id || c.isSelfAdded).length || scopedContacts.length;
 
@@ -148,7 +148,7 @@ export const UserProfileDossier: React.FC<UserProfileDossierProps> = ({ user, on
 
     const delivered = scopedOrders.filter((o) => o.status === 'DELIVERED');
     const rejected = scopedOrders.filter((o) => o.status === 'REJECTED' || o.status === 'RETURNED');
-    const totalSales = delivered.reduce((sum, o) => sum + o.totalAmount, 0);
+    const totalSales = delivered.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
 
     return {
       salesAmount: totalSales,

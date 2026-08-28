@@ -55,6 +55,8 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     // Admin Specific Items
     { label: 'Home', path: '/admin/dashboard', icon: Home, isBottomNav: true, group: 'Admin' },
     { label: 'Users', path: '/admin/users', icon: Users, isBottomNav: true, group: 'Admin' },
+    { label: 'Products', path: '/admin/products', icon: Boxes, isBottomNav: true, group: 'Admin' },
+    { label: 'Approvals', path: '/admin/approvals', icon: FileCheck, isBottomNav: false, group: 'Admin' },
     { label: 'Reports', path: '/admin/reports', icon: PieChart, isBottomNav: true, group: 'Admin' },
     { label: 'Leaderboards', path: '/admin/leaderboards', icon: Trophy, isBottomNav: true, group: 'Admin' },
     { label: 'Activity', path: '/admin/activity', icon: Activity, isBottomNav: true, group: 'Admin' },
