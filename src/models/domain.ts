@@ -45,7 +45,7 @@ export interface User {
   role: UserRole;
   teamId: string | null; // null for ADMIN & FINANCE if multi-team
   supervisorId: string | null; // null for ADMIN, FINANCE, SUPERVISOR
-  city: string;
+  city?: string;
   phone: string;
   avatarUrl?: string;
   nic?: string;

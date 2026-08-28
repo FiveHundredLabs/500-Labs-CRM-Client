@@ -89,7 +89,7 @@ export const SupervisorTeamPage: React.FC = () => {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setPhone(member.phone);
-    setCity(member.city);
+    setCity(member.city || '');
     setNic(member.nic || '');
     setDateOfBirth(member.dateOfBirth || '1995-05-15');
     setJoiningDate(member.joiningDate ? member.joiningDate.split('T')[0] : format(new Date(), 'yyyy-MM-dd'));
