@@ -18,7 +18,6 @@ export const SupervisorProfilePage: React.FC = () => {
   const { user, updateCurrentUser } = useAuth();
 
   const [fullName, setFullName] = useState(user?.fullName || '');
-  const [city, setCity] = useState(user?.city || '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
 
   const [activities, setActivities] = useState<ActivityLog[]>([]);
@@ -27,19 +26,18 @@ export const SupervisorProfilePage: React.FC = () => {
   useEffect(() => {
     if (user) {
       setFullName(user.fullName || '');
-      setCity(user.city || '');
       setAvatarUrl(user.avatarUrl || '');
       activityLogRepository.getByUserId(user.id).then(setActivities);
     }
   }, [user]);
 
   if (!user) return null;
-  const teamBrand = getTeamBranding(user.teamId || undefined);
+  const teamBrand = getTeamBranding(user.team || user.teamId);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !city.trim()) {
-      toast.error('Full Name and Address / Location cannot be empty.');
+    if (!fullName.trim()) {
+      toast.error('Full Name cannot be empty.');
       return;
     }
 
@@ -49,7 +47,6 @@ export const SupervisorProfilePage: React.FC = () => {
         user.id,
         {
           fullName,
-          city,
           avatarUrl,
         },
         user
@@ -71,7 +68,7 @@ export const SupervisorProfilePage: React.FC = () => {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Profile Details</CardTitle>
-            <CardDescription>You can edit your Full Name, Profile Photo, and Address / City below.</CardDescription>
+            <CardDescription>You can edit your Full Name and Profile Photo below.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSave} className="space-y-5">
@@ -101,7 +98,6 @@ export const SupervisorProfilePage: React.FC = () => {
                 </h4>
 
                 <Input label="Full Name *" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-                <Input label="Address / City Location *" value={city} onChange={(e) => setCity(e.target.value)} leftIcon={<MapPin className="w-4 h-4 text-slate-400" />} required />
               </div>
 
               {/* Read-Only Visible Account Details */}

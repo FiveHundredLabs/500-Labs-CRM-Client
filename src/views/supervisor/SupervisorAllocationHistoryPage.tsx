@@ -34,7 +34,6 @@ interface SalesmanBatchBreakdown {
   salesmanId: string;
   salesmanName: string;
   salesmanAvatar?: string;
-  salesmanCity?: string;
   count: number;
   allocations: EnrichedAllocation[];
 }
@@ -117,7 +116,6 @@ export const SupervisorAllocationHistoryPage: React.FC = () => {
                 salesmanId: smId,
                 salesmanName: smUser ? smUser.fullName : smId,
                 salesmanAvatar: smUser?.avatarUrl,
-                salesmanCity: smUser?.city,
                 count: smItems.length,
                 allocations: smItems,
               };
@@ -479,7 +477,6 @@ export const SupervisorAllocationHistoryPage: React.FC = () => {
                                 <span>{sm.salesmanName}</span>
                                 <span className="text-xs font-medium text-slate-400 font-mono">({sm.salesmanId})</span>
                               </div>
-                              <div className="text-xs text-slate-500">{sm.salesmanCity}</div>
                             </div>
                           </div>
 

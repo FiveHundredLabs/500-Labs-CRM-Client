@@ -18,7 +18,6 @@ export const MemberProfilePage: React.FC = () => {
   const { user, updateCurrentUser } = useAuth();
 
   const [fullName, setFullName] = useState(user?.fullName || '');
-  const [city, setCity] = useState(user?.city || '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
 
   const [activities, setActivities] = useState<ActivityLog[]>([]);
@@ -27,7 +26,6 @@ export const MemberProfilePage: React.FC = () => {
   useEffect(() => {
     if (user) {
       setFullName(user.fullName || '');
-      setCity(user.city || '');
       setAvatarUrl(user.avatarUrl || '');
       activityLogRepository.getByUserId(user.id).then(setActivities);
     }
@@ -35,12 +33,12 @@ export const MemberProfilePage: React.FC = () => {
 
   if (!user) return null;
 
-  const teamBrand = getTeamBranding(user.teamId || undefined);
+  const teamBrand = getTeamBranding(user.team || user.teamId);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !city.trim()) {
-      toast.error('Full Name and Address / Location cannot be empty.');
+    if (!fullName.trim()) {
+      toast.error('Full Name cannot be empty.');
       return;
     }
 
@@ -50,7 +48,6 @@ export const MemberProfilePage: React.FC = () => {
         user.id,
         {
           fullName,
-          city,
           avatarUrl,
         },
         user
@@ -73,13 +70,13 @@ export const MemberProfilePage: React.FC = () => {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Personal Information</CardTitle>
-            <CardDescription>You can edit your Full Name, Profile Photo, and Address / City below.</CardDescription>
+            <CardDescription>You can edit your Full Name and Profile Photo below.</CardDescription>
           </CardHeader>
 
           <CardContent>
             <form onSubmit={handleSave} className="space-y-5">
               {/* Editable Profile Picture Header */}
-              <div className="flex items-center gap-5 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5 p-4 bg-slate-50 border border-slate-200 rounded-xl text-center sm:text-left">
                 <EditableProfileAvatar
                   name={fullName}
                   avatarUrl={avatarUrl}
@@ -87,8 +84,8 @@ export const MemberProfilePage: React.FC = () => {
                   size="2xl"
                 />
                 <div className="space-y-1">
-                  <div className="font-bold text-lg text-slate-900">{fullName}</div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="font-bold text-base sm:text-lg text-slate-900">{fullName}</div>
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs text-slate-500 flex-wrap">
                     <Shield className="w-3.5 h-3.5 text-blue-600" />
                     <span className="font-medium text-slate-700">{user.role}</span>
                     <span>&bull;</span>
@@ -98,7 +95,7 @@ export const MemberProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Editable Fields: Full Name & Address / City */}
+              {/* Editable Fields: Full Name */}
               <div className="space-y-4">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
                   Editable Account Details
@@ -108,14 +105,6 @@ export const MemberProfilePage: React.FC = () => {
                   label="Full Name *"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-
-                <Input
-                  label="Address / City Location *"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  leftIcon={<MapPin className="w-4 h-4 text-slate-400" />}
                   required
                 />
               </div>

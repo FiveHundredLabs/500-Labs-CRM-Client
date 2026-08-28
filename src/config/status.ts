@@ -28,6 +28,11 @@ export const CONTACT_STATUS_CONFIG: Record<ContactStatus, StatusMeta> = {
     badgeClass: 'badge-blue',
     icon: Clock,
   },
+  FOLLOW_UP: {
+    label: 'Follow Up',
+    badgeClass: 'badge-amber',
+    icon: Clock,
+  },
   ANSWERED: {
     label: 'Answered',
     badgeClass: 'badge-green',
@@ -68,6 +73,16 @@ export const CONTACT_STATUS_CONFIG: Record<ContactStatus, StatusMeta> = {
     badgeClass: 'badge-red',
     icon: XCircle,
   },
+  CANCELLED: {
+    label: 'Cancelled',
+    badgeClass: 'badge-red',
+    icon: XCircle,
+  },
+  SAVED_CONTACTS: {
+    label: 'Saved',
+    badgeClass: 'badge-indigo',
+    icon: CheckCircle2,
+  },
 };
 
 export const ORDER_STATUS_CONFIG: Record<OrderStatus, StatusMeta> = {
@@ -100,6 +115,11 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, StatusMeta> = {
     label: 'Returned',
     badgeClass: 'badge-purple',
     icon: RotateCcw,
+  },
+  CANCELLED: {
+    label: 'Cancelled',
+    badgeClass: 'badge-red',
+    icon: XCircle,
   },
 };
 

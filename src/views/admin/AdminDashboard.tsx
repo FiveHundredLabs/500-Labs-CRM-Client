@@ -33,8 +33,10 @@ import {
   Bell,
   Clock,
   AlertTriangle,
+  Target,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
+import toast from 'react-hot-toast';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -70,6 +72,8 @@ export const AdminDashboard: React.FC = () => {
         setExpenses(expList);
         setPendingApprovals(reqList.filter((r) => r.status === 'PENDING'));
         setEmailLogs(eLogs);
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || err?.message || 'Failed to load dashboard data.');
       } finally {
         setLoading(false);
       }
@@ -77,11 +81,16 @@ export const AdminDashboard: React.FC = () => {
     loadAll();
   }, []);
 
-  // Dynamic KPI Metrics
+  // Dynamic KPI Metrics with explicit Number() casting
+  const totalGrossSales = orders.reduce(
+    (acc, curr) =>
+      acc + Number(curr.codAmount !== undefined && curr.codAmount !== null ? curr.codAmount : (curr.totalAmount || 0)),
+    0
+  );
   const lastDispatchedCount = orders.filter((o) => o.status === 'DISPATCHED').length;
   const totalDeliveredOrders = orders.filter((o) => o.status === 'DELIVERED').length;
   const todayInterestedCount = contacts.filter((c) => c.status === 'INTERESTED').length;
-  const totalMonthlyExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalMonthlyExpenses = expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
   // Dynamic Per-Team Leaderboards based on loaded teams
   const teamLeaderboards = teams.map((team) => {
@@ -122,15 +131,6 @@ export const AdminDashboard: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              leftIcon={<Bell className="w-4 h-4 text-amber-600" />}
-              onClick={() => navigate('/admin/approvals')}
-            >
-              Approvals Queue ({pendingApprovals.length})
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<PieChartIcon className="w-4 h-4 text-blue-600" />}
               onClick={() => navigate('/admin/reports')}
             >
               System Reports
@@ -178,7 +178,15 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* 1. Executive KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard
+          title="Total Gross Sales"
+          value={formatCurrency(totalGrossSales)}
+          subtitle={`${orders.length} Total Booked Orders`}
+          icon={<DollarSign className="w-4 h-4 text-emerald-600" />}
+          accentColor="green"
+        />
+
         <StatCard
           title="Last Dispatched Batch"
           value={`${lastDispatchedCount} Orders`}
@@ -188,7 +196,7 @@ export const AdminDashboard: React.FC = () => {
         />
 
         <StatCard
-          title="This Month Delivered Orders"
+          title="Delivered Orders"
           value={totalDeliveredOrders}
           subtitle="Successful customer handovers"
           icon={<CheckCircle2 className="w-4 h-4 text-blue-600" />}
@@ -196,7 +204,7 @@ export const AdminDashboard: React.FC = () => {
         />
 
         <StatCard
-          title="Today's Interested Leads"
+          title="Interested Leads"
           value={todayInterestedCount}
           subtitle="Qualified from live tele-calling"
           icon={<PhoneCall className="w-4 h-4 text-purple-600" />}
@@ -204,7 +212,7 @@ export const AdminDashboard: React.FC = () => {
         />
 
         <StatCard
-          title="Monthly Operating Expenses"
+          title="Operating Expenses"
           value={formatCurrency(totalMonthlyExpenses)}
           subtitle="Finance logged expenditures"
           icon={<DollarSign className="w-4 h-4 text-amber-600" />}
@@ -222,6 +230,15 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<Target className="w-3.5 h-3.5 text-rose-600" />}
+                onClick={() => navigate('/admin/sales-goals')}
+                className="bg-rose-50/50 hover:bg-rose-50 text-rose-900 border-rose-200"
+              >
+                Sales Goals & Incentives
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"

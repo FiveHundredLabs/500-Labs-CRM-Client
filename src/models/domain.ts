@@ -2,6 +2,7 @@ export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'TEAM_MEMBER' | 'FINANCE';
 
 export type ContactStatus = 
   | 'NEW'
+  | 'FOLLOW_UP'
   | 'ANSWERED'
   | 'NOT_ANSWERED'
   | 'PHONE_OFF'
@@ -9,7 +10,9 @@ export type ContactStatus =
   | 'NOT_INTERESTED'
   | 'DISPATCHED'
   | 'DELIVERED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'SAVED_CONTACTS';
 
 export type OrderStatus =
   | 'DRAFT'
@@ -17,14 +20,15 @@ export type OrderStatus =
   | 'DISPATCHED'
   | 'DELIVERED'
   | 'REJECTED'
-  | 'RETURNED';
+  | 'RETURNED'
+  | 'CANCELLED';
 
 export type EmailNotificationStatus = 'SENT' | 'SKIPPED' | 'FAILED';
 
 export interface Team {
   id: string; // e.g., 'team_001', 'team_002'
-  name: string; // 'Brand Alpha', 'Brand Beta'
-  code: string; // 'ALPHA', 'BETA'
+  name: string; // e.g., 'Easy Method English', 'Grow Mart'
+  code: string; // e.g., 'EME', 'GM'
   brandColor: string; // Hex color for branding
   accentColor: string;
   logoText: string;
@@ -38,11 +42,11 @@ export interface User {
   id: string; // e.g., 'usr_admin', 'usr_sup_01'
   username: string;
   email: string;
+  password?: string;
   fullName: string;
   role: UserRole;
   teamId: string | null; // null for ADMIN & FINANCE if multi-team
   supervisorId: string | null; // null for ADMIN, FINANCE, SUPERVISOR
-  city: string;
   phone: string;
   avatarUrl?: string;
   nic?: string;
@@ -54,6 +58,7 @@ export interface User {
   incentiveAmount?: number; // Calculated incentive amount
   isActive: boolean;
   createdAt: string;
+  team?: Pick<Team, 'id' | 'name' | 'code'>;
 }
 
 export interface Contact {
@@ -93,6 +98,40 @@ export interface ContactAllocation {
   allocationSource?: 'SELF_ADDED' | 'SUPERVISOR_ALLOCATED' | 'BULK_IMPORT' | string;
 }
 
+export interface DuplicatePhoneOrderHistory {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  totalAmount: number;
+  createdAt: string;
+  deliveredAt?: string | null;
+  rejectedAt?: string | null;
+  remarks?: string | null;
+  itemsDescription: string;
+  teamMemberName?: string;
+}
+
+export interface DuplicatePhoneIntelligence {
+  phone: string;
+  assignedMemberName: string;
+  teamName: string;
+  allocatedAt?: string | null;
+  lastCalledAt?: string | null;
+  lastCallStatus?: ContactStatus | string | null;
+  lastCallRemarks?: string | null;
+  lastCustomerName?: string | null;
+  deliveryAddress?: string | null;
+  city?: string | null;
+  previousOrders: DuplicatePhoneOrderHistory[];
+}
+
+export interface DuplicatePhoneCheckResult {
+  exists: boolean;
+  isOwnedBySelf: boolean;
+  message?: string;
+  intelligence?: DuplicatePhoneIntelligence;
+}
+
 export interface CallLog {
   id: string; // e.g., 'cll_001'
   contactId: string;
@@ -117,6 +156,14 @@ export interface CallLog {
   callDurationSeconds?: number;
   isFollowUp?: boolean; // Starred for Follow-Up List
   calledAt: string;
+  contactPhone?: string;
+  contact?: {
+    id: string;
+    phone: string;
+    secondaryMobile?: string;
+    city?: string;
+    status?: string;
+  };
 }
 
 export interface Customer {
@@ -182,6 +229,8 @@ export interface Order {
   previousDispatchInfo?: PreviousDispatchInfo;
   createdAt: string;
   updatedAt: string;
+  customer?: Customer;
+  team?: Pick<Team, 'id' | 'name' | 'code'>;
 }
 
 export interface DeliveryStatusHistory {
@@ -210,6 +259,8 @@ export type ActivityAction =
   | 'ORDER_PRINTED'
   | 'ORDER_PREPARED'
   | 'ORDER_DISPATCHED'
+  | 'ORDER_CANCELLED'
+  | 'LEAD_CANCELLED'
   | 'DELIVERY_STATUS_CHANGED'
   | 'EMAIL_NOTIFICATION_SENT'
   | 'EXPENSE_CREATED'
@@ -266,17 +317,58 @@ export interface EmailNotification {
   sentAt: string;
 }
 
+export type BatchStatus = 'ACTIVE' | 'DEPLETED' | 'QUARANTINED' | 'EXPIRED' | 'DAMAGED';
+export type PricingMode = 'GLOBAL' | 'BATCH_SPECIFIC';
+
+export interface StockBatch {
+  id: string; // e.g. UUID
+  batchNumber: string; // e.g. "BAT-20260828-001"
+  productId: string;
+  teamId: string;
+  initialQuantity: number;
+  remainingQuantity: number;
+  reservedQuantity: number;
+  unitCostPrice: number; // Acquisition cost for THIS batch (e.g. Rs. 450, Rs. 500)
+  batchSellingPrice?: number | null; // Optional batch-specific price (e.g. Rs. 550, Rs. 600)
+  status: BatchStatus;
+  supplierName?: string | null;
+  invoiceNumber?: string | null;
+  receivedDate: string;
+  expiryDate?: string | null;
+  approvalRequestId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductPriceHistory {
+  id: string;
+  productId: string;
+  teamId: string;
+  oldSellingPrice: number;
+  newSellingPrice: number;
+  oldCostPrice?: number | null;
+  newCostPrice?: number | null;
+  reason: string;
+  changedById: string;
+  changedByName: string;
+  approvalRequestId?: string | null;
+  effectiveDate: string;
+}
+
 export interface Product {
-  id: string; // e.g., 'prd_001'
-  teamId: string; // 'team_001' (Team Alpha), 'team_002' (Team Beta)
-  name: string; // e.g., 'Adult Package', 'Kids Package', 'Product A'
-  code: string; // e.g., 'PKG-ADULT', 'PKG-KIDS'
+  id: string; // e.g., 'prod_001'
+  name: string;
+  code: string; // SKU
+  teamId: string;
   category?: string;
   currentStock: number;
-  minStockThreshold: number; // Configurable low-stock alert limit (e.g., 10)
-  costPrice: number; // LKR
-  sellingPrice: number; // LKR
+  damagedStock?: number; // Damaged units quarantined / not calculated in sellable stock
+  minStockThreshold: number;
+  costPrice: number; // Reference LKR cost
+  sellingPrice: number; // Active catalog LKR price
   isActive: boolean;
+  batches?: StockBatch[];
+  priceHistory?: ProductPriceHistory[];
   createdAt: string;
   updatedAt: string;
 }
@@ -312,6 +404,10 @@ export interface ApprovalRequestItem {
   productId: string;
   productName: string;
   quantity: number;
+  unitCostPrice?: number; // Batch cost (e.g. Rs. 500)
+  proposedSellingPrice?: number; // Proposed price (e.g. Rs. 600)
+  pricingMode?: PricingMode;
+  batchNumber?: string;
   oldStock?: number;
   newStock?: number;
 }
@@ -325,6 +421,13 @@ export interface ApprovalRequest {
   productId: string;
   productName: string;
   items?: ApprovalRequestItem[]; // Multi-product stock addition items
+  unitCostPrice?: number; // Batch cost (e.g. Rs. 500)
+  proposedSellingPrice?: number; // Proposed selling price (e.g. Rs. 600)
+  pricingMode?: PricingMode; // GLOBAL vs BATCH_SPECIFIC
+  batchNumber?: string;
+  supplierName?: string;
+  invoiceNumber?: string;
+  expiryDate?: string;
   oldValue?: number; // Previous stock or previous cost/selling price
   newValue?: number; // Proposed new stock addition or new cost/selling price
   quantity?: number; // Requested stock addition quantity
@@ -358,5 +461,54 @@ export interface PettyCashTransaction {
   userName: string;
   remainingBalance: number;
   createdAt: string;
+}
+
+export interface TeamTargetTier {
+  id?: string;
+  targetId?: string;
+  minPercentage: number; // e.g. 80, 100, 120
+  allowanceAmount: number; // e.g. 10000, 20000, 35000
+  title?: string;
+  isUnlocked?: boolean;
+  unlockedMembersCount?: number;
+}
+
+export interface MemberSalesPerformance {
+  id: string;
+  fullName: string;
+  username: string;
+  email: string;
+  actualSales: number;
+  achievementPercentage: number;
+  unlockedAllowance: number;
+  highestUnlockedTier?: TeamTargetTier | null;
+  ordersCount: number;
+}
+
+export interface TeamSalesTarget {
+  id: string;
+  teamId: string;
+  month: string; // YYYY-MM (Effective start month)
+  targetAmount: number; // Monthly sales goal in LKR per member
+  notes?: string;
+  evaluatedMonth?: string; // Currently evaluated month
+  isInheritedStandingTarget?: boolean; // True if carrying over from an earlier month
+  effectiveFromMonth?: string;
+  team?: {
+    id: string;
+    name: string;
+    code: string;
+    brandColor?: string;
+  };
+  tiers: TeamTargetTier[];
+  actualSales?: number;
+  achievementPercentage?: number;
+  unlockedAllowance?: number;
+  highestUnlockedTier?: TeamTargetTier | null;
+  membersCount?: number;
+  totalAchieversCount?: number;
+  memberBreakdowns?: MemberSalesPerformance[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 

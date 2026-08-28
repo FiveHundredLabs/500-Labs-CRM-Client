@@ -1,46 +1,59 @@
-import { userRepository } from '../repositories';
+import apiClient, { markAuthRecovered } from '../lib/apiClient';
 import { User } from '../models/domain';
-import { STORAGE_KEYS } from '../repositories/mock/mockStore';
+
+interface LoginResponse {
+  data: {
+    user: User;
+  };
+}
+
+interface RefreshResponse {
+  data: {
+    user: User;
+  };
+}
 
 export class AuthService {
-  static getCurrentUser(): User | null {
-    const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (!raw) {
-      return null;
-    }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  }
+  /**
+   * Login with username/email + password.
+   * Backend stores access and refresh tokens as HttpOnly cookies.
+   */
+  static async login(emailOrUsername: string, password: string): Promise<User> {
+    const response = await apiClient.post<LoginResponse>('/auth/login', {
+      emailOrUsername: emailOrUsername.trim(),
+      password,
+    });
 
-  static setCurrentUser(user: User | null): void {
-    if (user) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-    }
-  }
-
-  static async login(emailOrUsername: string, password?: string): Promise<User> {
-    const query = emailOrUsername.trim().toLowerCase();
-
-    const user = await userRepository.getByEmail(query);
-
-    if (!user) {
-      throw new Error('Invalid username or email. Please check your credentials.');
-    }
-
-    if (!user.isActive) {
-      throw new Error('This user account has been disabled. Please contact the administrator.');
-    }
-
-    this.setCurrentUser(user);
+    const { user } = response.data.data;
+    markAuthRecovered();
     return user;
   }
 
-  static logout(): void {
-    this.setCurrentUser(null);
+  /**
+   * Refresh the cookie-backed session.
+   */
+  static async refresh(): Promise<User> {
+    const response = await apiClient.post<RefreshResponse>('/auth/refresh');
+    markAuthRecovered();
+    return response.data.data.user;
+  }
+
+  /**
+   * Logout: revoke server session and clear auth cookies.
+   */
+  static async logout(): Promise<void> {
+    await apiClient.post('/auth/logout');
+  }
+
+  /**
+   * Fetch the current user's profile from the API.
+   */
+  static async getCurrentUser(): Promise<User | null> {
+    try {
+      const response = await apiClient.get<{ data: User }>('/auth/me');
+      return response.data.data;
+    } catch {
+      return null;
+    }
   }
 }

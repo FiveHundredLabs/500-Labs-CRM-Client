@@ -7,7 +7,7 @@
     "action": "USER_CREATED",
     "entityType": "User",
     "entityId": "usr_mem_13",
-    "description": "Created new tele-calling specialist account Shehani Peiris under Brand Alpha.",
+    "description": "Created new tele-calling specialist account Shehani Peiris under Easy Method English.",
     "createdAt": "2026-08-01T08:00:00Z"
   },
   {
@@ -19,7 +19,7 @@
     "action": "CONTACT_IMPORTED",
     "entityType": "Contact",
     "entityId": "bat_imp_001",
-    "description": "Imported batch of 150 new prospective customer leads into Brand Alpha workspace.",
+    "description": "Imported batch of 150 new prospective customer leads into Easy Method English workspace.",
     "createdAt": "2026-08-01T08:30:00Z"
   },
   {
@@ -113,7 +113,7 @@
     "action": "ORDER_PRINTED",
     "entityType": "Order",
     "entityId": "ord_006",
-    "description": "Generated and printed A4 billing slip batch for Brand Beta orders.",
+    "description": "Generated and printed A6 billing slip batch for Grow Mart orders.",
     "createdAt": "2026-08-16T12:15:00Z"
   }
 ]

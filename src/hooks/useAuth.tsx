@@ -1,14 +1,15 @@
 import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, UserRole } from '../models/domain';
 import { AuthService } from '../services/authService';
+import { AUTH_EXPIRED_EVENT } from '../lib/apiClient';
 import toast from 'react-hot-toast';
 
 interface AuthContextType {
   user: User | null;
   role: UserRole | null;
   loading: boolean;
-  login: (emailOrUsername: string, password?: string) => Promise<User>;
-  logout: () => void;
+  login: (emailOrUsername: string, password: string) => Promise<User>;
+  logout: () => Promise<void>;
   updateCurrentUser: (updatedUser: User) => void;
   isAdmin: boolean;
   isSupervisor: boolean;
@@ -23,32 +24,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const active = AuthService.getCurrentUser();
-    setUser(active);
-    setLoading(false);
+    const handleAuthExpired = () => {
+      setUser(null);
+    };
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
   }, []);
 
-  const login = async (emailOrUsername: string, password?: string): Promise<User> => {
+  useEffect(() => {
+    const init = async () => {
+      const currentUser = await AuthService.getCurrentUser();
+      setUser(currentUser);
+      setLoading(false);
+    };
+
+    init();
+  }, []);
+
+  const login = async (emailOrUsername: string, password: string): Promise<User> => {
     try {
       const loggedUser = await AuthService.login(emailOrUsername, password);
       setUser(loggedUser);
       toast.success(`Welcome back, ${loggedUser.fullName}!`);
       return loggedUser;
     } catch (err: any) {
-      toast.error(err.message || 'Login failed.');
+      const message =
+        err?.response?.data?.message || err?.message || 'Login failed. Check your credentials.';
+      toast.error(message);
       throw err;
     }
   };
 
-  const logout = () => {
-    AuthService.logout();
+  const logout = async () => {
+    try {
+      await AuthService.logout();
+    } catch {
+      // Always clear local user state even if the server session is already gone.
+    }
     setUser(null);
     toast.success('Logged out successfully.');
   };
 
   const updateCurrentUser = (updatedUser: User) => {
     setUser(updatedUser);
-    AuthService.setCurrentUser(updatedUser);
   };
 
   const value: AuthContextType = {
@@ -70,26 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
-    // Safe fallback if called before context initialization
-    const fallbackUser = AuthService.getCurrentUser();
-    return {
-      user: fallbackUser,
-      role: fallbackUser ? fallbackUser.role : null,
-      loading: false,
-      login: async (emailOrUsername: string, password?: string) => {
-        return AuthService.login(emailOrUsername, password);
-      },
-      logout: () => {
-        AuthService.logout();
-      },
-      updateCurrentUser: (u: User) => {
-        AuthService.setCurrentUser(u);
-      },
-      isAdmin: fallbackUser?.role === 'ADMIN',
-      isSupervisor: fallbackUser?.role === 'SUPERVISOR',
-      isTeamMember: fallbackUser?.role === 'TEAM_MEMBER',
-      isFinance: fallbackUser?.role === 'FINANCE',
-    };
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

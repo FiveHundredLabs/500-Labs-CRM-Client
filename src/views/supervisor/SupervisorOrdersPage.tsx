@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import type { Order, OrderStatus, DeliveryStatusHistory } from '../../models/domain';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { Customer, Order, OrderStatus, DeliveryStatusHistory, Team } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { LoadingState } from '../../components/shared/LoadingState';
-import { LeadPrintItem, A4BillingPrintSheet } from '../../components/printing/A4BillingPrintSheet';
-import { PrintDocumentStyles } from '../../components/printing/PrintDocumentStyles';
+import { LeadPrintItem } from '../../components/printing/BillingSlipPrintSheet';
 import { PrintFloatingPanel } from '../../components/printing/PrintFloatingPanel';
 import { OrdersStats } from '../../components/orders/OrdersStats';
 import { OrderFilters } from '../../components/orders/OrderFilters';
@@ -13,23 +12,39 @@ import { OrderRemarkDialog } from '../../components/orders/OrderRemarkDialog';
 import { BulkStatusChangeDialog } from '../../components/orders/BulkStatusChangeDialog';
 import { OrderHistoryDialog } from '../../components/orders/OrderHistoryDialog';
 import { OrderPrintConfirmDialog } from '../../components/orders/OrderPrintConfirmDialog';
+import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { useOrders } from '../../hooks/useOrders';
 import { useOrderFilters } from '../../hooks/useOrderFilters';
 import { useSelection } from '../../hooks/useSelection';
-import { downloadBillingPDF } from '../../utils/pdfGenerator';
+import { downloadBillingPDF, printBillingPDF } from '../../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
+import { teamRepository } from '../../repositories';
 
 export const SupervisorOrdersPage: React.FC = () => {
   const { user } = useAuth();
-  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
+  const [teams, setTeams] = useState<Team[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    teamRepository.getAll()
+      .then((data) => {
+        if (isMounted) setTeams(data);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const {
     orders,
     customersMap,
     teamMembers,
     membersMap,
+    orderConflictMap,
     loading,
     updateOrderStatus,
     updateOrderRemark,
@@ -77,6 +92,9 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
 
+  const [inspectConflictOrder, setInspectConflictOrder] = useState<Order | null>(null);
+  const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
+
   // Status Change Modal Trigger
   const handleOpenStatusModal = (order: Order, defaultNewStatus: OrderStatus) => {
     setTargetOrder(order);
@@ -90,51 +108,61 @@ export const SupervisorOrdersPage: React.FC = () => {
     setOrderHistories(hist);
   };
 
+  // Inspect Duplicate Orders Trigger
+  const handleInspectDuplicateOrders = (order: Order, conflictInfo: DuplicateOrderConflictInfo) => {
+    setInspectConflictOrder(order);
+    setInspectConflictInfo(conflictInfo);
+  };
+
+  const buildPrintItem = (order: Order): LeadPrintItem => {
+    const customer = customersMap[order.customerId];
+    const responsibleUser = membersMap[order.teamMemberId];
+    const team = order.team || teams.find((t) => t.id === order.teamId);
+    return {
+      customer: customer || order.customer!,
+      responsibleUser,
+      order,
+      team,
+    };
+  };
+
   // Selected Lead Print Items for PDF & Print
   const selectedPrintItems: LeadPrintItem[] = orders
     .filter((o) => selectedOrderIds.includes(o.id))
-    .map((o) => ({
-      customer: customersMap[o.customerId] || {
-        id: `cst_temp_${o.id}`,
-        contactId: '',
-        fullName: 'Customer',
-        phone: 'N/A',
-        address: 'N/A',
-        teamId: o.teamId,
-        responsibleTeamMemberId: o.teamMemberId,
-        supervisorId: o.supervisorId,
-        createdAt: o.createdAt,
-        updatedAt: o.updatedAt,
-      },
-      responsibleUser: membersMap[o.teamMemberId],
-      order: o,
-    }));
+    .map(buildPrintItem);
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
-    const success = downloadBillingPDF(selectedPrintItems);
-    if (success) {
+    try {
+      await downloadBillingPDF(selectedPrintItems);
       toast.success('Billing slips PDF downloaded!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate billing PDF.');
     }
   };
 
-  const handleNativePrint = () => {
+  const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
-    window.print();
-    setIsPrintConfirmOpen(true);
+    try {
+      await printBillingPDF(selectedPrintItems);
+      setIsPrintConfirmOpen(true);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate billing print document.');
+    }
+  };
+
+  const handlePrintBillingSlip = async (order: Order) => {
+    try {
+      await printBillingPDF([buildPrintItem(order)]);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate billing print document.');
+    }
   };
 
   if (loading) return <LoadingState rows={6} />;
 
   return (
     <div className="space-y-4 pb-28">
-      <PrintDocumentStyles />
-
-      {/* Hidden Print Container rendered in DOM for window.print() */}
-      <div className="hidden print:block">
-        <A4BillingPrintSheet items={selectedPrintItems} />
-      </div>
-
       {/* Admin Multi-Team Switcher */}
       <AdminTeamSelector
         activeTeamId={adminTeamId}
@@ -144,7 +172,7 @@ export const SupervisorOrdersPage: React.FC = () => {
 
       <PageHeader
         title="Supervisor Orders"
-        description="Monitor dispatched parcels, process delivery status updates with optional remarks, and manage team orders."
+        description="Monitor dispatched parcels, process delivery status updates, inspect duplicate order conflicts, and manage team orders."
       />
 
       {/* 1. Status Filter Summary Cards */}
@@ -183,10 +211,12 @@ export const SupervisorOrdersPage: React.FC = () => {
         customersMap={customersMap}
         membersMap={membersMap}
         selectedOrderIds={selectedOrderIds}
+        orderConflictMap={orderConflictMap}
         onToggleSelectCard={toggleSelectCard}
         onViewHistory={handleViewHistory}
         onOpenStatusModal={handleOpenStatusModal}
         onOpenRemarkModal={(order) => setRemarkOrder(order)}
+        onPrintBillingSlip={handlePrintBillingSlip}
       />
 
       {/* 4. Floating Action Panel */}
@@ -244,6 +274,24 @@ export const SupervisorOrdersPage: React.FC = () => {
         isOpen={isPrintConfirmOpen}
         onClose={() => setIsPrintConfirmOpen(false)}
         onClearSelection={clearSelection}
+      />
+
+      {/* Duplicate Order Conflict & History Inspection Dialog */}
+      <DuplicateOrderConflictDialog
+        isOpen={!!inspectConflictOrder}
+        onClose={() => {
+          setInspectConflictOrder(null);
+          setInspectConflictInfo(null);
+        }}
+        currentOrder={inspectConflictOrder}
+        conflictInfo={inspectConflictInfo}
+        customersMap={customersMap}
+        membersMap={membersMap}
+        onCancelOrder={async (ord) => {
+          await updateOrderStatus(ord, 'CANCELLED', 'Supervisor cancelled duplicate order');
+          setInspectConflictOrder(null);
+          setInspectConflictInfo(null);
+        }}
       />
     </div>
   );

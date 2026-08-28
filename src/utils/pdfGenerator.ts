@@ -1,128 +1,353 @@
-import { LeadPrintItem } from '../components/printing/A4BillingPrintSheet';
-import { getTeamBranding } from '../config/branding';
-import { formatCurrency } from './currency';
+import React from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { LeadPrintItem } from '../components/printing/BillingSlipPrintSheet';
+import { A6BillingSlip } from '../components/printing/A6BillingSlip';
+import { BrandPrintConfig, getBrandPrintConfig } from '../config/branding';
 
-/**
- * Generates and downloads billing slips for selected leads.
- * Outputs standard A4 Landscape / 4 x A6 billing format.
- */
-export const downloadBillingPDF = (items: LeadPrintItem[]): boolean => {
-  if (items.length === 0) return false;
+const A4_LANDSCAPE_WIDTH_MM = 297;
+const A4_LANDSCAPE_HEIGHT_MM = 210;
+const PDF_MARGIN_MM = 6;
+const PDF_GAP_MM = 4;
+const SLIP_WIDTH_MM = (A4_LANDSCAPE_WIDTH_MM - PDF_MARGIN_MM * 2 - PDF_GAP_MM) / 2;
+const SLIP_HEIGHT_MM = (A4_LANDSCAPE_HEIGHT_MM - PDF_MARGIN_MM * 2 - PDF_GAP_MM) / 2;
+const CAPTURE_SCALE = 3;
 
-  // Chunk items into groups of 4
-  const pages: LeadPrintItem[][] = [];
-  for (let i = 0; i < items.length; i += 4) {
-    pages.push(items.slice(i, i + 4));
+type PrintReadyItem = LeadPrintItem & {
+  brand: BrandPrintConfig;
+};
+
+export interface BillingPdfResult {
+  pdf: jsPDF;
+  pageCount: number;
+}
+
+const chunkIntoSheets = <T,>(items: T[], size = 4): T[][] => {
+  const sheets: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    sheets.push(items.slice(index, index + size));
+  }
+  return sheets;
+};
+
+const nextPaint = () =>
+  new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
+
+const waitForFonts = async () => {
+  if ('fonts' in document && document.fonts?.ready) {
+    await document.fonts.ready;
+  }
+};
+
+const waitForImages = async (container: HTMLElement) => {
+  const images = Array.from(container.querySelectorAll<HTMLImageElement>('img'));
+
+  await Promise.all(
+    images.map(async (image) => {
+      if (image.complete && image.naturalWidth > 0) {
+        if (typeof image.decode === 'function') {
+          try {
+            await image.decode();
+          } catch {
+            // The image is already loaded; a decode quirk should not block capture.
+          }
+        }
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error(`Logo failed to load: ${image.currentSrc || image.src}`));
+      });
+    })
+  );
+};
+
+const getOrderLabel = (item: LeadPrintItem, index: number) =>
+  item.order?.orderNumber || item.order?.id || item.customer?.fullName || `item ${index + 1}`;
+
+const resolvePrintItems = (items: LeadPrintItem[]): PrintReadyItem[] => {
+  if (items.length === 0) {
+    throw new Error('Select at least one billing slip to generate.');
   }
 
-  const htmlPages = pages
-    .map((pageItems, pageIdx) => {
-      const slipsHtml = pageItems
-        .map((item) => {
-          const teamBrand = getTeamBranding(item.customer.teamId);
-          const codAmount = formatCurrency(item.order?.totalAmount ?? 150);
-          const itemDesc = item.order?.itemsDescription || 'Interested Lead Fulfillment / Express COD Parcel';
-          const refNo = item.order ? item.order.orderNumber : `LD-${item.customer.id.replace('cst_', '').toUpperCase()}`;
-          const memberName = item.responsibleUser ? item.responsibleUser.fullName : 'Team Member';
+  return items.map((item, index) => {
+    const orderLabel = getOrderLabel(item, index);
+    if (!item.customer) {
+      throw new Error(`Customer print details are missing for order ${orderLabel}.`);
+    }
 
-          return `
-            <div style="width: 148mm; height: 105mm; padding: 12px; background: #ffffff; border: 2px solid #0f172a; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; font-family: system-ui, -apple-system, sans-serif; color: #0f172a;">
-              <!-- Header -->
-              <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 6px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <div style="width: 28px; height: 28px; background-color: ${teamBrand.brandColor}; color: #ffffff; font-weight: 900; font-size: 12px; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
-                    ${teamBrand.code}
-                  </div>
-                  <div>
-                    <div style="font-weight: 900; font-size: 12px; text-transform: uppercase;">${teamBrand.name}</div>
-                    <div style="font-size: 8px; font-weight: 600; color: #475569;">OFFICIAL BILLING & COD SLIP</div>
-                  </div>
-                </div>
-                <div style="text-align: right;">
-                  <div style="font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase;">REF NO</div>
-                  <div style="font-size: 12px; font-weight: 900; font-family: monospace;">${refNo}</div>
-                </div>
-              </div>
+    const orderTeam = item.order?.team;
+    const brandIdentity = item.team || orderTeam || item.order?.teamId || item.customer.teamId;
+    const brand = getBrandPrintConfig(brandIdentity);
 
-              <!-- Recipient Info -->
-              <div style="padding: 6px 0; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                  <div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">BILL TO (CUSTOMER DETAILS):</div>
-                  <div style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin-top: 2px;">${item.customer.fullName}</div>
-                  <div style="font-size: 11px; font-weight: 700; color: #1e293b; margin-top: 2px;">${item.customer.address}</div>
-                  <div style="font-size: 11px; font-weight: 900; font-family: monospace; margin-top: 4px;">
-                    TEL: ${item.customer.phone} ${item.customer.email ? `| ${item.customer.email}` : ''}
-                  </div>
-                </div>
+    if (!brand) {
+      throw new Error(`Brand could not be resolved for order ${orderLabel}.`);
+    }
 
-                <div style="font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px; display: flex; justify-content: space-between;">
-                  <span><strong>Handled By:</strong> ${memberName}</span>
-                  <span style="font-family: monospace; color: #64748b;">Team: ${teamBrand.code}</span>
-                </div>
-              </div>
+    if (!brand.logo) {
+      throw new Error(`Logo is missing for ${brand.displayName} on order ${orderLabel}.`);
+    }
 
-              <!-- COD Box -->
-              <div style="background: #0f172a; color: #ffffff; padding: 8px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: 900; text-transform: uppercase;">
-                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Item: ${itemDesc}</span>
-                <span style="color: #fbbf24; font-size: 12px;">TOTAL COD: ${codAmount}</span>
-              </div>
+    if (!item.customer.fullName || !item.customer.address || !item.customer.phone) {
+      throw new Error(`Customer print details are incomplete for order ${orderLabel}.`);
+    }
 
-              <!-- Footer -->
-              <div style="border-top: 2px solid #0f172a; padding-top: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 8px;">
-                <div style="font-family: monospace; font-weight: 700;">*${item.customer.id.toUpperCase()}*</div>
-                <div style="color: #475569; font-weight: 700;">A6 LANDSCAPE (148mm × 105mm)</div>
-              </div>
-            </div>
-          `;
+    const amount = item.order?.codAmount ?? item.order?.totalAmount;
+    if (amount === undefined || amount === null) {
+      throw new Error(`COD amount is missing for order ${orderLabel}.`);
+    }
+
+    return {
+      ...item,
+      team: item.team || orderTeam,
+      brand,
+    };
+  });
+};
+
+const createCaptureContainer = () => {
+  const container = document.createElement('div');
+  container.className = 'billing-slip-raster-capture-root';
+  Object.assign(container.style, {
+    position: 'fixed',
+    left: '-10000px',
+    top: '0',
+    width: `${SLIP_WIDTH_MM}mm`,
+    height: `${SLIP_HEIGHT_MM}mm`,
+    background: '#ffffff',
+    pointerEvents: 'none',
+    overflow: 'hidden',
+  });
+  document.body.appendChild(container);
+  return container;
+};
+
+const convertOklchToRgb = (colorStr: string): string => {
+  if (!colorStr || !colorStr.includes('oklch')) return colorStr;
+
+  return colorStr.replace(/oklch\([^)]+\)/g, (match) => {
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = match;
+        const resolved = ctx.fillStyle;
+        if (resolved && !resolved.includes('oklch')) {
+          return resolved;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    const parts = match
+      .replace(/oklch\(/, '')
+      .replace(/\)/, '')
+      .split(/[\s/]+/);
+    if (parts.length >= 3) {
+      const L = parseFloat(parts[0]);
+      const alpha = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
+      
+      if (L <= 0.1) return `rgba(0, 0, 0, ${alpha})`;
+      if (L >= 0.95) return `rgba(255, 255, 255, ${alpha})`;
+      
+      const grayVal = Math.round(L * 255);
+      return `rgba(${grayVal}, ${grayVal}, ${grayVal}, ${alpha})`;
+    }
+    return match;
+  });
+};
+
+const replaceOklchStyles = (element: HTMLElement) => {
+  const elements = [element, ...Array.from(element.querySelectorAll<HTMLElement>('*'))];
+  
+  const stylesToApply = elements.map((el) => {
+    const computed = window.getComputedStyle(el);
+    return {
+      color: convertOklchToRgb(computed.color),
+      backgroundColor: convertOklchToRgb(computed.backgroundColor),
+      borderTopColor: convertOklchToRgb(computed.borderTopColor),
+      borderBottomColor: convertOklchToRgb(computed.borderBottomColor),
+      borderLeftColor: convertOklchToRgb(computed.borderLeftColor),
+      borderRightColor: convertOklchToRgb(computed.borderRightColor),
+      fill: convertOklchToRgb(computed.fill),
+      stroke: convertOklchToRgb(computed.stroke),
+      boxShadow: convertOklchToRgb(computed.boxShadow),
+      outlineColor: convertOklchToRgb(computed.outlineColor),
+    };
+  });
+
+  elements.forEach((el, index) => {
+    const styles = stylesToApply[index];
+    if (styles.color) el.style.color = styles.color;
+    if (styles.backgroundColor) el.style.backgroundColor = styles.backgroundColor;
+    if (styles.borderTopColor) el.style.borderTopColor = styles.borderTopColor;
+    if (styles.borderBottomColor) el.style.borderBottomColor = styles.borderBottomColor;
+    if (styles.borderLeftColor) el.style.borderLeftColor = styles.borderLeftColor;
+    if (styles.borderRightColor) el.style.borderRightColor = styles.borderRightColor;
+    if (styles.fill) el.style.fill = styles.fill;
+    if (styles.stroke) el.style.stroke = styles.stroke;
+    if (styles.boxShadow) el.style.boxShadow = styles.boxShadow;
+    if (styles.outlineColor) el.style.outlineColor = styles.outlineColor;
+  });
+};
+
+const captureSlipImage = async (item: PrintReadyItem): Promise<string> => {
+  const container = createCaptureContainer();
+  const root = createRoot(container);
+
+  try {
+    flushSync(() => {
+      root.render(
+        React.createElement(A6BillingSlip, {
+          customer: item.customer,
+          responsibleUser: item.responsibleUser,
+          order: item.order,
+          team: item.team,
+          className: 'billing-slip-capture',
         })
-        .join('');
+      );
+    });
 
-      // Fill remaining slots
-      const emptyCount = 4 - pageItems.length;
-      const emptySlipsHtml = Array.from({ length: emptyCount })
-        .map(
-          () => `
-          <div style="width: 148mm; height: 105mm; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 10px; font-family: monospace; box-sizing: border-box;">
-            [ EMPTY A6 BILLING SLIP POSITION ]
-          </div>
-        `
-        )
-        .join('');
+    await nextPaint();
+    await waitForFonts();
+    await waitForImages(container);
+    await nextPaint();
 
-      return `
-        <div style="width: 297mm; height: 210mm; padding: 8px; background: #ffffff; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8px; box-sizing: border-box; page-break-after: always;">
-          ${slipsHtml}
-          ${emptySlipsHtml}
-        </div>
-      `;
-    })
-    .join('');
+    const slipNode = container.querySelector<HTMLElement>('.billing-slip-capture');
+    if (!slipNode) {
+      throw new Error('Billing slip capture node was not rendered.');
+    }
 
-  const fullDocumentHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Billing Slips (${items.length} Selected Leads)</title>
-  <style>
-    @page { size: A4 landscape; margin: 0; }
-    body { margin: 0; padding: 0; background: #f1f5f9; }
-  </style>
-</head>
-<body>
-  ${htmlPages}
-</body>
-</html>`;
+    replaceOklchStyles(slipNode);
 
-  // Create Blob and trigger download
-  const blob = new Blob([fullDocumentHtml], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `billing_slips_${items.length}_leads.html`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+    const canvas = await html2canvas(slipNode, {
+      backgroundColor: '#ffffff',
+      scale: CAPTURE_SCALE,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      width: slipNode.offsetWidth,
+      height: slipNode.offsetHeight,
+      windowWidth: slipNode.scrollWidth,
+      windowHeight: slipNode.scrollHeight,
+    });
 
+    const dataUrl = canvas.toDataURL('image/png');
+    canvas.width = 1;
+    canvas.height = 1;
+    return dataUrl;
+  } finally {
+    root.unmount();
+    container.remove();
+  }
+};
+
+export const generateBillingPdf = async (items: LeadPrintItem[]): Promise<BillingPdfResult> => {
+  const printItems = resolvePrintItems(items);
+  const slipImages: string[] = [];
+
+  for (const item of printItems) {
+    slipImages.push(await captureSlipImage(item));
+  }
+
+  const pages = chunkIntoSheets(slipImages, 4);
+  const pdf = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4',
+    compress: true,
+  });
+
+  pages.forEach((pageImages, pageIndex) => {
+    if (pageIndex > 0) {
+      pdf.addPage('a4', 'landscape');
+    }
+
+    pageImages.forEach((image, imageIndex) => {
+      const column = imageIndex % 2;
+      const row = Math.floor(imageIndex / 2);
+      const x = PDF_MARGIN_MM + column * (SLIP_WIDTH_MM + PDF_GAP_MM);
+      const y = PDF_MARGIN_MM + row * (SLIP_HEIGHT_MM + PDF_GAP_MM);
+
+      pdf.addImage(image, 'PNG', x, y, SLIP_WIDTH_MM, SLIP_HEIGHT_MM, undefined, 'FAST');
+    });
+  });
+
+  slipImages.length = 0;
+  return { pdf, pageCount: pages.length };
+};
+
+export const downloadBillingPDF = async (items: LeadPrintItem[]): Promise<boolean> => {
+  const { pdf } = await generateBillingPdf(items);
+  pdf.save(`billing_cod_slips_${items.length}.pdf`);
   return true;
+};
+
+export const printBillingPDF = async (items: LeadPrintItem[]): Promise<boolean> => {
+  const { pdf } = await generateBillingPdf(items);
+
+  const blob = pdf.output('blob');
+  const url = URL.createObjectURL(blob);
+
+  const iframe = document.createElement('iframe');
+  Object.assign(iframe.style, {
+    position: 'fixed',
+    right: '0',
+    bottom: '0',
+    width: '0',
+    height: '0',
+    border: '0',
+    visibility: 'hidden',
+  });
+
+  return new Promise<boolean>((resolve, reject) => {
+    iframe.onload = () => {
+      try {
+        const printWindow = iframe.contentWindow;
+        if (!printWindow) {
+          reject(new Error('Unable to open generated PDF for printing.'));
+          return;
+        }
+
+        printWindow.focus();
+        printWindow.print();
+        resolve(true);
+      } catch (err) {
+        reject(err);
+      } finally {
+        // Clean up the iframe and object URL after a delay of 1 minute to ensure printing works
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+          iframe.remove();
+        }, 60000);
+      }
+    };
+
+    iframe.onerror = () => {
+      URL.revokeObjectURL(url);
+      iframe.remove();
+      reject(new Error('Unable to load generated PDF for printing.'));
+    };
+
+    iframe.src = url;
+    document.body.appendChild(iframe);
+  });
+};
+
+export const billingPdfLayout = {
+  pageWidthMm: A4_LANDSCAPE_WIDTH_MM,
+  pageHeightMm: A4_LANDSCAPE_HEIGHT_MM,
+  marginMm: PDF_MARGIN_MM,
+  gapMm: PDF_GAP_MM,
+  slipWidthMm: SLIP_WIDTH_MM,
+  slipHeightMm: SLIP_HEIGHT_MM,
+  captureScale: CAPTURE_SCALE,
 };

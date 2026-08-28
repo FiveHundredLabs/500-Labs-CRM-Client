@@ -19,6 +19,9 @@ import {
   PettyCashWallet,
   PettyCashTransaction,
   ApprovalStatus,
+  TeamSalesTarget,
+  TeamTargetTier,
+  DuplicatePhoneCheckResult,
 } from '../../models/domain';
 
 export interface ITeamRepository {
@@ -47,6 +50,7 @@ export interface IContactRepository {
   create(contact: Omit<Contact, 'id' | 'updatedAt'>): Promise<Contact>;
   createMany(contacts: Array<Omit<Contact, 'id' | 'updatedAt'>>): Promise<Contact[]>;
   addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string }): Promise<Contact>;
+  checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult>;
   update(id: string, updates: Partial<Contact>): Promise<Contact>;
   updateManyStatus(ids: string[], status: ContactStatus): Promise<void>;
 }
@@ -85,7 +89,7 @@ export interface IOrderRepository {
   getByTeamId(teamId: string): Promise<Order[]>;
   getBySupervisorId(supervisorId: string): Promise<Order[]>;
   getByMemberId(memberId: string): Promise<Order[]>;
-  create(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
+  create(order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order>;
   updateStatus(id: string, status: any, remarks?: string): Promise<Order>;
 }
 
@@ -124,6 +128,8 @@ export interface IProductRepository {
   create(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product>;
   update(id: string, updates: Partial<Product>): Promise<Product>;
   updateStock(id: string, stockDelta: number): Promise<Product>;
+  reportDamage(id: string, quantity: number, reason?: string, batchId?: string): Promise<Product>;
+  delete(id: string): Promise<void>;
 }
 
 export interface IStockActivityLogRepository {
@@ -147,5 +153,19 @@ export interface IPettyCashRepository {
   getTransactions(): Promise<PettyCashTransaction[]>;
   allocate(amount: number, user: User, reason?: string): Promise<PettyCashWallet>;
   recordExpense(data: { amount: number; reason: string; category: string; description: string; date: string }, user: User): Promise<PettyCashTransaction>;
+}
+
+export interface ISalesTargetRepository {
+  getAll(month?: string, teamId?: string): Promise<TeamSalesTarget[]>;
+  getById(id: string): Promise<TeamSalesTarget | null>;
+  upsert(target: {
+    teamId: string;
+    month: string;
+    targetAmount: number;
+    notes?: string;
+    tiers: TeamTargetTier[];
+  }): Promise<TeamSalesTarget>;
+  update(id: string, updates: Partial<TeamSalesTarget>): Promise<TeamSalesTarget>;
+  delete(id: string): Promise<void>;
 }
 

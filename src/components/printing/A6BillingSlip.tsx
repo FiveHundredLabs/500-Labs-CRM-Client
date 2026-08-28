@@ -1,117 +1,153 @@
 import React from 'react';
-import { Customer, User, Order } from '../../models/domain';
-import { getTeamBranding } from '../../config/branding';
+import { Customer, Order, Team, User } from '../../models/domain';
+import { BrandPrintConfig, getBrandPrintConfig } from '../../config/branding';
 import { formatCurrency } from '../../utils/currency';
 
 export interface A6BillingSlipProps {
   customer: Customer;
   responsibleUser?: User;
   order?: Order;
+  team?: Team | Pick<Team, 'id' | 'name' | 'code'>;
   className?: string;
 }
 
+const formatAddress = (address: string): string[] => {
+  return address
+    .split(/\r?\n|,/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+};
+
+const getCodAmount = (order?: Order): string => {
+  return formatCurrency(order?.codAmount ?? order?.totalAmount ?? 0);
+};
+
+const SlipField: React.FC<{
+  label: string;
+  value?: string | number | null;
+  className?: string;
+}> = ({ label, value, className = '' }) => (
+  <div className={`min-w-0 ${className}`} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+    <div 
+      className="uppercase text-[#475569] leading-none" 
+      style={{ fontSize: '10px', fontWeight: 500, fontFamily: 'Arial, Helvetica, sans-serif' }}
+    >
+      {label}
+    </div>
+    <div 
+      className="text-[#000000] leading-snug whitespace-pre-wrap break-words"
+      style={{ fontSize: '11.5px', fontWeight: 500, fontFamily: 'Arial, Helvetica, sans-serif' }}
+    >
+      {value || <span>&nbsp;</span>}
+    </div>
+  </div>
+);
+
+const SlipHeader: React.FC<{ brand: BrandPrintConfig }> = ({ brand }) => (
+  <div className="h-[26mm] border-b-[0.55mm] border-[#000000] flex items-center justify-between px-[5mm] py-[2.5mm] overflow-hidden bg-[#FFFFFF]">
+    {/* Logo Container */}
+    <div className="flex items-center justify-start max-w-[42mm] h-full pl-[1mm]">
+      <img
+        src={brand.logo}
+        alt={`${brand.displayName} logo`}
+        className="max-w-[38mm] max-h-[19mm] object-contain"
+        style={{ display: 'block' }}
+      />
+    </div>
+    {/* Business Info Container */}
+    <div className="text-right flex-1 pl-[4mm] pr-[1mm] flex flex-col justify-center h-full">
+      <h1 className="text-[18px] font-bold leading-tight text-[#000000] uppercase tracking-wide" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+        {brand.printTitle}
+      </h1>
+      <p className="mt-[1mm] text-[10.5px] font-normal leading-tight text-[#475569] whitespace-pre-line" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+        {brand.address}
+      </p>
+    </div>
+  </div>
+);
+
+const UnresolvedBrandSlip: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div
+    className={`billing-slip w-[148mm] h-[105mm] bg-[#FFFFFF] border-[0.6mm] border-[#000000] p-[6mm] text-[#000000] overflow-hidden shrink-0 ${className}`}
+    style={{ boxSizing: 'border-box', fontFamily: 'Arial, Helvetica, sans-serif' }}
+  >
+    <div className="h-full flex flex-col items-center justify-center text-center gap-[3mm]">
+      <div className="text-[18px] font-bold uppercase text-[#000000]">Brand Not Resolved</div>
+      <div className="text-[13px] font-normal leading-snug max-w-[100mm] text-[#475569]">
+        This order cannot be printed until its owning team is mapped to a billing brand.
+      </div>
+    </div>
+  </div>
+);
+
 export const A6BillingSlip: React.FC<A6BillingSlipProps> = ({
   customer,
-  responsibleUser,
   order,
+  team,
   className = '',
 }) => {
-  const teamBrand = getTeamBranding(customer.teamId);
+  const brand = getBrandPrintConfig(team || order?.teamId || customer.teamId);
 
-  // Billing COD Amount (use order amount if available, otherwise default standard COD)
-  const codAmount = formatCurrency(order?.totalAmount ?? 150);
-  const itemDesc = order?.itemsDescription || 'Interested Lead Fulfillment / Express COD Parcel';
+  if (!brand) {
+    return <UnresolvedBrandSlip className={className} />;
+  }
 
   return (
     <div
-      className={`w-[148mm] h-[105mm] p-3.5 bg-white border-2 border-slate-900 flex flex-col justify-between overflow-hidden text-slate-900 font-sans print:border-slate-900 shrink-0 ${className}`}
+      className={`billing-slip w-[148mm] h-[105mm] bg-[#FFFFFF] border-[0.6mm] border-[#000000] overflow-hidden text-[#000000] shrink-0 ${className}`}
       style={{ boxSizing: 'border-box' }}
     >
-      {/* Top Banner / Merchant Branding */}
-      <div className="flex items-center justify-between pb-2 border-b-2 border-slate-900">
-        <div className="flex items-center gap-2">
-          <div
-            className="w-7 h-7 rounded text-white font-black text-xs flex items-center justify-center print:bg-slate-900 shrink-0"
-            style={{ backgroundColor: teamBrand.brandColor }}
-          >
-            {teamBrand.code}
+      {/* 1. Header */}
+      <SlipHeader brand={brand} />
+
+      {/* 2. Body Area */}
+      <div className="flex flex-col h-[79mm]">
+        
+        {/* 2.1 Black Headings Row */}
+        <div className="grid grid-cols-[48%_0.55mm_51.45%] bg-[#000000] text-[#ffffff] h-[8mm] items-center">
+          <div className="pl-[4mm] uppercase tracking-wider text-[11.5px]" style={{ fontWeight: 600, fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            Merchant Details
           </div>
-          <div>
-            <div className="font-black text-xs uppercase tracking-tight leading-none">{teamBrand.name}</div>
-            <div className="text-[8px] font-semibold text-slate-600 tracking-wider">OFFICIAL BILLING & COD SLIP</div>
+          <div className="h-full w-full bg-[#000000]"></div>
+          <div className="pl-[4mm] uppercase tracking-wider text-[11.5px]" style={{ fontWeight: 600, fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            Customer Details
           </div>
         </div>
 
-        <div className="text-right">
-          <div className="text-[8px] font-bold uppercase tracking-wider text-slate-500">REF NO</div>
-          <div className="text-xs font-black tracking-wider font-mono">
-            {order ? order.orderNumber : `LD-${customer.id.replace('cst_', '').toUpperCase()}`}
+        {/* 2.2 Body Details Columns */}
+        <div className="grid grid-cols-[48%_0.55mm_51.45%] h-[53mm] bg-[#FFFFFF]">
+          {/* Left Column: Merchant */}
+          <div className="flex flex-col pt-[3mm] pb-[3mm] pl-[4mm] pr-[3mm] min-w-0">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+              <SlipField label="Name" value={brand.merchantName} />
+              <SlipField label="Description" value={brand.description} />
+              <SlipField label="Telephone" value={brand.merchantTelephone} />
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Main Billing Recipient Info */}
-      <div className="py-1.5 flex-1 flex flex-col justify-between space-y-1">
-        <div>
-          <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-            BILL TO (CUSTOMER DETAILS):
-          </div>
-          <div className="text-sm font-black uppercase text-slate-900 tracking-tight leading-tight mt-0.5">
-            {customer.fullName}
-          </div>
-          <div className="text-xs font-bold text-slate-800 leading-tight mt-0.5">
-            {customer.address}
-          </div>
-          <div className="flex items-center gap-4 text-xs font-black tracking-wider text-slate-900 mt-1">
-            <span>TEL: {customer.phone}</span>
-            {customer.email && <span className="text-[10px] font-normal text-slate-600">| {customer.email}</span>}
+          {/* Middle Vertical Separator */}
+          <div className="w-[0.55mm] bg-[#000000] h-full"></div>
+
+          {/* Right Column: Customer */}
+          <div className="flex flex-col pt-[3mm] pb-[3mm] pl-[4mm] pr-[3mm] min-w-0">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+              <SlipField label="Name" value={customer.fullName || 'Customer'} />
+              <SlipField label="Address" value={formatAddress(customer.address || 'N/A').join('\n')} />
+              <SlipField label="Telephone" value={customer.phone || 'N/A'} />
+            </div>
           </div>
         </div>
 
-        {/* Handled By & Lead Source Info */}
-        <div className="text-[10px] bg-slate-50 border border-slate-300 p-1.5 rounded flex justify-between items-center">
-          <div>
-            <span className="font-bold text-slate-500">Handled By: </span>
-            <span className="font-black text-slate-900">{responsibleUser ? responsibleUser.fullName : 'Team Member'}</span>
-          </div>
-          <div className="text-[9px] font-mono text-slate-500">
-            Team: {teamBrand.code}
-          </div>
-        </div>
-      </div>
-
-      {/* Billing Summary Box */}
-      <div className="p-2 bg-slate-900 text-white rounded my-1">
-        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider">
-          <span className="truncate pr-2">Item: {itemDesc}</span>
-          <span className="whitespace-nowrap text-amber-400 font-extrabold text-xs">TOTAL COD: {codAmount}</span>
-        </div>
-      </div>
-
-      {/* Footer & Cut Marker Barcode */}
-      <div className="pt-1.5 border-t-2 border-slate-900 flex items-center justify-between text-[9px]">
-        {/* Simulated Barcode */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex gap-0.5 items-center h-6">
-            <span className="w-1 h-full bg-slate-900" />
-            <span className="w-0.5 h-full bg-slate-900" />
-            <span className="w-2 h-full bg-slate-900" />
-            <span className="w-1 h-full bg-slate-900" />
-            <span className="w-2.5 h-full bg-slate-900" />
-            <span className="w-0.5 h-full bg-slate-900" />
-            <span className="w-1 h-full bg-slate-900" />
-          </div>
-          <span className="font-mono font-bold tracking-widest text-slate-800">
-            *{customer.id.toUpperCase()}*
+        {/* 2.3 Total COD Footer */}
+        <div className="h-[18mm] border-t-[0.55mm] border-[#000000] flex items-center justify-center bg-[#F8FAFC] gap-[5mm] px-[4mm]">
+          <span className="text-[12.5px] uppercase tracking-wider text-[#475569]" style={{ fontWeight: 500, fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            Total COD
+          </span>
+          <span className="text-[21px] text-[#000000] tracking-tight" style={{ fontWeight: 600, fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            {getCodAmount(order)}
           </span>
         </div>
 
-        <div className="text-right">
-          <div className="font-bold uppercase text-[8px] tracking-wider text-slate-700">
-            A6 LANDSCAPE (148mm × 105mm)
-          </div>
-          <div className="text-[8px] font-semibold text-slate-500">4 SLIPS PER A4 SHEET</div>
-        </div>
       </div>
     </div>
   );

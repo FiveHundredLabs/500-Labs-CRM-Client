@@ -14,6 +14,7 @@ import {
   IStockActivityLogRepository,
   IApprovalRequestRepository,
   IPettyCashRepository,
+  ISalesTargetRepository,
 } from '../interfaces';
 import {
   Team,
@@ -37,6 +38,9 @@ import {
   ApprovalStatus,
   PettyCashWallet,
   PettyCashTransaction,
+  TeamSalesTarget,
+  TeamTargetTier,
+  DuplicatePhoneCheckResult,
 } from '../../models/domain';
 import { STORAGE_KEYS, getStoredItem, setStoredItem, delay } from './mockStore';
 
@@ -222,51 +226,31 @@ export class MockContactRepository implements IContactRepository {
   async addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string }): Promise<Contact> {
     await delay();
     const contacts = getStoredItem<Contact>(STORAGE_KEYS.CONTACTS, []);
-    const existingIndex = contacts.findIndex((c) => c.phone.trim() === data.phone.trim());
     const now = new Date().toISOString();
-
-    let targetContact: Contact;
-    if (existingIndex !== -1) {
-      targetContact = {
-        ...contacts[existingIndex],
-        allocatedToId: data.memberId,
-        autoAllocatedTo: data.memberId,
-        isAllocated: true,
-        allocatedAt: now,
-        isSelfAdded: true,
-        addedBy: data.memberId,
-        allocationSource: 'SELF_ADDED',
-        city: data.city || contacts[existingIndex].city,
-        secondaryMobile: data.secondaryMobile || contacts[existingIndex].secondaryMobile,
-        updatedAt: now,
-      };
-      contacts[existingIndex] = targetContact;
-    } else {
-      targetContact = {
-        id: `cnt_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        phone: data.phone.trim(),
-        status: 'NEW',
-        teamId: data.teamId,
-        importedAt: now,
-        importedBy: data.memberId,
-        addedBy: data.memberId,
-        importBatchId: `bat_self_${Date.now()}`,
-        isAllocated: true,
-        allocatedToId: data.memberId,
-        allocatedAt: now,
-        allocationBatchId: `alc_self_${Date.now()}`,
-        autoAllocatedTo: data.memberId,
-        allocationSource: 'SELF_ADDED',
-        isSelfAdded: true,
-        city: data.city,
-        secondaryMobile: data.secondaryMobile,
-        attemptCount: 0,
-        lastCalledAt: null,
-        isFollowUp: false,
-        updatedAt: now,
-      };
-      contacts.push(targetContact);
-    }
+    const targetContact: Contact = {
+      id: `cnt_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      phone: data.phone.trim(),
+      status: 'NEW',
+      teamId: data.teamId,
+      importedAt: now,
+      importedBy: data.memberId,
+      addedBy: data.memberId,
+      importBatchId: `bat_self_${Date.now()}`,
+      isAllocated: true,
+      allocatedToId: data.memberId,
+      allocatedAt: now,
+      allocationBatchId: `alc_self_${Date.now()}`,
+      autoAllocatedTo: data.memberId,
+      allocationSource: 'SELF_ADDED',
+      isSelfAdded: true,
+      city: data.city,
+      secondaryMobile: data.secondaryMobile,
+      attemptCount: 0,
+      lastCalledAt: null,
+      isFollowUp: false,
+      updatedAt: now,
+    };
+    contacts.push(targetContact);
     setStoredItem(STORAGE_KEYS.CONTACTS, contacts);
 
     // Record allocation history entry
@@ -286,6 +270,33 @@ export class MockContactRepository implements IContactRepository {
     setStoredItem(STORAGE_KEYS.ALLOCATIONS, allocations);
 
     return targetContact;
+  }
+
+  async checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult> {
+    await delay();
+    const contacts = getStoredItem<Contact>(STORAGE_KEYS.CONTACTS, []);
+    const clean = data.phone.trim();
+    const own = contacts.find((c) => c.phone === clean && c.allocatedToId === data.memberId);
+    if (own) {
+      return { exists: true, isOwnedBySelf: true, message: 'This phone number already exists in your profile queue.' };
+    }
+    const other = contacts.find((c) => c.phone === clean);
+    if (!other) {
+      return { exists: false, isOwnedBySelf: false };
+    }
+    return {
+      exists: true,
+      isOwnedBySelf: false,
+      message: 'This number already exists in the CRM and was assigned or called previously.',
+      intelligence: {
+        phone: clean,
+        assignedMemberName: 'Other Sales Specialist',
+        teamName: 'CRM Team',
+        lastCallStatus: other.status,
+        lastCalledAt: other.lastCalledAt,
+        previousOrders: [],
+      },
+    };
   }
 }
 
@@ -467,12 +478,13 @@ export class MockOrderRepository implements IOrderRepository {
     return orders.filter((o) => o.teamMemberId === memberId);
   }
 
-  async create(orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> {
+  async create(orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order> {
     await delay();
     const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
     const now = new Date().toISOString();
     const newOrder: Order = {
       ...orderData,
+      orderNumber: orderData.orderNumber || `ORD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`,
       id: `ord_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       createdAt: now,
       updatedAt: now,
@@ -697,6 +709,26 @@ export class MockProductRepository implements IProductRepository {
     products[idx] = updated;
     setStoredItem(STORAGE_KEYS.PRODUCTS, products);
     return updated;
+  }
+
+  async reportDamage(id: string, quantity: number): Promise<Product> {
+    await delay();
+    const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+    const idx = products.findIndex((p) => p.id === id);
+    if (idx === -1) throw new Error('Product not found');
+    const newStock = Math.max(0, products[idx].currentStock - quantity);
+    const newDamaged = (products[idx].damagedStock || 0) + quantity;
+    const updated = { ...products[idx], currentStock: newStock, damagedStock: newDamaged, updatedAt: new Date().toISOString() };
+    products[idx] = updated;
+    setStoredItem(STORAGE_KEYS.PRODUCTS, products);
+    return updated;
+  }
+
+  async delete(id: string): Promise<void> {
+    await delay();
+    const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+    const filtered = products.filter((p) => p.id !== id);
+    setStoredItem(STORAGE_KEYS.PRODUCTS, filtered);
   }
 }
 
@@ -994,5 +1026,78 @@ export class MockPettyCashRepository implements IPettyCashRepository {
     setStoredItem(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, txs);
 
     return newTx;
+  }
+}
+
+export class MockSalesTargetRepository implements ISalesTargetRepository {
+  private getStorageKey(): string {
+    return 'crm_sales_targets';
+  }
+
+  async getAll(month?: string, teamId?: string): Promise<TeamSalesTarget[]> {
+    await delay();
+    const targets = getStoredItem<TeamSalesTarget>(this.getStorageKey(), []);
+    return targets.filter((t) => (!month || t.month === month) && (!teamId || t.teamId === teamId));
+  }
+
+  async getById(id: string): Promise<TeamSalesTarget | null> {
+    await delay();
+    const targets = getStoredItem<TeamSalesTarget>(this.getStorageKey(), []);
+    return targets.find((t) => t.id === id) || null;
+  }
+
+  async upsert(target: {
+    teamId: string;
+    month: string;
+    targetAmount: number;
+    notes?: string;
+    tiers: TeamTargetTier[];
+  }): Promise<TeamSalesTarget> {
+    await delay();
+    const targets = getStoredItem<TeamSalesTarget>(this.getStorageKey(), []);
+    const idx = targets.findIndex((t) => t.teamId === target.teamId && t.month === target.month);
+
+    const now = new Date().toISOString();
+    const newTarget: TeamSalesTarget = {
+      id: idx !== -1 ? targets[idx].id : `target_${Date.now()}`,
+      teamId: target.teamId,
+      month: target.month,
+      targetAmount: target.targetAmount,
+      notes: target.notes,
+      tiers: target.tiers.map((t, i) => ({
+        id: t.id || `tier_${Date.now()}_${i}`,
+        minPercentage: t.minPercentage,
+        allowanceAmount: t.allowanceAmount,
+        title: t.title || `${t.minPercentage}% Tier`,
+      })),
+      createdAt: idx !== -1 ? targets[idx].createdAt : now,
+      updatedAt: now,
+    };
+
+    if (idx !== -1) {
+      targets[idx] = newTarget;
+    } else {
+      targets.push(newTarget);
+    }
+    setStoredItem(this.getStorageKey(), targets);
+    return newTarget;
+  }
+
+  async update(id: string, updates: Partial<TeamSalesTarget>): Promise<TeamSalesTarget> {
+    await delay();
+    const targets = getStoredItem<TeamSalesTarget>(this.getStorageKey(), []);
+    const idx = targets.findIndex((t) => t.id === id);
+    if (idx === -1) throw new Error('Sales target not found');
+    const updated = { ...targets[idx], ...updates, updatedAt: new Date().toISOString() };
+    targets[idx] = updated;
+    setStoredItem(this.getStorageKey(), targets);
+    return updated;
+  }
+
+  async delete(id: string): Promise<void> {
+    await delay();
+    const targets = getStoredItem<TeamSalesTarget>(this.getStorageKey(), []);
+    const filtered = targets.filter((t) => t.id !== id);
+    setStoredItem(this.getStorageKey(), filtered);
   }
 }

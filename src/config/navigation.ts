@@ -14,7 +14,10 @@ import {
   Upload, 
   Layers,
   MoreHorizontal,
-  Wallet
+  Wallet,
+  Boxes,
+  Target,
+  TrendingUp
 } from 'lucide-react';
 
 export interface NavItem {
@@ -32,15 +35,18 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Home', path: '/member/dashboard', icon: Home, isBottomNav: true },
     { label: 'Contacts', path: '/member/contacts', icon: PhoneCall, isBottomNav: true },
     { label: 'Call Logs', path: '/member/follow-ups', icon: Clock, isBottomNav: true },
-    { label: 'Leaderboard', path: '/member/leaderboard', icon: Trophy, isBottomNav: true },
-    { label: 'Profile', path: '/member/profile', icon: User, isBottomNav: true },
+    { label: 'Import', path: '/member/import', icon: Upload, isBottomNav: true },
+    { label: 'More', path: '#more', icon: MoreHorizontal, isBottomNav: true },
+    { label: 'My Sales', path: '/member/sales', icon: TrendingUp, isBottomNav: false },
+    { label: 'Leaderboard', path: '/member/leaderboard', icon: Trophy, isBottomNav: false },
+    { label: 'Profile', path: '/member/profile', icon: User, isBottomNav: false },
   ],
   SUPERVISOR: [
     { label: 'Home', path: '/supervisor/dashboard', icon: Home, isBottomNav: true },
+    { label: 'Import', path: '/supervisor/import', icon: Upload, isBottomNav: true },
     { label: 'Interested', path: '/supervisor/interested', icon: FileCheck, isBottomNav: true },
     { label: 'Orders', path: '/supervisor/orders', icon: Package, isBottomNav: true },
-    { label: 'Stock', path: '/supervisor/stock', icon: Package, isBottomNav: false },
-    { label: 'Import Contacts', path: '/supervisor/import', icon: Upload, isBottomNav: false },
+    { label: 'Stock', path: '/supervisor/stock', icon: Boxes, isBottomNav: false },
     { label: 'Allocation', path: '/supervisor/allocation', icon: Layers, isBottomNav: false },
     { label: 'Allocation History', path: '/supervisor/allocation/history', icon: Clock, isBottomNav: false },
     { label: 'Team', path: '/supervisor/team', icon: Users, isBottomNav: true },
@@ -52,9 +58,10 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   ADMIN: [
     // Admin Specific Items
     { label: 'Home', path: '/admin/dashboard', icon: Home, isBottomNav: true, group: 'Admin' },
+    { label: 'Sales Goals', path: '/admin/sales-goals', icon: Target, isBottomNav: false, group: 'Admin' },
     { label: 'Users', path: '/admin/users', icon: Users, isBottomNav: true, group: 'Admin' },
-    { label: 'Approvals', path: '/admin/approvals', icon: FileCheck, isBottomNav: true, group: 'Admin' },
-    { label: 'Products', path: '/admin/products', icon: Package, isBottomNav: true, group: 'Admin' },
+    { label: 'Products', path: '/admin/products', icon: Boxes, isBottomNav: true, group: 'Admin' },
+    { label: 'Approvals', path: '/admin/approvals', icon: FileCheck, isBottomNav: false, group: 'Admin' },
     { label: 'Reports', path: '/admin/reports', icon: PieChart, isBottomNav: true, group: 'Admin' },
     { label: 'Leaderboards', path: '/admin/leaderboards', icon: Trophy, isBottomNav: true, group: 'Admin' },
     { label: 'Activity', path: '/admin/activity', icon: Activity, isBottomNav: true, group: 'Admin' },
@@ -67,10 +74,9 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
       icon: Layers,
       group: 'Supervisor',
       children: [
+        { label: 'Import Contacts', path: '/admin/import', icon: Upload },
         { label: 'Interested', path: '/admin/customers', icon: FileCheck },
         { label: 'Orders', path: '/admin/orders', icon: Package },
-        { label: 'Stock', path: '/supervisor/stock', icon: Package },
-        { label: 'Import Contacts', path: '/admin/import', icon: Upload },
         { label: 'Allocation', path: '/admin/allocation', icon: Layers },
         { label: 'Allocation History', path: '/admin/allocation/history', icon: Clock },
       ],
@@ -83,6 +89,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
       icon: DollarSign,
       group: 'Finance',
       children: [
+        { label: 'Sales Analysis', path: '/admin/finance/sales-analysis', icon: TrendingUp },
         { label: 'Petty Cash', path: '/admin/finance/petty-cash', icon: Wallet },
         { label: 'Expenses', path: '/admin/finance/expenses', icon: DollarSign },
         { label: 'Add Expense', path: '/admin/finance/expenses/new', icon: DollarSign },
@@ -93,6 +100,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   ],
   FINANCE: [
     { label: 'Overview', path: '/finance/dashboard', icon: Home, isBottomNav: true },
+    { label: 'Sales Analysis', path: '/finance/sales-analysis', icon: TrendingUp, isBottomNav: true },
     { label: 'Petty Cash', path: '/finance/petty-cash', icon: Wallet, isBottomNav: true },
     { label: 'Expenses', path: '/finance/expenses', icon: DollarSign, isBottomNav: true },
     { label: 'Reports', path: '/finance/reports', icon: PieChart, isBottomNav: true },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
 import type { Customer, User, Order, OrderStatus, DeliveryStatusHistory } from '../models/domain';
 import { customerRepository, userRepository, orderRepository, deliveryStatusHistoryRepository } from '../repositories';
@@ -45,6 +45,51 @@ export function useOrders(overrideTeamId?: string) {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Compute duplicate conflict info for each order
+  const orderConflictMap = React.useMemo<Record<string, any>>(() => {
+    const mapByPhone: Record<string, Order[]> = {};
+
+    orders.forEach((ord) => {
+      const cust = customersMap[ord.customerId] || (ord as any).customer;
+      const rawPhone = cust?.phone || '';
+      const norm = rawPhone.trim();
+      if (!norm) return;
+      if (!mapByPhone[norm]) {
+        mapByPhone[norm] = [];
+      }
+      mapByPhone[norm].push(ord);
+    });
+
+    const conflictMap: Record<string, any> = {};
+
+    orders.forEach((ord) => {
+      const cust = customersMap[ord.customerId] || (ord as any).customer;
+      const rawPhone = cust?.phone || '';
+      const norm = rawPhone.trim();
+      if (!norm || !mapByPhone[norm]) return;
+
+      const isThisOrderActive = ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(ord.status);
+      const allForPhone = mapByPhone[norm];
+      const otherOrders = allForPhone.filter((o) => o.id !== ord.id);
+      const activeDuplicates = otherOrders.filter((o) =>
+        ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status)
+      );
+      const previousDelivered = otherOrders.filter((o) => o.status === 'DELIVERED');
+
+      conflictMap[ord.id] = {
+        phone: norm,
+        customerName: cust?.fullName,
+        hasDuplicateActiveOrders: isThisOrderActive && activeDuplicates.length > 0,
+        activeDuplicateOrders: activeDuplicates,
+        hasPreviousDeliveredOrder: isThisOrderActive && previousDelivered.length > 0,
+        previousDeliveredOrders: previousDelivered,
+        allOrdersForPhone: allForPhone,
+      };
+    });
+
+    return conflictMap;
+  }, [orders, customersMap]);
 
   const updateOrderStatus = async (
     targetOrder: Order,
@@ -112,6 +157,7 @@ export function useOrders(overrideTeamId?: string) {
     customersMap,
     teamMembers,
     membersMap,
+    orderConflictMap,
     loading,
     loadData,
     updateOrderStatus,
