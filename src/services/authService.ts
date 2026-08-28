@@ -19,12 +19,16 @@ export class AuthService {
    * Backend stores access and refresh tokens as HttpOnly cookies.
    */
   static async login(emailOrUsername: string, password: string): Promise<User> {
-    const response = await apiClient.post<LoginResponse>('/auth/login', {
-      emailOrUsername: emailOrUsername.trim(),
-      password,
-    });
+    await apiClient.post<LoginResponse>(
+      '/auth/login',
+      {
+        emailOrUsername: emailOrUsername.trim(),
+        password,
+      },
+      { skipAuthRefresh: true }
+    );
 
-    const { user } = response.data.data;
+    const user = await this.getCurrentUser();
     markAuthRecovered();
     return user;
   }
@@ -33,27 +37,45 @@ export class AuthService {
    * Refresh the cookie-backed session.
    */
   static async refresh(): Promise<User> {
-    const response = await apiClient.post<RefreshResponse>('/auth/refresh');
+    const response = await apiClient.post<RefreshResponse>(
+      '/auth/refresh',
+      undefined,
+      { skipAuthRefresh: true }
+    );
     markAuthRecovered();
     return response.data.data.user;
+  }
+
+  /**
+   * Restore cookie-backed auth on page load.
+   */
+  static async restoreSession(): Promise<User | null> {
+    try {
+      return await this.getCurrentUser();
+    } catch {
+      try {
+        await this.refresh();
+        return await this.getCurrentUser();
+      } catch {
+        return null;
+      }
+    }
   }
 
   /**
    * Logout: revoke server session and clear auth cookies.
    */
   static async logout(): Promise<void> {
-    await apiClient.post('/auth/logout');
+    await apiClient.post('/auth/logout', undefined, { skipAuthRefresh: true });
   }
 
   /**
    * Fetch the current user's profile from the API.
    */
-  static async getCurrentUser(): Promise<User | null> {
-    try {
-      const response = await apiClient.get<{ data: User }>('/auth/me');
-      return response.data.data;
-    } catch {
-      return null;
-    }
+  static async getCurrentUser(): Promise<User> {
+    const response = await apiClient.get<{ data: User }>('/auth/me', {
+      skipAuthRefresh: true,
+    });
+    return response.data.data;
   }
 }

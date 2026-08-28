@@ -10,10 +10,10 @@ export interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
-  const { user, loading } = useAuth();
+  const { user, status } = useAuth();
   const { hasRole } = usePermissions();
 
-  if (loading) {
+  if (status === 'checking') {
     return (
       <div className="p-8 max-w-xl mx-auto">
         <LoadingState rows={5} />
@@ -21,7 +21,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
     );
   }
 
-  if (!user) {
+  if (status === 'unauthenticated' || !user) {
     return <Navigate to="/login" replace />;
   }
 

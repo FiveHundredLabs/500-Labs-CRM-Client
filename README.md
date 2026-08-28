@@ -50,6 +50,27 @@ npm run build
 
 ---
 
+## Backend API & Cookie Authentication
+
+Set `VITE_API_BASE_URL` to the Nest API URL, including `/api/v1`.
+
+Temporary Vercel frontend:
+
+```bash
+VITE_API_BASE_URL=https://api.500crm.residuesolution.io/api/v1
+```
+
+The frontend uses one Axios instance in `src/lib/apiClient.ts` with `withCredentials: true`. JWTs are stored only in backend-set HttpOnly cookies; frontend code must not read cookies, attach Bearer tokens, or store JWTs in `localStorage`/`sessionStorage`.
+
+The preferred production topology is:
+
+- Frontend: `https://crm.500crm.residuesolution.io`
+- Backend: `https://api.500crm.residuesolution.io`
+
+That topology is cross-origin but same-site, so the backend can use `AUTH_COOKIE_SECURE=true` and `AUTH_COOKIE_SAME_SITE=lax`.
+
+---
+
 ## Architecture & Replacing `MockRepository` with `ApiRepository`
 
 The project uses clean Repository interfaces defined in `src/repositories/interfaces/`. All repository methods return `Promise<T>` to mimic REST/GraphQL API behavior.
@@ -72,8 +93,11 @@ export const userRepository = new ApiUserRepository();
 
 ---
 
-## How to Reset Demo / LocalStorage Data
-If you wish to reset all mock records back to the initial seed JSON datasets, run this command in your browser developer console:
+## Mock Data Note
+
+The production API path does not use browser token storage. Any `localStorage` usage in `src/repositories/mock` is only for the legacy mock repository mode and must not be used for authentication.
+
+If mock mode is restored for local demos and you need to reset mock records, run this command in your browser developer console:
 ```javascript
 localStorage.clear();
 location.reload();

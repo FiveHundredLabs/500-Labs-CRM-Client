@@ -4,9 +4,12 @@ import { AuthService } from '../services/authService';
 import { AUTH_EXPIRED_EVENT } from '../lib/apiClient';
 import toast from 'react-hot-toast';
 
+export type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
+
 interface AuthContextType {
   user: User | null;
   role: UserRole | null;
+  status: AuthStatus;
   loading: boolean;
   login: (emailOrUsername: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
@@ -21,11 +24,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [status, setStatus] = useState<AuthStatus>('checking');
 
   useEffect(() => {
     const handleAuthExpired = () => {
       setUser(null);
+      setStatus('unauthenticated');
     };
 
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
@@ -33,22 +37,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     const init = async () => {
-      const currentUser = await AuthService.getCurrentUser();
+      const currentUser = await AuthService.restoreSession();
+      if (!isMounted) return;
+
       setUser(currentUser);
-      setLoading(false);
+      setStatus(currentUser ? 'authenticated' : 'unauthenticated');
     };
 
     init();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const login = async (emailOrUsername: string, password: string): Promise<User> => {
+    setStatus('checking');
     try {
       const loggedUser = await AuthService.login(emailOrUsername, password);
       setUser(loggedUser);
+      setStatus('authenticated');
       toast.success(`Welcome back, ${loggedUser.fullName}!`);
       return loggedUser;
     } catch (err: any) {
+      setUser(null);
+      setStatus('unauthenticated');
       const message =
         err?.response?.data?.message || err?.message || 'Login failed. Check your credentials.';
       toast.error(message);
@@ -63,6 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Always clear local user state even if the server session is already gone.
     }
     setUser(null);
+    setStatus('unauthenticated');
     toast.success('Logged out successfully.');
   };
 
@@ -73,7 +90,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value: AuthContextType = {
     user,
     role: user ? user.role : null,
-    loading,
+    status,
+    loading: status === 'checking',
     login,
     logout,
     updateCurrentUser,
