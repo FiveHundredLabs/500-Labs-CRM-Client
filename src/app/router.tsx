@@ -41,6 +41,7 @@ import { AdminSalesGoalsPage } from '../views/admin/AdminSalesGoalsPage';
 
 // Finance Views
 import { FinanceDashboard } from '../views/finance/FinanceDashboard';
+import { FinanceSalesAnalysisPage } from '../views/finance/FinanceSalesAnalysisPage';
 import { FinancePettyCashPage } from '../views/finance/FinancePettyCashPage';
 import { FinanceExpensesPage } from '../views/finance/FinanceExpensesPage';
 import { FinanceNewExpensePage } from '../views/finance/FinanceNewExpensePage';
@@ -132,6 +133,7 @@ export const router = createBrowserRouter([
                   { path: 'allocation/history', element: <SupervisorAllocationHistoryPage /> },
 
                   // Finance Operations for Admin
+                  { path: 'finance/sales-analysis', element: <FinanceSalesAnalysisPage /> },
                   { path: 'finance/petty-cash', element: <FinancePettyCashPage /> },
                   { path: 'finance/expenses', element: <FinanceExpensesPage /> },
                   { path: 'finance/expenses/new', element: <FinanceNewExpensePage /> },
@@ -143,6 +145,7 @@ export const router = createBrowserRouter([
                 element: <ProtectedRoute allowedRoles={['FINANCE']} />,
                 children: [
                   { path: 'dashboard', element: <FinanceDashboard /> },
+                  { path: 'sales-analysis', element: <FinanceSalesAnalysisPage /> },
                   { path: 'petty-cash', element: <FinancePettyCashPage /> },
                   { path: 'expenses', element: <FinanceExpensesPage /> },
                   { path: 'expenses/new', element: <FinanceNewExpensePage /> },
