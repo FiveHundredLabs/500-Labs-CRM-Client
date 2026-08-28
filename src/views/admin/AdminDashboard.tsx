@@ -36,6 +36,7 @@ import {
   Target,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
+import toast from 'react-hot-toast';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -71,6 +72,8 @@ export const AdminDashboard: React.FC = () => {
         setExpenses(expList);
         setPendingApprovals(reqList.filter((r) => r.status === 'PENDING'));
         setEmailLogs(eLogs);
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || err?.message || 'Failed to load dashboard data.');
       } finally {
         setLoading(false);
       }

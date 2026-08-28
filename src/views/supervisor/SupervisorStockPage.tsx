@@ -72,6 +72,8 @@ export const SupervisorStockPage: React.FC = () => {
       setProducts(teamProducts);
       setStockLogs(logs);
       setApprovalRequests(requests);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to load stock data.');
     } finally {
       setLoading(false);
     }

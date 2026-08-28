@@ -5,40 +5,23 @@ export const AUTH_EXPIRED_EVENT = 'crm-auth-expired';
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true, // Required for HttpOnly refresh cookie
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// ─── Token Store ────────────────────────────────────────────────────────────
-// Access token is kept in memory only (never localStorage) for security.
-let accessToken: string | null = null;
-
-export const tokenStore = {
-  get: () => accessToken,
-  set: (token: string | null) => { accessToken = token; },
-  clear: () => { accessToken = null; },
-};
-
-// ─── Request Interceptor ────────────────────────────────────────────────────
-apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = tokenStore.get();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// ─── Response Interceptor (Auto-refresh on 401) ──────────────────────────────
-let refreshPromise: Promise<string> | null = null;
+let refreshPromise: Promise<void> | null = null;
 let authExpiredHandled = false;
 
 const isAuthEndpoint = (url?: string) =>
-  Boolean(url?.includes('/auth/login') || url?.includes('/auth/refresh'));
+  Boolean(
+    url?.includes('/auth/login') ||
+      url?.includes('/auth/refresh') ||
+      url?.includes('/auth/logout'),
+  );
 
 const notifyAuthExpired = () => {
-  tokenStore.clear();
   if (authExpiredHandled) return;
   authExpiredHandled = true;
   window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
@@ -47,11 +30,13 @@ const notifyAuthExpired = () => {
   }
 };
 
-const refreshAccessToken = async (): Promise<string> => {
-  const { data } = await apiClient.post<{ data: { accessToken: string } }>('/auth/refresh');
-  const newToken = data.data.accessToken;
-  tokenStore.set(newToken);
-  return newToken;
+export const markAuthRecovered = () => {
+  authExpiredHandled = false;
+};
+
+const refreshSession = async (): Promise<void> => {
+  await apiClient.post('/auth/refresh');
+  markAuthRecovered();
 };
 
 apiClient.interceptors.response.use(
@@ -63,7 +48,6 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Only attempt refresh on ordinary API 401s. Auth endpoints must not recurse.
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
@@ -73,13 +57,12 @@ apiClient.interceptors.response.use(
 
       try {
         if (!refreshPromise) {
-          refreshPromise = refreshAccessToken().finally(() => {
+          refreshPromise = refreshSession().finally(() => {
             refreshPromise = null;
           });
         }
 
-        const newToken = await refreshPromise;
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        await refreshPromise;
         return apiClient(originalRequest);
       } catch (refreshError) {
         notifyAuthExpired();

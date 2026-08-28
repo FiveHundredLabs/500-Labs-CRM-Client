@@ -3,7 +3,6 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { LoginPage } from '../views/auth/LoginPage';
 import { AppShell } from '../components/navigation/AppShell';
 import { ProtectedRoute } from '../components/navigation/ProtectedRoute';
-import { AppProviders } from './providers';
 
 // Member Views
 import { MemberDashboard } from '../views/member/MemberDashboard';
@@ -53,9 +52,7 @@ import { FinanceUnderDevelopmentPage } from '../views/finance/FinanceUnderDevelo
 
 const RootLayout: React.FC = () => {
   return (
-    <AppProviders>
-      <Outlet />
-    </AppProviders>
+    <Outlet />
   );
 };
 
