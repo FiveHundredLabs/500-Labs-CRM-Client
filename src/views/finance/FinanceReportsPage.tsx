@@ -311,6 +311,32 @@ export const FinanceReportsPage: React.FC = () => {
   }, [filteredOrders, filteredPettyTx, filteredExpenses]);
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // 4. Detailed Expense Report Data Calculations
+  // ─────────────────────────────────────────────────────────────────────────────
+  const expenseReportData = useMemo(() => {
+    const categoryTotals: Record<string, number> = {};
+    const monthlyTrend: Record<string, number> = {};
+
+    filteredExpenses.forEach((e) => {
+      const eAmt = Number(e.amount || 0);
+      categoryTotals[e.categoryName] = (categoryTotals[e.categoryName] || 0) + eAmt;
+      const monthKey = e.expenseDate.substring(0, 7);
+      monthlyTrend[monthKey] = (monthlyTrend[monthKey] || 0) + eAmt;
+    });
+
+    const chartData = Object.entries(monthlyTrend).map(([month, amount]) => ({
+      month,
+      amount,
+    }));
+
+    return {
+      categoryTotals,
+      totalAmount: filteredExpenses.reduce((acc, e) => acc + Number(e.amount || 0), 0),
+      chartData,
+    };
+  }, [filteredExpenses]);
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // 5. Inventory Report Calculations (From Live Product & Stock Batches DB)
   // ─────────────────────────────────────────────────────────────────────────────
   const inventoryReportData = useMemo(() => {
@@ -321,9 +347,9 @@ export const FinanceReportsPage: React.FC = () => {
           name: p.name,
           batchNumber: b.batchNumber,
           unitCost: Number(b.unitCostPrice || p.costPrice || 0),
-          sellingPrice: Number(b.sellingPrice || p.sellingPrice || 0),
+          sellingPrice: Number(b.batchSellingPrice || p.sellingPrice || 0),
           initialStock: Number(b.initialQuantity || 0),
-          currentStock: Number(b.currentQuantity !== undefined && b.currentQuantity !== null ? b.currentQuantity : (b.initialQuantity || 0)),
+          currentStock: Number(b.initialQuantity || 0),
           status: b.status || 'ACTIVE',
         }));
       }
@@ -333,8 +359,8 @@ export const FinanceReportsPage: React.FC = () => {
         batchNumber: 'STANDARD-BATCH',
         unitCost: Number(p.costPrice || 0),
         sellingPrice: Number(p.sellingPrice || 0),
-        initialStock: Number(p.stockQuantity || 0),
-        currentStock: Number(p.stockQuantity || 0),
+        initialStock: Number(p.currentStock || 0),
+        currentStock: Number(p.currentStock || 0),
         status: p.isActive ? 'ACTIVE' : 'DEPLETED',
       }];
     });
