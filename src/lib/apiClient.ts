@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
-const BASE_URL = "/api/v1";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 export const AUTH_EXPIRED_EVENT = "crm-auth-expired";
 
 declare module "axios" {
@@ -28,7 +28,10 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
 const getPathname = (url?: string): string => {
   if (!url) return "";
   try {
-    return new URL(url, BASE_URL).pathname;
+    const base = BASE_URL.startsWith("http")
+      ? BASE_URL
+      : `${window.location.origin}${BASE_URL.startsWith("/") ? "" : "/"}${BASE_URL}`;
+    return new URL(url, base).pathname;
   } catch {
     return url;
   }
