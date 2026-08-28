@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import type { Product, StockActivityLog, ApprovalRequest, User } from '../../models/domain';
-import { productRepository, stockActivityLogRepository, approvalRequestRepository, emailNotificationRepository, userRepository } from '../../repositories';
+import { productRepository, stockActivityLogRepository, approvalRequestRepository, emailNotificationRepository, userRepository, orderRepository, customerRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { LoadingState } from '../../components/shared/LoadingState';
@@ -10,7 +10,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import toast from 'react-hot-toast';
-import { Package, PlusCircle, DollarSign, AlertTriangle, Clock, CheckCircle2, XCircle, History, Send } from 'lucide-react';
+import { Package, PlusCircle, DollarSign, AlertTriangle, Clock, CheckCircle2, XCircle, History, Send, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const SupervisorStockPage: React.FC = () => {
@@ -58,6 +58,9 @@ export const SupervisorStockPage: React.FC = () => {
   const [confirmingStockSubmit, setConfirmingStockSubmit] = useState(false);
   const [confirmingPriceSubmit, setConfirmingPriceSubmit] = useState(false);
   const [confirmingBulkSubmit, setConfirmingBulkSubmit] = useState(false);
+
+  // Stock Filter Tab State
+  const [activeTab, setActiveTab] = useState<'ALL' | 'AVAILABLE' | 'ALLOCATED' | 'DISPATCHED' | 'SOLD' | 'DAMAGED'>('ALL');
 
   const loadData = async () => {
     if (!user || !user.teamId) return;
@@ -270,6 +273,7 @@ export const SupervisorStockPage: React.FC = () => {
     }
   };
 
+  // Open Damaged Stock Audit Inspection Modal
   // Supervisor reports damaged / broken units
   const handleReportDamage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -292,6 +296,17 @@ export const SupervisorStockPage: React.FC = () => {
 
   const lowStockCount = products.filter((p) => p.currentStock <= p.minStockThreshold).length;
   const pendingRequestsCount = approvalRequests.filter((r) => r.status === 'PENDING').length;
+
+  const filteredProducts = products.filter((p) => {
+    switch (activeTab) {
+      case 'AVAILABLE': return p.currentStock > 0;
+      case 'ALLOCATED': return (p.allocatedStock || 0) > 0;
+      case 'DISPATCHED': return (p.dispatchedStock || 0) > 0;
+      case 'SOLD': return (p.soldStock || 0) > 0;
+      case 'DAMAGED': return (p.damagedStock || 0) > 0;
+      default: return true;
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -347,68 +362,123 @@ export const SupervisorStockPage: React.FC = () => {
           </div>
         </div>
 
+        <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
+          {['ALL', 'AVAILABLE', 'ALLOCATED', 'DISPATCHED', 'SOLD', 'DAMAGED'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab as any)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                activeTab === tab
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              {tab === 'ALL' ? 'All Products' : tab}
+            </button>
+          ))}
+        </div>
+
         <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+          <table className="w-full text-left text-xs table-fixed">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="py-3 px-3">Product Name</th>
-                <th className="py-3 px-3">Code</th>
-                <th className="py-3 px-3">Current Stock</th>
-                <th className="py-3 px-3">Min Threshold</th>
-                <th className="py-3 px-3">Cost Price</th>
-                <th className="py-3 px-3">Selling Price</th>
-                <th className="py-3 px-3 text-right">Actions</th>
+                <th className="py-2.5 px-3 w-[26%]">Product & SKU</th>
+                <th className="py-2.5 px-1.5 text-center text-slate-700 w-[9%]">Available</th>
+                <th className="py-2.5 px-1.5 text-center text-amber-600 w-[8%]">Allocated</th>
+                <th className="py-2.5 px-1.5 text-center text-blue-600 w-[8%]">Dispatched</th>
+                <th className="py-2.5 px-1.5 text-center text-emerald-600 w-[8%]">Sold</th>
+                <th className="py-2.5 px-1.5 text-center text-rose-600 w-[8%]">Damaged</th>
+                <th className="py-2.5 px-2.5 w-[16%]">Price (LKR)</th>
+                <th className="py-2.5 px-3 text-right w-[17%]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {products.length === 0 ? (
+              {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-slate-400 text-xs">
+                  <td colSpan={8} className="py-6 text-center text-slate-400 text-xs">
                     No products found for your team.
                   </td>
                 </tr>
               ) : (
-                products.map((product) => {
+                filteredProducts.map((product) => {
                   const isLow = product.currentStock <= product.minStockThreshold;
                   return (
                     <tr key={product.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-3 font-semibold text-slate-900 flex items-center gap-2">
-                        <span>{product.name}</span>
-                        {isLow && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
-                            <AlertTriangle className="w-3 h-3" /> Low Stock
+                      {/* Product & Code */}
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-900 text-xs truncate max-w-[150px] sm:max-w-none" title={product.name}>
+                            {product.name}
                           </span>
-                        )}
+                          <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 font-medium shrink-0">
+                            {product.code}
+                          </span>
+                        </div>
                       </td>
-                      <td className="py-3 px-3 font-mono text-slate-500">{product.code}</td>
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 text-sm font-mono">{product.currentStock} units</span>
-                          {product.damagedStock && product.damagedStock > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md font-mono mt-1 w-fit">
-                              <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
-                              {product.damagedStock} damaged
-                            </span>
+
+                      {/* Available */}
+                      <td className="py-2.5 px-1.5 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className={`font-black text-xs font-mono ${product.currentStock === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
+                            {product.currentStock}
+                          </span>
+                          {product.currentStock === 0 ? (
+                            <span className="text-[9px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1 rounded">Out</span>
+                          ) : isLow ? (
+                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 rounded">Low</span>
                           ) : null}
                         </div>
                       </td>
-                      <td className="py-3 px-3 text-slate-500 font-mono">
-                        {product.minStockThreshold}
+
+                      {/* Allocated */}
+                      <td className="py-2.5 px-1.5 text-center">
+                        <span className={`font-bold text-xs font-mono ${(product.allocatedStock || 0) > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
+                          {product.allocatedStock || 0}
+                        </span>
                       </td>
-                      <td className="py-3 px-3 font-mono text-slate-800">
-                        LKR {product.costPrice.toLocaleString()}
+
+                      {/* Dispatched */}
+                      <td className="py-2.5 px-1.5 text-center">
+                        <span className={`font-bold text-xs font-mono ${(product.dispatchedStock || 0) > 0 ? 'text-blue-700' : 'text-slate-400'}`}>
+                          {product.dispatchedStock || 0}
+                        </span>
                       </td>
-                      <td className="py-3 px-3 font-mono font-bold text-emerald-600">
-                        LKR {product.sellingPrice.toLocaleString()}
+
+                      {/* Sold */}
+                      <td className="py-2.5 px-1.5 text-center">
+                        <span className={`font-bold text-xs font-mono ${(product.soldStock || 0) > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                          {product.soldStock || 0}
+                        </span>
                       </td>
-                      <td className="py-3 px-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
+
+                      {/* Damaged */}
+                      <td className="py-2.5 px-1.5 text-center">
+                        <span className={`font-bold text-xs font-mono ${(product.damagedStock || 0) > 0 ? 'text-rose-600 font-black' : 'text-slate-400'}`}>
+                          {product.damagedStock || 0}
+                        </span>
+                      </td>
+
+                      {/* Pricing */}
+                      <td className="py-2.5 px-2.5">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-emerald-700 text-xs font-mono">
+                            {product.sellingPrice.toLocaleString()}
+                          </span>
+                          <span className="text-slate-400 text-[10px] font-mono mt-0.5">
+                            Cost: {product.costPrice.toLocaleString()}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="outline"
                             size="sm"
-                            leftIcon={<PlusCircle className="w-3.5 h-3.5 text-blue-600" />}
+                            leftIcon={<PlusCircle className="w-3 h-3 text-blue-600" />}
                             onClick={() => openStockModal(product)}
-                            className="text-xs px-2 py-1"
+                            className="text-xs px-1.5 py-0.5 h-6.5"
                             title="Request Stock Addition"
                           >
                             + Stock
@@ -416,28 +486,28 @@ export const SupervisorStockPage: React.FC = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            leftIcon={<DollarSign className="w-3.5 h-3.5 text-slate-600" />}
+                            leftIcon={<DollarSign className="w-3 h-3 text-slate-600" />}
                             onClick={() => {
                               setPriceModalProduct(product);
                               setNewCostPrice(product.costPrice);
                               setNewSellingPrice(product.sellingPrice);
                               setPriceReason('');
                             }}
-                            className="text-xs px-2 py-1"
+                            className="text-xs px-1.5 py-0.5 h-6.5"
                             title="Request Price Change"
                           >
-                            Edit Price
+                            Price
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            leftIcon={<AlertTriangle className="w-3.5 h-3.5 text-rose-500" />}
+                            leftIcon={<AlertTriangle className="w-3 h-3 text-rose-500" />}
                             onClick={() => {
                               setDamageModalProduct(product);
                               setDamageQty(1);
                               setDamageReason('');
                             }}
-                            className="text-xs px-2 py-1 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
+                            className="text-xs px-1.5 py-0.5 h-6.5 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
                             title="Report Damaged / Broken Units"
                           >
                             Damage
@@ -1001,6 +1071,7 @@ export const SupervisorStockPage: React.FC = () => {
           </form>
         )}
       </Dialog>
+
     </div>
   );
 };

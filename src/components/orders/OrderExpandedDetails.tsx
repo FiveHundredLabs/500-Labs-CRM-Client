@@ -2,7 +2,7 @@ import React from 'react';
 import type { Order, OrderStatus } from '../../models/domain';
 import { formatCurrency } from '../../utils/currency';
 import { Button } from '../ui/Button';
-import { MessageSquare, History, CheckCheck, XCircle, Edit3, PlusCircle, Printer } from 'lucide-react';
+import { MessageSquare, History, CheckCheck, XCircle, Edit3, PlusCircle, Printer, ShieldAlert } from 'lucide-react';
 
 export interface OrderExpandedDetailsProps {
   order: Order;
@@ -10,6 +10,7 @@ export interface OrderExpandedDetailsProps {
   onOpenStatusModal: (order: Order, defaultNewStatus: OrderStatus) => void;
   onOpenRemarkModal: (order: Order) => void;
   onPrintBillingSlip: (order: Order) => void;
+  onInspectDamages?: (order: Order) => void;
 }
 
 export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
@@ -18,6 +19,7 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
   onOpenStatusModal,
   onOpenRemarkModal,
   onPrintBillingSlip,
+  onInspectDamages,
 }) => {
   return (
     <div
@@ -87,6 +89,18 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
                 Rejected
               </Button>
             </>
+          )}
+
+          {((order.damagedItems && order.damagedItems.length > 0) || (order.remarks && order.remarks.toLowerCase().includes('damage'))) && (
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<ShieldAlert className="w-3.5 h-3.5 text-rose-600" />}
+              onClick={() => onInspectDamages?.(order)}
+              className="text-xs py-1 px-2.5 text-rose-800 bg-rose-50 hover:bg-rose-100 border-rose-200 cursor-pointer h-7"
+            >
+              Damage Details
+            </Button>
           )}
 
           {(order.status === 'DELIVERED' || order.status === 'REJECTED') && (

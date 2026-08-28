@@ -1,14 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════
-   DESIGN TOKENS — Enterprise Light CRM System
+   DESIGN TOKENS — Modern Vibrant Enterprise CRM
    ═══════════════════════════════════════════════ */
 :root {
-  /* Main Palette */
+  /* Dynamic Modern Palette */
   --bg-app: #F8FAFC;
-  --bg-surface: #FFFFFF;
+  --bg-surface: rgba(255, 255, 255, 0.92);
   --bg-subtle: #F1F5F9;
 
   --text-heading: #0F172A;
@@ -22,22 +22,18 @@
   --brand-primary-hover: #1D4ED8;
   --brand-primary-subtle: #EFF6FF;
 
-  --color-success: #16A34A;
+  --color-success: #10B981;
   --color-success-bg: #ECFDF5;
-  --color-warning: #D97706;
-  --color-warning-bg: #FFF7ED;
-  --color-danger: #DC2626;
+  --color-warning: #F59E0B;
+  --color-warning-bg: #FFFBEB;
+  --color-danger: #EF4444;
   --color-danger-bg: #FEF2F2;
-  --color-info: #0284C7;
-  --color-info-bg: #EFF6FF;
-
-  /* Shadows */
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-dropdown: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --color-info: #06B6D4;
+  --color-info-bg: #ECFEFF;
 }
 
 /* ═══════════════════════════════════════════════
-   BASE RESET & TYPOGRAPHY
+   BASE RESET & MODERN TYPOGRAPHY
    ═══════════════════════════════════════════════ */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -48,7 +44,7 @@ html {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: #F8FAFC;
   color: #334155;
   -webkit-font-smoothing: antialiased;
@@ -59,43 +55,37 @@ body {
 /* Headings */
 h1, h2, h3, h4, h5, h6 {
   color: #0F172A;
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 /* ═══════════════════════════════════════════════
-   ENTERPRISE SURFACES & CARDS
+   MODERN VIBRANT MESH & AMBIENT AURORA CANVAS
    ═══════════════════════════════════════════════ */
-.enterprise-card {
-  background-color: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+.theme-modern-mesh {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.08) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(244, 63, 94, 0.03) 0px, transparent 60%),
+    radial-gradient(at 20% 100%, rgba(16, 185, 129, 0.06) 0px, transparent 50%),
+    radial-gradient(at 80% 100%, rgba(168, 85, 247, 0.07) 0px, transparent 50%);
+  background-attachment: fixed;
 }
 
-.enterprise-card:hover {
-  border-color: #CBD5E1;
+/* Glassmorphic Surfaces */
+.theme-glass-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.03), 0 2px 4px -2px rgba(15, 23, 42, 0.03);
 }
 
-.enterprise-table-container {
-  background-color: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-/* ═══════════════════════════════════════════════
-   FORM CONTROLS & FOCUS STATES
-   ═══════════════════════════════════════════════ */
-.enterprise-input {
-  background-color: #FFFFFF;
-  border: 1px solid #CBD5E1;
-  border-radius: 8px;
-  color: #0F172A;
-  font-size: 14px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+.theme-glass-surface {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .enterprise-input:focus {

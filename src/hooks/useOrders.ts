@@ -94,7 +94,8 @@ export function useOrders(overrideTeamId?: string) {
   const updateOrderStatus = async (
     targetOrder: Order,
     targetNewStatus: OrderStatus,
-    statusRemark: string
+    statusRemark: string,
+    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
   ) => {
     if (!user) return false;
     try {
@@ -102,7 +103,8 @@ export function useOrders(overrideTeamId?: string) {
         targetOrder.id,
         targetNewStatus,
         user,
-        statusRemark.trim() || undefined
+        statusRemark.trim() || undefined,
+        damagedItems
       );
       toast.success(`Order #${targetOrder.orderNumber} status changed to ${targetNewStatus}`);
       await loadData();

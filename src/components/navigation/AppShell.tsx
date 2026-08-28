@@ -8,7 +8,7 @@ export const AppShell: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
-    <div className="h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-800 overflow-hidden">
+    <div className="h-screen theme-modern-mesh flex flex-col font-sans antialiased text-slate-800 overflow-hidden">
       <div className="flex flex-1 h-full min-h-0 overflow-hidden">
         {/* Desktop Sidebar */}
         <DesktopSidebar
