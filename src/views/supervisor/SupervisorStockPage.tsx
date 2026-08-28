@@ -106,7 +106,7 @@ export const SupervisorStockPage: React.FC = () => {
         requestedById: user.id,
         requestedByName: user.fullName,
         teamId: user.teamId || 'team_001',
-        productId: 'multi_products',
+        productId: itemsToAdd[0]?.productId || undefined as any,
         productName: `Bulk Stock Addition (${itemsToAdd.length} Products, +${totalQty} Units)`,
         items: itemsToAdd,
         quantity: totalQty,
