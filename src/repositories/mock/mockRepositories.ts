@@ -40,6 +40,7 @@ import {
   PettyCashTransaction,
   TeamSalesTarget,
   TeamTargetTier,
+  DuplicatePhoneCheckResult,
 } from '../../models/domain';
 import { STORAGE_KEYS, getStoredItem, setStoredItem, delay } from './mockStore';
 
@@ -225,51 +226,31 @@ export class MockContactRepository implements IContactRepository {
   async addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string }): Promise<Contact> {
     await delay();
     const contacts = getStoredItem<Contact>(STORAGE_KEYS.CONTACTS, []);
-    const existingIndex = contacts.findIndex((c) => c.phone.trim() === data.phone.trim());
     const now = new Date().toISOString();
-
-    let targetContact: Contact;
-    if (existingIndex !== -1) {
-      targetContact = {
-        ...contacts[existingIndex],
-        allocatedToId: data.memberId,
-        autoAllocatedTo: data.memberId,
-        isAllocated: true,
-        allocatedAt: now,
-        isSelfAdded: true,
-        addedBy: data.memberId,
-        allocationSource: 'SELF_ADDED',
-        city: data.city || contacts[existingIndex].city,
-        secondaryMobile: data.secondaryMobile || contacts[existingIndex].secondaryMobile,
-        updatedAt: now,
-      };
-      contacts[existingIndex] = targetContact;
-    } else {
-      targetContact = {
-        id: `cnt_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        phone: data.phone.trim(),
-        status: 'NEW',
-        teamId: data.teamId,
-        importedAt: now,
-        importedBy: data.memberId,
-        addedBy: data.memberId,
-        importBatchId: `bat_self_${Date.now()}`,
-        isAllocated: true,
-        allocatedToId: data.memberId,
-        allocatedAt: now,
-        allocationBatchId: `alc_self_${Date.now()}`,
-        autoAllocatedTo: data.memberId,
-        allocationSource: 'SELF_ADDED',
-        isSelfAdded: true,
-        city: data.city,
-        secondaryMobile: data.secondaryMobile,
-        attemptCount: 0,
-        lastCalledAt: null,
-        isFollowUp: false,
-        updatedAt: now,
-      };
-      contacts.push(targetContact);
-    }
+    const targetContact: Contact = {
+      id: `cnt_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      phone: data.phone.trim(),
+      status: 'NEW',
+      teamId: data.teamId,
+      importedAt: now,
+      importedBy: data.memberId,
+      addedBy: data.memberId,
+      importBatchId: `bat_self_${Date.now()}`,
+      isAllocated: true,
+      allocatedToId: data.memberId,
+      allocatedAt: now,
+      allocationBatchId: `alc_self_${Date.now()}`,
+      autoAllocatedTo: data.memberId,
+      allocationSource: 'SELF_ADDED',
+      isSelfAdded: true,
+      city: data.city,
+      secondaryMobile: data.secondaryMobile,
+      attemptCount: 0,
+      lastCalledAt: null,
+      isFollowUp: false,
+      updatedAt: now,
+    };
+    contacts.push(targetContact);
     setStoredItem(STORAGE_KEYS.CONTACTS, contacts);
 
     // Record allocation history entry
@@ -289,6 +270,33 @@ export class MockContactRepository implements IContactRepository {
     setStoredItem(STORAGE_KEYS.ALLOCATIONS, allocations);
 
     return targetContact;
+  }
+
+  async checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult> {
+    await delay();
+    const contacts = getStoredItem<Contact>(STORAGE_KEYS.CONTACTS, []);
+    const clean = data.phone.trim();
+    const own = contacts.find((c) => c.phone === clean && c.allocatedToId === data.memberId);
+    if (own) {
+      return { exists: true, isOwnedBySelf: true, message: 'This phone number already exists in your profile queue.' };
+    }
+    const other = contacts.find((c) => c.phone === clean);
+    if (!other) {
+      return { exists: false, isOwnedBySelf: false };
+    }
+    return {
+      exists: true,
+      isOwnedBySelf: false,
+      message: 'This number already exists in the CRM and was assigned or called previously.',
+      intelligence: {
+        phone: clean,
+        assignedMemberName: 'Other Sales Specialist',
+        teamName: 'CRM Team',
+        lastCallStatus: other.status,
+        lastCalledAt: other.lastCalledAt,
+        previousOrders: [],
+      },
+    };
   }
 }
 

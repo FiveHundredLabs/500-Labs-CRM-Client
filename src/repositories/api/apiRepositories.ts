@@ -40,6 +40,7 @@ import {
   ApprovalStatus,
   TeamSalesTarget,
   TeamTargetTier,
+  DuplicatePhoneCheckResult,
 } from '../../models/domain';
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -241,6 +242,9 @@ export class ApiContactRepository implements IContactRepository {
   }): Promise<Contact> {
     return unwrap(await apiClient.post<{ data: Contact }>('/contacts/personal', data));
   }
+  async checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult> {
+    return unwrap(await apiClient.post<{ data: DuplicatePhoneCheckResult }>('/contacts/check-duplicate', data));
+  }
   async update(id: string, updates: Partial<Contact>): Promise<Contact> {
     return unwrap(await apiClient.patch<{ data: Contact }>(`/contacts/${id}`, updates));
   }
@@ -406,8 +410,15 @@ export class ApiDeliveryStatusHistoryRepository implements IDeliveryStatusHistor
   async create(
     history: Omit<DeliveryStatusHistory, 'id' | 'createdAt'>
   ): Promise<DeliveryStatusHistory> {
-    // History is created by order status update — this is a no-op stub
-    throw new Error('Use OrderRepository.updateStatus() to create delivery history');
+    return {
+      id: `hist_${Date.now()}`,
+      orderId: history.orderId,
+      previousStatus: history.previousStatus,
+      newStatus: history.newStatus,
+      remarks: history.remarks,
+      actorUserId: history.actorUserId,
+      createdAt: new Date().toISOString(),
+    };
   }
 }
 

@@ -11,6 +11,7 @@ export type ContactStatus =
   | 'DISPATCHED'
   | 'DELIVERED'
   | 'REJECTED'
+  | 'CANCELLED'
   | 'SAVED_CONTACTS';
 
 export type OrderStatus =
@@ -19,7 +20,8 @@ export type OrderStatus =
   | 'DISPATCHED'
   | 'DELIVERED'
   | 'REJECTED'
-  | 'RETURNED';
+  | 'RETURNED'
+  | 'CANCELLED';
 
 export type EmailNotificationStatus = 'SENT' | 'SKIPPED' | 'FAILED';
 
@@ -94,6 +96,40 @@ export interface ContactAllocation {
   allocatedAt: string;
   isSelfAdded?: boolean;
   allocationSource?: 'SELF_ADDED' | 'SUPERVISOR_ALLOCATED' | 'BULK_IMPORT' | string;
+}
+
+export interface DuplicatePhoneOrderHistory {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  totalAmount: number;
+  createdAt: string;
+  deliveredAt?: string | null;
+  rejectedAt?: string | null;
+  remarks?: string | null;
+  itemsDescription: string;
+  teamMemberName?: string;
+}
+
+export interface DuplicatePhoneIntelligence {
+  phone: string;
+  assignedMemberName: string;
+  teamName: string;
+  allocatedAt?: string | null;
+  lastCalledAt?: string | null;
+  lastCallStatus?: ContactStatus | string | null;
+  lastCallRemarks?: string | null;
+  lastCustomerName?: string | null;
+  deliveryAddress?: string | null;
+  city?: string | null;
+  previousOrders: DuplicatePhoneOrderHistory[];
+}
+
+export interface DuplicatePhoneCheckResult {
+  exists: boolean;
+  isOwnedBySelf: boolean;
+  message?: string;
+  intelligence?: DuplicatePhoneIntelligence;
 }
 
 export interface CallLog {
@@ -221,6 +257,8 @@ export type ActivityAction =
   | 'ORDER_PRINTED'
   | 'ORDER_PREPARED'
   | 'ORDER_DISPATCHED'
+  | 'ORDER_CANCELLED'
+  | 'LEAD_CANCELLED'
   | 'DELIVERY_STATUS_CHANGED'
   | 'EMAIL_NOTIFICATION_SENT'
   | 'EXPENSE_CREATED'

@@ -13,6 +13,7 @@ import { OrderRemarkDialog } from '../../components/orders/OrderRemarkDialog';
 import { BulkStatusChangeDialog } from '../../components/orders/BulkStatusChangeDialog';
 import { OrderHistoryDialog } from '../../components/orders/OrderHistoryDialog';
 import { OrderPrintConfirmDialog } from '../../components/orders/OrderPrintConfirmDialog';
+import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { useOrders } from '../../hooks/useOrders';
 import { useOrderFilters } from '../../hooks/useOrderFilters';
 import { useSelection } from '../../hooks/useSelection';
@@ -30,6 +31,7 @@ export const SupervisorOrdersPage: React.FC = () => {
     customersMap,
     teamMembers,
     membersMap,
+    orderConflictMap,
     loading,
     updateOrderStatus,
     updateOrderRemark,
@@ -77,6 +79,10 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
 
+  // Duplicate Order Inspection State
+  const [inspectConflictOrder, setInspectConflictOrder] = useState<Order | null>(null);
+  const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
+
   // Status Change Modal Trigger
   const handleOpenStatusModal = (order: Order, defaultNewStatus: OrderStatus) => {
     setTargetOrder(order);
@@ -88,6 +94,12 @@ export const SupervisorOrdersPage: React.FC = () => {
     setHistoryOrder(order);
     const hist = await fetchOrderHistory(order.id);
     setOrderHistories(hist);
+  };
+
+  // Inspect Duplicate Orders Trigger
+  const handleInspectDuplicateOrders = (order: Order, conflictInfo: DuplicateOrderConflictInfo) => {
+    setInspectConflictOrder(order);
+    setInspectConflictInfo(conflictInfo);
   };
 
   // Selected Lead Print Items for PDF & Print
@@ -144,7 +156,7 @@ export const SupervisorOrdersPage: React.FC = () => {
 
       <PageHeader
         title="Supervisor Orders"
-        description="Monitor dispatched parcels, process delivery status updates with optional remarks, and manage team orders."
+        description="Monitor dispatched parcels, process delivery status updates, inspect duplicate order conflicts, and manage team orders."
       />
 
       {/* 1. Status Filter Summary Cards */}
@@ -183,10 +195,12 @@ export const SupervisorOrdersPage: React.FC = () => {
         customersMap={customersMap}
         membersMap={membersMap}
         selectedOrderIds={selectedOrderIds}
+        orderConflictMap={orderConflictMap}
         onToggleSelectCard={toggleSelectCard}
         onViewHistory={handleViewHistory}
         onOpenStatusModal={handleOpenStatusModal}
         onOpenRemarkModal={(order) => setRemarkOrder(order)}
+        onInspectDuplicateOrders={handleInspectDuplicateOrders}
       />
 
       {/* 4. Floating Action Panel */}
@@ -244,6 +258,24 @@ export const SupervisorOrdersPage: React.FC = () => {
         isOpen={isPrintConfirmOpen}
         onClose={() => setIsPrintConfirmOpen(false)}
         onClearSelection={clearSelection}
+      />
+
+      {/* Duplicate Order Conflict & History Inspection Dialog */}
+      <DuplicateOrderConflictDialog
+        isOpen={!!inspectConflictOrder}
+        onClose={() => {
+          setInspectConflictOrder(null);
+          setInspectConflictInfo(null);
+        }}
+        currentOrder={inspectConflictOrder}
+        conflictInfo={inspectConflictInfo}
+        customersMap={customersMap}
+        membersMap={membersMap}
+        onCancelOrder={async (ord) => {
+          await updateOrderStatus(ord, 'CANCELLED', 'Supervisor cancelled duplicate order');
+          setInspectConflictOrder(null);
+          setInspectConflictInfo(null);
+        }}
       />
     </div>
   );

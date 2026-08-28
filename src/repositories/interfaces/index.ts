@@ -21,6 +21,7 @@ import {
   ApprovalStatus,
   TeamSalesTarget,
   TeamTargetTier,
+  DuplicatePhoneCheckResult,
 } from '../../models/domain';
 
 export interface ITeamRepository {
@@ -49,6 +50,7 @@ export interface IContactRepository {
   create(contact: Omit<Contact, 'id' | 'updatedAt'>): Promise<Contact>;
   createMany(contacts: Array<Omit<Contact, 'id' | 'updatedAt'>>): Promise<Contact[]>;
   addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string }): Promise<Contact>;
+  checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult>;
   update(id: string, updates: Partial<Contact>): Promise<Contact>;
   updateManyStatus(ids: string[], status: ContactStatus): Promise<void>;
 }

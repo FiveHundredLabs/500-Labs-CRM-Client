@@ -2,16 +2,19 @@ import React from 'react';
 import type { Order, Customer, User, OrderStatus } from '../../models/domain';
 import { OrderCard } from './OrderCard';
 import { EmptyState } from '../shared/EmptyState';
+import type { DuplicateOrderConflictInfo } from './DuplicateOrderConflictDialog';
 
 export interface OrderListProps {
   filteredOrders: Order[];
   customersMap: Record<string, Customer>;
   membersMap: Record<string, User>;
   selectedOrderIds: string[];
+  orderConflictMap?: Record<string, DuplicateOrderConflictInfo>;
   onToggleSelectCard: (id: string) => void;
   onViewHistory: (order: Order) => void;
   onOpenStatusModal: (order: Order, defaultNewStatus: OrderStatus) => void;
   onOpenRemarkModal: (order: Order) => void;
+  onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
 }
 
 export const OrderList: React.FC<OrderListProps> = ({
@@ -19,10 +22,12 @@ export const OrderList: React.FC<OrderListProps> = ({
   customersMap,
   membersMap,
   selectedOrderIds,
+  orderConflictMap,
   onToggleSelectCard,
   onViewHistory,
   onOpenStatusModal,
   onOpenRemarkModal,
+  onInspectDuplicateOrders,
 }) => {
   if (filteredOrders.length === 0) {
     return (
@@ -39,6 +44,7 @@ export const OrderList: React.FC<OrderListProps> = ({
         const customer = customersMap[order.customerId];
         const member = membersMap[order.teamMemberId];
         const isSelected = selectedOrderIds.includes(order.id);
+        const conflictInfo = orderConflictMap ? orderConflictMap[order.id] : undefined;
 
         return (
           <OrderCard
@@ -46,11 +52,13 @@ export const OrderList: React.FC<OrderListProps> = ({
             order={order}
             customer={customer}
             handledByMember={member}
+            conflictInfo={conflictInfo}
             isSelected={isSelected}
             onToggleSelect={() => onToggleSelectCard(order.id)}
             onViewHistory={onViewHistory}
             onOpenStatusModal={onOpenStatusModal}
             onOpenRemarkModal={onOpenRemarkModal}
+            onInspectDuplicateOrders={onInspectDuplicateOrders}
           />
         );
       })}

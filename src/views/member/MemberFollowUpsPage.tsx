@@ -39,6 +39,7 @@ type LogFilterTab =
   | 'DISPATCHED'
   | 'REJECTED'
   | 'DELIVERED'
+  | 'CANCELLED'
   | 'SAVED_CONTACTS';
 
 interface FilterConfig {
@@ -57,6 +58,7 @@ const FILTER_TABS: FilterConfig[] = [
   { key: 'DISPATCHED', label: 'Dispatch' },
   { key: 'REJECTED', label: 'Rejected' },
   { key: 'DELIVERED', label: 'Delivered' },
+  { key: 'CANCELLED', label: 'Cancelled' },
   { key: 'SAVED_CONTACTS', label: 'Saved Contacts' },
 ];
 
@@ -184,6 +186,7 @@ export const MemberFollowUpsPage: React.FC = () => {
     DISPATCHED: callLogs.filter((l) => l.status === 'DISPATCHED' || contactsMap[l.contactId]?.status === 'DISPATCHED').length,
     REJECTED: callLogs.filter((l) => l.status === 'REJECTED' || contactsMap[l.contactId]?.status === 'REJECTED').length,
     DELIVERED: callLogs.filter((l) => l.status === 'DELIVERED' || contactsMap[l.contactId]?.status === 'DELIVERED').length,
+    CANCELLED: callLogs.filter((l) => l.status === 'CANCELLED' || contactsMap[l.contactId]?.status === 'CANCELLED').length,
     SAVED_CONTACTS: callLogs.filter((l) => Boolean(l.customerName && l.customerAddress) || contactsMap[l.contactId]?.isSelfAdded).length,
   };
 
