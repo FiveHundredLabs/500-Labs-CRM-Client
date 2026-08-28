@@ -1,9 +1,9 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
-export const AUTH_EXPIRED_EVENT = 'crm-auth-expired';
+const BASE_URL = "/api/v1";
+export const AUTH_EXPIRED_EVENT = "crm-auth-expired";
 
-declare module 'axios' {
+declare module "axios" {
   export interface AxiosRequestConfig {
     skipAuthRefresh?: boolean;
   }
@@ -13,7 +13,7 @@ export const apiClient = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -26,7 +26,7 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
 };
 
 const getPathname = (url?: string): string => {
-  if (!url) return '';
+  if (!url) return "";
   try {
     return new URL(url, BASE_URL).pathname;
   } catch {
@@ -37,9 +37,9 @@ const getPathname = (url?: string): string => {
 const isAuthEndpoint = (url?: string) => {
   const pathname = getPathname(url);
   return (
-    pathname.endsWith('/auth/login') ||
-    pathname.endsWith('/auth/refresh') ||
-    pathname.endsWith('/auth/logout')
+    pathname.endsWith("/auth/login") ||
+    pathname.endsWith("/auth/refresh") ||
+    pathname.endsWith("/auth/logout")
   );
 };
 
@@ -54,7 +54,7 @@ export const markAuthRecovered = () => {
 };
 
 const refreshSession = async (): Promise<void> => {
-  await apiClient.post('/auth/refresh', undefined, { skipAuthRefresh: true });
+  await apiClient.post("/auth/refresh", undefined, { skipAuthRefresh: true });
   markAuthRecovered();
 };
 

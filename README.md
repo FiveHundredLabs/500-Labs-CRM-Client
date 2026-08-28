@@ -20,30 +20,33 @@ A high-performance, mobile-first SaaS frontend application built for role-based 
 
 ## Demo Credentials (One-Tap Quick Login Available)
 
-| Role | Email | Password | Predefined Team Context |
-| :--- | :--- | :--- | :--- |
-| **Admin** | `admin@crm.com` | `admin123` | Cross-System Administrator |
-| **Supervisor** | `supervisor.alpha@crm.com` | `super123` | Team 1: **Brand Alpha** |
-| **Supervisor** | `supervisor.beta@crm.com` | `super123` | Team 2: **Brand Beta** |
-| **Team Member** | `member.a1@crm.com` | `member123` | Team 1: **Brand Alpha** |
-| **Team Member** | `member.b1@crm.com` | `member123` | Team 2: **Brand Beta** |
-| **Finance** | `finance@crm.com` | `finance123` | Financial Management |
+| Role            | Email                      | Password     | Predefined Team Context    |
+| :-------------- | :------------------------- | :----------- | :------------------------- |
+| **Admin**       | `admin@crm.com`            | `admin123`   | Cross-System Administrator |
+| **Supervisor**  | `supervisor.alpha@crm.com` | `super123`   | Team 1: **Brand Alpha**    |
+| **Supervisor**  | `supervisor.beta@crm.com`  | `super123`   | Team 2: **Brand Beta**     |
+| **Team Member** | `member.a1@crm.com`        | `member123`  | Team 1: **Brand Alpha**    |
+| **Team Member** | `member.b1@crm.com`        | `member123`  | Team 2: **Brand Beta**     |
+| **Finance**     | `finance@crm.com`          | `finance123` | Financial Management       |
 
 ---
 
 ## Setup & Running Instructions
 
 ### 1. Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### 2. Launch Development Server
+
 ```bash
 npm run dev
 ```
 
 ### 3. Build Production Bundle
+
 ```bash
 npm run build
 ```
@@ -52,22 +55,23 @@ npm run build
 
 ## Backend API & Cookie Authentication
 
-Set `VITE_API_BASE_URL` to the Nest API URL, including `/api/v1`.
+Browser API calls are same-origin and relative:
 
-Temporary Vercel frontend:
-
-```bash
-VITE_API_BASE_URL=https://api.500crm.residuesolution.io/api/v1
+```ts
+axios.create({
+  baseURL: "/api/v1",
+  withCredentials: true,
+});
 ```
 
-The frontend uses one Axios instance in `src/lib/apiClient.ts` with `withCredentials: true`. JWTs are stored only in backend-set HttpOnly cookies; frontend code must not read cookies, attach Bearer tokens, or store JWTs in `localStorage`/`sessionStorage`.
+On Vercel, `/api/*` is rewritten externally to `https://api.500crm.residuesolution.io/api/*`. In local development, Vite proxies `/api` to `http://localhost:3000`.
 
-The preferred production topology is:
+Current production topology:
 
-- Frontend: `https://crm.500crm.residuesolution.io`
+- Frontend: `https://500crm-frontend.vercel.app`
 - Backend: `https://api.500crm.residuesolution.io`
 
-That topology is cross-origin but same-site, so the backend can use `AUTH_COOKIE_SECURE=true` and `AUTH_COOKIE_SAME_SITE=lax`.
+The browser must not call `api.500crm.residuesolution.io` directly. JWTs are stored only in backend-set HttpOnly cookies scoped to the frontend origin through the rewrite response; frontend code must not read cookies, attach Bearer tokens, or store JWTs in `localStorage`/`sessionStorage`.
 
 ---
 
@@ -76,12 +80,13 @@ That topology is cross-origin but same-site, so the backend can use `AUTH_COOKIE
 The project uses clean Repository interfaces defined in `src/repositories/interfaces/`. All repository methods return `Promise<T>` to mimic REST/GraphQL API behavior.
 
 ### To Switch to a Real PostgreSQL Backend:
+
 1. Implement the API repository classes in `src/repositories/api/apiRepositories.ts`.
 2. Update `src/repositories/index.ts` to export instances of `ApiRepository` instead of `MockRepository`:
 
 ```typescript
 // src/repositories/index.ts
-import { ApiUserRepository } from './api/apiRepositories';
+import { ApiUserRepository } from "./api/apiRepositories";
 
 // Replace:
 // export const userRepository = new MockUserRepository();
@@ -89,6 +94,7 @@ import { ApiUserRepository } from './api/apiRepositories';
 // With:
 export const userRepository = new ApiUserRepository();
 ```
+
 **Zero UI page rewrite required.**
 
 ---
@@ -98,9 +104,9 @@ export const userRepository = new ApiUserRepository();
 The production API path does not use browser token storage. Any `localStorage` usage in `src/repositories/mock` is only for the legacy mock repository mode and must not be used for authentication.
 
 If mock mode is restored for local demos and you need to reset mock records, run this command in your browser developer console:
+
 ```javascript
 localStorage.clear();
-location.reload();
 ```
 
 ---
