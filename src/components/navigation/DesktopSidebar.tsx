@@ -106,6 +106,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
                         <div className="flex items-center gap-2.5">
                           <Icon className="w-4 h-4 text-slate-500" />
                           <span>{item.label}</span>
+                          {item.label === 'Finance' && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
+                              Dev
+                            </span>
+                          )}
                         </div>
                         <ChevronDown
                           className={`w-3.5 h-3.5 transition-transform duration-200 ${

@@ -78,12 +78,16 @@ export const AdminDashboard: React.FC = () => {
     loadAll();
   }, []);
 
-  // Dynamic KPI Metrics
-  const totalGrossSales = orders.reduce((acc, curr) => acc + (curr.codAmount || curr.totalAmount || 0), 0);
+  // Dynamic KPI Metrics with explicit Number() casting
+  const totalGrossSales = orders.reduce(
+    (acc, curr) =>
+      acc + Number(curr.codAmount !== undefined && curr.codAmount !== null ? curr.codAmount : (curr.totalAmount || 0)),
+    0
+  );
   const lastDispatchedCount = orders.filter((o) => o.status === 'DISPATCHED').length;
   const totalDeliveredOrders = orders.filter((o) => o.status === 'DELIVERED').length;
   const todayInterestedCount = contacts.filter((c) => c.status === 'INTERESTED').length;
-  const totalMonthlyExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalMonthlyExpenses = expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
   // Dynamic Per-Team Leaderboards based on loaded teams
   const teamLeaderboards = teams.map((team) => {
