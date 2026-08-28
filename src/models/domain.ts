@@ -2,6 +2,7 @@ export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'TEAM_MEMBER' | 'FINANCE';
 
 export type ContactStatus = 
   | 'NEW'
+  | 'FOLLOW_UP'
   | 'ANSWERED'
   | 'NOT_ANSWERED'
   | 'PHONE_OFF'
@@ -9,7 +10,8 @@ export type ContactStatus =
   | 'NOT_INTERESTED'
   | 'DISPATCHED'
   | 'DELIVERED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'SAVED_CONTACTS';
 
 export type OrderStatus =
   | 'DRAFT'
@@ -38,6 +40,7 @@ export interface User {
   id: string; // e.g., 'usr_admin', 'usr_sup_01'
   username: string;
   email: string;
+  password?: string;
   fullName: string;
   role: UserRole;
   teamId: string | null; // null for ADMIN & FINANCE if multi-team

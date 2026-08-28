@@ -28,6 +28,11 @@ export const CONTACT_STATUS_CONFIG: Record<ContactStatus, StatusMeta> = {
     badgeClass: 'badge-blue',
     icon: Clock,
   },
+  FOLLOW_UP: {
+    label: 'Follow Up',
+    badgeClass: 'badge-amber',
+    icon: Clock,
+  },
   ANSWERED: {
     label: 'Answered',
     badgeClass: 'badge-green',
@@ -67,6 +72,11 @@ export const CONTACT_STATUS_CONFIG: Record<ContactStatus, StatusMeta> = {
     label: 'Rejected',
     badgeClass: 'badge-red',
     icon: XCircle,
+  },
+  SAVED_CONTACTS: {
+    label: 'Saved',
+    badgeClass: 'badge-indigo',
+    icon: CheckCircle2,
   },
 };
 

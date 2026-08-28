@@ -3,12 +3,14 @@ import { User, UserRole } from '../models/domain';
 import { AuthService } from '../services/authService';
 import toast from 'react-hot-toast';
 
+const USER_STORAGE_KEY = 'crm_current_user';
+
 interface AuthContextType {
   user: User | null;
   role: UserRole | null;
   loading: boolean;
-  login: (emailOrUsername: string, password?: string) => Promise<User>;
-  logout: () => void;
+  login: (emailOrUsername: string, password: string) => Promise<User>;
+  logout: () => Promise<void>;
   updateCurrentUser: (updatedUser: User) => void;
   isAdmin: boolean;
   isSupervisor: boolean;
@@ -22,33 +24,60 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // On app load: try to restore user from localStorage and validate via /auth/me
   useEffect(() => {
-    const active = AuthService.getCurrentUser();
-    setUser(active);
-    setLoading(false);
+    const init = async () => {
+      const cached = localStorage.getItem(USER_STORAGE_KEY);
+      if (cached) {
+        try {
+          const parsed: User = JSON.parse(cached);
+          setUser(parsed);
+          // Silently try token refresh to get a fresh access token
+          const refreshed = await AuthService.refresh().catch(() => null);
+          if (!refreshed) {
+            // Refresh failed — clear stale user
+            setUser(null);
+            localStorage.removeItem(USER_STORAGE_KEY);
+          }
+        } catch {
+          setUser(null);
+          localStorage.removeItem(USER_STORAGE_KEY);
+        }
+      }
+      setLoading(false);
+    };
+    init();
   }, []);
 
-  const login = async (emailOrUsername: string, password?: string): Promise<User> => {
+  const login = async (emailOrUsername: string, password: string): Promise<User> => {
     try {
       const loggedUser = await AuthService.login(emailOrUsername, password);
       setUser(loggedUser);
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(loggedUser));
       toast.success(`Welcome back, ${loggedUser.fullName}!`);
       return loggedUser;
     } catch (err: any) {
-      toast.error(err.message || 'Login failed.');
+      const message =
+        err?.response?.data?.message || err?.message || 'Login failed. Check your credentials.';
+      toast.error(message);
       throw err;
     }
   };
 
-  const logout = () => {
-    AuthService.logout();
+  const logout = async () => {
+    try {
+      await AuthService.logout();
+    } catch {
+      // Ignore logout API errors — always clear local state
+    }
     setUser(null);
+    localStorage.removeItem(USER_STORAGE_KEY);
     toast.success('Logged out successfully.');
   };
 
   const updateCurrentUser = (updatedUser: User) => {
     setUser(updatedUser);
-    AuthService.setCurrentUser(updatedUser);
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
   };
 
   const value: AuthContextType = {
@@ -70,26 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
-    // Safe fallback if called before context initialization
-    const fallbackUser = AuthService.getCurrentUser();
-    return {
-      user: fallbackUser,
-      role: fallbackUser ? fallbackUser.role : null,
-      loading: false,
-      login: async (emailOrUsername: string, password?: string) => {
-        return AuthService.login(emailOrUsername, password);
-      },
-      logout: () => {
-        AuthService.logout();
-      },
-      updateCurrentUser: (u: User) => {
-        AuthService.setCurrentUser(u);
-      },
-      isAdmin: fallbackUser?.role === 'ADMIN',
-      isSupervisor: fallbackUser?.role === 'SUPERVISOR',
-      isTeamMember: fallbackUser?.role === 'TEAM_MEMBER',
-      isFinance: fallbackUser?.role === 'FINANCE',
-    };
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

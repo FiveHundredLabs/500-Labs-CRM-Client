@@ -104,7 +104,7 @@ export class CallLogService {
             email: input.customerEmail,
             teamId: member.teamId!,
             responsibleTeamMemberId: member.id,
-            supervisorId: member.supervisorId || '',
+            supervisorId: member.supervisorId || undefined,
           });
         }
 
@@ -126,11 +126,10 @@ export class CallLogService {
           if (input.kidsQty) itemsDesc.push(`Kids Package x ${input.kidsQty}`);
           
           await orderRepository.create({
-            orderNumber: `ORD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
             customerId: createdOrUpdatedCustomer.id,
             teamId: member.teamId!,
             teamMemberId: member.id,
-            supervisorId: member.supervisorId || '',
+            supervisorId: member.supervisorId || undefined,
             status: 'PREPARED',
             itemsDescription: itemsDesc.join(', ') || 'Package Order',
             selectedPackage: input.selectedPackage || 'ADULT',

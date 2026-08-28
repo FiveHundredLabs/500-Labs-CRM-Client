@@ -1,36 +1,36 @@
 import {
-  MockTeamRepository,
-  MockUserRepository,
-  MockContactRepository,
-  MockAllocationRepository,
-  MockCallLogRepository,
-  MockCustomerRepository,
-  MockOrderRepository,
-  MockDeliveryStatusHistoryRepository,
-  MockActivityLogRepository,
-  MockExpenseRepository,
-  MockEmailNotificationRepository,
-  MockProductRepository,
-  MockStockActivityLogRepository,
-  MockApprovalRequestRepository,
-  MockPettyCashRepository,
-} from './mock/mockRepositories';
+  ApiTeamRepository,
+  ApiUserRepository,
+  ApiContactRepository,
+  ApiAllocationRepository,
+  ApiCallLogRepository,
+  ApiCustomerRepository,
+  ApiOrderRepository,
+  ApiDeliveryStatusHistoryRepository,
+  ApiActivityLogRepository,
+  ApiExpenseRepository,
+  ApiEmailNotificationRepository,
+  ApiProductRepository,
+  ApiStockActivityLogRepository,
+  ApiApprovalRequestRepository,
+  ApiPettyCashRepository,
+} from './api/apiRepositories';
 
-// Export instantiated repositories.
-// When connecting to PostgreSQL API later, simply replace `new MockUserRepository()` with `new ApiUserRepository()`!
-export const teamRepository = new MockTeamRepository();
-export const userRepository = new MockUserRepository();
-export const contactRepository = new MockContactRepository();
-export const allocationRepository = new MockAllocationRepository();
-export const callLogRepository = new MockCallLogRepository();
-export const customerRepository = new MockCustomerRepository();
-export const orderRepository = new MockOrderRepository();
-export const deliveryStatusHistoryRepository = new MockDeliveryStatusHistoryRepository();
-export const activityLogRepository = new MockActivityLogRepository();
-export const expenseRepository = new MockExpenseRepository();
-export const emailNotificationRepository = new MockEmailNotificationRepository();
-export const productRepository = new MockProductRepository();
-export const stockActivityLogRepository = new MockStockActivityLogRepository();
-export const approvalRequestRepository = new MockApprovalRequestRepository();
-export const pettyCashRepository = new MockPettyCashRepository();
-
+// All repositories now point to the real NestJS backend API.
+// To temporarily switch back to mock data, replace ApiXxxRepository with MockXxxRepository
+// and import from './mock/mockRepositories' instead.
+export const teamRepository = new ApiTeamRepository();
+export const userRepository = new ApiUserRepository();
+export const contactRepository = new ApiContactRepository();
+export const allocationRepository = new ApiAllocationRepository();
+export const callLogRepository = new ApiCallLogRepository();
+export const customerRepository = new ApiCustomerRepository();
+export const orderRepository = new ApiOrderRepository();
+export const deliveryStatusHistoryRepository = new ApiDeliveryStatusHistoryRepository();
+export const activityLogRepository = new ApiActivityLogRepository();
+export const expenseRepository = new ApiExpenseRepository();
+export const emailNotificationRepository = new ApiEmailNotificationRepository();
+export const productRepository = new ApiProductRepository();
+export const stockActivityLogRepository = new ApiStockActivityLogRepository();
+export const approvalRequestRepository = new ApiApprovalRequestRepository();
+export const pettyCashRepository = new ApiPettyCashRepository();
