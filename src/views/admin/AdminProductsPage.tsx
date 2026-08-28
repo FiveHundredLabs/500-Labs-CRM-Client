@@ -438,28 +438,24 @@ export const AdminProductsPage: React.FC = () => {
           </div>
 
           {/* Product Listing Table */}
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-2xs">
+            <table className="w-full text-left text-xs table-fixed">
+              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-3.5">Product Details</th>
-                  <th className="py-3 px-3.5">SKU / Code</th>
-                  <th className="py-3 px-3.5">Assigned Team</th>
-                  <th className="py-3 px-3.5 text-center">Available</th>
-                  <th className="py-3 px-3.5 text-center text-amber-600">Allocated</th>
-                  <th className="py-3 px-3.5 text-center text-blue-600">Dispatched</th>
-                  <th className="py-3 px-3.5 text-center text-emerald-600">Sold</th>
-                  <th className="py-3 px-3.5 text-center text-rose-600">Damaged</th>
-                  <th className="py-3 px-3.5">Cost Price</th>
-                  <th className="py-3 px-3.5">Selling Price</th>
-                  <th className="py-3 px-3.5">Margin</th>
-                  <th className="py-3 px-3.5 text-right">Actions</th>
+                  <th className="py-2.5 px-3.5 w-[28%]">Product & Brand</th>
+                  <th className="py-2.5 px-1.5 text-center text-slate-700 w-[8%]">Available</th>
+                  <th className="py-2.5 px-1.5 text-center text-amber-600 w-[8%]">Allocated</th>
+                  <th className="py-2.5 px-1.5 text-center text-blue-600 w-[8%]">Dispatched</th>
+                  <th className="py-2.5 px-1.5 text-center text-emerald-600 w-[8%]">Sold</th>
+                  <th className="py-2.5 px-1.5 text-center text-rose-600 w-[8%]">Damaged</th>
+                  <th className="py-2.5 px-2.5 w-[19%]">Pricing & Margin</th>
+                  <th className="py-2.5 px-3 text-right w-[13%]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="py-10 text-center text-slate-400 text-xs italic font-sans">
+                    <td colSpan={8} className="py-10 text-center text-slate-400 text-xs italic font-sans">
                       No products found matching the selected team and stock filters.
                     </td>
                   </tr>
@@ -476,120 +472,104 @@ export const AdminProductsPage: React.FC = () => {
 
                     return (
                       <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                        {/* Name & Category */}
-                        <td className="py-3 px-3.5">
-                          <div className="font-bold text-slate-900 text-xs">{p.name}</div>
-                          <div className="text-[11px] text-slate-400 font-medium mt-0.5">
-                            {p.category || 'General'}
+                        {/* Product, SKU & Brand */}
+                        <td className="py-2.5 px-3.5">
+                          <div className="truncate">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-slate-900 text-xs truncate max-w-[140px] sm:max-w-none" title={p.name}>
+                                {p.name}
+                              </span>
+                              <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 font-medium shrink-0">
+                                {p.code}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1 text-[10px] flex-wrap">
+                              <span
+                                className="inline-flex items-center gap-1 font-semibold px-1.5 py-0.2 rounded border text-[10px] shrink-0"
+                                style={{
+                                  backgroundColor: `${brand.brandColor}12`,
+                                  borderColor: `${brand.brandColor}35`,
+                                  color: brand.brandColor,
+                                }}
+                              >
+                                <Building2 className="w-2.5 h-2.5" />
+                                {teamInfo?.name || brand.name}
+                              </span>
+                              {p.category && (
+                                <span className="text-slate-400 font-medium truncate">{p.category}</span>
+                              )}
+                            </div>
                           </div>
                         </td>
 
-                        {/* Code */}
-                        <td className="py-3 px-3.5 font-mono text-slate-600 font-semibold text-[11px]">
-                          {p.code}
-                        </td>
-
-                        {/* Team */}
-                        <td className="py-3 px-3.5">
-                          <span
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md border"
-                            style={{
-                              backgroundColor: `${brand.brandColor}15`,
-                              borderColor: `${brand.brandColor}40`,
-                              color: brand.brandColor,
-                            }}
-                          >
-                            <Building2 className="w-3 h-3" />
-                            {teamInfo?.name || brand.name}
-                          </span>
-                        </td>
-
-                        {/* Current Sellable Stock & Damaged Units */}
-                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                        {/* Available */}
+                        <td className="py-2.5 px-1.5 text-center">
                           <div className="flex flex-col items-center">
-                            <span className="font-black text-slate-900 text-sm font-mono">{p.currentStock}</span>
-                            {isOutOfStock && (
-                              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
-                                <XCircle className="w-3 h-3" /> Out
-                              </span>
-                            )}
+                            <span className={`font-black text-xs font-mono ${p.currentStock === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
+                              {p.currentStock}
+                            </span>
+                            {isOutOfStock ? (
+                              <span className="text-[9px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1 rounded">Out</span>
+                            ) : isLow ? (
+                              <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 rounded">Low</span>
+                            ) : null}
                           </div>
                         </td>
                         
-                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
-                          <span className="font-bold text-amber-700 text-sm font-mono">{p.allocatedStock || 0}</span>
+                        {/* Allocated */}
+                        <td className="py-2.5 px-1.5 text-center">
+                          <span className={`font-bold text-xs font-mono ${(p.allocatedStock || 0) > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
+                            {p.allocatedStock || 0}
+                          </span>
                         </td>
 
-                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
-                          <span className="font-bold text-blue-700 text-sm font-mono">{p.dispatchedStock || 0}</span>
+                        {/* Dispatched */}
+                        <td className="py-2.5 px-1.5 text-center">
+                          <span className={`font-bold text-xs font-mono ${(p.dispatchedStock || 0) > 0 ? 'text-blue-700' : 'text-slate-400'}`}>
+                            {p.dispatchedStock || 0}
+                          </span>
                         </td>
 
-                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
-                          <span className="font-bold text-emerald-700 text-sm font-mono">{p.soldStock || 0}</span>
+                        {/* Sold */}
+                        <td className="py-2.5 px-1.5 text-center">
+                          <span className={`font-bold text-xs font-mono ${(p.soldStock || 0) > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                            {p.soldStock || 0}
+                          </span>
                         </td>
 
-                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
-                          <span className="font-bold text-rose-700 text-sm font-mono">{p.damagedStock || 0}</span>
+                        {/* Damaged */}
+                        <td className="py-2.5 px-1.5 text-center">
+                          <span className={`font-bold text-xs font-mono ${(p.damagedStock || 0) > 0 ? 'text-rose-600 font-black' : 'text-slate-400'}`}>
+                            {p.damagedStock || 0}
+                          </span>
                         </td>
 
-                        {/* Cost Price (Showing Both Batch Acquisition & Base Catalog Cost) */}
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          {(() => {
-                            const activeBatches = (p.batches || []).filter((b) => b.status === 'ACTIVE');
-                            const latestBatch = activeBatches[0];
-                            const hasDistinctBatchCost =
-                              latestBatch &&
-                              latestBatch.unitCostPrice !== undefined &&
-                              Number(latestBatch.unitCostPrice) !== Number(p.costPrice);
-
-                            if (hasDistinctBatchCost) {
-                              return (
-                                <div className="flex flex-col">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-bold text-amber-900 font-mono text-xs bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                                      {formatCurrency(latestBatch.unitCostPrice)}
-                                    </span>
-                                    <span className="text-[9px] font-semibold text-amber-700">Latest</span>
-                                  </div>
-                                  <span className="text-[10px] text-slate-400 font-mono mt-0.5 pl-0.5">
-                                    Base: {formatCurrency(p.costPrice)}
-                                  </span>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <div className="flex flex-col">
-                                <span className="font-mono text-slate-800 font-semibold text-xs">
-                                  {formatCurrency(p.costPrice)}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-sans">
-                                  Base Cost
-                                </span>
-                              </div>
-                            );
-                          })()}
-                        </td>
-
-                        {/* Selling Price */}
-                        <td className="py-3 px-3.5 font-mono font-bold text-emerald-700 text-xs whitespace-nowrap">
-                          {formatCurrency(p.sellingPrice)}
-                        </td>
-
-                        {/* Profit Margin */}
-                        <td className="py-3 px-3.5 font-mono font-semibold text-blue-700 text-xs whitespace-nowrap">
-                          {marginPct}%
+                        {/* Pricing & Margin */}
+                        <td className="py-2.5 px-2.5">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-emerald-700 text-xs">
+                                {formatCurrency(p.sellingPrice)}
+                              </span>
+                              <span className="font-mono text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1 py-0.2 rounded">
+                                {marginPct}%
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              Cost: {formatCurrency(p.costPrice)}
+                            </div>
+                          </div>
                         </td>
 
                         {/* Actions */}
-                        <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
                               leftIcon={<Boxes className="w-3.5 h-3.5 text-emerald-600" />}
                               onClick={() => setInspectingBatchesProduct(p)}
-                              className="text-xs px-2 py-1 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50"
+                              className="text-xs px-2 py-1 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 h-7"
                               title="Inspect Stock Batches & Cost Layers"
                             >
                               Batches
@@ -597,22 +577,21 @@ export const AdminProductsPage: React.FC = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                              leftIcon={<Edit2 className="w-3 h-3" />}
                               onClick={() => openEditModal(p)}
-                              className="text-xs px-2 py-1 text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+                              className="text-xs px-2 py-1 text-slate-700 hover:text-blue-600 hover:bg-blue-50 h-7"
+                              title="Edit Product"
                             >
                               Edit
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              leftIcon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
+                            <button
+                              type="button"
                               onClick={() => setDeletingProduct(p)}
-                              className="text-xs px-2 py-1 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
-                              title="Soft-delete (deactivate) product"
+                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Soft-delete product"
                             >
-                              Delete
-                            </Button>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </td>
                       </tr>
