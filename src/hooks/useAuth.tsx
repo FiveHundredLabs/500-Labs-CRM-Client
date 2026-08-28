@@ -1,14 +1,21 @@
-import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { User, UserRole } from '../models/domain';
-import { AuthService } from '../services/authService';
-import { AUTH_EXPIRED_EVENT } from '../lib/apiClient';
-import toast from 'react-hot-toast';
+import React, {
+  useState,
+  useEffect,
+  createContext,
+  useContext,
+  ReactNode,
+} from "react";
+import { User, UserRole } from "../models/domain";
+import { AuthService } from "../services/authService";
+import { AUTH_EXPIRED_EVENT } from "../lib/apiClient";
+import toast from "react-hot-toast";
 
-const USER_STORAGE_KEY = 'crm_current_user';
+type AuthStatus = "checking" | "authenticated" | "unauthenticated";
 
 interface AuthContextType {
   user: User | null;
   role: UserRole | null;
+  status: AuthStatus;
   loading: boolean;
   login: (emailOrUsername: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
@@ -23,59 +30,55 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [status, setStatus] = useState<AuthStatus>("checking");
 
   useEffect(() => {
     const handleAuthExpired = () => {
       setUser(null);
-      localStorage.removeItem(USER_STORAGE_KEY);
+      setStatus("unauthenticated");
     };
 
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
-    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () =>
+      window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
   }, []);
 
-  // On app load: try to restore user from localStorage and validate via /auth/me
   useEffect(() => {
+    let isMounted = true;
+
     const init = async () => {
-      const cached = localStorage.getItem(USER_STORAGE_KEY);
-      if (cached) {
-        try {
-          const parsed: User = JSON.parse(cached);
-          setUser(parsed);
-          // Silently try token refresh to get a fresh access token
-          const refreshed = await AuthService.refresh().catch(() => null);
-          if (!refreshed) {
-            // Refresh failed — clear stale user
-            setUser(null);
-            localStorage.removeItem(USER_STORAGE_KEY);
-          } else {
-            const currentUser = await AuthService.getCurrentUser();
-            if (currentUser) {
-              setUser(currentUser);
-              localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser));
-            }
-          }
-        } catch {
-          setUser(null);
-          localStorage.removeItem(USER_STORAGE_KEY);
-        }
-      }
-      setLoading(false);
+      const currentUser = await AuthService.restoreSession();
+      if (!isMounted) return;
+
+      setUser(currentUser);
+      setStatus(currentUser ? "authenticated" : "unauthenticated");
     };
+
     init();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const login = async (emailOrUsername: string, password: string): Promise<User> => {
+  const login = async (
+    emailOrUsername: string,
+    password: string,
+  ): Promise<User> => {
+    setStatus("checking");
     try {
       const loggedUser = await AuthService.login(emailOrUsername, password);
       setUser(loggedUser);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(loggedUser));
+      setStatus("authenticated");
       toast.success(`Welcome back, ${loggedUser.fullName}!`);
       return loggedUser;
     } catch (err: any) {
+      setUser(null);
+      setStatus("unauthenticated");
       const message =
-        err?.response?.data?.message || err?.message || 'Login failed. Check your credentials.';
+        err?.response?.data?.message ||
+        err?.message ||
+        "Login failed. Check your credentials.";
       toast.error(message);
       throw err;
     }
@@ -85,29 +88,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await AuthService.logout();
     } catch {
-      // Ignore logout API errors — always clear local state
+      // Always clear local user state even if the server session is already gone.
     }
     setUser(null);
-    localStorage.removeItem(USER_STORAGE_KEY);
-    toast.success('Logged out successfully.');
+    setStatus("unauthenticated");
+    toast.success("Logged out successfully.");
   };
 
   const updateCurrentUser = (updatedUser: User) => {
     setUser(updatedUser);
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
   };
 
   const value: AuthContextType = {
     user,
     role: user ? user.role : null,
-    loading,
+    status,
+    loading: status === "checking",
     login,
     logout,
     updateCurrentUser,
-    isAdmin: user?.role === 'ADMIN',
-    isSupervisor: user?.role === 'SUPERVISOR',
-    isTeamMember: user?.role === 'TEAM_MEMBER',
-    isFinance: user?.role === 'FINANCE',
+    isAdmin: user?.role === "ADMIN",
+    isSupervisor: user?.role === "SUPERVISOR",
+    isTeamMember: user?.role === "TEAM_MEMBER",
+    isFinance: user?.role === "FINANCE",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -116,7 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

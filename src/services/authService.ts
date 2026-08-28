@@ -1,66 +1,81 @@
-import apiClient, { tokenStore } from '../lib/apiClient';
-import { User } from '../models/domain';
+import apiClient, { markAuthRecovered } from "../lib/apiClient";
+import { User } from "../models/domain";
 
 interface LoginResponse {
   data: {
-    accessToken: string;
     user: User;
   };
 }
 
 interface RefreshResponse {
   data: {
-    accessToken: string;
+    user: User;
   };
 }
 
 export class AuthService {
   /**
    * Login with username/email + password.
-   * Stores access token in memory via tokenStore.
+   * Backend stores access and refresh tokens as HttpOnly cookies.
    */
   static async login(emailOrUsername: string, password: string): Promise<User> {
-    const response = await apiClient.post<LoginResponse>('/auth/login', {
-      emailOrUsername: emailOrUsername.trim(),
-      password,
-    });
+    await apiClient.post<LoginResponse>(
+      "/auth/login",
+      {
+        emailOrUsername: emailOrUsername.trim(),
+        password,
+      },
+      { skipAuthRefresh: true },
+    );
 
-    const { accessToken, user } = response.data.data;
-    tokenStore.set(accessToken);
+    const user = await this.getCurrentUser();
+    markAuthRecovered();
     return user;
   }
 
   /**
-   * Refresh access token using HttpOnly cookie.
-   * Returns the new access token on success.
+   * Refresh the cookie-backed session.
    */
-  static async refresh(): Promise<string> {
-    const response = await apiClient.post<RefreshResponse>('/auth/refresh');
-    const { accessToken } = response.data.data;
-    tokenStore.set(accessToken);
-    return accessToken;
+  static async refresh(): Promise<User> {
+    const response = await apiClient.post<RefreshResponse>(
+      "/auth/refresh",
+      undefined,
+      { skipAuthRefresh: true },
+    );
+    markAuthRecovered();
+    return response.data.data.user;
   }
 
   /**
-   * Logout: revoke server session and clear local token.
+   * Restore cookie-backed auth on page load.
+   */
+  static async restoreSession(): Promise<User | null> {
+    try {
+      return await this.getCurrentUser();
+    } catch {
+      try {
+        await this.refresh();
+        return await this.getCurrentUser();
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  /**
+   * Logout: revoke server session and clear auth cookies.
    */
   static async logout(): Promise<void> {
-    try {
-      await apiClient.post('/auth/logout');
-    } finally {
-      tokenStore.clear();
-    }
+    await apiClient.post("/auth/logout", undefined, { skipAuthRefresh: true });
   }
 
   /**
    * Fetch the current user's profile from the API.
    */
-  static async getCurrentUser(): Promise<User | null> {
-    try {
-      const response = await apiClient.get<{ data: User }>('/auth/me');
-      return response.data.data;
-    } catch {
-      return null;
-    }
+  static async getCurrentUser(): Promise<User> {
+    const response = await apiClient.get<{ data: User }>("/auth/me", {
+      skipAuthRefresh: true,
+    });
+    return response.data.data;
   }
 }
