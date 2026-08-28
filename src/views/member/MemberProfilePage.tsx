@@ -76,7 +76,7 @@ export const MemberProfilePage: React.FC = () => {
           <CardContent>
             <form onSubmit={handleSave} className="space-y-5">
               {/* Editable Profile Picture Header */}
-              <div className="flex items-center gap-5 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5 p-4 bg-slate-50 border border-slate-200 rounded-xl text-center sm:text-left">
                 <EditableProfileAvatar
                   name={fullName}
                   avatarUrl={avatarUrl}
@@ -84,8 +84,8 @@ export const MemberProfilePage: React.FC = () => {
                   size="2xl"
                 />
                 <div className="space-y-1">
-                  <div className="font-bold text-lg text-slate-900">{fullName}</div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="font-bold text-base sm:text-lg text-slate-900">{fullName}</div>
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs text-slate-500 flex-wrap">
                     <Shield className="w-3.5 h-3.5 text-blue-600" />
                     <span className="font-medium text-slate-700">{user.role}</span>
                     <span>&bull;</span>
