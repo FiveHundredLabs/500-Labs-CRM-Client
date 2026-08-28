@@ -41,20 +41,20 @@ export const AdminSalesGoalsPage: React.FC = () => {
   const currentMonthStr = new Date().toISOString().substring(0, 7); // e.g. "2026-08"
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('ALL');
-  const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('ALL');
-  const [viewMode, setViewMode] = useState<'TEAMS' | 'MEMBERS'>('TEAMS');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACHIEVED' | 'UNLOCKED' | 'PROGRESS'>('ALL');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<TeamSalesTarget | null>(null);
   const [formTeamId, setFormTeamId] = useState<string>('');
   const [formMonth, setFormMonth] = useState<string>(currentMonthStr);
-  const [formTargetAmount, setFormTargetAmount] = useState<number>(1000000);
+  const [formTargetAmount, setFormTargetAmount] = useState<number>(35000);
   const [formNotes, setFormNotes] = useState<string>('');
   const [formTiers, setFormTiers] = useState<TeamTargetTier[]>([
-    { minPercentage: 80, allowanceAmount: 10000, title: '80% Tier Bonus' },
-    { minPercentage: 100, allowanceAmount: 20000, title: '100% Target Achieved Allowance' },
-    { minPercentage: 120, allowanceAmount: 35000, title: '120% Super Achiever Incentive' },
+    { minPercentage: 80, allowanceAmount: 1000, title: '80% Incentive Tier' },
+    { minPercentage: 100, allowanceAmount: 2000, title: '100% Target Achieved Allowance' },
+    { minPercentage: 120, allowanceAmount: 3000, title: '120% Super Achiever Bonus' },
   ]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -89,12 +89,12 @@ export const AdminSalesGoalsPage: React.FC = () => {
     setEditingTarget(null);
     setFormTeamId(teams[0]?.id || '');
     setFormMonth(selectedMonth || currentMonthStr);
-    setFormTargetAmount(1000000);
+    setFormTargetAmount(35000);
     setFormNotes('');
     setFormTiers([
-      { minPercentage: 80, allowanceAmount: 10000, title: '80% Threshold Allowance' },
-      { minPercentage: 100, allowanceAmount: 20000, title: '100% Target Achieved Allowance' },
-      { minPercentage: 120, allowanceAmount: 35000, title: '120% Super Bonus' },
+      { minPercentage: 80, allowanceAmount: 1000, title: '80% Incentive Tier' },
+      { minPercentage: 100, allowanceAmount: 2000, title: '100% Target Achieved Allowance' },
+      { minPercentage: 120, allowanceAmount: 3000, title: '120% Super Achiever Bonus' },
     ]);
     setIsModalOpen(true);
   };
@@ -113,8 +113,8 @@ export const AdminSalesGoalsPage: React.FC = () => {
             title: t.title || `${t.minPercentage}% Tier`,
           }))
         : [
-            { minPercentage: 80, allowanceAmount: 10000, title: '80% Tier' },
-            { minPercentage: 100, allowanceAmount: 20000, title: '100% Tier' },
+            { minPercentage: 80, allowanceAmount: 1000, title: '80% Tier' },
+            { minPercentage: 100, allowanceAmount: 2000, title: '100% Tier' },
           ]
     );
     setIsModalOpen(true);
@@ -123,7 +123,7 @@ export const AdminSalesGoalsPage: React.FC = () => {
   const handleAddTier = () => {
     const lastTier = formTiers[formTiers.length - 1];
     const nextPct = lastTier ? lastTier.minPercentage + 20 : 100;
-    const nextAllowance = lastTier ? lastTier.allowanceAmount + 10000 : 20000;
+    const nextAllowance = lastTier ? lastTier.allowanceAmount + 1000 : 2000;
     setFormTiers([
       ...formTiers,
       { minPercentage: nextPct, allowanceAmount: nextAllowance, title: `${nextPct}% Incentive Tier` },
@@ -169,7 +169,7 @@ export const AdminSalesGoalsPage: React.FC = () => {
       });
 
       const teamName = teams.find((t) => t.id === formTeamId)?.name || 'Team';
-      toast.success(`Configured sales goal & allowances for ${teamName} (${formMonth})`);
+      toast.success(`Configured individual sales goals & allowances for ${teamName} (${formMonth})`);
       setIsModalOpen(false);
       loadData();
     } catch (err: any) {
@@ -194,510 +194,349 @@ export const AdminSalesGoalsPage: React.FC = () => {
     }
   };
 
-  // Aggregated KPIs
-  const totalTargetSum = targets.reduce((sum, t) => sum + (t.targetAmount || 0), 0);
-  const totalRealizedSales = targets.reduce((sum, t) => sum + (t.actualSales || 0), 0);
-  const avgAchievement = totalTargetSum > 0 ? (totalRealizedSales / totalTargetSum) * 100 : 0;
-  const totalUnlockedAllowance = targets.reduce((sum, t) => sum + (t.unlockedAllowance || 0), 0);
+  // Flatten and filter individual members
+  const allMembers = targets.flatMap((t) =>
+    (t.memberBreakdowns || []).map((m) => {
+      const targetAmt = Number(t.targetAmount || 0);
+      const memberSales = Number(m.actualSales || 0);
+      const pct = targetAmt > 0 ? (memberSales / targetAmt) * 100 : 0;
+      const sorted = [...(t.tiers || [])].sort((a, b) => Number(b.minPercentage) - Number(a.minPercentage));
+      const matchedTier = sorted.find((tier) => pct >= Number(tier.minPercentage)) || null;
+      const allowance = matchedTier ? Number(matchedTier.allowanceAmount || 0) : Number(m.unlockedAllowance || 0);
+
+      return {
+        ...m,
+        teamId: t.teamId,
+        teamName: t.team?.name || 'Team',
+        teamCode: t.team?.code || '',
+        targetAmount: targetAmt,
+        actualSales: memberSales,
+        achievementPercentage: Math.round(pct * 100) / 100,
+        unlockedAllowance: allowance,
+        highestUnlockedTier: matchedTier || m.highestUnlockedTier,
+        parentTarget: t,
+      };
+    })
+  );
+
+  const filteredMembers = allMembers.filter((m) => {
+    if (selectedTeamFilter !== 'ALL' && m.teamId !== selectedTeamFilter) return false;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchName = m.fullName?.toLowerCase().includes(query);
+      const matchUser = m.username?.toLowerCase().includes(query);
+      const matchTeam = m.teamName?.toLowerCase().includes(query);
+      if (!matchName && !matchUser && !matchTeam) return false;
+    }
+    if (statusFilter === 'ACHIEVED') return (m.achievementPercentage || 0) >= 100;
+    if (statusFilter === 'UNLOCKED') return (m.unlockedAllowance || 0) > 0;
+    if (statusFilter === 'PROGRESS') return (m.achievementPercentage || 0) < 100;
+    return true;
+  });
+
+  // Aggregated KPIs strictly based on filtered individual members
+  const totalTargetSum = filteredMembers.reduce((sum, m) => sum + (m.targetAmount || 0), 0);
+  const totalRealizedSales = filteredMembers.reduce((sum, m) => sum + (m.actualSales || 0), 0);
+  const avgAchievement = filteredMembers.length > 0
+    ? filteredMembers.reduce((sum, m) => sum + (m.achievementPercentage || 0), 0) / filteredMembers.length
+    : (totalTargetSum > 0 ? (totalRealizedSales / totalTargetSum) * 100 : 0);
+  const totalUnlockedAllowance = filteredMembers.reduce((sum, m) => sum + (m.unlockedAllowance || 0), 0);
 
   if (loading && targets.length === 0) return <LoadingState rows={6} />;
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-4 sm:space-y-6 pb-24 overflow-hidden max-w-7xl mx-auto">
       <PageHeader
-        title="Monthly Sales Goals & Allowance Incentives"
-        description="Configure ongoing team-wise monthly sales goals and tiered achievement allowances. Standing targets apply automatically to every month until updated."
+        title="Individual Sales Goals & Allowance Incentives"
+        description="Monitor individual tele-calling specialist sales quotas, milestone achievements, and tiered cash allowance pools"
         actions={
           <Button
             variant="primary"
             leftIcon={<Plus className="w-4 h-4" />}
             onClick={openCreateModal}
+            className="w-full sm:w-auto"
           >
-            Set Team Sales Goal
+            Configure Goal & Tiers
           </Button>
         }
       />
 
-      {/* Top Aggregated Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Top Aggregated Metric Cards (Individual-Wise) */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           title="Total Target Goals"
           value={formatCurrency(totalTargetSum)}
-          subtitle={`Across ${targets.length} team configurations`}
+          subtitle={`Across ${filteredMembers.length} tele-calling specialists`}
           icon={<Target className="w-5 h-5 text-blue-600" />}
+          accentColor="blue"
         />
         <StatCard
           title="Delivered Sales Realized"
           value={formatCurrency(totalRealizedSales)}
           subtitle="Live from confirmed deliveries"
           icon={<DollarSign className="w-5 h-5 text-emerald-600" />}
+          accentColor="green"
         />
         <StatCard
           title="Avg Goal Achievement"
           value={`${avgAchievement.toFixed(1)}%`}
           subtitle={avgAchievement >= 100 ? 'Target achieved! 🎉' : `${(100 - avgAchievement).toFixed(1)}% to 100% goal`}
           icon={<TrendingUp className="w-5 h-5 text-indigo-600" />}
+          accentColor="purple"
         />
         <StatCard
           title="Unlocked Allowance Pool"
           value={formatCurrency(totalUnlockedAllowance)}
-          subtitle="Eligible achievement payouts"
+          subtitle={`${filteredMembers.filter((m) => m.unlockedAllowance > 0).length} specialists eligible for payout`}
           icon={<Trophy className="w-5 h-5 text-amber-600" />}
+          accentColor="amber"
         />
       </div>
 
       {/* Filter and Month Selection Bar */}
-      <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-col lg:flex-row items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          {/* Month Filter */}
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-slate-400" />
-            <label className="text-xs font-bold text-slate-700">Month:</label>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <div className="p-3.5 sm:p-4 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+            {/* Month Filter */}
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+              <label className="text-xs font-bold text-slate-700">Month:</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Team Filter (e.g. Brand Alpha, Brand Beta) */}
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-blue-600 shrink-0" />
+              <label className="text-xs font-bold text-slate-700">Team Filter:</label>
+              <select
+                value={selectedTeamFilter}
+                onChange={(e) => setSelectedTeamFilter(e.target.value)}
+                className="text-xs font-semibold bg-blue-50/60 border border-blue-200 text-blue-900 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="ALL">All Teams ({teams.length})</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Search Specialist */}
+          <div className="w-full md:w-64">
+            <Input
+              type="text"
+              placeholder="Search specialist name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="text-xs"
             />
           </div>
-
-          {/* Team Filter */}
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-slate-400" />
-            <label className="text-xs font-bold text-slate-700">Team:</label>
-            <select
-              value={selectedTeamFilter}
-              onChange={(e) => {
-                setSelectedTeamFilter(e.target.value);
-                setSelectedMemberFilter('ALL');
-              }}
-              className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="ALL">All Teams</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Member-Wise Filter */}
-          <div className="flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-indigo-600" />
-            <label className="text-xs font-bold text-slate-700">Member:</label>
-            <select
-              value={selectedMemberFilter}
-              onChange={(e) => {
-                setSelectedMemberFilter(e.target.value);
-                if (e.target.value !== 'ALL') setViewMode('MEMBERS');
-              }}
-              className="text-xs font-semibold bg-indigo-50/50 border border-indigo-200 rounded-lg px-2.5 py-1.5 text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="ALL">All Team Members</option>
-              {(() => {
-                const allReps = targets.flatMap((t) =>
-                  (t.memberBreakdowns || []).map((m) => ({
-                    ...m,
-                    teamId: t.teamId,
-                    teamName: t.team?.name || 'Team',
-                  }))
-                );
-                const uniqueReps = Array.from(new Map(allReps.map((r) => [r.id, r])).values());
-                return uniqueReps
-                  .filter((r) => selectedTeamFilter === 'ALL' || r.teamId === selectedTeamFilter)
-                  .map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.fullName} ({r.teamName})
-                    </option>
-                  ));
-              })()}
-            </select>
-          </div>
         </div>
 
-        {/* View Mode Toggle */}
-        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 self-stretch sm:self-auto justify-center">
+        {/* Status Filter Pills */}
+        {/* <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 text-xs">
+          <span className="text-slate-400 font-medium mr-1 text-[11px]">Filter View:</span>
           <button
             type="button"
-            onClick={() => {
-              setViewMode('TEAMS');
-              setSelectedMemberFilter('ALL');
-            }}
-            className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
-              viewMode === 'TEAMS' && selectedMemberFilter === 'ALL'
-                ? 'bg-white text-slate-900 shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
+            onClick={() => setStatusFilter('ALL')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              statusFilter === 'ALL'
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            Teams View ({targets.length})
+            All Specialists ({allMembers.length})
           </button>
           <button
             type="button"
-            onClick={() => setViewMode('MEMBERS')}
-            className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
-              viewMode === 'MEMBERS' || selectedMemberFilter !== 'ALL'
-                ? 'bg-white text-slate-900 shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
+            onClick={() => setStatusFilter('ACHIEVED')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              statusFilter === 'ACHIEVED'
+                ? 'bg-emerald-600 text-white shadow-2xs'
+                : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
             }`}
           >
-            Individual Members View
+            ⭐ Goal Met (100%+) ({allMembers.filter((m) => m.achievementPercentage >= 100).length})
           </button>
-        </div>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('UNLOCKED')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              statusFilter === 'UNLOCKED'
+                ? 'bg-amber-600 text-white shadow-2xs'
+                : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-300'
+            }`}
+          >
+            🏆 Tier Bonus Unlocked ({allMembers.filter((m) => m.unlockedAllowance > 0).length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('PROGRESS')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              statusFilter === 'PROGRESS'
+                ? 'bg-blue-600 text-white shadow-2xs'
+                : 'bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200'
+            }`}
+          >
+            ⏳ In Progress (&lt;100%) ({allMembers.filter((m) => m.achievementPercentage < 100).length})
+          </button>
+        </div> */}
       </div>
 
-      {/* Content Area: Dual View (Teams vs Individual Members) */}
-      {viewMode === 'MEMBERS' || selectedMemberFilter !== 'ALL' ? (
-        /* Individual Members Performance Table */
-        <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-indigo-600" />
-              <span>Individual Team Members Performance & Allowance Payouts ({selectedMonth || 'Current Month'})</span>
+      {/* Main Individual Specialists Performance Listing */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
+        <div className="p-3.5 sm:p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/60">
+          <div className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-indigo-600 shrink-0" />
+            <h3 className="font-bold text-slate-900 text-sm">
+              Tele-Calling Specialists Performance &amp; Allowance Payouts ({selectedMonth || 'Current Month'})
             </h3>
-            {(() => {
-              const allReps = targets.flatMap((t) =>
-                (t.memberBreakdowns || []).map((m) => ({
-                  ...m,
-                  teamId: t.teamId,
-                  teamName: t.team?.name || 'Team',
-                  targetAmount: t.targetAmount,
-                }))
-              );
-              const filteredReps = allReps.filter((m) => {
-                if (selectedTeamFilter !== 'ALL' && m.teamId !== selectedTeamFilter) return false;
-                if (selectedMemberFilter !== 'ALL' && m.id !== selectedMemberFilter) return false;
-                return true;
-              });
-              return (
-                <span className="text-xs text-slate-500 font-mono">
-                  {filteredReps.length} Members Listed
-                </span>
-              );
-            })()}
           </div>
+          <span className="text-xs text-slate-500 font-mono">
+            {filteredMembers.length} Specialists Listed
+          </span>
+        </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              <tr>
+                <th className="py-3 px-3.5">Specialist / Rep</th>
+                <th className="py-3 px-3.5">Assigned Brand Team</th>
+                <th className="py-3 px-3.5 font-mono">Monthly Goal</th>
+                <th className="py-3 px-3.5 font-mono">Delivered Sales (LKR)</th>
+                <th className="py-3 px-3.5 w-44">Achievement Progress</th>
+                <th className="py-3 px-3.5 font-mono">Earned Allowance</th>
+                <th className="py-3 px-3.5">Achieved Milestone</th>
+                <th className="py-3 px-3.5 text-right">Policy</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-mono">
+              {filteredMembers.length === 0 ? (
                 <tr>
-                  <th className="py-3 px-3.5">Team Member</th>
-                  <th className="py-3 px-3.5">Assigned Team</th>
-                  <th className="py-3 px-3.5 font-mono">Monthly Goal</th>
-                  <th className="py-3 px-3.5 font-mono">Personal Sales (LKR)</th>
-                  <th className="py-3 px-3.5 w-48">Achievement Progress</th>
-                  <th className="py-3 px-3.5 font-mono">Earned Allowance</th>
-                  <th className="py-3 px-3.5">Milestone Status</th>
+                  <td colSpan={8} className="p-8 text-center text-slate-400 font-sans">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <Users className="w-8 h-8 text-slate-300" />
+                      <p className="font-semibold text-slate-600">No tele-calling specialists match the selected criteria.</p>
+                      <p className="text-xs text-slate-400">
+                        Try changing the team filter, search query, or selecting another month.
+                      </p>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-mono">
-                {(() => {
-                  const allReps = targets.flatMap((t) =>
-                    (t.memberBreakdowns || []).map((m) => ({
-                      ...m,
-                      teamId: t.teamId,
-                      teamName: t.team?.name || 'Team',
-                      teamCode: t.team?.code || '',
-                      targetAmount: t.targetAmount,
-                    }))
+              ) : (
+                filteredMembers.map((member) => {
+                  const pct = member.achievementPercentage || 0;
+                  const isAchieved = pct >= 100;
+                  const isNear = pct >= 80 && pct < 100;
+
+                  return (
+                    <tr key={member.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* Member */}
+                      <td className="py-3 px-3.5 font-sans">
+                        <div className="font-bold text-slate-900">{member.fullName}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          @{member.username} • {member.ordersCount} delivered orders
+                        </div>
+                      </td>
+
+                      {/* Team */}
+                      <td className="py-3 px-3.5 font-sans">
+                        <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                          {member.teamName}
+                        </span>
+                      </td>
+
+                      {/* Target Goal */}
+                      <td className="py-3 px-3.5 font-mono text-slate-700 text-xs">
+                        {formatCurrency(member.targetAmount)}
+                      </td>
+
+                      {/* Personal Sales */}
+                      <td className="py-3 px-3.5 font-mono font-bold text-emerald-700 text-xs">
+                        {formatCurrency(member.actualSales)}
+                      </td>
+
+                      {/* Progress */}
+                      <td className="py-3 px-3.5">
+                        <div className="space-y-1 font-sans">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span
+                              className={`font-bold font-mono ${
+                                isAchieved ? 'text-emerald-700' : isNear ? 'text-amber-700' : 'text-slate-700'
+                              }`}
+                            >
+                              {pct.toFixed(1)}%
+                            </span>
+                            {isAchieved ? (
+                              <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5">
+                                <Trophy className="w-3 h-3 text-amber-500" /> Goal Met
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                isAchieved ? 'bg-emerald-500' : isNear ? 'bg-amber-500' : 'bg-blue-500'
+                              }`}
+                              style={{ width: `${Math.min(100, pct)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Earned Allowance */}
+                      <td className="py-3 px-3.5 font-sans">
+                        {member.unlockedAllowance > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-mono">
+                            <Award className="w-3 h-3 text-amber-600" />
+                            {formatCurrency(member.unlockedAllowance)}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">0.00 LKR</span>
+                        )}
+                      </td>
+
+                      {/* Milestone Status */}
+                      <td className="py-3 px-3.5 font-sans">
+                        {member.highestUnlockedTier?.title ? (
+                          <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {member.highestUnlockedTier.title}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">In Progress</span>
+                        )}
+                      </td>
+
+                      {/* Edit Policy */}
+                      <td className="py-3 px-3.5 text-right font-sans">
+                        {member.parentTarget && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<Edit2 className="w-3 h-3 text-slate-500" />}
+                            onClick={() => openEditModal(member.parentTarget)}
+                            title="Edit Target Quotas & Tiers for this team"
+                          >
+                            Edit Policy
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
                   );
-                  const filteredReps = allReps.filter((m) => {
-                    if (selectedTeamFilter !== 'ALL' && m.teamId !== selectedTeamFilter) return false;
-                    if (selectedMemberFilter !== 'ALL' && m.id !== selectedMemberFilter) return false;
-                    return true;
-                  });
-
-                  if (filteredReps.length === 0) {
-                    return (
-                      <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400 font-sans">
-                          <div className="flex flex-col items-center justify-center space-y-2">
-                            <Users className="w-8 h-8 text-slate-300" />
-                            <p className="font-semibold text-slate-600">No team members match the selected filter criteria.</p>
-                            <p className="text-xs text-slate-400">
-                              Try clearing filters or selecting another team or month.
-                            </p>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }
-
-                  return filteredReps.map((member) => {
-                    const pct = member.achievementPercentage || 0;
-                    const isAchieved = pct >= 100;
-                    const isNear = pct >= 80 && pct < 100;
-
-                    return (
-                      <tr key={member.id} className="hover:bg-slate-50/70 transition-colors">
-                        {/* Member */}
-                        <td className="py-3 px-3.5 font-sans">
-                          <div className="font-bold text-slate-900">{member.fullName}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            @{member.username} ({member.ordersCount} delivered orders)
-                          </div>
-                        </td>
-
-                        {/* Team */}
-                        <td className="py-3 px-3.5 font-sans">
-                          <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                            {member.teamName}
-                          </span>
-                        </td>
-
-                        {/* Target Goal */}
-                        <td className="py-3 px-3.5 font-mono text-slate-700 text-xs">
-                          {formatCurrency(member.targetAmount)}
-                        </td>
-
-                        {/* Personal Sales */}
-                        <td className="py-3 px-3.5 font-mono font-bold text-emerald-700 text-xs">
-                          {formatCurrency(member.actualSales)}
-                        </td>
-
-                        {/* Progress */}
-                        <td className="py-3 px-3.5">
-                          <div className="space-y-1 font-sans">
-                            <div className="flex items-center justify-between text-[11px]">
-                              <span
-                                className={`font-bold font-mono ${
-                                  isAchieved ? 'text-emerald-700' : isNear ? 'text-amber-700' : 'text-slate-700'
-                                }`}
-                              >
-                                {pct.toFixed(1)}%
-                              </span>
-                              {isAchieved ? (
-                                <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5">
-                                  <Trophy className="w-3 h-3 text-amber-500" /> Goal Met
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  isAchieved ? 'bg-emerald-500' : isNear ? 'bg-amber-500' : 'bg-blue-500'
-                                }`}
-                                style={{ width: `${Math.min(100, pct)}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Earned Allowance */}
-                        <td className="py-3 px-3.5 font-sans">
-                          {member.unlockedAllowance > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-mono">
-                              <Award className="w-3 h-3 text-amber-600" />
-                              {formatCurrency(member.unlockedAllowance)}
-                            </span>
-                          ) : (
-                            <span className="text-[11px] text-slate-400 italic">0.00 LKR</span>
-                          )}
-                        </td>
-
-                        {/* Milestone Status */}
-                        <td className="py-3 px-3.5 font-sans">
-                          {member.highestUnlockedTier?.title ? (
-                            <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              {member.highestUnlockedTier.title}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-slate-400">In Progress</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  });
-                })()}
-              </tbody>
-            </table>
-          </div>
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : (
-        /* Teams Summary Table */
-        <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <Target className="w-4 h-4 text-blue-600" />
-              <span>Team Sales Goals & Performance Overview ({selectedMonth || 'All Time'})</span>
-            </h3>
-            <span className="text-xs text-slate-500 font-mono">{targets.length} Teams Configured</span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-3.5">Team & Code</th>
-                  <th className="py-3 px-3.5 font-mono">Month</th>
-                  <th className="py-3 px-3.5 font-mono">Target Goal / Rep</th>
-                  <th className="py-3 px-3.5 font-mono">Team Total Sales (LKR)</th>
-                  <th className="py-3 px-3.5 w-48">Achievement Progress</th>
-                  <th className="py-3 px-3.5">Total Allowance Pool</th>
-                  <th className="py-3 px-3.5">Incentive Tiers</th>
-                  <th className="py-3 px-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-mono">
-                {targets.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="p-8 text-center text-slate-400 font-sans">
-                      <div className="flex flex-col items-center justify-center space-y-2">
-                        <Target className="w-8 h-8 text-slate-300" />
-                        <p className="font-semibold text-slate-600">No monthly sales targets configured for {selectedMonth}.</p>
-                        <p className="text-xs text-slate-400 max-w-sm">
-                          Click "Set Team Sales Goal" to establish monthly revenue targets and tiered achievement allowance bonuses.
-                        </p>
-                        <Button variant="outline" size="sm" onClick={openCreateModal} className="mt-2">
-                          Set Sales Goal
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  targets.map((target) => {
-                    const teamName = target.team?.name || 'Unknown Team';
-                    const pct = target.achievementPercentage || 0;
-                    const isAchieved = pct >= 100;
-                    const isNear = pct >= 80 && pct < 100;
-
-                    return (
-                      <tr key={target.id} className="hover:bg-slate-50/70 transition-colors">
-                        {/* Team */}
-                        <td className="py-3 px-3.5 font-sans">
-                          <div className="font-bold text-slate-900">{teamName}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">{target.team?.code || target.teamId}</div>
-                        </td>
-
-                        {/* Evaluated Month & Policy Info */}
-                        <td className="py-3 px-3.5 font-sans">
-                          <div className="font-bold text-slate-900 text-xs font-mono">{target.evaluatedMonth || selectedMonth}</div>
-                          <span className="inline-flex items-center text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded mt-0.5 font-sans">
-                            {target.isInheritedStandingTarget ? `Standing (from ${target.effectiveFromMonth || target.month})` : 'Active Policy'}
-                          </span>
-                        </td>
-
-                        {/* Target Goal */}
-                        <td className="py-3 px-3.5 whitespace-nowrap font-mono">
-                          <div className="text-slate-900 font-bold text-xs">
-                            {formatCurrency(target.targetAmount)}
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-sans">/ rep / mo</span>
-                        </td>
-
-                        {/* Actual Realized */}
-                        <td className="py-3 px-3.5 font-bold text-emerald-700 text-xs">
-                          {formatCurrency(target.actualSales || 0)}
-                        </td>
-
-                        {/* Achievement Progress Bar */}
-                        <td className="py-3 px-3.5">
-                          <div className="space-y-1 font-sans">
-                            <div className="flex items-center justify-between text-[11px]">
-                              <span className={`font-bold font-mono ${isAchieved ? 'text-emerald-700' : isNear ? 'text-amber-700' : 'text-slate-700'}`}>
-                                {pct.toFixed(1)}%
-                              </span>
-                              {isAchieved ? (
-                                <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5">
-                                  <Trophy className="w-3 h-3 text-amber-500" /> Goal Met
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  isAchieved
-                                    ? 'bg-emerald-500'
-                                    : isNear
-                                    ? 'bg-amber-500'
-                                    : 'bg-blue-500'
-                                }`}
-                                style={{ width: `${Math.min(100, pct)}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Unlocked Allowance */}
-                        <td className="py-3 px-3.5 font-sans">
-                          {target.unlockedAllowance && target.unlockedAllowance > 0 ? (
-                            <div className="flex flex-col">
-                              <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-mono w-fit">
-                                <Award className="w-3 h-3 text-amber-600" />
-                                {formatCurrency(target.unlockedAllowance)}
-                              </span>
-                              <span className="text-[10px] text-slate-400 mt-0.5">
-                                Across {target.memberBreakdowns?.filter((m) => m.unlockedAllowance > 0).length || 0} reps
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-[11px] text-slate-400 italic">
-                              0.00 LKR (Need &ge; {target.tiers[0]?.minPercentage || 80}%)
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Tiers summary */}
-                        <td className="py-3 px-3.5 font-sans">
-                          <div className="flex flex-wrap gap-1">
-                            {(target.tiers || []).map((tier, idx) => (
-                              <span
-                                key={idx}
-                                className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                                  tier.unlockedMembersCount && tier.unlockedMembersCount > 0
-                                    ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300'
-                                    : 'bg-slate-100 text-slate-600 border border-slate-200'
-                                }`}
-                                title={`${tier.title || 'Tier'}: ${tier.minPercentage}% = ${formatCurrency(tier.allowanceAmount)}`}
-                              >
-                                {tier.minPercentage}%: {formatCurrency(tier.allowanceAmount)}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3 px-3.5 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1 font-sans">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              leftIcon={<Users className="w-3.5 h-3.5 text-indigo-600" />}
-                              onClick={() => setInspectingMembersTarget(target)}
-                              className="text-xs px-2.5 py-1 text-indigo-900 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100"
-                              title="Inspect individual member sales & allowance payouts"
-                            >
-                              Member Payouts ({target.memberBreakdowns?.length || 0})
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              leftIcon={<Edit2 className="w-3.5 h-3.5 text-blue-600" />}
-                              onClick={() => openEditModal(target)}
-                              className="text-xs px-2 py-1 text-slate-700 hover:text-blue-600 hover:bg-blue-50"
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              leftIcon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
-                              onClick={() => setDeletingTarget(target)}
-                              className="text-xs px-2 py-1 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Set / Edit Sales Goal & Allowance Tiers Modal */}
       <Dialog

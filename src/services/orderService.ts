@@ -5,6 +5,7 @@ import {
   callLogRepository,
   deliveryStatusHistoryRepository,
   emailNotificationRepository,
+  productRepository,
 } from '../repositories';
 import { Order, OrderStatus, User } from '../models/domain';
 import { ActivityLogService } from './activityLogService';
@@ -38,19 +39,17 @@ export class OrderService {
     return orderRepository.getByMemberId(memberId);
   }
 
-  static async createOrder(input: CreateOrderInput, actor: User): Promise<Order> {
-    const customer = await customerRepository.getById(input.customerId);
-    if (!customer) throw new Error('Customer not found');
-
-    const count = (await orderRepository.getAll()).length + 1;
-    const orderNumber = `ORD-2026-${String(count).padStart(3, '0')}`;
-
+  static async createOrder(
+    input: CreateOrderInput,
+    responsibleMember: User,
+    supervisorId: string,
+    teamId: string
+  ): Promise<Order> {
     const newOrder = await orderRepository.create({
-      orderNumber,
       customerId: input.customerId,
-      teamId: customer.teamId,
-      teamMemberId: customer.responsibleTeamMemberId,
-      supervisorId: customer.supervisorId,
+      teamId,
+      teamMemberId: responsibleMember.id,
+      supervisorId,
       status: 'DRAFT',
       itemsDescription: input.itemsDescription,
       totalAmount: input.totalAmount,
@@ -58,25 +57,25 @@ export class OrderService {
       remarks: input.remarks,
     });
 
-    // Create initial history record
+    // Save DeliveryStatusHistory for Initial Creation
     await deliveryStatusHistoryRepository.create({
       orderId: newOrder.id,
       previousStatus: null,
       newStatus: 'DRAFT',
-      remarks: 'Order created as Draft.',
-      actorUserId: actor.id,
+      remarks: 'Order placed by tele-calling specialist',
+      actorUserId: responsibleMember.id,
     });
 
-    // Log activity
+    // Log ActivityLog
     await ActivityLogService.logAction({
-      userId: actor.id,
-      userRole: actor.role,
-      userName: actor.fullName,
-      teamId: customer.teamId,
+      userId: responsibleMember.id,
+      userRole: responsibleMember.role,
+      userName: responsibleMember.fullName,
+      teamId,
       action: 'ORDER_CREATED',
       entityType: 'Order',
       entityId: newOrder.id,
-      description: `Created Order #${orderNumber} for customer ${customer.fullName} (LKR ${input.totalAmount})`,
+      description: `Created Order #${newOrder.orderNumber} for customer (${input.totalAmount} LKR)`,
     });
 
     return newOrder;
@@ -86,15 +85,41 @@ export class OrderService {
     orderId: string,
     newStatus: OrderStatus,
     actor: User,
-    remarks?: string
+    remarks?: string,
+    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
   ): Promise<Order> {
     const order = await orderRepository.getById(orderId);
     if (!order) throw new Error('Order not found');
 
     const previousStatus = order.status;
-    if (previousStatus === newStatus) return order;
+    if (previousStatus === newStatus && (!damagedItems || damagedItems.length === 0)) return order;
 
     const updatedOrder = await orderRepository.updateStatus(orderId, newStatus, remarks);
+
+    // If damaged items are reported on status update (e.g. rejection/return), report into product damagedStock
+    if (damagedItems && damagedItems.length > 0) {
+      for (const item of damagedItems) {
+        try {
+          let targetProdId = item.productId;
+          if (!targetProdId) {
+            const teamProducts = await productRepository.getByTeamId(order.teamId);
+            const matched = teamProducts.find(
+              (p) =>
+                p.name.toLowerCase().includes(item.productName.toLowerCase()) ||
+                item.productName.toLowerCase().includes(p.name.toLowerCase())
+            ) || teamProducts[0];
+            targetProdId = matched?.id;
+          }
+
+          if (targetProdId) {
+            const damageReason = item.reason || `Returned damaged from Order #${order.orderNumber} (${newStatus})`;
+            await productRepository.reportDamage(targetProdId, item.quantity, damageReason);
+          }
+        } catch {
+          // Non-fatal damage reporting
+        }
+      }
+    }
 
     // Save DeliveryStatusHistory
     await deliveryStatusHistoryRepository.create({

@@ -19,6 +19,7 @@ export interface OrderCardProps {
   onOpenRemarkModal: (order: Order) => void;
   onPrintBillingSlip: (order: Order) => void;
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
+  onInspectDamages?: (order: Order) => void;
 }
 
 export const OrderCard: React.FC<OrderCardProps> = ({
@@ -33,6 +34,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onOpenRemarkModal,
   onPrintBillingSlip,
   onInspectDuplicateOrders,
+  onInspectDamages,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -118,6 +120,28 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             </div>
           )}
 
+          {/* Damaged Return / Transit Damage Logged Banner */}
+          {((order.damagedItems && order.damagedItems.length > 0) || (order.remarks && order.remarks.toLowerCase().includes('damage'))) && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onInspectDamages?.(order);
+              }}
+              className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg flex items-center justify-between text-[10px] sm:text-[11px] text-rose-950 font-semibold cursor-pointer transition-colors shadow-2xs"
+              title="Click to view reported damage details for this order"
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span className="truncate">
+                  ⚠️ {order.damagedItems && order.damagedItems.length > 0 ? `${order.damagedItems.reduce((s, i) => s + i.quantity, 0)} Item(s) Damaged` : 'Damaged Goods Reported'}
+                </span>
+              </div>
+              <span className="text-[10px] text-rose-700 underline font-bold shrink-0 ml-1">
+                View Damage &gt;
+              </span>
+            </div>
+          )}
+
           {isExpanded && (
             <OrderExpandedDetails
               order={order}
@@ -125,6 +149,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               onOpenStatusModal={onOpenStatusModal}
               onOpenRemarkModal={onOpenRemarkModal}
               onPrintBillingSlip={onPrintBillingSlip}
+              onInspectDamages={onInspectDamages}
             />
           )}
         </div>

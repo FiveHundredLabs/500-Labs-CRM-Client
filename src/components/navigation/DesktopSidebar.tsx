@@ -44,23 +44,23 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
 
   return (
     <aside
-      className={`hidden md:flex flex-col h-full bg-white border-r border-slate-200 transition-all duration-200 relative shrink-0 z-20 ${
+      className={`hidden md:flex flex-col h-full bg-white/80 backdrop-blur-md border-r border-slate-200/80 transition-all duration-200 relative shrink-0 z-20 ${
         isCollapsed ? 'w-[72px]' : 'w-[250px]'
       }`}
     >
       {/* Toggle button */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-5 z-30 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 shadow-xs cursor-pointer"
+        className="absolute -right-3 top-5 z-30 w-6 h-6 bg-white border border-slate-200/90 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 shadow-sm cursor-pointer hover:scale-105 transition-transform"
         aria-label="Toggle sidebar"
       >
         {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
       </button>
 
       {/* Brand Header */}
-      <div className="h-14 px-4 border-b border-slate-200 flex items-center gap-3">
+      <div className="h-14 px-4 border-b border-slate-200/80 flex items-center gap-3 bg-white/40">
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-md shadow-blue-500/20"
           style={{ backgroundColor: teamBrand.brandColor }}
         >
           {role === 'ADMIN' ? 'AD' : teamBrand.code.substring(0, 2)}
@@ -99,12 +99,12 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
                         onClick={() => toggleGroup(item.label)}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${
                           hasActiveChild
-                            ? 'text-blue-700 bg-blue-50/70'
-                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                            ? 'text-blue-700 bg-blue-50/80 border border-blue-100/80 shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/60'
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <Icon className="w-4 h-4 text-slate-500" />
+                          <Icon className={`w-4 h-4 ${hasActiveChild ? 'text-blue-600' : 'text-slate-400'}`} />
                           <span>{item.label}</span>
                           {item.label === 'Finance' && (
                             <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
@@ -121,7 +121,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
 
                       {/* Expandable Child Links */}
                       {isOpen && (
-                        <div className="mt-1 ml-3 pl-3 border-l border-slate-200 space-y-1">
+                        <div className="mt-1 ml-3 pl-3 border-l-2 border-slate-200/80 space-y-1">
                           {item.children.map((child) => {
                             const ChildIcon = child.icon;
                             return (
@@ -129,9 +129,9 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
                                 key={child.path}
                                 to={child.path}
                                 className={({ isActive }) =>
-                                  `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                  `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                     isActive
-                                      ? 'bg-blue-600 text-white font-semibold shadow-2xs'
+                                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-md shadow-blue-500/20'
                                       : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                                   }`
                                 }
@@ -154,9 +154,9 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
                             key={child.path}
                             to={child.path}
                             className={({ isActive }) =>
-                              `flex items-center justify-center w-10 h-10 rounded-lg text-xs font-medium transition-colors ${
+                              `flex items-center justify-center w-10 h-10 rounded-lg text-xs font-medium transition-all ${
                                 isActive
-                                  ? 'bg-blue-600 text-white font-semibold shadow-2xs'
+                                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-md shadow-blue-500/20'
                                   : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
                               }`
                             }
@@ -178,10 +178,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-blue-50 text-blue-600 font-semibold'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-md shadow-blue-500/20'
+                      : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
                   } ${isCollapsed ? 'justify-center px-0' : ''}`
                 }
                 title={isCollapsed ? item.label : undefined}
@@ -194,7 +194,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
       </nav>
 
       {/* User / Sign Out Footer */}
-      <div className="p-3 border-t border-slate-200">
+      <div className="p-3 border-t border-slate-200/80 bg-white/40">
         <button
           onClick={logout}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer ${

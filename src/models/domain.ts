@@ -202,6 +202,17 @@ export interface OrderDispatchRecord {
   rejectedAt?: string;
 }
 
+export interface OrderItem {
+  id?: string;
+  orderId?: string;
+  productId: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
+  createdAt?: string;
+}
+
 export interface Order {
   id: string; // e.g., 'ord_001'
   orderNumber: string; // e.g., 'ORD-2026-001'
@@ -225,6 +236,8 @@ export interface Order {
   remarks?: string;
   deliveredAt?: string;
   rejectedAt?: string;
+  damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[];
+  items?: OrderItem[];
   dispatchHistory?: OrderDispatchRecord[];
   previousDispatchInfo?: PreviousDispatchInfo;
   createdAt: string;
@@ -239,6 +252,7 @@ export interface DeliveryStatusHistory {
   previousStatus: OrderStatus | null;
   newStatus: OrderStatus;
   remarks?: string;
+  damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[];
   actorUserId: string; // User ID who changed status
   createdAt: string;
 }
@@ -362,6 +376,9 @@ export interface Product {
   teamId: string;
   category?: string;
   currentStock: number;
+  allocatedStock?: number; // Stock reserved for PREPARED orders
+  dispatchedStock?: number; // Stock in transit
+  soldStock?: number; // Successfully delivered stock
   damagedStock?: number; // Damaged units quarantined / not calculated in sellable stock
   minStockThreshold: number;
   costPrice: number; // Reference LKR cost
@@ -378,7 +395,7 @@ export interface StockActivityLog {
   productId: string;
   productName: string;
   teamId: string;
-  action: 'ADD' | 'REMOVE' | 'ADJUST' | 'PRICE_CHANGE';
+  action: 'ADD' | 'REMOVE' | 'ADJUST' | 'PRICE_CHANGE' | 'ALLOCATE' | 'DISPATCH' | 'DELIVER' | 'RETURN_RESTOCK' | 'RETURN_DAMAGE' | 'CANCEL_DEALLOCATE' | 'CANCEL_RESTOCK' | string;
   quantity: number;
   previousStock: number;
   newStock: number;
@@ -386,10 +403,17 @@ export interface StockActivityLog {
   newCostPrice?: number;
   previousSellingPrice?: number;
   newSellingPrice?: number;
-  performedBy: string; // User ID
+  performedById?: string;
+  performedBy?: string; // User ID
   performedByName: string;
   approvalRequestId?: string;
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  orderId?: string;
+  orderNumber?: string;
+  customerName?: string;
+  previousStatus?: string;
+  newStatus?: string;
+  reason?: string;
   createdAt: string;
 }
 
