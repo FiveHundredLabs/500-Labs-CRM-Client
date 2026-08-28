@@ -229,6 +229,8 @@ export interface Order {
   previousDispatchInfo?: PreviousDispatchInfo;
   createdAt: string;
   updatedAt: string;
+  customer?: Customer;
+  team?: Pick<Team, 'id' | 'name' | 'code'>;
 }
 
 export interface DeliveryStatusHistory {

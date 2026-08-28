@@ -27,45 +27,53 @@ const SlipField: React.FC<{
   value?: string | number | null;
   className?: string;
 }> = ({ label, value, className = '' }) => (
-  <div className={`min-w-0 ${className}`}>
-    <div className="text-[2.35mm] font-medium leading-tight text-slate-600 uppercase">{label}</div>
-    <div className="mt-[0.65mm] text-[3mm] font-normal leading-snug text-black whitespace-pre-wrap break-words">
+  <div className={`min-w-0 ${className}`} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+    <div 
+      className="uppercase text-[#475569] leading-none" 
+      style={{ fontSize: '10px', fontWeight: 500, fontFamily: 'Arial, Helvetica, sans-serif' }}
+    >
+      {label}
+    </div>
+    <div 
+      className="text-[#000000] leading-snug whitespace-pre-wrap break-words"
+      style={{ fontSize: '11.5px', fontWeight: 500, fontFamily: 'Arial, Helvetica, sans-serif' }}
+    >
       {value || <span>&nbsp;</span>}
     </div>
   </div>
 );
 
 const SlipHeader: React.FC<{ brand: BrandPrintConfig }> = ({ brand }) => (
-  <div className="h-[21mm] border-b-[0.35mm] border-black flex items-center justify-between px-[4mm] py-[2.5mm] overflow-hidden">
-    <div className="flex items-center justify-start max-w-[38mm]">
+  <div className="h-[26mm] border-b-[0.55mm] border-[#000000] flex items-center justify-between px-[5mm] py-[2.5mm] overflow-hidden bg-[#FFFFFF]">
+    {/* Logo Container */}
+    <div className="flex items-center justify-start max-w-[42mm] h-full pl-[1mm]">
       <img
         src={brand.logo}
         alt={`${brand.displayName} logo`}
-        className="max-w-[34mm] max-h-[16mm] object-contain"
+        className="max-w-[38mm] max-h-[19mm] object-contain"
+        style={{ display: 'block' }}
       />
     </div>
-    <div className="text-right flex-1 pl-[4mm]">
-      <div className="text-[5.2mm] font-semibold leading-none text-black uppercase">
+    {/* Business Info Container */}
+    <div className="text-right flex-1 pl-[4mm] pr-[1mm] flex flex-col justify-center h-full">
+      <h1 className="text-[18px] font-bold leading-tight text-[#000000] uppercase tracking-wide" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
         {brand.printTitle}
-      </div>
-      <div className="mt-[1.25mm] text-[2.65mm] font-normal leading-tight text-black whitespace-pre-line">
+      </h1>
+      <p className="mt-[1mm] text-[10.5px] font-normal leading-tight text-[#475569] whitespace-pre-line" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
         {brand.address}
-      </div>
+      </p>
     </div>
   </div>
 );
 
 const UnresolvedBrandSlip: React.FC<{ className?: string }> = ({ className = '' }) => (
   <div
-    className={`billing-slip w-[140.5mm] h-[97mm] bg-white border-[0.45mm] border-black p-[6mm] text-black overflow-hidden shrink-0 ${className}`}
-    style={{
-      boxSizing: 'border-box',
-      fontFamily: 'Arial, Helvetica, "Segoe UI", sans-serif',
-    }}
+    className={`billing-slip w-[148mm] h-[105mm] bg-[#FFFFFF] border-[0.6mm] border-[#000000] p-[6mm] text-[#000000] overflow-hidden shrink-0 ${className}`}
+    style={{ boxSizing: 'border-box', fontFamily: 'Arial, Helvetica, sans-serif' }}
   >
     <div className="h-full flex flex-col items-center justify-center text-center gap-[3mm]">
-      <div className="text-[5mm] font-black uppercase">Brand Not Resolved</div>
-      <div className="text-[3.5mm] font-semibold leading-snug max-w-[100mm]">
+      <div className="text-[18px] font-bold uppercase text-[#000000]">Brand Not Resolved</div>
+      <div className="text-[13px] font-normal leading-snug max-w-[100mm] text-[#475569]">
         This order cannot be printed until its owning team is mapped to a billing brand.
       </div>
     </div>
@@ -86,49 +94,60 @@ export const A6BillingSlip: React.FC<A6BillingSlipProps> = ({
 
   return (
     <div
-      className={`billing-slip w-[140.5mm] h-[97mm] bg-white border-[0.45mm] border-black overflow-hidden text-black shrink-0 ${className}`}
-      style={{
-        boxSizing: 'border-box',
-        fontFamily: 'Arial, Helvetica, "Segoe UI", sans-serif',
-      }}
+      className={`billing-slip w-[148mm] h-[105mm] bg-[#FFFFFF] border-[0.6mm] border-[#000000] overflow-hidden text-[#000000] shrink-0 ${className}`}
+      style={{ boxSizing: 'border-box' }}
     >
+      {/* 1. Header */}
       <SlipHeader brand={brand} />
 
-      <div className="flex flex-col" style={{ height: 'calc(100% - 21mm)' }}>
-        {/* Details area */}
-        <div className="grid grid-cols-2 flex-1 min-h-0 border-b-[0.35mm] border-black">
-          <section className="min-w-0 border-r-[0.35mm] border-black flex flex-col">
-            <div className="h-[7mm] bg-black text-white text-[2.8mm] font-semibold uppercase flex items-center px-[3mm]">
-              Merchant Details
-            </div>
-            <div className="flex-1 min-h-0 px-[3mm] py-[2.5mm] space-y-[2.8mm] overflow-hidden">
-              <SlipField label="Name" value={brand.merchantName} />
-              <SlipField label="Telephone" value={brand.merchantTelephone} />
-              <SlipField label="Description" value={brand.description} />
-            </div>
-          </section>
+      {/* 2. Body Area */}
+      <div className="flex flex-col h-[79mm]">
+        
+        {/* 2.1 Black Headings Row */}
+        <div className="grid grid-cols-[48%_0.55mm_51.45%] bg-[#000000] text-[#ffffff] h-[8mm] items-center">
+          <div className="pl-[4mm] uppercase tracking-wider text-[11.5px]" style={{ fontWeight: 600, fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            Merchant Details
+          </div>
+          <div className="h-full w-full bg-[#000000]"></div>
+          <div className="pl-[4mm] uppercase tracking-wider text-[11.5px]" style={{ fontWeight: 600, fontFamily: 'Arial, Helvetica, sans-serif' }}>
+            Customer Details
+          </div>
+        </div>
 
-          <section className="min-w-0 flex flex-col">
-            <div className="h-[7mm] bg-black text-white text-[2.8mm] font-semibold uppercase flex items-center px-[3mm]">
-              Customer Details
+        {/* 2.2 Body Details Columns */}
+        <div className="grid grid-cols-[48%_0.55mm_51.45%] h-[53mm] bg-[#FFFFFF]">
+          {/* Left Column: Merchant */}
+          <div className="flex flex-col pt-[3mm] pb-[3mm] pl-[4mm] pr-[3mm] min-w-0">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+              <SlipField label="Name" value={brand.merchantName} />
+              <SlipField label="Description" value={brand.description} />
+              <SlipField label="Telephone" value={brand.merchantTelephone} />
             </div>
-            <div className="flex-1 min-h-0 px-[3mm] py-[2.5mm] space-y-[2.8mm] overflow-hidden">
+          </div>
+
+          {/* Middle Vertical Separator */}
+          <div className="w-[0.55mm] bg-[#000000] h-full"></div>
+
+          {/* Right Column: Customer */}
+          <div className="flex flex-col pt-[3mm] pb-[3mm] pl-[4mm] pr-[3mm] min-w-0">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
               <SlipField label="Name" value={customer.fullName || 'Customer'} />
               <SlipField label="Address" value={formatAddress(customer.address || 'N/A').join('\n')} />
               <SlipField label="Telephone" value={customer.phone || 'N/A'} />
             </div>
-          </section>
+          </div>
         </div>
 
-        {/* Row 5: Total COD Section */}
-        <div className="h-[15mm] flex items-center justify-center bg-slate-50 text-center px-[4mm]">
-          <div className="text-[3.15mm] font-medium uppercase text-slate-700 leading-none mr-[3mm]">
+        {/* 2.3 Total COD Footer */}
+        <div className="h-[18mm] border-t-[0.55mm] border-[#000000] flex items-center justify-center bg-[#F8FAFC] gap-[5mm] px-[4mm]">
+          <span className="text-[12.5px] uppercase tracking-wider text-[#475569]" style={{ fontWeight: 500, fontFamily: 'Arial, Helvetica, sans-serif' }}>
             Total COD
-          </div>
-          <div className="text-[5.2mm] font-semibold text-black leading-tight">
+          </span>
+          <span className="text-[21px] text-[#000000] tracking-tight" style={{ fontWeight: 600, fontFamily: 'Arial, Helvetica, sans-serif' }}>
             {getCodAmount(order)}
-          </div>
+          </span>
         </div>
+
       </div>
     </div>
   );
