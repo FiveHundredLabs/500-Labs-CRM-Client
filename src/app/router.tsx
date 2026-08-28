@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { LoginPage } from '../views/auth/LoginPage';
 import { AppShell } from '../components/navigation/AppShell';
 import { ProtectedRoute } from '../components/navigation/ProtectedRoute';
+import { RoleLanding } from '../components/navigation/RoleLanding';
 
 // Member Views
 import { MemberDashboard } from '../views/member/MemberDashboard';
@@ -50,15 +51,9 @@ import { FinanceReportsPage } from '../views/finance/FinanceReportsPage';
 import { FinanceProfilePage } from '../views/finance/FinanceProfilePage';
 import { FinanceUnderDevelopmentPage } from '../views/finance/FinanceUnderDevelopmentPage';
 
-const RootLayout: React.FC = () => {
-  return (
-    <Outlet />
-  );
-};
-
 export const router = createBrowserRouter([
   {
-    element: <RootLayout />,
+    element: <Outlet />,
     children: [
       {
         path: '/login',
@@ -73,7 +68,7 @@ export const router = createBrowserRouter([
             children: [
               {
                 index: true,
-                element: <Navigate to="/login" replace />,
+                element: <RoleLanding />,
               },
               // Team Member Routes
               {

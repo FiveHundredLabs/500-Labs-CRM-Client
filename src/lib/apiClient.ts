@@ -3,6 +3,12 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
 export const AUTH_EXPIRED_EVENT = 'crm-auth-expired';
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuthRefresh?: boolean;
+  }
+}
+
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
@@ -14,20 +20,33 @@ export const apiClient = axios.create({
 let refreshPromise: Promise<void> | null = null;
 let authExpiredHandled = false;
 
-const isAuthEndpoint = (url?: string) =>
-  Boolean(
-    url?.includes('/auth/login') ||
-      url?.includes('/auth/refresh') ||
-      url?.includes('/auth/logout'),
+type RetriableRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+  skipAuthRefresh?: boolean;
+};
+
+const getPathname = (url?: string): string => {
+  if (!url) return '';
+  try {
+    return new URL(url, BASE_URL).pathname;
+  } catch {
+    return url;
+  }
+};
+
+const isAuthEndpoint = (url?: string) => {
+  const pathname = getPathname(url);
+  return (
+    pathname.endsWith('/auth/login') ||
+    pathname.endsWith('/auth/refresh') ||
+    pathname.endsWith('/auth/logout')
   );
+};
 
 const notifyAuthExpired = () => {
   if (authExpiredHandled) return;
   authExpiredHandled = true;
   window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
-  if (window.location.pathname !== '/login') {
-    window.location.assign('/login');
-  }
 };
 
 export const markAuthRecovered = () => {
@@ -35,14 +54,14 @@ export const markAuthRecovered = () => {
 };
 
 const refreshSession = async (): Promise<void> => {
-  await apiClient.post('/auth/refresh');
+  await apiClient.post('/auth/refresh', undefined, { skipAuthRefresh: true });
   markAuthRecovered();
 };
 
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as RetriableRequestConfig | undefined;
 
     if (!originalRequest) {
       return Promise.reject(error);
@@ -51,6 +70,7 @@ apiClient.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
+      !originalRequest.skipAuthRefresh &&
       !isAuthEndpoint(originalRequest.url)
     ) {
       originalRequest._retry = true;

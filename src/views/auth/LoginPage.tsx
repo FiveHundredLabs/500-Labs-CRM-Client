@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Input } from '../../components/ui/Input';
@@ -7,13 +7,22 @@ import { Eye, EyeOff, Lock, Mail, Building2 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, status, user } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (status !== 'authenticated' || !user) return;
+
+    if (user.role === 'ADMIN') navigate('/admin/dashboard', { replace: true });
+    else if (user.role === 'SUPERVISOR') navigate('/supervisor/dashboard', { replace: true });
+    else if (user.role === 'TEAM_MEMBER') navigate('/member/dashboard', { replace: true });
+    else if (user.role === 'FINANCE') navigate('/finance/dashboard', { replace: true });
+  }, [navigate, status, user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,10 +31,10 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       const user = await login(email.trim(), password);
-      if (user.role === 'ADMIN') navigate('/admin/dashboard');
-      else if (user.role === 'SUPERVISOR') navigate('/supervisor/dashboard');
-      else if (user.role === 'TEAM_MEMBER') navigate('/member/dashboard');
-      else if (user.role === 'FINANCE') navigate('/finance/dashboard');
+      if (user.role === 'ADMIN') navigate('/admin/dashboard', { replace: true });
+      else if (user.role === 'SUPERVISOR') navigate('/supervisor/dashboard', { replace: true });
+      else if (user.role === 'TEAM_MEMBER') navigate('/member/dashboard', { replace: true });
+      else if (user.role === 'FINANCE') navigate('/finance/dashboard', { replace: true });
     } catch {
       // toast error handled in useAuth
     } finally {
@@ -90,7 +99,12 @@ export const LoginPage: React.FC = () => {
             <span className="text-slate-400 font-normal">Encrypted Session</span>
           </div>
 
-          <Button type="submit" variant="primary" className="w-full h-10 text-sm mt-2" isLoading={isLoading}>
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full h-10 text-sm mt-2"
+            isLoading={isLoading || status === 'checking'}
+          >
             Sign In to Workspace
           </Button>
         </form>
