@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { Customer, Order, OrderStatus, DeliveryStatusHistory, Team } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { LoadingState } from '../../components/shared/LoadingState';
-import { LeadPrintItem, BillingSlipPrintSheet } from '../../components/printing/BillingSlipPrintSheet';
-import { PrintDocumentStyles } from '../../components/printing/PrintDocumentStyles';
+import { LeadPrintItem } from '../../components/printing/BillingSlipPrintSheet';
 import { PrintFloatingPanel } from '../../components/printing/PrintFloatingPanel';
 import { OrdersStats } from '../../components/orders/OrdersStats';
 import { OrderFilters } from '../../components/orders/OrderFilters';
@@ -17,7 +16,7 @@ import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../
 import { useOrders } from '../../hooks/useOrders';
 import { useOrderFilters } from '../../hooks/useOrderFilters';
 import { useSelection } from '../../hooks/useSelection';
-import { downloadBillingPDF } from '../../utils/pdfGenerator';
+import { downloadBillingPDF, printBillingPDF } from '../../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
@@ -27,7 +26,6 @@ export const SupervisorOrdersPage: React.FC = () => {
   const { user } = useAuth();
   const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
   const [teams, setTeams] = useState<Team[]>([]);
-  const [directPrintItems, setDirectPrintItems] = useState<LeadPrintItem[] | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -119,44 +117,13 @@ export const SupervisorOrdersPage: React.FC = () => {
   const buildPrintItem = (order: Order): LeadPrintItem => {
     const customer = customersMap[order.customerId];
     const responsibleUser = membersMap[order.teamMemberId];
-    const team = teams.find((t) => t.id === order.teamId);
+    const team = order.team || teams.find((t) => t.id === order.teamId);
     return {
-      customer: customer || {
-        id: order.customerId,
-        fullName: 'Customer',
-        phone: 'N/A',
-        address: 'N/A',
-        teamId: order.teamId,
-        responsibleTeamMemberId: order.teamMemberId,
-        createdAt: '',
-        updatedAt: '',
-        contactId: '',
-      },
+      customer: customer || order.customer!,
       responsibleUser,
       order,
       team,
     };
-  };
-
-  const waitForBillingSlipImages = async () => {
-    const images = Array.from(document.querySelectorAll<HTMLImageElement>('.print-billing-container img'));
-    await Promise.all(
-      images.map(async (image) => {
-        if (image.complete && image.naturalWidth > 0) return;
-        if (typeof image.decode === 'function') {
-          try {
-            await image.decode();
-            return;
-          } catch {
-            return;
-          }
-        }
-        await new Promise<void>((resolve) => {
-          image.onload = () => resolve();
-          image.onerror = () => resolve();
-        });
-      })
-    );
   };
 
   // Selected Lead Print Items for PDF & Print
@@ -164,51 +131,38 @@ export const SupervisorOrdersPage: React.FC = () => {
     .filter((o) => selectedOrderIds.includes(o.id))
     .map(buildPrintItem);
 
-  const activePrintItems = directPrintItems || selectedPrintItems;
-
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
-    const success = downloadBillingPDF(selectedPrintItems);
-    if (success) {
+    try {
+      await downloadBillingPDF(selectedPrintItems);
       toast.success('Billing slips PDF downloaded!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate billing PDF.');
     }
   };
 
   const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
-    await waitForBillingSlipImages();
-    window.print();
-    setIsPrintConfirmOpen(true);
+    try {
+      await printBillingPDF(selectedPrintItems);
+      setIsPrintConfirmOpen(true);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate billing print document.');
+    }
   };
 
   const handlePrintBillingSlip = async (order: Order) => {
-    setDirectPrintItems([buildPrintItem(order)]);
+    try {
+      await printBillingPDF([buildPrintItem(order)]);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate billing print document.');
+    }
   };
-
-  useEffect(() => {
-    if (!directPrintItems) return;
-
-    const printDirectSlip = async () => {
-      await new Promise((resolve) => window.requestAnimationFrame(resolve));
-      await waitForBillingSlipImages();
-      window.print();
-      setDirectPrintItems(null);
-    };
-
-    printDirectSlip();
-  }, [directPrintItems]);
 
   if (loading) return <LoadingState rows={6} />;
 
   return (
     <div className="space-y-4 pb-28">
-      <PrintDocumentStyles />
-
-      {/* Hidden Print Container rendered in DOM for window.print() */}
-      <div className="hidden print:block">
-        <BillingSlipPrintSheet items={activePrintItems} />
-      </div>
-
       {/* Admin Multi-Team Switcher */}
       <AdminTeamSelector
         activeTeamId={adminTeamId}

@@ -3,6 +3,8 @@ import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { LeadPrintItem, BillingSlipPrintSheet } from './BillingSlipPrintSheet';
 import { Printer, FileText, CheckCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { printBillingPDF } from '../../utils/pdfGenerator';
 
 export interface InterestedLeadsPrintModalProps {
   isOpen: boolean;
@@ -17,10 +19,14 @@ export const InterestedLeadsPrintModal: React.FC<InterestedLeadsPrintModalProps>
   items,
   onPrintExecuted,
 }) => {
-  const handlePrint = () => {
-    window.print();
-    if (onPrintExecuted) {
-      onPrintExecuted();
+  const handlePrint = async () => {
+    try {
+      await printBillingPDF(items);
+      if (onPrintExecuted) {
+        onPrintExecuted();
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate billing print document.');
     }
   };
 

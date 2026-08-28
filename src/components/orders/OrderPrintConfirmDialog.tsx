@@ -20,7 +20,7 @@ export const OrderPrintConfirmDialog: React.FC<OrderPrintConfirmDialogProps> = (
       isOpen={isOpen}
       onClose={onClose}
       title="Print Job Dispatched"
-      description="Native browser print dialog launched for selected billing slips."
+      description="Generated billing-slip PDF launched for selected orders."
       maxWidth="sm"
     >
       <div className="space-y-4">
