@@ -32,7 +32,7 @@ export const SupervisorProfilePage: React.FC = () => {
   }, [user]);
 
   if (!user) return null;
-  const teamBrand = getTeamBranding(user.teamId || undefined);
+  const teamBrand = getTeamBranding(user.team || user.teamId);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

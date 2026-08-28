@@ -39,6 +39,50 @@ const STORAGE_KEYS = {
 
 export const delay = (ms = 100): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
+const migrateStoredTeams = () => {
+  const rawTeams = localStorage.getItem(STORAGE_KEYS.TEAMS);
+  if (!rawTeams) return;
+
+  try {
+    const teams = JSON.parse(rawTeams) as Array<Record<string, string>>;
+    const migratedTeams = teams.map((team) => {
+      if (team.id === 'team_001' || team.name === 'Brand Alpha' || team.code === 'ALPHA') {
+        return {
+          ...team,
+          name: 'Easy Method English',
+          code: 'EME',
+          brandColor: '#2563EB',
+          accentColor: '#EFF6FF',
+          logoText: 'EASY METHOD ENGLISH',
+          contactEmail: 'support@easymethodenglish.com',
+          contactPhone: '0741488108',
+          address: 'NO 287/2/2, HAVELOCK ROAD, COLOMBO - 06',
+        };
+      }
+
+      if (team.id === 'team_002' || team.name === 'Brand Beta' || team.code === 'BETA') {
+        return {
+          ...team,
+          name: 'Grow Mart',
+          code: 'GM',
+          brandColor: '#16A34A',
+          accentColor: '#ECFDF5',
+          logoText: 'GROW MART',
+          contactEmail: 'contact@growmart.com',
+          contactPhone: '0774613351',
+          address: 'NO 287/2/1, HAVELOCK ROAD, COLOMBO - 06',
+        };
+      }
+
+      return team;
+    });
+
+    localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(migratedTeams));
+  } catch (e) {
+    console.error(`Error migrating ${STORAGE_KEYS.TEAMS} in localStorage`, e);
+  }
+};
+
 export const initMockStorage = (forceReset = false) => {
   const existingUsers = localStorage.getItem(STORAGE_KEYS.USERS);
   const isUsersEmpty = !existingUsers || existingUsers === '[]';
@@ -68,6 +112,8 @@ export const initMockStorage = (forceReset = false) => {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(firstUser));
     }
   }
+
+  migrateStoredTeams();
 };
 
 export function getStoredItem<T>(key: string, fallback: T[]): T[] {

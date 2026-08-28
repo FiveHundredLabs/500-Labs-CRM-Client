@@ -154,6 +154,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
 
     if (isInterested) {
       if (!customerName.trim()) {

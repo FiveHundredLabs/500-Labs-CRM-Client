@@ -17,6 +17,7 @@ export interface OrderCardProps {
   onViewHistory: (order: Order) => void;
   onOpenStatusModal: (order: Order, defaultNewStatus: OrderStatus) => void;
   onOpenRemarkModal: (order: Order) => void;
+  onPrintBillingSlip: (order: Order) => void;
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
 }
 
@@ -30,6 +31,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onViewHistory,
   onOpenStatusModal,
   onOpenRemarkModal,
+  onPrintBillingSlip,
   onInspectDuplicateOrders,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -122,6 +124,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               onViewHistory={onViewHistory}
               onOpenStatusModal={onOpenStatusModal}
               onOpenRemarkModal={onOpenRemarkModal}
+              onPrintBillingSlip={onPrintBillingSlip}
             />
           )}
         </div>

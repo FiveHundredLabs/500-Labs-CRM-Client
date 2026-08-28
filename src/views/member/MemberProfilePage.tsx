@@ -33,7 +33,7 @@ export const MemberProfilePage: React.FC = () => {
 
   if (!user) return null;
 
-  const teamBrand = getTeamBranding(user.teamId || undefined);
+  const teamBrand = getTeamBranding(user.team || user.teamId);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

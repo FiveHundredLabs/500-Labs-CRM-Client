@@ -2,13 +2,14 @@ import React from 'react';
 import type { Order, OrderStatus } from '../../models/domain';
 import { formatCurrency } from '../../utils/currency';
 import { Button } from '../ui/Button';
-import { MessageSquare, History, CheckCheck, XCircle, Edit3, PlusCircle } from 'lucide-react';
+import { MessageSquare, History, CheckCheck, XCircle, Edit3, PlusCircle, Printer } from 'lucide-react';
 
 export interface OrderExpandedDetailsProps {
   order: Order;
   onViewHistory: (order: Order) => void;
   onOpenStatusModal: (order: Order, defaultNewStatus: OrderStatus) => void;
   onOpenRemarkModal: (order: Order) => void;
+  onPrintBillingSlip: (order: Order) => void;
 }
 
 export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
@@ -16,6 +17,7 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
   onViewHistory,
   onOpenStatusModal,
   onOpenRemarkModal,
+  onPrintBillingSlip,
 }) => {
   return (
     <div
@@ -54,6 +56,16 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
         </button>
 
         <div className="flex items-center gap-1.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Printer className="w-3.5 h-3.5 text-slate-700" />}
+            onClick={() => onPrintBillingSlip(order)}
+            className="text-xs py-1 px-2.5 text-slate-700 bg-white hover:bg-slate-100 border-slate-300 cursor-pointer h-7"
+          >
+            COD Slip
+          </Button>
+
           {order.status === 'DISPATCHED' && (
             <>
               <Button

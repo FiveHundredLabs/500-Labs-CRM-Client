@@ -193,7 +193,6 @@ export const AdminReportsPage: React.FC = () => {
             email: member.email,
             phone: member.phone,
             teamId: member.teamId,
-            city: member.city,
             totalAssigned: memberContacts.length,
             totalCalled: calledContacts.length,
             interested: interestedContacts.length,
@@ -277,13 +276,12 @@ export const AdminReportsPage: React.FC = () => {
         format(new Date(o.createdAt), 'yyyy-MM-dd HH:mm'),
       ]);
     } else if (reportType === 'TELECALLER_PERFORMANCE') {
-      headers = ['Salesman ID', 'Name', 'Phone', 'Team', 'City', 'Assigned Contacts', 'Calls Made', 'Interested Leads', 'Orders Placed', 'Conversion Rate %'];
+      headers = ['Salesman ID', 'Name', 'Phone', 'Team', 'Assigned Contacts', 'Calls Made', 'Interested Leads', 'Orders Placed', 'Conversion Rate %'];
       rows = (reportData as any[]).map((r) => [
         r.id,
         `"${r.name.replace(/"/g, '""')}"`,
         r.phone,
         getTeamName(teamsMap, r.teamId),
-        r.city,
         String(r.totalAssigned),
         String(r.totalCalled),
         String(r.interested),
@@ -312,7 +310,7 @@ export const AdminReportsPage: React.FC = () => {
         `"${a.description.replace(/"/g, '""')}"`,
       ]);
     } else if (reportType === 'USER_DIRECTORY') {
-      headers = ['User ID', 'Full Name', 'Email', 'Phone', 'Role', 'Team', 'City', 'NIC', 'Status', 'Joined Date'];
+      headers = ['User ID', 'Full Name', 'Email', 'Phone', 'Role', 'Team', 'NIC', 'Status', 'Joined Date'];
       rows = (reportData as User[]).map((u) => [
         u.id,
         `"${u.fullName.replace(/"/g, '""')}"`,
@@ -320,7 +318,6 @@ export const AdminReportsPage: React.FC = () => {
         u.phone,
         u.role,
         getTeamName(teamsMap, u.teamId),
-        u.city || '',
         u.nic || '',
         u.isActive ? 'ACTIVE' : 'DISABLED',
         format(new Date(u.joiningDate), 'yyyy-MM-dd'),

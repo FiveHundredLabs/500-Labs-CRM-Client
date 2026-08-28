@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import type { Order, OrderStatus, DeliveryStatusHistory } from '../../models/domain';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { Customer, Order, OrderStatus, DeliveryStatusHistory, Team } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { LoadingState } from '../../components/shared/LoadingState';
-import { LeadPrintItem, A4BillingPrintSheet } from '../../components/printing/A4BillingPrintSheet';
+import { LeadPrintItem, BillingSlipPrintSheet } from '../../components/printing/BillingSlipPrintSheet';
 import { PrintDocumentStyles } from '../../components/printing/PrintDocumentStyles';
 import { PrintFloatingPanel } from '../../components/printing/PrintFloatingPanel';
 import { OrdersStats } from '../../components/orders/OrdersStats';
@@ -21,10 +21,25 @@ import { downloadBillingPDF } from '../../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
+import { teamRepository } from '../../repositories';
 
 export const SupervisorOrdersPage: React.FC = () => {
   const { user } = useAuth();
-  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [directPrintItems, setDirectPrintItems] = useState<LeadPrintItem[] | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    teamRepository.getAll()
+      .then((data) => {
+        if (isMounted) setTeams(data);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const {
     orders,
@@ -79,7 +94,6 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
 
-  // Duplicate Order Inspection State
   const [inspectConflictOrder, setInspectConflictOrder] = useState<Order | null>(null);
   const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
 
@@ -102,25 +116,55 @@ export const SupervisorOrdersPage: React.FC = () => {
     setInspectConflictInfo(conflictInfo);
   };
 
-  // Selected Lead Print Items for PDF & Print
-  const selectedPrintItems: LeadPrintItem[] = orders
-    .filter((o) => selectedOrderIds.includes(o.id))
-    .map((o) => ({
-      customer: customersMap[o.customerId] || {
-        id: `cst_temp_${o.id}`,
-        contactId: '',
+  const buildPrintItem = (order: Order): LeadPrintItem => {
+    const customer = customersMap[order.customerId];
+    const responsibleUser = membersMap[order.teamMemberId];
+    const team = teams.find((t) => t.id === order.teamId);
+    return {
+      customer: customer || {
+        id: order.customerId,
         fullName: 'Customer',
         phone: 'N/A',
         address: 'N/A',
-        teamId: o.teamId,
-        responsibleTeamMemberId: o.teamMemberId,
-        supervisorId: o.supervisorId,
-        createdAt: o.createdAt,
-        updatedAt: o.updatedAt,
+        teamId: order.teamId,
+        responsibleTeamMemberId: order.teamMemberId,
+        createdAt: '',
+        updatedAt: '',
+        contactId: '',
       },
-      responsibleUser: membersMap[o.teamMemberId],
-      order: o,
-    }));
+      responsibleUser,
+      order,
+      team,
+    };
+  };
+
+  const waitForBillingSlipImages = async () => {
+    const images = Array.from(document.querySelectorAll<HTMLImageElement>('.print-billing-container img'));
+    await Promise.all(
+      images.map(async (image) => {
+        if (image.complete && image.naturalWidth > 0) return;
+        if (typeof image.decode === 'function') {
+          try {
+            await image.decode();
+            return;
+          } catch {
+            return;
+          }
+        }
+        await new Promise<void>((resolve) => {
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+        });
+      })
+    );
+  };
+
+  // Selected Lead Print Items for PDF & Print
+  const selectedPrintItems: LeadPrintItem[] = orders
+    .filter((o) => selectedOrderIds.includes(o.id))
+    .map(buildPrintItem);
+
+  const activePrintItems = directPrintItems || selectedPrintItems;
 
   const handleDownloadPDF = () => {
     if (selectedPrintItems.length === 0) return;
@@ -130,11 +174,29 @@ export const SupervisorOrdersPage: React.FC = () => {
     }
   };
 
-  const handleNativePrint = () => {
+  const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
+    await waitForBillingSlipImages();
     window.print();
     setIsPrintConfirmOpen(true);
   };
+
+  const handlePrintBillingSlip = async (order: Order) => {
+    setDirectPrintItems([buildPrintItem(order)]);
+  };
+
+  useEffect(() => {
+    if (!directPrintItems) return;
+
+    const printDirectSlip = async () => {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      await waitForBillingSlipImages();
+      window.print();
+      setDirectPrintItems(null);
+    };
+
+    printDirectSlip();
+  }, [directPrintItems]);
 
   if (loading) return <LoadingState rows={6} />;
 
@@ -144,7 +206,7 @@ export const SupervisorOrdersPage: React.FC = () => {
 
       {/* Hidden Print Container rendered in DOM for window.print() */}
       <div className="hidden print:block">
-        <A4BillingPrintSheet items={selectedPrintItems} />
+        <BillingSlipPrintSheet items={activePrintItems} />
       </div>
 
       {/* Admin Multi-Team Switcher */}
@@ -200,7 +262,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         onViewHistory={handleViewHistory}
         onOpenStatusModal={handleOpenStatusModal}
         onOpenRemarkModal={(order) => setRemarkOrder(order)}
-        onInspectDuplicateOrders={handleInspectDuplicateOrders}
+        onPrintBillingSlip={handlePrintBillingSlip}
       />
 
       {/* 4. Floating Action Panel */}

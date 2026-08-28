@@ -14,6 +14,7 @@ export interface OrderListProps {
   onViewHistory: (order: Order) => void;
   onOpenStatusModal: (order: Order, defaultNewStatus: OrderStatus) => void;
   onOpenRemarkModal: (order: Order) => void;
+  onPrintBillingSlip: (order: Order) => void;
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
 }
 
@@ -27,6 +28,7 @@ export const OrderList: React.FC<OrderListProps> = ({
   onViewHistory,
   onOpenStatusModal,
   onOpenRemarkModal,
+  onPrintBillingSlip,
   onInspectDuplicateOrders,
 }) => {
   if (filteredOrders.length === 0) {
@@ -58,6 +60,7 @@ export const OrderList: React.FC<OrderListProps> = ({
             onViewHistory={onViewHistory}
             onOpenStatusModal={onOpenStatusModal}
             onOpenRemarkModal={onOpenRemarkModal}
+            onPrintBillingSlip={onPrintBillingSlip}
             onInspectDuplicateOrders={onInspectDuplicateOrders}
           />
         );

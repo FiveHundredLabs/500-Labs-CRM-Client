@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
+export const AUTH_EXPIRED_EVENT = 'crm-auth-expired';
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -30,16 +31,27 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 // ─── Response Interceptor (Auto-refresh on 401) ──────────────────────────────
-let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let refreshPromise: Promise<string> | null = null;
+let authExpiredHandled = false;
 
-const subscribeTokenRefresh = (cb: (token: string) => void) => {
-  refreshSubscribers.push(cb);
+const isAuthEndpoint = (url?: string) =>
+  Boolean(url?.includes('/auth/login') || url?.includes('/auth/refresh'));
+
+const notifyAuthExpired = () => {
+  tokenStore.clear();
+  if (authExpiredHandled) return;
+  authExpiredHandled = true;
+  window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+  if (window.location.pathname !== '/login') {
+    window.location.assign('/login');
+  }
 };
 
-const onRefreshed = (token: string) => {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
+const refreshAccessToken = async (): Promise<string> => {
+  const { data } = await apiClient.post<{ data: { accessToken: string } }>('/auth/refresh');
+  const newToken = data.data.accessToken;
+  tokenStore.set(newToken);
+  return newToken;
 };
 
 apiClient.interceptors.response.use(
@@ -47,40 +59,31 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // Only attempt refresh on 401, but not on auth endpoints themselves
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
+    // Only attempt refresh on ordinary API 401s. Auth endpoints must not recurse.
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes('/auth/login') &&
-      !originalRequest.url?.includes('/auth/refresh')
+      !isAuthEndpoint(originalRequest.url)
     ) {
-      if (isRefreshing) {
-        // Queue requests while refresh is in progress
-        return new Promise((resolve) => {
-          subscribeTokenRefresh((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            resolve(apiClient(originalRequest));
-          });
-        });
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
 
       try {
-        const { data } = await apiClient.post<{ data: { accessToken: string } }>('/auth/refresh');
-        const newToken = data.data.accessToken;
-        tokenStore.set(newToken);
-        onRefreshed(newToken);
+        if (!refreshPromise) {
+          refreshPromise = refreshAccessToken().finally(() => {
+            refreshPromise = null;
+          });
+        }
+
+        const newToken = await refreshPromise;
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
-        tokenStore.clear();
-        // Redirect to login on refresh failure
-        window.location.href = '/login';
+        notifyAuthExpired();
         return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
       }
     }
 

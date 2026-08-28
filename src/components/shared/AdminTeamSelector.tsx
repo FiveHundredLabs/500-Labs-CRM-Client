@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { PREDEFINED_TEAMS, getTeamBranding } from '../../config/branding';
+import { Team } from '../../models/domain';
+import { teamRepository } from '../../repositories';
 import { Select } from '../ui/Select';
 import { Shield } from 'lucide-react';
 
@@ -16,10 +18,37 @@ export const AdminTeamSelector: React.FC<AdminTeamSelectorProps> = ({
   title = 'Team Operations Scope',
 }) => {
   const { role } = useAuth();
-  if (role !== 'ADMIN') return null;
+  const [teams, setTeams] = useState<Team[]>([]);
 
-  const currentTeam = getTeamBranding(activeTeamId);
-  const teamList = Object.values(PREDEFINED_TEAMS);
+  useEffect(() => {
+    if (role !== 'ADMIN') return;
+
+    let isMounted = true;
+    teamRepository.getAll()
+      .then((teamList) => {
+        if (!isMounted) return;
+        setTeams(teamList);
+        if (teamList.length > 0 && !teamList.some((team) => team.id === activeTeamId)) {
+          onTeamChange(teamList[0].id);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setTeams([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTeamId, onTeamChange, role]);
+
+  const teamList = useMemo(
+    () => (teams.length > 0 ? teams : Object.values(PREDEFINED_TEAMS)),
+    [teams]
+  );
+  const selectedTeam = teamList.find((team) => team.id === activeTeamId);
+  const currentTeam = getTeamBranding(selectedTeam || activeTeamId);
+
+  if (role !== 'ADMIN') return null;
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-blue-50/90 via-indigo-50/80 to-purple-50/90 border border-blue-200 rounded-xl shadow-2xs">

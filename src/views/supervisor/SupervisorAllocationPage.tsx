@@ -270,7 +270,6 @@ export const SupervisorAllocationPage: React.FC = () => {
                           <span>{firstName}</span>
                           <span className="text-[10px] font-medium text-slate-400 font-mono">({member.id})</span>
                         </div>
-                        <div className="text-xs text-slate-500">{member.city}</div>
                       </div>
                     </div>
 

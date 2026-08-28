@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, UserRole } from '../models/domain';
 import { AuthService } from '../services/authService';
+import { AUTH_EXPIRED_EVENT } from '../lib/apiClient';
 import toast from 'react-hot-toast';
 
 const USER_STORAGE_KEY = 'crm_current_user';
@@ -24,6 +25,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setUser(null);
+      localStorage.removeItem(USER_STORAGE_KEY);
+    };
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+  }, []);
+
   // On app load: try to restore user from localStorage and validate via /auth/me
   useEffect(() => {
     const init = async () => {
@@ -38,6 +49,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Refresh failed — clear stale user
             setUser(null);
             localStorage.removeItem(USER_STORAGE_KEY);
+          } else {
+            const currentUser = await AuthService.getCurrentUser();
+            if (currentUser) {
+              setUser(currentUser);
+              localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser));
+            }
           }
         } catch {
           setUser(null);

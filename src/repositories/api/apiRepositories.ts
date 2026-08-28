@@ -381,7 +381,7 @@ export class ApiOrderRepository implements IOrderRepository {
   async getByMemberId(memberId: string): Promise<Order[]> {
     return unwrap(await apiClient.get<{ data: Order[] }>(`/orders?memberId=${memberId}`));
   }
-  async create(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> {
+  async create(order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order> {
     return unwrap(await apiClient.post<{ data: Order }>('/orders', order));
   }
   async updateStatus(id: string, status: any, remarks?: string): Promise<Order> {

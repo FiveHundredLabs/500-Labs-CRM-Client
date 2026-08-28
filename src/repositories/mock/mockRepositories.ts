@@ -478,12 +478,13 @@ export class MockOrderRepository implements IOrderRepository {
     return orders.filter((o) => o.teamMemberId === memberId);
   }
 
-  async create(orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> {
+  async create(orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order> {
     await delay();
     const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
     const now = new Date().toISOString();
     const newOrder: Order = {
       ...orderData,
+      orderNumber: orderData.orderNumber || `ORD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`,
       id: `ord_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       createdAt: now,
       updatedAt: now,

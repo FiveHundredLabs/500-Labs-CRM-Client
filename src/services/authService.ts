@@ -45,8 +45,11 @@ export class AuthService {
    * Logout: revoke server session and clear local token.
    */
   static async logout(): Promise<void> {
-    await apiClient.post('/auth/logout');
-    tokenStore.clear();
+    try {
+      await apiClient.post('/auth/logout');
+    } finally {
+      tokenStore.clear();
+    }
   }
 
   /**
