@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import type { Product, StockActivityLog, ApprovalRequest, User } from '../../models/domain';
-import { productRepository, stockActivityLogRepository, approvalRequestRepository, emailNotificationRepository, userRepository } from '../../repositories';
+import { productRepository, stockActivityLogRepository, approvalRequestRepository, emailNotificationRepository, userRepository, orderRepository, customerRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { LoadingState } from '../../components/shared/LoadingState';
@@ -10,7 +10,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import toast from 'react-hot-toast';
-import { Package, PlusCircle, DollarSign, AlertTriangle, Clock, CheckCircle2, XCircle, History, Send } from 'lucide-react';
+import { Package, PlusCircle, DollarSign, AlertTriangle, Clock, CheckCircle2, XCircle, History, Send, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const SupervisorStockPage: React.FC = () => {
@@ -54,10 +54,18 @@ export const SupervisorStockPage: React.FC = () => {
   const [damageReason, setDamageReason] = useState<string>('');
   const [isSubmittingDamage, setIsSubmittingDamage] = useState(false);
 
+  // Damage Stock Audit Inspection State
+  const [inspectingDamageProduct, setInspectingDamageProduct] = useState<Product | null>(null);
+  const [damageAuditRecords, setDamageAuditRecords] = useState<any[]>([]);
+  const [loadingDamageAudit, setLoadingDamageAudit] = useState(false);
+
   // Critical Action Confirmation States
   const [confirmingStockSubmit, setConfirmingStockSubmit] = useState(false);
   const [confirmingPriceSubmit, setConfirmingPriceSubmit] = useState(false);
   const [confirmingBulkSubmit, setConfirmingBulkSubmit] = useState(false);
+
+  // Stock Filter Tab State
+  const [activeTab, setActiveTab] = useState<'ALL' | 'AVAILABLE' | 'ALLOCATED' | 'DISPATCHED' | 'SOLD' | 'DAMAGED'>('ALL');
 
   const loadData = async () => {
     if (!user || !user.teamId) return;
@@ -268,6 +276,80 @@ export const SupervisorStockPage: React.FC = () => {
     }
   };
 
+  // Open Damaged Stock Audit Inspection Modal
+  const handleOpenDamageAudit = async (prod: Product) => {
+    setInspectingDamageProduct(prod);
+    setLoadingDamageAudit(true);
+    try {
+      const [allLogs, allOrders, allCustomers] = await Promise.all([
+        stockActivityLogRepository.getByTeamId(prod.teamId).catch(() => []),
+        orderRepository.getByTeamId(prod.teamId).catch(() => []),
+        customerRepository.getAll().catch(() => []),
+      ]);
+
+      const custMap = new Map(allCustomers.map((c) => [c.id, c]));
+      const records: any[] = [];
+
+      // 1. Direct logs
+      const productLogs = allLogs.filter(
+        (l) => l.productId === prod.id && (l.action === 'REMOVE' || l.action === 'ADJUST')
+      );
+      productLogs.forEach((l) => {
+        records.push({
+          id: l.id,
+          source: 'STOCK_ADJUSTMENT',
+          date: l.createdAt,
+          quantity: l.quantity,
+          reason: `Stock log ${l.action}`,
+          performedByName: l.performedByName || 'Supervisor',
+        });
+      });
+
+      // 2. Orders that logged damaged items
+      allOrders.forEach((ord) => {
+        const hasDamaged =
+          (ord.damagedItems &&
+            ord.damagedItems.some(
+              (item) => item.productId === prod.id || item.productName.toLowerCase() === prod.name.toLowerCase()
+            )) ||
+          (ord.status === 'REJECTED' &&
+            (ord.remarks?.toLowerCase().includes(prod.name.toLowerCase()) ||
+              ord.remarks?.toLowerCase().includes('damage')));
+
+        if (hasDamaged) {
+          const cust = custMap.get(ord.customerId);
+          const matchedDamagedItem = ord.damagedItems?.find(
+            (item) => item.productId === prod.id || item.productName.toLowerCase() === prod.name.toLowerCase()
+          );
+
+          records.push({
+            id: `ord_${ord.id}`,
+            source: 'ORDER_RETURN',
+            orderNumber: `#${ord.orderNumber}`,
+            orderStatus: ord.status,
+            customerName: cust?.fullName || 'Customer',
+            customerPhone: cust?.phone,
+            customerCity: cust?.city || 'Sri Lanka',
+            date: ord.rejectedAt || ord.updatedAt || ord.createdAt,
+            quantity: matchedDamagedItem?.quantity || 1,
+            reason:
+              matchedDamagedItem?.reason ||
+              ord.remarks ||
+              'Customer refused package - returned damaged during transit',
+            performedByName: 'Courier Return / Status Update',
+          });
+        }
+      });
+
+      records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setDamageAuditRecords(records);
+    } catch {
+      toast.error('Failed to load damage audit logs.');
+    } finally {
+      setLoadingDamageAudit(false);
+    }
+  };
+
   // Supervisor reports damaged / broken units
   const handleReportDamage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -290,6 +372,17 @@ export const SupervisorStockPage: React.FC = () => {
 
   const lowStockCount = products.filter((p) => p.currentStock <= p.minStockThreshold).length;
   const pendingRequestsCount = approvalRequests.filter((r) => r.status === 'PENDING').length;
+
+  const filteredProducts = products.filter((p) => {
+    switch (activeTab) {
+      case 'AVAILABLE': return p.currentStock > 0;
+      case 'ALLOCATED': return (p.allocatedStock || 0) > 0;
+      case 'DISPATCHED': return (p.dispatchedStock || 0) > 0;
+      case 'SOLD': return (p.soldStock || 0) > 0;
+      case 'DAMAGED': return (p.damagedStock || 0) > 0;
+      default: return true;
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -345,28 +438,46 @@ export const SupervisorStockPage: React.FC = () => {
           </div>
         </div>
 
+        <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
+          {['ALL', 'AVAILABLE', 'ALLOCATED', 'DISPATCHED', 'SOLD', 'DAMAGED'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab as any)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                activeTab === tab
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              {tab === 'ALL' ? 'All Products' : tab}
+            </button>
+          ))}
+        </div>
+
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left text-xs text-slate-700">
             <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
               <tr>
                 <th className="py-3 px-3">Product Name</th>
                 <th className="py-3 px-3">Code</th>
-                <th className="py-3 px-3">Current Stock</th>
-                <th className="py-3 px-3">Min Threshold</th>
-                <th className="py-3 px-3">Cost Price</th>
-                <th className="py-3 px-3">Selling Price</th>
+                <th className="py-3 px-3 text-center">Available</th>
+                <th className="py-3 px-3 text-center text-amber-600">Allocated</th>
+                <th className="py-3 px-3 text-center text-blue-600">Dispatched</th>
+                <th className="py-3 px-3 text-center text-emerald-600">Sold</th>
+                <th className="py-3 px-3 text-center text-rose-600">Damaged</th>
+                <th className="py-3 px-3">Price (LKR)</th>
                 <th className="py-3 px-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {products.length === 0 ? (
+              {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-slate-400 text-xs">
+                  <td colSpan={9} className="py-6 text-center text-slate-400 text-xs">
                     No products found for your team.
                   </td>
                 </tr>
               ) : (
-                products.map((product) => {
+                filteredProducts.map((product) => {
                   const isLow = product.currentStock <= product.minStockThreshold;
                   return (
                     <tr key={product.id} className="hover:bg-slate-50 transition-colors">
@@ -379,25 +490,37 @@ export const SupervisorStockPage: React.FC = () => {
                         )}
                       </td>
                       <td className="py-3 px-3 font-mono text-slate-500">{product.code}</td>
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 text-sm font-mono">{product.currentStock} units</span>
-                          {product.damagedStock && product.damagedStock > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md font-mono mt-1 w-fit">
-                              <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
-                              {product.damagedStock} damaged
-                            </span>
-                          ) : null}
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        <div className="flex flex-col items-center">
+                          <span className="font-bold text-slate-900 text-sm font-mono">{product.currentStock}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-3 text-slate-500 font-mono">
-                        {product.minStockThreshold}
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        <span className="font-bold text-amber-700 text-sm font-mono">{product.allocatedStock || 0}</span>
                       </td>
-                      <td className="py-3 px-3 font-mono text-slate-800">
-                        LKR {product.costPrice.toLocaleString()}
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        <span className="font-bold text-blue-700 text-sm font-mono">{product.dispatchedStock || 0}</span>
                       </td>
-                      <td className="py-3 px-3 font-mono font-bold text-emerald-600">
-                        LKR {product.sellingPrice.toLocaleString()}
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        <span className="font-bold text-emerald-700 text-sm font-mono">{product.soldStock || 0}</span>
+                      </td>
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        <div className="flex flex-col items-center">
+                          <span className="font-bold text-rose-700 text-sm font-mono">{product.damagedStock || 0}</span>
+                          {(product.damagedStock || 0) > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDamageAudit(product)}
+                              className="mt-1 text-[9px] font-sans text-rose-600 underline"
+                            >
+                              Audit
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 font-mono">
+                        <div className="text-slate-500 text-[10px]">Cost: {product.costPrice.toLocaleString()}</div>
+                        <div className="font-bold text-emerald-600">Sell: {product.sellingPrice.toLocaleString()}</div>
                       </td>
                       <td className="py-3 px-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
@@ -997,6 +1120,137 @@ export const SupervisorStockPage: React.FC = () => {
               </Button>
             </div>
           </form>
+        )}
+      </Dialog>
+
+      {/* Damaged Stock Audit Modal */}
+      <Dialog
+        isOpen={!!inspectingDamageProduct}
+        onClose={() => setInspectingDamageProduct(null)}
+        title={`Damaged Stock Audit — ${inspectingDamageProduct?.name || 'Product'}`}
+        description="Quarantined inventory breakdown showing damaged order returns, customer roots, and courier causes."
+        maxWidth="2xl"
+      >
+        {inspectingDamageProduct && (
+          <div className="space-y-4">
+            {/* Header KPI summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-rose-700">Total Damaged</div>
+                <div className="mt-1 text-xl font-black text-rose-900 font-mono">
+                  {inspectingDamageProduct.damagedStock || 0} <span className="text-xs font-normal">units</span>
+                </div>
+              </div>
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sellable On-Hand</div>
+                <div className="mt-1 text-xl font-black text-slate-900 font-mono">
+                  {inspectingDamageProduct.currentStock}{' '}
+                  <span className="text-xs font-normal text-slate-500">units</span>
+                </div>
+              </div>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Quarantine Loss (Est.)</div>
+                <div className="mt-1 text-lg font-black text-amber-900 font-mono">
+                  LKR {((inspectingDamageProduct.damagedStock || 0) * inspectingDamageProduct.costPrice).toLocaleString()}
+                </div>
+              </div>
+            </div>
+
+            {/* Audit Log Table */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <ShieldAlert className="w-4 h-4 text-rose-600" />
+                  <span>Damaged Order Return Audit Trail</span>
+                </h4>
+                <span className="text-[11px] text-slate-400">
+                  {damageAuditRecords.length} record{damageAuditRecords.length !== 1 ? 's' : ''} found
+                </span>
+              </div>
+
+              {loadingDamageAudit ? (
+                <div className="py-8 text-center text-xs text-slate-400">Loading audit records...</div>
+              ) : damageAuditRecords.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl italic">
+                  No order-level return records found. Damaged stock was adjusted via direct stock quarantine.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase sticky top-0">
+                      <tr>
+                        <th className="py-2.5 px-3">Reference / Order</th>
+                        <th className="py-2.5 px-3">Customer</th>
+                        <th className="py-2.5 px-3">Return Date</th>
+                        <th className="py-2.5 px-3 text-center">Damaged Qty</th>
+                        <th className="py-2.5 px-3">Root Cause / Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-sans">
+                      {damageAuditRecords.map((record) => (
+                        <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-2.5 px-3">
+                            {record.orderNumber ? (
+                              <div>
+                                <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 text-[11px]">
+                                  {record.orderNumber}
+                                </span>
+                                {record.orderStatus && (
+                                  <div className="text-[10px] text-rose-700 font-sans mt-0.5">
+                                    Status: {record.orderStatus}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-500 italic text-[11px]">Stock Adjustment</span>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            {record.customerName ? (
+                              <div>
+                                <div className="font-semibold text-slate-900">{record.customerName}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">{record.customerCity}</div>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">—</span>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-3 text-slate-600 text-[11px] whitespace-nowrap">
+                            {new Date(record.date).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </td>
+
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="inline-flex items-center gap-1 font-bold text-rose-900 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md font-mono text-xs">
+                              <AlertTriangle className="w-3 h-3 text-rose-600" />
+                              {record.quantity} units
+                            </span>
+                          </td>
+
+                          <td className="py-2.5 px-3 text-slate-700 text-xs max-w-xs">
+                            <p className="line-clamp-2" title={record.reason}>
+                              {record.reason}
+                            </p>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <Button type="button" variant="secondary" onClick={() => setInspectingDamageProduct(null)}>
+                Close Audit
+              </Button>
+            </div>
+          </div>
         )}
       </Dialog>
     </div>

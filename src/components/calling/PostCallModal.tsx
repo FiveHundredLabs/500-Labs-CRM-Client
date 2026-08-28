@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { StatusBadge } from '../shared/StatusBadge';
-import { Contact, ContactStatus, CallLog } from '../../models/domain';
+import { Contact, ContactStatus, CallLog, Product } from '../../models/domain';
 import { CallLogService } from '../../services/callLogService';
-import { callLogRepository } from '../../repositories';
+import { callLogRepository, productRepository } from '../../repositories';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 import { 
@@ -21,7 +21,7 @@ import {
   Plus, 
   Minus, 
   DollarSign, 
-  HelpCircle 
+  ShoppingBag
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
@@ -32,9 +32,6 @@ export interface PostCallModalProps {
   contact: Contact | null;
   onSuccess: () => void;
 }
-
-const ADULT_PACKAGE_PRICE = 6000;
-const KIDS_PACKAGE_PRICE = 3500;
 
 export const PostCallModal: React.FC<PostCallModalProps> = ({
   isOpen,
@@ -58,31 +55,72 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   const [customerEmail, setCustomerEmail] = useState('');
   const [remarks, setRemarks] = useState('');
 
-  // Package Quantities & COD
-  const [adultQty, setAdultQty] = useState(1);
-  const [kidsQty, setKidsQty] = useState(0);
-  const [codAmount, setCodAmount] = useState<string>('6000');
+  // Dynamic Team Products
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
+
+  // Cash on Delivery (COD)
+  const [codAmount, setCodAmount] = useState<string>('0');
   const [customCodManual, setCustomCodManual] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
 
-  // Calculated package totals
-  const adultSubtotal = adultQty * ADULT_PACKAGE_PRICE;
-  const kidsSubtotal = kidsQty * KIDS_PACKAGE_PRICE;
-  const totalPackageValue = adultSubtotal + kidsSubtotal;
+  // Filter products strictly for the logged-in team member's team
+  const teamProducts = useMemo(() => {
+    if (!user?.teamId) return products;
+    return products.filter((p) => p.teamId === user.teamId && p.isActive !== false);
+  }, [products, user?.teamId]);
 
-  // Auto-sync COD amount with package total unless user manually overrides it
+  // Calculate items and total order value dynamically
+  const selectedItems = useMemo(() => {
+    return teamProducts
+      .filter((p) => (selectedQuantities[p.id] || 0) > 0)
+      .map((p) => {
+        const qty = Number(selectedQuantities[p.id]) || 0;
+        const price = Number(p.sellingPrice) || 0;
+        const subtotal = qty * price;
+        return {
+          productId: p.id,
+          productName: p.name,
+          unitPrice: price,
+          quantity: qty,
+          subtotal,
+          availableStock: Number(p.currentStock) || 0,
+        };
+      });
+  }, [teamProducts, selectedQuantities]);
+
+  const totalOrderValue = useMemo(() => {
+    return selectedItems.reduce((acc, item) => acc + item.subtotal, 0);
+  }, [selectedItems]);
+
+  const totalSelectedQty = useMemo(() => {
+    return selectedItems.reduce((acc, item) => acc + item.quantity, 0);
+  }, [selectedItems]);
+
+  // Auto-sync COD amount with dynamic order total unless user manually overrides it
   useEffect(() => {
     if (!customCodManual) {
-      setCodAmount(totalPackageValue > 0 ? totalPackageValue.toString() : '');
+      setCodAmount(totalOrderValue > 0 ? totalOrderValue.toString() : '');
     }
-  }, [adultQty, kidsQty, customCodManual, totalPackageValue]);
+  }, [totalOrderValue, customCodManual]);
 
-  // Reset state and fetch history & duplicate check when contact changes or modal opens
+  const triggerNativeDialer = () => {
+    if (!contact) return;
+    window.location.href = `tel:${contact.phone.replace(/[^0-9+]/g, '')}`;
+    setHasDialed(true);
+    toast.success('Dialer launched! Fill outcome details below.');
+  };
+
+  // Reset state and fetch history, duplicate check, and team products when contact changes or modal opens
   useEffect(() => {
     if (!contact || !isOpen || !user) return;
 
-    setHasDialed(false);
+    // Auto-launch dialer on modal open
+    window.location.href = `tel:${contact.phone.replace(/[^0-9+]/g, '')}`;
+    setHasDialed(true);
+
     setStatus(contact.status === 'NEW' ? 'ANSWERED' : contact.status);
     setIsFollowUp(Boolean(contact.isFollowUp));
     setCustomerName('');
@@ -91,22 +129,35 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     setSecondaryMobile(contact.secondaryMobile || '');
     setCustomerEmail('');
     setRemarks('');
-    setAdultQty(1);
-    setKidsQty(0);
-    setCodAmount('6000');
+    setSelectedQuantities({});
+    setCodAmount('0');
     setCustomCodManual(false);
 
-    const loadHistoryAndDuplicateCheck = async () => {
+    const loadData = async () => {
       setLoadingHistory(true);
+      setLoadingProducts(true);
       try {
-        const [logs, dupCheck] = await Promise.all([
+        const [logs, allProds] = await Promise.all([
           callLogRepository.getByContactId(contact.id),
-          callLogRepository ? callLogRepository.getAll() : [],
+          user.teamId ? productRepository.getByTeamId(user.teamId) : productRepository.getAll(),
         ]);
 
         const contactLogs = logs.filter((l) => l.contactId === contact.id);
         contactLogs.sort((a, b) => new Date(b.calledAt).getTime() - new Date(a.calledAt).getTime());
         setHistory(contactLogs);
+
+        const activeTeamProds = allProds.filter(
+          (p) => (!user.teamId || p.teamId === user.teamId) && p.isActive !== false
+        );
+        setProducts(activeTeamProds);
+
+        // Pre-select 1 unit of first in-stock product by default if available
+        if (activeTeamProds.length > 0) {
+          const firstInStock = activeTeamProds.find((p) => p.currentStock > 0);
+          if (firstInStock) {
+            setSelectedQuantities({ [firstInStock.id]: 1 });
+          }
+        }
 
         // Fetch duplicate intelligence
         try {
@@ -121,13 +172,14 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           setDupIntelligence(null);
         }
       } catch (err) {
-        console.error('Failed to load call history:', err);
+        console.error('Failed to load call history & products:', err);
       } finally {
         setLoadingHistory(false);
+        setLoadingProducts(false);
       }
     };
 
-    loadHistoryAndDuplicateCheck();
+    loadData();
   }, [contact, isOpen, user]);
 
   if (!contact || !user) return null;
@@ -136,10 +188,12 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   const isInterested = status === 'INTERESTED';
   const isAnswered = status === 'ANSWERED';
 
-  const triggerNativeDialer = () => {
-    window.location.href = `tel:${contact.phone.replace(/[^0-9+]/g, '')}`;
-    setHasDialed(true);
-    toast.success('Dialer launched! Fill outcome details below.');
+  const handleQtyChange = (productId: string, newQty: number, maxStock: number) => {
+    const clamped = Math.max(0, Math.min(newQty, maxStock));
+    setSelectedQuantities((prev) => ({
+      ...prev,
+      [productId]: clamped,
+    }));
   };
 
   const handleCodChange = (val: string) => {
@@ -148,7 +202,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   };
 
   const handleResetCodToTotal = () => {
-    setCodAmount(totalPackageValue.toString());
+    setCodAmount(totalOrderValue.toString());
     setCustomCodManual(false);
   };
 
@@ -173,9 +227,16 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
         toast.error('Secondary mobile number must be at least 7 digits.');
         return;
       }
-      if (adultQty === 0 && kidsQty === 0) {
-        toast.error('Please select at least 1 Adult or Kids package quantity.');
+      if (selectedItems.length === 0 || totalSelectedQty === 0) {
+        toast.error('Please select at least 1 product with quantity > 0.');
         return;
+      }
+      // Check stock safety
+      for (const item of selectedItems) {
+        if (item.quantity > item.availableStock) {
+          toast.error(`Cannot order ${item.quantity} of "${item.productName}". Only ${item.availableStock} available.`);
+          return;
+        }
       }
       const parsedCod = parseFloat(codAmount);
       if (isNaN(parsedCod) || parsedCod < 0) {
@@ -186,8 +247,13 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
     setIsLoading(true);
     try {
-      const selectedPkgType = 
-        adultQty > 0 && kidsQty > 0 ? 'BOTH' : adultQty > 0 ? 'ADULT' : kidsQty > 0 ? 'KIDS' : 'NONE';
+      const itemsPayload = selectedItems.map((i) => ({
+        productId: String(i.productId),
+        productName: String(i.productName),
+        unitPrice: Number(i.unitPrice),
+        quantity: Math.floor(Number(i.quantity)),
+        subtotal: Number(i.subtotal),
+      }));
 
       await CallLogService.submitCallResult(
         {
@@ -199,15 +265,9 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           city: isInterested ? city.trim() : undefined,
           secondaryMobile: isInterested && secondaryMobile.trim() ? secondaryMobile.trim() : undefined,
           customerEmail: customerEmail.trim() || undefined,
-          selectedPackage: isInterested ? selectedPkgType : undefined,
-          adultQty: isInterested ? adultQty : undefined,
-          adultUnitPrice: isInterested ? ADULT_PACKAGE_PRICE : undefined,
-          adultSubtotal: isInterested ? adultSubtotal : undefined,
-          kidsQty: isInterested ? kidsQty : undefined,
-          kidsUnitPrice: isInterested ? KIDS_PACKAGE_PRICE : undefined,
-          kidsSubtotal: isInterested ? kidsSubtotal : undefined,
-          totalPackageValue: isInterested ? totalPackageValue : undefined,
-          codAmount: isInterested ? parseFloat(codAmount) || totalPackageValue : undefined,
+          items: isInterested ? itemsPayload : undefined,
+          totalPackageValue: isInterested ? totalOrderValue : undefined,
+          codAmount: isInterested ? parseFloat(codAmount) || totalOrderValue : undefined,
           remarks: remarks.trim() || undefined,
           callDurationSeconds: Math.floor(Math.random() * 120) + 30,
         },
@@ -216,7 +276,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
       toast.success(
         isInterested
-          ? `Lead recorded for ${customerName} (COD: ${formatCurrency(parseFloat(codAmount) || totalPackageValue)})!`
+          ? `Lead recorded for ${customerName} (COD: ${formatCurrency(parseFloat(codAmount) || totalOrderValue)})!`
           : `Call outcome saved as ${status}`
       );
       onSuccess();
@@ -334,7 +394,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           </div>
         )}
 
-        {/* Form Fields (Revealed after Launch Dialer is clicked or skipped) */}
+        {/* Form Fields */}
         {hasDialed && (
           <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in duration-150">
             <Select
@@ -389,7 +449,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
               </div>
             )}
 
-            {/* INTERESTED STATUS: Comprehensive Customer, Location & Package Details */}
+            {/* INTERESTED STATUS: Comprehensive Customer, Location & Dynamic Products */}
             {isInterested && (
               <div className="p-4 rounded-xl space-y-4 bg-emerald-50/50 border border-emerald-200">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-800 border-b border-emerald-200 pb-2">
@@ -501,79 +561,83 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                   />
                 </div>
 
-                {/* 1.6 Package Selection & Pricing Breakdown */}
+                {/* Dynamic Product Selection & Pricing Breakdown */}
                 <div className="pt-3 border-t border-emerald-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
                       <Package className="w-4 h-4 text-emerald-700" />
-                      <span>Package Selection &amp; Quantities *</span>
+                      <span>Product Selection &amp; Quantities *</span>
                     </div>
-                    <span className="text-[11px] text-slate-500">Select product bundles</span>
+                    <span className="text-[11px] text-slate-500">
+                      Team Products ({teamProducts.length} available)
+                    </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Adult Package Counter */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2 shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-xs font-bold text-slate-900">Adult Package</div>
-                          <div className="text-[11px] text-emerald-600 font-semibold">{formatCurrency(ADULT_PACKAGE_PRICE)} / unit</div>
-                        </div>
-                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1">
-                          <button
-                            type="button"
-                            onClick={() => setAdultQty(Math.max(0, adultQty - 1))}
-                            className="w-6 h-6 rounded flex items-center justify-center bg-white hover:bg-slate-100 text-slate-700 shadow-2xs cursor-pointer"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="w-6 text-center font-bold text-xs text-slate-900">{adultQty}</span>
-                          <button
-                            type="button"
-                            onClick={() => setAdultQty(adultQty + 1)}
-                            className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="text-[11px] text-slate-500 flex justify-between border-t border-slate-100 pt-1.5">
-                        <span>Subtotal:</span>
-                        <span className="font-bold text-slate-800">{formatCurrency(adultSubtotal)}</span>
-                      </div>
+                  {loadingProducts ? (
+                    <div className="p-4 text-center text-xs text-slate-500 bg-white rounded-xl border border-slate-200">
+                      Loading team product catalog...
                     </div>
+                  ) : teamProducts.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-amber-700 bg-amber-50 rounded-xl border border-amber-200">
+                      No active products found for your team. Please request your Supervisor to add products first.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {teamProducts.map((prod) => {
+                        const qty = selectedQuantities[prod.id] || 0;
+                        const isOutOfStock = prod.currentStock <= 0;
+                        const subtotal = qty * prod.sellingPrice;
 
-                    {/* Kids Package Counter */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2 shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-xs font-bold text-slate-900">Kids Package</div>
-                          <div className="text-[11px] text-emerald-600 font-semibold">{formatCurrency(KIDS_PACKAGE_PRICE)} / unit</div>
-                        </div>
-                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1">
-                          <button
-                            type="button"
-                            onClick={() => setKidsQty(Math.max(0, kidsQty - 1))}
-                            className="w-6 h-6 rounded flex items-center justify-center bg-white hover:bg-slate-100 text-slate-700 shadow-2xs cursor-pointer"
+                        return (
+                          <div
+                            key={prod.id}
+                            className={`bg-white border rounded-xl p-3 space-y-2 shadow-2xs transition-all ${
+                              qty > 0 ? 'border-emerald-500 ring-1 ring-emerald-500/20 bg-emerald-50/20' : 'border-slate-200'
+                            }`}
                           >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="w-6 text-center font-bold text-xs text-slate-900">{kidsQty}</span>
-                          <button
-                            type="button"
-                            onClick={() => setKidsQty(kidsQty + 1)}
-                            className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="text-[11px] text-slate-500 flex justify-between border-t border-slate-100 pt-1.5">
-                        <span>Subtotal:</span>
-                        <span className="font-bold text-slate-800">{formatCurrency(kidsSubtotal)}</span>
-                      </div>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-xs font-bold text-slate-900">{prod.name}</div>
+                                <div className="text-[11px] text-emerald-600 font-semibold">
+                                  {formatCurrency(prod.sellingPrice)} / unit
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                  {isOutOfStock ? (
+                                    <span className="text-rose-600 font-semibold">Out of Stock</span>
+                                  ) : (
+                                    <span>Stock: {prod.currentStock} units</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1">
+                                <button
+                                  type="button"
+                                  disabled={qty <= 0}
+                                  onClick={() => handleQtyChange(prod.id, qty - 1, prod.currentStock)}
+                                  className="w-6 h-6 rounded flex items-center justify-center bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 shadow-2xs cursor-pointer"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="w-6 text-center font-bold text-xs text-slate-900">{qty}</span>
+                                <button
+                                  type="button"
+                                  disabled={isOutOfStock || qty >= prod.currentStock}
+                                  onClick={() => handleQtyChange(prod.id, qty + 1, prod.currentStock)}
+                                  className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 disabled:opacity-30 disabled:cursor-not-allowed text-white shadow-2xs cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="text-[11px] text-slate-500 flex justify-between border-t border-slate-100 pt-1.5">
+                              <span>Subtotal:</span>
+                              <span className="font-bold text-slate-800">{formatCurrency(subtotal)}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
+                  )}
 
                   {/* Cash on Delivery (COD) Amount Entry */}
                   <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-2xs">
@@ -588,7 +652,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                           onClick={handleResetCodToTotal}
                           className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer"
                         >
-                          Auto-fill Package Total ({formatCurrency(totalPackageValue)})
+                          Auto-fill Order Total ({formatCurrency(totalOrderValue)})
                         </button>
                       )}
                     </div>
@@ -608,17 +672,18 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                     {/* Transparent Price Summary Box */}
                     <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-xs space-y-1.5">
                       <div className="font-bold text-slate-700 mb-1 text-[11px] uppercase tracking-wider">Pricing Breakdown</div>
-                      <div className="flex justify-between text-slate-600">
-                        <span>Adult Package ({formatCurrency(ADULT_PACKAGE_PRICE)} × {adultQty}):</span>
-                        <span className="font-mono font-medium">{formatCurrency(adultSubtotal)}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-600">
-                        <span>Kids Package ({formatCurrency(KIDS_PACKAGE_PRICE)} × {kidsQty}):</span>
-                        <span className="font-mono font-medium">{formatCurrency(kidsSubtotal)}</span>
-                      </div>
+                      {selectedItems.map((item) => (
+                        <div key={item.productId} className="flex justify-between text-slate-600">
+                          <span>{item.productName} ({formatCurrency(item.unitPrice)} × {item.quantity}):</span>
+                          <span className="font-mono font-medium">{formatCurrency(item.subtotal)}</span>
+                        </div>
+                      ))}
+                      {selectedItems.length === 0 && (
+                        <div className="text-slate-400 italic text-[11px]">No products selected yet.</div>
+                      )}
                       <div className="flex justify-between font-bold text-slate-800 border-t border-slate-200 pt-1">
-                        <span>Total Package Value:</span>
-                        <span className="font-mono text-emerald-700">{formatCurrency(totalPackageValue)}</span>
+                        <span>Total Order Value:</span>
+                        <span className="font-mono text-emerald-700">{formatCurrency(totalOrderValue)}</span>
                       </div>
                       <div className="flex justify-between font-bold text-blue-900 border-t border-slate-200 pt-1">
                         <span>COD Collection Amount:</span>

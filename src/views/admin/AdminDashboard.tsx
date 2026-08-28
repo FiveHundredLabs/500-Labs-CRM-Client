@@ -119,16 +119,17 @@ export const AdminDashboard: React.FC = () => {
   if (loading) return <LoadingState rows={8} />;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto pb-24 overflow-hidden">
       <PageHeader
         title="Executive Overview"
         description="System-wide performance metrics, multi-brand sales trends, and cross-team audit"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={() => navigate('/admin/reports')}
+              className="flex-1 sm:flex-initial"
             >
               System Reports
             </Button>
@@ -137,6 +138,7 @@ export const AdminDashboard: React.FC = () => {
               size="sm"
               leftIcon={<Users className="w-4 h-4" />}
               onClick={() => navigate('/admin/users')}
+              className="flex-1 sm:flex-initial"
             >
               Manage Users
             </Button>
@@ -146,19 +148,19 @@ export const AdminDashboard: React.FC = () => {
 
       {/* In-System Notifications & Pending Approvals Banner (Section 6) */}
       {pendingApprovals.length > 0 && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-wrap items-center justify-between gap-3 text-amber-900 shadow-2xs">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
-              <Clock className="w-5 h-5 animate-pulse" />
+        <div className="p-3.5 sm:p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 shadow-2xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
             </div>
             <div>
-              <div className="font-bold text-xs uppercase tracking-wider text-amber-800 flex items-center gap-2">
-                <span>In-System Notification: Pending Approval Requests</span>
-                <span className="bg-amber-200 text-amber-900 px-2 py-0.2 rounded-full font-extrabold text-[10px]">
+              <div className="font-bold text-xs uppercase tracking-wider text-amber-800 flex items-center gap-2 flex-wrap">
+                <span>In-System Notification: Pending Approvals</span>
+                <span className="bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-extrabold text-[10px]">
                   {pendingApprovals.length} Pending
                 </span>
               </div>
-              <div className="text-xs text-amber-900 mt-0.5">
+              <div className="text-xs text-amber-900 mt-0.5 line-clamp-1 sm:line-clamp-none">
                 {pendingApprovals.map((r) => `${r.requestedByName}: ${r.requestType.replace(/_/g, ' ')} (${r.productName})`).join(' • ')}
               </div>
             </div>
@@ -167,7 +169,7 @@ export const AdminDashboard: React.FC = () => {
             variant="primary"
             size="sm"
             onClick={() => navigate('/admin/approvals')}
-            className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs"
+            className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs w-full sm:w-auto"
           >
             Review Approvals Center
           </Button>
@@ -175,113 +177,117 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* 1. Executive KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
         <StatCard
-          title="Total Gross Sales"
+          title="Gross Sales"
           value={formatCurrency(totalGrossSales)}
           subtitle={`${orders.length} Total Booked Orders`}
           icon={<DollarSign className="w-4 h-4 text-emerald-600" />}
           accentColor="green"
+          className="col-span-2 sm:col-span-1"
         />
 
         <StatCard
-          title="Last Dispatched Batch"
+          title="Dispatched"
           value={`${lastDispatchedCount} Orders`}
-          subtitle="Total dispatched orders"
+          subtitle="In courier transit"
           icon={<Package className="w-4 h-4 text-emerald-600" />}
           accentColor="green"
         />
 
         <StatCard
-          title="Delivered Orders"
+          title="Delivered"
           value={totalDeliveredOrders}
-          subtitle="Successful customer handovers"
+          subtitle="Customer handovers"
           icon={<CheckCircle2 className="w-4 h-4 text-blue-600" />}
           accentColor="blue"
         />
 
         <StatCard
-          title="Interested Leads"
+          title="Interested"
           value={todayInterestedCount}
-          subtitle="Qualified from live tele-calling"
+          subtitle="Qualified leads"
           icon={<PhoneCall className="w-4 h-4 text-purple-600" />}
           accentColor="purple"
         />
 
         <StatCard
-          title="Operating Expenses"
+          title="Expenses"
           value={formatCurrency(totalMonthlyExpenses)}
-          subtitle="Finance logged expenditures"
+          subtitle="Finance logged"
           icon={<DollarSign className="w-4 h-4 text-amber-600" />}
           accentColor="amber"
+          className="col-span-2 sm:col-span-1"
         />
       </div>
 
       {/* 2. Quick Executive Action Navigation Strip */}
       <Card className="border-slate-200 shadow-2xs">
-        <CardContent className="p-3.5">
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <Shield className="w-4 h-4 text-blue-600" />
-              <span>Multi-Team Management Shortcuts:</span>
-            </div>
+        <CardContent className="p-3 sm:p-4 space-y-2.5">
+          <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <Shield className="w-4 h-4 text-blue-600" />
+            <span>Multi-Team Operations Shortcuts:</span>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Target className="w-3.5 h-3.5 text-rose-600" />}
-                onClick={() => navigate('/admin/sales-goals')}
-                className="bg-rose-50/50 hover:bg-rose-50 text-rose-900 border-rose-200"
-              >
-                Sales Goals & Incentives
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}
-                onClick={() => navigate('/admin/import')}
-              >
-                Import Leads
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Layers className="w-3.5 h-3.5 text-blue-600" />}
-                onClick={() => navigate('/admin/allocation')}
-              >
-                Allocate Contacts
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Package className="w-3.5 h-3.5 text-amber-600" />}
-                onClick={() => navigate('/admin/orders')}
-              >
-                Dispatched Orders
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<DollarSign className="w-3.5 h-3.5 text-purple-600" />}
-                onClick={() => navigate('/admin/finance/expenses')}
-              >
-                Expenses Register
-              </Button>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Target className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
+              onClick={() => navigate('/admin/sales-goals')}
+              className="bg-rose-50/50 hover:bg-rose-50 text-rose-900 border-rose-200 text-xs justify-start truncate"
+            >
+              Sales Goals
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+              onClick={() => navigate('/admin/import')}
+              className="text-xs justify-start truncate"
+            >
+              Import Leads
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Layers className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+              onClick={() => navigate('/admin/allocation')}
+              className="text-xs justify-start truncate"
+            >
+              Allocate Pool
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Package className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
+              onClick={() => navigate('/admin/orders')}
+              className="text-xs justify-start truncate"
+            >
+              Dispatched Orders
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<DollarSign className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
+              onClick={() => navigate('/admin/finance/expenses')}
+              className="text-xs justify-start truncate col-span-2 sm:col-span-1"
+            >
+              Expenses Register
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* 3. Team Leaderboards Comparison Section */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-amber-500" />
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 shrink-0" />
               <span>Top Tele-Calling Specialists Ranking</span>
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-[11px] sm:text-xs text-slate-500">
               Performance leaderboard by verified delivered orders across teams
             </p>
           </div>
@@ -290,12 +296,13 @@ export const AdminDashboard: React.FC = () => {
             size="sm"
             leftIcon={<ArrowRight className="w-3.5 h-3.5" />}
             onClick={() => navigate('/supervisor/team-members')}
+            className="w-full sm:w-auto text-xs"
           >
             Full Performance Report
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {teamLeaderboards.map(({ team, items }) => (
             <Leaderboard
               key={team.id}
@@ -309,26 +316,27 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 6. Live System Activity Audit Stream */}
+      {/* 4. Live System Activity Audit Stream */}
       <Card className="border-slate-200 shadow-2xs">
-        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="w-4 h-4 text-blue-600" />
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+              <Shield className="w-4 h-4 text-blue-600 shrink-0" />
               <span>System Activity Audit Stream</span>
             </CardTitle>
-            <CardDescription>Live record of multi-team operations and platform state transitions</CardDescription>
+            <CardDescription className="text-xs">Live record of multi-team operations and platform state transitions</CardDescription>
           </div>
           <Button
             variant="ghost"
             size="sm"
             leftIcon={<ArrowRight className="w-3.5 h-3.5" />}
             onClick={() => navigate('/admin/activity')}
+            className="w-full sm:w-auto text-xs"
           >
             View All Logs
           </Button>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6 max-h-[360px] overflow-y-auto">
+        <CardContent className="p-3.5 sm:p-6 max-h-[360px] overflow-y-auto">
           <ActivityTimeline activities={recentActivities} />
         </CardContent>
       </Card>

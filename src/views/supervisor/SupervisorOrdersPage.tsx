@@ -13,6 +13,7 @@ import { BulkStatusChangeDialog } from '../../components/orders/BulkStatusChange
 import { OrderHistoryDialog } from '../../components/orders/OrderHistoryDialog';
 import { OrderPrintConfirmDialog } from '../../components/orders/OrderPrintConfirmDialog';
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
+import { OrderDamageDetailsDialog } from '../../components/orders/OrderDamageDetailsDialog';
 import { useOrders } from '../../hooks/useOrders';
 import { useOrderFilters } from '../../hooks/useOrderFilters';
 import { useSelection } from '../../hooks/useSelection';
@@ -20,7 +21,7 @@ import { downloadBillingPDF, printBillingPDF } from '../../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
-import { teamRepository } from '../../repositories';
+import { teamRepository, productRepository } from '../../repositories';
 
 export const SupervisorOrdersPage: React.FC = () => {
   const { user } = useAuth();
@@ -70,6 +71,7 @@ export const SupervisorOrdersPage: React.FC = () => {
   } = useOrderFilters(orders, customersMap, membersMap);
 
   const filteredOrderIds = filteredOrders.map((o) => o.id);
+
   const {
     selectedIds: selectedOrderIds,
     selectAllCheckboxRef,
@@ -84,6 +86,7 @@ export const SupervisorOrdersPage: React.FC = () => {
   const [targetNewStatus, setTargetNewStatus] = useState<OrderStatus>('DELIVERED');
 
   const [remarkOrder, setRemarkOrder] = useState<Order | null>(null);
+  const [damageDetailsOrder, setDamageDetailsOrder] = useState<Order | null>(null);
 
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
@@ -170,6 +173,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         title="Orders & Fulfillment Management"
       />
 
+      {/* 1. Page Header */}
       <PageHeader
         title="Supervisor Orders"
         description="Monitor dispatched parcels, process delivery status updates, inspect duplicate order conflicts, and manage team orders."
@@ -205,7 +209,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         onOpenBulkModal={() => setIsBulkModalOpen(true)}
       />
 
-      {/* 3. Orders Grid */}
+      {/* Orders List View */}
       <OrderList
         filteredOrders={filteredOrders}
         customersMap={customersMap}
@@ -217,6 +221,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         onOpenStatusModal={handleOpenStatusModal}
         onOpenRemarkModal={(order) => setRemarkOrder(order)}
         onPrintBillingSlip={handlePrintBillingSlip}
+        onInspectDamages={(order) => setDamageDetailsOrder(order)}
       />
 
       {/* 4. Floating Action Panel */}
@@ -256,12 +261,28 @@ export const SupervisorOrdersPage: React.FC = () => {
       <BulkStatusChangeDialog
         isOpen={isBulkModalOpen}
         selectedCount={selectedOrderIds.length}
+        selectedOrders={orders.filter((o) => selectedOrderIds.includes(o.id))}
         onClose={() => setIsBulkModalOpen(false)}
-        onConfirm={async (bulkTargetStatus) => {
+        onConfirm={async (bulkTargetStatus, damagedPayload) => {
           const success = await bulkUpdateOrderStatus(selectedOrderIds, bulkTargetStatus);
+          // If damaged payload was reported, report damage for each selected item
+          if (damagedPayload && damagedPayload.length > 0) {
+            for (const item of damagedPayload) {
+              if (item.productId) {
+                try {
+                  await productRepository.reportDamage(item.productId, item.quantity, item.reason);
+                } catch {}
+              }
+            }
+          }
           if (success) clearSelection();
           return success;
         }}
+      />
+
+      <OrderDamageDetailsDialog
+        order={damageDetailsOrder}
+        onClose={() => setDamageDetailsOrder(null)}
       />
 
       <OrderHistoryDialog

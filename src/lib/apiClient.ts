@@ -1,6 +1,17 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
+const getApiBaseUrl = (): string => {
+  let raw = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1').trim();
+  // Strip trailing slashes
+  raw = raw.replace(/\/+$/, '');
+  // Automatically append /api/v1 if not present
+  if (!raw.endsWith('/api/v1')) {
+    raw = `${raw}/api/v1`;
+  }
+  return raw;
+};
+
+const BASE_URL = getApiBaseUrl();
 export const AUTH_EXPIRED_EVENT = 'crm-auth-expired';
 
 export const apiClient = axios.create({

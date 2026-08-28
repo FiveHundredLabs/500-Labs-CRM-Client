@@ -202,6 +202,17 @@ export interface OrderDispatchRecord {
   rejectedAt?: string;
 }
 
+export interface OrderItem {
+  id?: string;
+  orderId?: string;
+  productId: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
+  createdAt?: string;
+}
+
 export interface Order {
   id: string; // e.g., 'ord_001'
   orderNumber: string; // e.g., 'ORD-2026-001'
@@ -225,6 +236,8 @@ export interface Order {
   remarks?: string;
   deliveredAt?: string;
   rejectedAt?: string;
+  damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[];
+  items?: OrderItem[];
   dispatchHistory?: OrderDispatchRecord[];
   previousDispatchInfo?: PreviousDispatchInfo;
   createdAt: string;
@@ -239,6 +252,7 @@ export interface DeliveryStatusHistory {
   previousStatus: OrderStatus | null;
   newStatus: OrderStatus;
   remarks?: string;
+  damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[];
   actorUserId: string; // User ID who changed status
   createdAt: string;
 }
@@ -362,6 +376,9 @@ export interface Product {
   teamId: string;
   category?: string;
   currentStock: number;
+  allocatedStock?: number; // Stock reserved for PREPARED orders
+  dispatchedStock?: number; // Stock in transit
+  soldStock?: number; // Successfully delivered stock
   damagedStock?: number; // Damaged units quarantined / not calculated in sellable stock
   minStockThreshold: number;
   costPrice: number; // Reference LKR cost

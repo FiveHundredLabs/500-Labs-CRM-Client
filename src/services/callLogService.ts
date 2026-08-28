@@ -16,7 +16,13 @@ export interface SubmitCallResultInput {
   adultSubtotal?: number;
   kidsQty?: number;
   kidsUnitPrice?: number;
-  kidsSubtotal?: number;
+  items?: {
+    productId: string;
+    productName: string;
+    unitPrice: number;
+    quantity: number;
+    subtotal: number;
+  }[];
   totalPackageValue?: number;
   codAmount?: number;
   remarks?: string;

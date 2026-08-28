@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import type { Product, Team } from '../../models/domain';
-import { productRepository, teamRepository } from '../../repositories';
+import type { Product, Team, Order, StockActivityLog, Customer } from '../../models/domain';
+import { productRepository, teamRepository, orderRepository, stockActivityLogRepository, customerRepository } from '../../repositories';
 import { getTeamBranding } from '../../config/branding';
 import { formatCurrency } from '../../utils/currency';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -31,7 +31,25 @@ import {
   XCircle,
   Building2,
   Trash2,
+  ShieldAlert,
+  Calendar,
+  UserCheck,
+  FileText,
 } from 'lucide-react';
+
+export interface DamageAuditRecord {
+  id: string;
+  source: 'STOCK_LOG' | 'ORDER_RETURN';
+  orderNumber?: string | null;
+  orderStatus?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerCity?: string;
+  date: string;
+  quantity: number;
+  reason: string;
+  performedByName?: string;
+}
 
 export const AdminProductsPage: React.FC = () => {
   const { user } = useAuth();
@@ -42,7 +60,7 @@ export const AdminProductsPage: React.FC = () => {
 
   // Filters
   const [selectedTeamId, setSelectedTeamId] = useState<string>('ALL');
-  const [stockStatusFilter, setStockStatusFilter] = useState<'ALL' | 'LOW_STOCK' | 'IN_STOCK' | 'OUT_OF_STOCK'>('ALL');
+  const [stockStatusFilter, setStockStatusFilter] = useState<'ALL' | 'LOW_STOCK' | 'IN_STOCK' | 'OUT_OF_STOCK' | 'DAMAGED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Add/Edit Product Modal
@@ -51,6 +69,11 @@ export const AdminProductsPage: React.FC = () => {
 
   // Product Batches Inspection Modal
   const [inspectingBatchesProduct, setInspectingBatchesProduct] = useState<Product | null>(null);
+
+  // Product Damaged Stock Audit Modal
+  const [inspectingDamageProduct, setInspectingDamageProduct] = useState<Product | null>(null);
+  const [damageAuditRecords, setDamageAuditRecords] = useState<DamageAuditRecord[]>([]);
+  const [loadingDamageAudit, setLoadingDamageAudit] = useState(false);
 
   // GitHub-style Soft Delete Modal State
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -178,25 +201,107 @@ export const AdminProductsPage: React.FC = () => {
       setDeletingProduct(null);
       loadData();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to deactivate product.');
+      toast.error(err.message || 'Failed to delete product.');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Filtered Products Calculation
+  // Damaged Stock Audit Inspection Trigger
+  const handleOpenDamageAudit = async (p: Product) => {
+    setInspectingDamageProduct(p);
+    setLoadingDamageAudit(true);
+    try {
+      const [logs, orders, customers] = await Promise.all([
+        stockActivityLogRepository.getByProductId(p.id).catch(() => []),
+        orderRepository.getAll().catch(() => []),
+        customerRepository.getAll().catch(() => []),
+      ]);
+
+      const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
+      const records: DamageAuditRecord[] = [];
+
+      // 1. Stock Activity Logs
+      logs.forEach((log) => {
+        const orderMatch = log.performedByName?.match(/#ORD-[A-Za-z0-9-]+/i)?.[0];
+        records.push({
+          id: log.id,
+          source: 'STOCK_LOG',
+          orderNumber: orderMatch || null,
+          date: log.createdAt,
+          quantity: log.quantity,
+          reason: log.performedByName || 'Damaged Stock Quarantined',
+          performedByName: log.performedByName,
+        });
+      });
+
+      // 2. Orders belonging to this product team that were rejected or returned damaged
+      orders.forEach((ord) => {
+        if (
+          ord.teamId === p.teamId &&
+          (ord.status === 'REJECTED' ||
+            (ord.remarks && ord.remarks.toLowerCase().includes('damage')) ||
+            (ord.damagedItems && ord.damagedItems.length > 0))
+        ) {
+          const cust = custMap[ord.customerId];
+          const matchedDamagedItem = ord.damagedItems?.find(
+            (di) =>
+              di.productId === p.id ||
+              di.productName.toLowerCase().includes(p.name.toLowerCase()) ||
+              p.name.toLowerCase().includes(di.productName.toLowerCase())
+          );
+
+          const alreadyAdded = records.some(
+            (r) => r.orderNumber === `#${ord.orderNumber}` || r.orderNumber === ord.orderNumber
+          );
+
+          if (!alreadyAdded) {
+            records.push({
+              id: `ord_${ord.id}`,
+              source: 'ORDER_RETURN',
+              orderNumber: `#${ord.orderNumber}`,
+              orderStatus: ord.status,
+              customerName: cust?.fullName || 'Customer',
+              customerPhone: cust?.phone,
+              customerCity: cust?.city || 'Sri Lanka',
+              date: ord.rejectedAt || ord.updatedAt || ord.createdAt,
+              quantity: matchedDamagedItem?.quantity || 1,
+              reason:
+                matchedDamagedItem?.reason ||
+                ord.remarks ||
+                'Customer refused package - returned damaged during transit',
+              performedByName: 'Courier Return / Status Update',
+            });
+          }
+        }
+      });
+
+      records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setDamageAuditRecords(records);
+    } catch {
+      toast.error('Failed to load damage audit logs.');
+    } finally {
+      setLoadingDamageAudit(false);
+    }
+  };
+
+  // Filtered Products
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       // 1. Team Filter
-      if (selectedTeamId !== 'ALL' && p.teamId !== selectedTeamId) return false;
+      if (selectedTeamId !== 'ALL' && p.teamId !== selectedTeamId) {
+        return false;
+      }
 
-      // 2. Stock Health Filter
+      // 2. Stock Health Status Filter
       if (stockStatusFilter === 'LOW_STOCK') {
-        if (p.currentStock > p.minStockThreshold || p.currentStock === 0) return false;
+        if (p.currentStock <= 0 || p.currentStock > p.minStockThreshold) return false;
       } else if (stockStatusFilter === 'OUT_OF_STOCK') {
         if (p.currentStock > 0) return false;
       } else if (stockStatusFilter === 'IN_STOCK') {
         if (p.currentStock <= p.minStockThreshold) return false;
+      } else if (stockStatusFilter === 'DAMAGED') {
+        if ((p.damagedStock || 0) <= 0) return false;
       }
 
       // 3. Search Query
@@ -221,8 +326,10 @@ export const AdminProductsPage: React.FC = () => {
   const lowStockCount = teamScopedProducts.filter((p) => p.currentStock > 0 && p.currentStock <= p.minStockThreshold).length;
   const outOfStockCount = teamScopedProducts.filter((p) => p.currentStock === 0).length;
   const inStockCount = teamScopedProducts.filter((p) => p.currentStock > p.minStockThreshold).length;
+  const damagedProductsCount = teamScopedProducts.filter((p) => (p.damagedStock || 0) > 0).length;
 
   const totalStockUnits = teamScopedProducts.reduce((sum, p) => sum + (Number(p.currentStock) || 0), 0);
+  const totalDamagedUnits = teamScopedProducts.reduce((sum, p) => sum + (Number(p.damagedStock) || 0), 0);
   const totalRetailValuation = teamScopedProducts.reduce(
     (sum, p) => sum + (Number(p.currentStock) || 0) * (Number(p.sellingPrice) || 0),
     0
@@ -399,6 +506,18 @@ export const AdminProductsPage: React.FC = () => {
               <CheckCircle2 className="w-3.5 h-3.5" />
               Healthy Stock ({inStockCount})
             </button>
+            <button
+              type="button"
+              onClick={() => setStockStatusFilter('DAMAGED')}
+              className={`px-3 py-1.5 font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                stockStatusFilter === 'DAMAGED'
+                  ? 'bg-rose-700 text-white shadow-2xs'
+                  : 'text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200'
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Damaged Stock ({damagedProductsCount})
+            </button>
           </div>
 
           {/* Product Listing Table */}
@@ -409,8 +528,11 @@ export const AdminProductsPage: React.FC = () => {
                   <th className="py-3 px-3.5">Product Details</th>
                   <th className="py-3 px-3.5">SKU / Code</th>
                   <th className="py-3 px-3.5">Assigned Team</th>
-                  <th className="py-3 px-3.5">Current Stock</th>
-                  <th className="py-3 px-3.5">Alert Level</th>
+                  <th className="py-3 px-3.5 text-center">Available</th>
+                  <th className="py-3 px-3.5 text-center text-amber-600">Allocated</th>
+                  <th className="py-3 px-3.5 text-center text-blue-600">Dispatched</th>
+                  <th className="py-3 px-3.5 text-center text-emerald-600">Sold</th>
+                  <th className="py-3 px-3.5 text-center text-rose-600">Damaged</th>
                   <th className="py-3 px-3.5">Cost Price</th>
                   <th className="py-3 px-3.5">Selling Price</th>
                   <th className="py-3 px-3.5">Margin</th>
@@ -420,7 +542,7 @@ export const AdminProductsPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100">
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-10 text-center text-slate-400 text-xs italic font-sans">
+                    <td colSpan={12} className="py-10 text-center text-slate-400 text-xs italic font-sans">
                       No products found matching the selected team and stock filters.
                     </td>
                   </tr>
@@ -466,39 +588,42 @@ export const AdminProductsPage: React.FC = () => {
                         </td>
 
                         {/* Current Sellable Stock & Damaged Units */}
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                              <span className="font-black text-slate-900 text-sm font-mono">{p.currentStock}</span>
-                              {isOutOfStock ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
-                                  <XCircle className="w-3 h-3" /> Out of Stock
-                                </span>
-                              ) : isLow ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
-                                  <AlertTriangle className="w-3 h-3" /> Low Stock
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
-                                  In Stock
-                                </span>
-                              )}
-                            </div>
-                            {/* Damaged Stock Badge (Not calculated into sellable stock) */}
-                            {p.damagedStock && p.damagedStock > 0 ? (
-                              <div className="mt-1">
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md font-mono">
-                                  <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
-                                  {p.damagedStock} damaged
-                                </span>
-                              </div>
-                            ) : null}
+                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                          <div className="flex flex-col items-center">
+                            <span className="font-black text-slate-900 text-sm font-mono">{p.currentStock}</span>
+                            {isOutOfStock && (
+                              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
+                                <XCircle className="w-3 h-3" /> Out
+                              </span>
+                            )}
                           </div>
                         </td>
+                        
+                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                          <span className="font-bold text-amber-700 text-sm font-mono">{p.allocatedStock || 0}</span>
+                        </td>
 
-                        {/* Alert Threshold */}
-                        <td className="py-3 px-3.5 font-mono text-slate-500 text-xs">
-                          {p.minStockThreshold} units
+                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                          <span className="font-bold text-blue-700 text-sm font-mono">{p.dispatchedStock || 0}</span>
+                        </td>
+
+                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                          <span className="font-bold text-emerald-700 text-sm font-mono">{p.soldStock || 0}</span>
+                        </td>
+
+                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                          <div className="flex flex-col items-center">
+                            <span className="font-bold text-rose-700 text-sm font-mono">{p.damagedStock || 0}</span>
+                            {(p.damagedStock || 0) > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDamageAudit(p)}
+                                className="mt-1 text-[9px] font-sans text-rose-600 underline"
+                              >
+                                Audit
+                              </button>
+                            )}
+                          </div>
                         </td>
 
                         {/* Cost Price (Showing Both Batch Acquisition & Base Catalog Cost) */}
@@ -553,6 +678,18 @@ export const AdminProductsPage: React.FC = () => {
                         {/* Actions */}
                         <td className="py-3 px-3.5 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1">
+                            {p.damagedStock && p.damagedStock > 0 ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                leftIcon={<ShieldAlert className="w-3.5 h-3.5 text-rose-600" />}
+                                onClick={() => handleOpenDamageAudit(p)}
+                                className="text-xs px-2 py-1 text-rose-800 hover:text-rose-900 hover:bg-rose-50"
+                                title="Inspect Damaged Orders & Returns"
+                              >
+                                Damage Audit
+                              </Button>
+                            ) : null}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -866,6 +1003,140 @@ export const AdminProductsPage: React.FC = () => {
             </div>
           );
         })()}
+      </Dialog>
+
+      {/* Damaged Stock Audit & Order Origin Inspection Modal */}
+      <Dialog
+        isOpen={!!inspectingDamageProduct}
+        onClose={() => setInspectingDamageProduct(null)}
+        title={`Damaged Stock Audit — ${inspectingDamageProduct?.name || 'Product'}`}
+        description={`Root cause breakdown of where, when, and which orders returned damaged units for ${inspectingDamageProduct?.code || ''}`}
+        maxWidth="3xl"
+      >
+        {inspectingDamageProduct && (
+          <div className="space-y-4">
+            {/* Top Summary Info */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-rose-50/70 border border-rose-200 rounded-xl text-xs">
+              <div>
+                <span className="text-rose-800 text-[11px] font-semibold">Quarantined Damaged</span>
+                <div className="text-base font-black text-rose-950 font-mono mt-0.5">
+                  {inspectingDamageProduct.damagedStock || 0} units
+                </div>
+              </div>
+              <div>
+                <span className="text-rose-800 text-[11px] font-semibold">Quarantined Cost</span>
+                <div className="text-sm font-bold text-amber-900 font-mono mt-0.5">
+                  {formatCurrency((inspectingDamageProduct.damagedStock || 0) * (inspectingDamageProduct.costPrice || 0))}
+                </div>
+              </div>
+              <div>
+                <span className="text-rose-800 text-[11px] font-semibold">Assigned Team</span>
+                <div className="text-xs font-bold text-slate-800 mt-0.5">
+                  {teams.find((t) => t.id === inspectingDamageProduct.teamId)?.name || 'General Team'}
+                </div>
+              </div>
+              <div>
+                <span className="text-rose-800 text-[11px] font-semibold">Sellable Stock</span>
+                <div className="text-sm font-bold text-emerald-800 font-mono mt-0.5">
+                  {inspectingDamageProduct.currentStock} units
+                </div>
+              </div>
+            </div>
+
+            {/* Damage Return Orders Listing */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-1.5">
+                <ShieldAlert className="w-4 h-4 text-rose-600" />
+                <span>Damage Incident Origins & Order Tracking</span>
+              </h4>
+
+              {loadingDamageAudit ? (
+                <div className="py-8 text-center text-xs text-slate-400">Loading audit history...</div>
+              ) : damageAuditRecords.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400 italic bg-slate-50 rounded-xl border border-slate-200">
+                  No individual order returns recorded yet. Damaged stock was directly adjusted by supervisor/admin.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                      <tr>
+                        <th className="py-2.5 px-3">Order / Source</th>
+                        <th className="py-2.5 px-3">Customer & Location</th>
+                        <th className="py-2.5 px-3">Date</th>
+                        <th className="py-2.5 px-3 text-center">Damaged Qty</th>
+                        <th className="py-2.5 px-3">Damage Reason / Feedback</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-sans">
+                      {damageAuditRecords.map((record) => (
+                        <tr key={record.id} className="hover:bg-slate-50">
+                          {/* Order # */}
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                            {record.orderNumber ? (
+                              <div className="flex flex-col">
+                                <span className="text-blue-700 font-bold">{record.orderNumber}</span>
+                                {record.orderStatus && (
+                                  <span className="text-[10px] text-rose-700 font-sans mt-0.5">
+                                    Status: {record.orderStatus}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-500 italic text-[11px]">Stock Adjustment</span>
+                            )}
+                          </td>
+
+                          {/* Customer */}
+                          <td className="py-2.5 px-3">
+                            {record.customerName ? (
+                              <div>
+                                <div className="font-semibold text-slate-900">{record.customerName}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">{record.customerCity}</div>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">—</span>
+                            )}
+                          </td>
+
+                          {/* Date */}
+                          <td className="py-2.5 px-3 text-slate-600 text-[11px] whitespace-nowrap">
+                            {new Date(record.date).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </td>
+
+                          {/* Damaged Qty */}
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="inline-flex items-center gap-1 font-bold text-rose-900 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md font-mono text-xs">
+                              <AlertTriangle className="w-3 h-3 text-rose-600" />
+                              {record.quantity} units
+                            </span>
+                          </td>
+
+                          {/* Reason */}
+                          <td className="py-2.5 px-3 text-slate-700 text-xs max-w-xs">
+                            <p className="line-clamp-2" title={record.reason}>
+                              {record.reason}
+                            </p>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <Button type="button" variant="secondary" onClick={() => setInspectingDamageProduct(null)}>
+                Close Audit
+              </Button>
+            </div>
+          </div>
+        )}
       </Dialog>
 
       {/* Confirmation Dialog */}
