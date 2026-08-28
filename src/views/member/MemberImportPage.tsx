@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { ContactService, ImportSummary } from '../../services/contactService';
-import { parseExcelContactSheet, extractPhonesFromBulkText, ExcelContactParseResult } from '../../utils/phoneUtils';
+import { parseExcelContactSheet, extractPhonesFromBulkText, ExcelContactParseResult, normalizeSriLankanPhone } from '../../utils/phoneUtils';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Dialog } from '../../components/ui/Dialog';
+import { StatusBadge } from '../../components/shared/StatusBadge';
+import { formatCurrency } from '../../utils/currency';
+import type { DuplicatePhoneIntelligence } from '../../models/domain';
 import toast from 'react-hot-toast';
 import { 
   Upload, 
@@ -19,8 +23,16 @@ import {
   Filter, 
   X,
   UserCheck,
-  Sparkles
+  Sparkles,
+  User,
+  Clock,
+  MapPin,
+  ShoppingBag,
+  MessageSquare,
+  Eye,
+  PlusCircle
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
 export const MemberImportPage: React.FC = () => {
@@ -30,6 +42,11 @@ export const MemberImportPage: React.FC = () => {
   // Single manual contact state
   const [manualPhone, setManualPhone] = useState('');
   const [isManualSubmitting, setIsManualSubmitting] = useState(false);
+
+  // Duplicate Number Claim Modal State
+  const [claimModalOpen, setClaimModalOpen] = useState(false);
+  const [claimIntelligence, setClaimIntelligence] = useState<DuplicatePhoneIntelligence | null>(null);
+  const [isClaiming, setIsClaiming] = useState(false);
 
   // Bulk text area numbers state
   const [bulkText, setBulkText] = useState('');
@@ -41,32 +58,74 @@ export const MemberImportPage: React.FC = () => {
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
   const [executeFn, setExecuteFn] = useState<(() => Promise<any>) | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedClaimablePhones, setSelectedClaimablePhones] = useState<string[]>([]);
 
   // Tab filter for bottom numbers preview
-  const [previewTab, setPreviewTab] = useState<'ALL' | 'VALID' | 'DUPLICATES' | 'INVALID'>('ALL');
+  const [previewTab, setPreviewTab] = useState<'ALL' | 'VALID' | 'CLAIMABLE' | 'DUPLICATES' | 'INVALID'>('ALL');
 
-  // Single Contact Submit
+  // Single Contact Submit & Intelligent Duplicate Check
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualPhone.trim() || !user) return;
 
+    const norm = normalizeSriLankanPhone(manualPhone);
+    if (!norm) {
+      toast.error('Invalid Sri Lankan mobile format. Must be 10 digits starting with 07.');
+      return;
+    }
+
     setIsManualSubmitting(true);
     try {
-      const { summary, executeImport } = await ContactService.processBulkImport([manualPhone], user);
-      setImportSummary(summary);
-      setExecuteFn(() => executeImport);
-      if (summary.duplicateCount > 0) {
-        toast.error(`Phone number ${manualPhone} already exists in database and was filtered.`);
-      } else if (summary.invalidCount > 0) {
-        toast.error(`Invalid Sri Lankan mobile format. Must be 10 digits starting with 07.`);
-      } else {
-        toast.success(`Processed contact ${manualPhone}. Confirm below to add to your queue.`);
+      const dupCheck = await ContactService.checkPhoneDuplicate(norm, user);
+
+      if (dupCheck.exists) {
+        if (dupCheck.isOwnedBySelf) {
+          toast.error(`Duplicate rejected: Phone number ${norm} is already in your personal queue.`);
+          setIsManualSubmitting(false);
+          return;
+        }
+
+        // Duplicate exists under another member / general CRM -> Open Claim Dialog
+        if (dupCheck.intelligence) {
+          setClaimIntelligence(dupCheck.intelligence);
+          setClaimModalOpen(true);
+          setIsManualSubmitting(false);
+          return;
+        }
       }
+
+      // Brand new contact -> directly add
+      await ContactService.addPersonalContact(norm, user);
+      toast.success(`Successfully added contact ${norm} directly to your queue!`);
       setManualPhone('');
+      navigate('/member/contacts');
     } catch (err: any) {
       toast.error(err.message || 'Failed to process contact.');
     } finally {
       setIsManualSubmitting(false);
+    }
+  };
+
+  // Confirm Claiming Duplicate Contact
+  const handleConfirmClaim = async () => {
+    if (!claimIntelligence || !user) return;
+    setIsClaiming(true);
+    try {
+      await ContactService.addPersonalContact(
+        claimIntelligence.phone,
+        user,
+        claimIntelligence.city || undefined,
+        undefined
+      );
+      toast.success(`Added ${claimIntelligence.phone} to your personal calling queue!`);
+      setClaimModalOpen(false);
+      setClaimIntelligence(null);
+      setManualPhone('');
+      navigate('/member/contacts');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to claim contact.');
+    } finally {
+      setIsClaiming(false);
     }
   };
 
@@ -88,6 +147,7 @@ export const MemberImportPage: React.FC = () => {
         return;
       }
 
+      setSelectedClaimablePhones([]);
       const { summary, executeImport } = await ContactService.processBulkImport(extractedNumbers, user);
       setImportSummary(summary);
       setExecuteFn(() => executeImport);
@@ -114,6 +174,7 @@ export const MemberImportPage: React.FC = () => {
         return;
       }
 
+      setSelectedClaimablePhones([]);
       const { summary, executeImport } = await ContactService.processBulkImport(
         parseResult.contactNumbers,
         user
@@ -121,11 +182,27 @@ export const MemberImportPage: React.FC = () => {
       setImportSummary(summary);
       setExecuteFn(() => executeImport);
       toast.success(
-        `Extracted ${parseResult.contactNumbers.length} contacts from "${parseResult.contactColumnName}" column. Normalized to 07XXXXXXXX.`
+        `Extracted ${parseResult.contactNumbers.length} contacts from "${parseResult.contactColumnName}" column.`
       );
     } catch (err: any) {
       toast.error('Error parsing spreadsheet: ' + err.message);
     }
+  };
+
+  // Toggle Claimable Phone in Bulk Import
+  const handleToggleClaimPhone = (phone: string) => {
+    if (!user || !importSummary) return;
+    const isSelected = selectedClaimablePhones.includes(phone);
+    const updated = isSelected
+      ? selectedClaimablePhones.filter((p) => p !== phone)
+      : [...selectedClaimablePhones, phone];
+    setSelectedClaimablePhones(updated);
+
+    // Re-create executeImport with updated claimable phones
+    const allExtracted = importSummary.rows.map((r) => r.phone);
+    ContactService.processBulkImport(allExtracted, user, updated).then(({ executeImport }) => {
+      setExecuteFn(() => executeImport);
+    });
   };
 
   // Confirm Import & Directly Allocate to Current Member
@@ -134,7 +211,7 @@ export const MemberImportPage: React.FC = () => {
     setIsImporting(true);
     try {
       const imported = await executeFn();
-      toast.success(`Successfully imported ${imported.length} new contacts directly into your calling list!`);
+      toast.success(`Successfully imported ${imported.length} contacts directly into your calling list!`);
       setImportSummary(null);
       setFile(null);
       setBulkText('');
@@ -151,11 +228,14 @@ export const MemberImportPage: React.FC = () => {
   const displayedRows = importSummary
     ? importSummary.rows.filter((r) => {
         if (previewTab === 'VALID') return r.isValid && !r.isDuplicate;
-        if (previewTab === 'DUPLICATES') return r.isDuplicate;
+        if (previewTab === 'CLAIMABLE') return r.isClaimableDuplicate;
+        if (previewTab === 'DUPLICATES') return r.isOwnDuplicate;
         if (previewTab === 'INVALID') return !r.isValid;
         return true;
       })
     : [];
+
+  const totalSelectedToImport = (importSummary?.validCount || 0) + selectedClaimablePhones.length;
 
   return (
     <div className="space-y-6">
@@ -171,18 +251,18 @@ export const MemberImportPage: React.FC = () => {
             <UserCheck className="w-4 h-4" />
           </div>
           <div>
-            <span className="font-bold">Direct Auto-Allocation:</span> All imported numbers will be immediately assigned to you (<span className="font-semibold">{user?.fullName}</span>) and visible in your contacts queue.
+            <span className="font-bold">Personal Number Claim &amp; Allocation:</span> Numbers added or claimed will be immediately assigned to you (<span className="font-semibold">{user?.fullName}</span>) and visible in your personal calling queue.
           </div>
         </div>
         <div className="hidden sm:flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-white/80 px-2 py-0.5 rounded-full border border-blue-200">
           <Sparkles className="w-3 h-3 text-amber-500" />
-          <span>Auto-Deduplicated</span>
+          <span>Intelligent Duplicate Detection</span>
         </div>
       </div>
 
       {/* Top 3 Cards Grid (Accessible to Team Members) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Card 1: Bulk Text Msg / Numbers Input (No Excel required!) */}
+        {/* Card 1: Bulk Text Msg / Numbers Input */}
         <Card className="flex flex-col justify-between md:col-span-1 border-blue-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-sm">
@@ -240,7 +320,7 @@ export const MemberImportPage: React.FC = () => {
                 isLoading={isBulkTextProcessing}
                 leftIcon={<Filter className="w-3.5 h-3.5" />}
               >
-                Extract & Process Numbers
+                Extract &amp; Process Numbers
               </Button>
             </form>
           </CardContent>
@@ -263,7 +343,7 @@ export const MemberImportPage: React.FC = () => {
                 onChange={(e) => setManualPhone(e.target.value)}
                 onClear={() => setManualPhone('')}
                 required
-                helperText="Includes duplicate check against system database"
+                helperText="Detects duplicates & allows claiming numbers from other reps"
               />
 
               <Button
@@ -274,7 +354,7 @@ export const MemberImportPage: React.FC = () => {
                 isLoading={isManualSubmitting}
                 leftIcon={<Phone className="w-3.5 h-3.5" />}
               >
-                Add Single Number
+                Check &amp; Add Number
               </Button>
             </form>
           </CardContent>
@@ -310,6 +390,7 @@ export const MemberImportPage: React.FC = () => {
                       setParsedFileInfo(null);
                       setImportSummary(null);
                       setExecuteFn(null);
+                      setSelectedClaimablePhones([]);
                     }}
                     className="p-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                     title="Remove selected file"
@@ -331,15 +412,6 @@ export const MemberImportPage: React.FC = () => {
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span>Column Identified: "{parsedFileInfo.contactColumnName}"</span>
                 </div>
-                {/* <div className="text-slate-500">
-                  Scanned {parsedFileInfo.totalRowsScanned} rows &bull; Extracted {parsedFileInfo.contactNumbers.length} numbers ({parsedFileInfo.uniqueContactNumbers.length} unique)
-                </div>
-                {parsedFileInfo.ignoredColumns.length > 0 && (
-                  <div className="text-slate-400 text-[10px] truncate">
-                    Ignored non-contact columns: {parsedFileInfo.ignoredColumns.slice(0, 4).join(', ')}
-                    {parsedFileInfo.ignoredColumns.length > 4 ? '...' : ''}
-                  </div>
-                )} */}
               </div>
             )}
 
@@ -359,7 +431,7 @@ export const MemberImportPage: React.FC = () => {
                   <span>Parsed Numbers Audit ({importSummary.totalParsed} total)</span>
                 </CardTitle>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Review verified numbers before confirming import to your personal calling queue
+                  Review verified numbers &amp; optional claimable contacts before confirming import
                 </p>
               </div>
 
@@ -372,6 +444,7 @@ export const MemberImportPage: React.FC = () => {
                     setFile(null);
                     setBulkText('');
                     setExecuteFn(null);
+                    setSelectedClaimablePhones([]);
                   }}
                 >
                   Discard
@@ -380,27 +453,31 @@ export const MemberImportPage: React.FC = () => {
                   variant="primary"
                   size="sm"
                   isLoading={isImporting}
-                  disabled={importSummary.validCount === 0}
+                  disabled={totalSelectedToImport === 0}
                   onClick={handleConfirmImport}
                   rightIcon={<ArrowRight className="w-4 h-4" />}
                 >
-                  Confirm &amp; Add ({importSummary.validCount}) to My Queue
+                  Confirm &amp; Add ({totalSelectedToImport}) to My Queue
                 </Button>
               </div>
             </div>
 
             {/* Metric counters */}
-            <div className="grid grid-cols-3 gap-3 pt-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3">
               <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
-                <div className="text-xs font-semibold text-emerald-800">Valid Unique Numbers</div>
+                <div className="text-[11px] font-semibold text-emerald-800">Valid Brand New</div>
                 <div className="text-lg font-bold text-emerald-900">{importSummary.validCount}</div>
               </div>
               <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-center">
-                <div className="text-xs font-semibold text-amber-800">Duplicates Removed</div>
-                <div className="text-lg font-bold text-amber-900">{importSummary.duplicateCount}</div>
+                <div className="text-[11px] font-semibold text-amber-800">Claimable Existing</div>
+                <div className="text-lg font-bold text-amber-900">{importSummary.claimableDuplicateCount}</div>
+              </div>
+              <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-center">
+                <div className="text-[11px] font-semibold text-slate-600">Own Duplicates (Skipped)</div>
+                <div className="text-lg font-bold text-slate-800">{importSummary.ownDuplicateCount}</div>
               </div>
               <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-center">
-                <div className="text-xs font-semibold text-rose-800">Invalid Formats</div>
+                <div className="text-[11px] font-semibold text-rose-800">Invalid Formats</div>
                 <div className="text-lg font-bold text-rose-900">{importSummary.invalidCount}</div>
               </div>
             </div>
@@ -408,12 +485,12 @@ export const MemberImportPage: React.FC = () => {
 
           <CardContent className="p-0">
             {/* Filter Tabs */}
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 bg-slate-50/50 text-xs">
-              <span className="text-slate-500 font-medium mr-2">Filter View:</span>
+            <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-slate-100 bg-slate-50/50 text-xs overflow-x-auto">
+              <span className="text-slate-400 font-medium mr-1 text-[11px]">Filter:</span>
               <button
                 type="button"
                 onClick={() => setPreviewTab('ALL')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs ${
                   previewTab === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-2xs border border-slate-200' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -422,26 +499,35 @@ export const MemberImportPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPreviewTab('VALID')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs ${
                   previewTab === 'VALID' ? 'bg-emerald-100 text-emerald-800 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Valid ({importSummary.validCount})
+                Valid New ({importSummary.validCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewTab('CLAIMABLE')}
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs ${
+                  previewTab === 'CLAIMABLE' ? 'bg-amber-100 text-amber-900 font-bold shadow-2xs border border-amber-300' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Claimable ({importSummary.claimableDuplicateCount})
               </button>
               <button
                 type="button"
                 onClick={() => setPreviewTab('DUPLICATES')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                  previewTab === 'DUPLICATES' ? 'bg-amber-100 text-amber-800 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs ${
+                  previewTab === 'DUPLICATES' ? 'bg-slate-200 text-slate-800 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Duplicates ({importSummary.duplicateCount})
+                Own Duplicates ({importSummary.ownDuplicateCount})
               </button>
               {importSummary.invalidCount > 0 && (
                 <button
                   type="button"
                   onClick={() => setPreviewTab('INVALID')}
-                  className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs ${
                     previewTab === 'INVALID' ? 'bg-rose-100 text-rose-800 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -451,32 +537,36 @@ export const MemberImportPage: React.FC = () => {
             </div>
 
             {/* Table */}
-            <div className="max-h-64 overflow-y-auto">
+            <div className="max-h-72 overflow-y-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 sticky top-0">
                   <tr>
-                    <th className="px-5 py-2.5">#</th>
-                    <th className="px-5 py-2.5">Phone Number</th>
-                    <th className="px-5 py-2.5">Status</th>
-                    <th className="px-5 py-2.5">Remarks / Reason</th>
+                    <th className="px-4 py-2.5 w-12">#</th>
+                    <th className="px-4 py-2.5">Phone Number</th>
+                    <th className="px-4 py-2.5">Status &amp; Ownership</th>
+                    <th className="px-4 py-2.5">Action / Info</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {displayedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-5 py-6 text-center text-slate-400 font-sans">
+                      <td colSpan={4} className="px-4 py-6 text-center text-slate-400 font-sans">
                         No rows found in this filter tab.
                       </td>
                     </tr>
                   ) : (
                     displayedRows.map((r, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="px-5 py-2.5 text-slate-400 font-sans">{idx + 1}</td>
-                        <td className="px-5 py-2.5 font-bold text-slate-900">{r.phone}</td>
-                        <td className="px-5 py-2.5 font-sans">
-                          {r.isDuplicate ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                              <AlertTriangle className="w-3 h-3" /> Duplicate
+                        <td className="px-4 py-2.5 text-slate-400 font-sans">{idx + 1}</td>
+                        <td className="px-4 py-2.5 font-bold text-slate-900">{r.phone}</td>
+                        <td className="px-4 py-2.5 font-sans">
+                          {r.isClaimableDuplicate ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-300">
+                              <AlertTriangle className="w-3 h-3 text-amber-600" /> Existing in CRM
+                            </span>
+                          ) : r.isOwnDuplicate ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                              <XCircle className="w-3 h-3 text-slate-400" /> Already In Your Queue
                             </span>
                           ) : !r.isValid ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
@@ -488,8 +578,51 @@ export const MemberImportPage: React.FC = () => {
                             </span>
                           )}
                         </td>
-                        <td className="px-5 py-2.5 text-slate-500 font-sans text-[11px]">
-                          {r.reason || 'Verified phone number ready for personal queue'}
+                        <td className="px-4 py-2.5 font-sans text-xs">
+                          {r.isClaimableDuplicate ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleClaimPhone(r.phone)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition-colors ${
+                                  selectedClaimablePhones.includes(r.phone)
+                                    ? 'bg-emerald-600 text-white shadow-2xs'
+                                    : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                                }`}
+                              >
+                                {selectedClaimablePhones.includes(r.phone) ? (
+                                  <>
+                                    <CheckCircle2 className="w-3 h-3 text-white" />
+                                    <span>Selected to Claim</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <PlusCircle className="w-3 h-3 text-amber-700" />
+                                    <span>Claim &amp; Include</span>
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!user) return;
+                                  const dup = await ContactService.checkPhoneDuplicate(r.phone, user);
+                                  if (dup.intelligence) {
+                                    setClaimIntelligence(dup.intelligence);
+                                    setClaimModalOpen(true);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 cursor-pointer"
+                                title="Inspect previous call & order history"
+                              >
+                                <Eye className="w-3 h-3 text-blue-600" />
+                                <span>Inspect Activity</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 text-[11px]">{r.reason || 'Brand new number'}</span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -502,7 +635,7 @@ export const MemberImportPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 bg-slate-50/50">
               <div className="text-xs text-slate-500">
                 <span>Saving will add </span>
-                <strong className="text-emerald-700 font-bold">{importSummary.validCount} verified numbers</strong>
+                <strong className="text-emerald-700 font-bold">{totalSelectedToImport} numbers</strong>
                 <span> directly to your personal calling queue.</span>
               </div>
 
@@ -514,15 +647,149 @@ export const MemberImportPage: React.FC = () => {
                 rightIcon={<ArrowRight className="w-4 h-4" />}
                 onClick={handleConfirmImport}
                 isLoading={isImporting}
-                disabled={importSummary.validCount === 0}
-                className="bg-emerald-600 hover:bg-emerald-700 font-semibold w-full sm:w-auto"
+                disabled={totalSelectedToImport === 0}
+                className="bg-emerald-600 hover:bg-emerald-700 font-semibold w-full sm:w-auto cursor-pointer"
               >
-                Confirm &amp; Add ({importSummary.validCount}) to My Queue
+                Confirm &amp; Add ({totalSelectedToImport}) to My Queue
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Duplicate Number Claim Warning Dialog */}
+      <Dialog
+        isOpen={claimModalOpen}
+        onClose={() => {
+          setClaimModalOpen(false);
+          setClaimIntelligence(null);
+        }}
+        title="Existing Number Detected in CRM"
+        description="This phone number already exists in the system database. Review its previous activity before claiming."
+        maxWidth="lg"
+      >
+        {claimIntelligence && (
+          <div className="space-y-4">
+            {/* Warning Alert Banner */}
+            <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3 text-amber-950 text-xs">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block text-sm font-bold text-amber-900">
+                  ⚠ Phone Number {claimIntelligence.phone} is already recorded
+                </strong>
+                <p className="mt-0.5 text-amber-800">
+                  This number exists in the CRM and was previously assigned to another team specialist. By default, it will not be added unless you explicitly confirm to associate it with your personal queue.
+                </p>
+              </div>
+            </div>
+
+            {/* Ownership & Call History Info Card */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+              <div>
+                <span className="text-slate-400 text-[11px] block">Previous / Current Assigned Rep</span>
+                <strong className="text-slate-900 text-sm mt-0.5 flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-blue-600" />
+                  <span>{claimIntelligence.assignedMemberName}</span>
+                  <span className="text-xs text-slate-500 font-normal">({claimIntelligence.teamName})</span>
+                </strong>
+              </div>
+
+              <div>
+                <span className="text-slate-400 text-[11px] block">Last Called Date &amp; Time</span>
+                <span className="text-slate-800 font-mono text-xs mt-1 block flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>
+                    {claimIntelligence.lastCalledAt
+                      ? format(new Date(claimIntelligence.lastCalledAt), 'MMM dd, yyyy HH:mm')
+                      : 'Never Called'}
+                  </span>
+                </span>
+              </div>
+
+              <div>
+                <span className="text-slate-400 text-[11px] block">Last Call Status</span>
+                <div className="mt-1">
+                  {claimIntelligence.lastCallStatus ? (
+                    <StatusBadge type="contact" status={claimIntelligence.lastCallStatus as any} />
+                  ) : (
+                    <span className="text-slate-400 italic">No status recorded</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-400 text-[11px] block">Existing Customer Name</span>
+                <span className="text-slate-900 font-semibold mt-1 block">
+                  {claimIntelligence.lastCustomerName || 'None'}
+                </span>
+              </div>
+            </div>
+
+            {/* Previous Call Remarks */}
+            {claimIntelligence.lastCallRemarks && (
+              <div className="p-3 bg-white border border-slate-200 rounded-xl text-xs space-y-1">
+                <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                  <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Previous Call Notes</span>
+                </div>
+                <p className="text-slate-800 italic">"{claimIntelligence.lastCallRemarks}"</p>
+              </div>
+            )}
+
+            {/* Previous Order History if any */}
+            {claimIntelligence.previousOrders && claimIntelligence.previousOrders.length > 0 && (
+              <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+                <div className="p-2.5 bg-slate-50 border-b border-slate-200 font-bold text-slate-800 flex items-center gap-1.5">
+                  <ShoppingBag className="w-4 h-4 text-purple-600" />
+                  <span>Previous Order History ({claimIntelligence.previousOrders.length})</span>
+                </div>
+                <div className="divide-y divide-slate-100 max-h-36 overflow-y-auto">
+                  {claimIntelligence.previousOrders.map((ord) => (
+                    <div key={ord.id} className="p-2.5 flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <span className="font-mono font-bold text-blue-700">#{ord.orderNumber}</span>
+                        <span className="text-slate-400 text-[11px] ml-2">
+                          by {ord.teamMemberName || 'Rep'} on {format(new Date(ord.createdAt), 'yyyy-MM-dd')}
+                        </span>
+                        <div className="text-slate-600 text-[11px] mt-0.5">{ord.itemsDescription}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge type="order" status={ord.status} />
+                        <span className="font-mono font-bold text-slate-900">{formatCurrency(ord.totalAmount)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons: Reject vs Confirm */}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setClaimModalOpen(false);
+                  setClaimIntelligence(null);
+                }}
+                className="cursor-pointer"
+              >
+                Reject
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                isLoading={isClaiming}
+                onClick={handleConfirmClaim}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer"
+                leftIcon={<CheckCircle2 className="w-4 h-4" />}
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 };

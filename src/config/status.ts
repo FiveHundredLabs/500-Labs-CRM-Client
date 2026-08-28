@@ -73,6 +73,11 @@ export const CONTACT_STATUS_CONFIG: Record<ContactStatus, StatusMeta> = {
     badgeClass: 'badge-red',
     icon: XCircle,
   },
+  CANCELLED: {
+    label: 'Cancelled',
+    badgeClass: 'badge-red',
+    icon: XCircle,
+  },
   SAVED_CONTACTS: {
     label: 'Saved',
     badgeClass: 'badge-indigo',
@@ -110,6 +115,11 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, StatusMeta> = {
     label: 'Returned',
     badgeClass: 'badge-purple',
     icon: RotateCcw,
+  },
+  CANCELLED: {
+    label: 'Cancelled',
+    badgeClass: 'badge-red',
+    icon: XCircle,
   },
 };
 

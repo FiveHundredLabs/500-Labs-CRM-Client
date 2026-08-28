@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { Contact, CallLog, Order, User } from '../../models/domain';
-import { contactRepository, callLogRepository, orderRepository, userRepository } from '../../repositories';
+import { Contact, CallLog, Order, User, TeamSalesTarget, TeamTargetTier } from '../../models/domain';
+import { contactRepository, callLogRepository, orderRepository, userRepository, salesTargetRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -22,7 +22,8 @@ import {
   Calendar,
   Gift,
   Zap,
-  Sparkles
+  Sparkles,
+  Target
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Leaderboard } from '../../components/leaderboard';
@@ -36,8 +37,6 @@ interface LeaderboardMember {
   rank: number;
 }
 
-const MONTHLY_SALES_TARGET = 25000; // LKR 25,000
-
 export const MemberDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -45,6 +44,7 @@ export const MemberDashboard: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [, setCallLogs] = useState<CallLog[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [salesTargets, setSalesTargets] = useState<TeamSalesTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
@@ -58,17 +58,24 @@ export const MemberDashboard: React.FC = () => {
     setLoading(true);
     try {
       const currentTeamId = user.teamId || 'team_001';
-      const [mContacts, mLogs, mOrders, allUsers, teamOrders] = await Promise.all([
+      const now = new Date();
+      const targetYear = now.getFullYear();
+      const targetMonthIndex = selectedMonthPreset === 'THIS_MONTH' ? now.getMonth() : now.getMonth() - 1;
+      const targetMonthPrefix = `${targetYear}-${String(targetMonthIndex + 1).padStart(2, '0')}`;
+
+      const [mContacts, mLogs, mOrders, allUsers, teamOrders, fetchedTargets] = await Promise.all([
         contactRepository.getByMemberId(user.id).catch(() => []),
         callLogRepository.getByMemberId(user.id).catch(() => []),
         orderRepository.getByMemberId(user.id).catch(() => []),
         userRepository.getAll().catch(() => []),
         orderRepository.getByTeamId(currentTeamId).catch(() => []),
+        salesTargetRepository.getAll(targetMonthPrefix, currentTeamId).catch(() => []),
       ]);
 
       setContacts(mContacts);
       setCallLogs(mLogs);
       setOrders(mOrders);
+      setSalesTargets(fetchedTargets);
 
       // Build Leaderboard Roster ranked by Delivered Orders (1.2)
       const membersOnly = allUsers.filter(
@@ -101,7 +108,7 @@ export const MemberDashboard: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, [user, selectedMonthPreset]);
 
   if (loading) return <LoadingState rows={6} />;
 
@@ -112,7 +119,16 @@ export const MemberDashboard: React.FC = () => {
   const completionPercentage = totalAssigned > 0 ? Math.round((completedCalls / totalAssigned) * 100) : 0;
   const deliveredOrders = orders.filter((o) => o.status === 'DELIVERED').length;
 
-  // Filter orders by selected month for Sales Goal & Incentive calculation
+  // Dynamic Sales Goal & Allowance calculation
+  const currentTeamId = user?.teamId || 'team_001';
+  const activeTarget = salesTargets.find((t) => t.teamId === currentTeamId) || salesTargets[0];
+  const targetGoal = activeTarget ? activeTarget.targetAmount : 500000;
+  const activeTiers = activeTarget?.tiers && activeTarget.tiers.length > 0 ? activeTarget.tiers : [
+    { minPercentage: 80, allowanceAmount: 10000, title: '80% Tier Allowance' },
+    { minPercentage: 100, allowanceAmount: 20000, title: '100% Target Achieved Allowance' },
+    { minPercentage: 120, allowanceAmount: 35000, title: '120% Super Achiever Incentive' },
+  ];
+
   const now = new Date();
   const targetYear = now.getFullYear();
   const targetMonthIndex = selectedMonthPreset === 'THIS_MONTH' ? now.getMonth() : now.getMonth() - 1;
@@ -124,40 +140,24 @@ export const MemberDashboard: React.FC = () => {
     return dateStr.startsWith(targetMonthPrefix);
   });
 
-  // Calculate total sales from delivered orders (using COD amount or totalAmount)
-  const currentSalesAmount = monthlyDeliveredOrders.reduce(
-    (sum, o) => sum + (o.codAmount || o.totalAmount || 0),
-    0
-  );
+  // Calculate personal delivered sales
+  const memberBreakdown = activeTarget?.memberBreakdowns?.find((m) => m.id === user?.id);
+  const currentSalesAmount = memberBreakdown
+    ? memberBreakdown.actualSales
+    : monthlyDeliveredOrders.reduce((sum, o) => sum + (o.codAmount || o.totalAmount || 0), 0);
 
-  const achievementPercentage = Math.round((currentSalesAmount / MONTHLY_SALES_TARGET) * 10000) / 100; // e.g. 104.4%
-  const achievementProgressClamped = Math.min(100, Math.round((currentSalesAmount / MONTHLY_SALES_TARGET) * 100));
+  const achievementPercentage = targetGoal > 0 ? (currentSalesAmount / targetGoal) * 100 : 0;
+  const achievementProgressClamped = Math.min(100, achievementPercentage);
 
-  // Incentive rules:
-  // >= 100%       -> + LKR 10,000
-  // 90% - 99.99%  -> + LKR 8,000
-  // 80% - 89.99%  -> + LKR 5,000
-  // Below 80%     -> LKR 0
-  let incentiveAmount = 0;
-  let incentiveTier = 'No Incentive';
-  let tierBadgeBg = 'bg-slate-100 text-slate-700 border-slate-200';
+  // Determine highest achieved tier for this member
+  const sortedTiers = [...activeTiers].sort((a, b) => b.minPercentage - a.minPercentage);
+  const unlockedTier = sortedTiers.find((t) => achievementPercentage >= t.minPercentage) || null;
+  const earnedAllowance = unlockedTier ? unlockedTier.allowanceAmount : 0;
 
-  if (achievementPercentage >= 100) {
-    incentiveAmount = 10000;
-    incentiveTier = '+LKR 10,000 Bonus (100%+)';
-    tierBadgeBg = 'bg-emerald-500 text-white border-emerald-400';
-  } else if (achievementPercentage >= 90) {
-    incentiveAmount = 8000;
-    incentiveTier = '+LKR 8,000 Bonus (90%+)';
-    tierBadgeBg = 'bg-blue-600 text-white border-blue-500';
-  } else if (achievementPercentage >= 80) {
-    incentiveAmount = 5000;
-    incentiveTier = '+LKR 5,000 Bonus (80%+)';
-    tierBadgeBg = 'bg-amber-500 text-white border-amber-400';
-  }
-
-  const baseSalary = user?.salary || 45000;
-  const finalSalaryPayout = baseSalary + incentiveAmount;
+  // Next milestone calculation
+  const ascendingTiers = [...activeTiers].sort((a, b) => a.minPercentage - b.minPercentage);
+  const nextTier = ascendingTiers.find((t) => achievementPercentage < t.minPercentage) || null;
+  const nextTierDeficit = nextTier ? Math.max(0, (targetGoal * (nextTier.minPercentage / 100)) - currentSalesAmount) : 0;
 
   // Filter first 3 priority follow-up numbers
   const followUpContacts = contacts
@@ -168,7 +168,7 @@ export const MemberDashboard: React.FC = () => {
     <div className="space-y-5">
       <PageHeader
         title={`Good morning, ${user?.fullName.split(' ')[0]} 👋`}
-        description="Here is your monthly calling queue, sales goal achievement, and performance leaderboard."
+        description="Here is your monthly calling queue, personal sales goal achievement, and performance leaderboard."
         actions={
           <Button
             variant="primary"
@@ -213,32 +213,30 @@ export const MemberDashboard: React.FC = () => {
         />
       </div>
 
-      {/* Ultra-Clean, Compact Sales Goal & Incentive Widget (Senior UI/UX Redesign) */}
+      {/* Sleek, Non-Cluttered Sales Goal & Allowance Widget */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3.5">
-        {/* Header Row: Title & Month Segmented Switcher */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        {/* Top Header: Title & Month Switcher */}
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-2xs shrink-0">
-              <Gift className="w-4 h-4" />
+              <Target className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-bold text-sm sm:text-base text-slate-900 tracking-tight">Monthly Sales Goal &amp; Incentive</h3>
-                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border shadow-2xs flex items-center gap-1 ${tierBadgeBg}`}>
-                  <Sparkles className="w-3 h-3" />
-                  <span>{incentiveTier}</span>
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">Target: {formatCurrency(MONTHLY_SALES_TARGET)} from delivered sales</p>
+              <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-tight">
+                Monthly Sales Goal &amp; Allowance
+              </h3>
+              <p className="text-[11px] text-slate-400 font-sans">
+                Goal: <strong className="font-mono text-slate-700">{formatCurrency(targetGoal)}</strong> / month
+              </p>
             </div>
           </div>
 
-          {/* Month Switcher Pill */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-xs font-semibold self-start sm:self-auto shrink-0 border border-slate-200/80">
+          {/* Month Switcher */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-xs font-semibold shrink-0 border border-slate-200/80">
             <button
               type="button"
               onClick={() => setSelectedMonthPreset('THIS_MONTH')}
-              className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer text-[11px] sm:text-xs ${
                 selectedMonthPreset === 'THIS_MONTH'
                   ? 'bg-white text-blue-700 shadow-2xs font-bold'
                   : 'text-slate-500 hover:text-slate-800'
@@ -249,7 +247,7 @@ export const MemberDashboard: React.FC = () => {
             <button
               type="button"
               onClick={() => setSelectedMonthPreset('LAST_MONTH')}
-              className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer text-[11px] sm:text-xs ${
                 selectedMonthPreset === 'LAST_MONTH'
                   ? 'bg-white text-blue-700 shadow-2xs font-bold'
                   : 'text-slate-500 hover:text-slate-800'
@@ -260,63 +258,151 @@ export const MemberDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Hero Progress & Inline Key Stats (Zero nested cards) */}
-        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3 sm:p-3.5 space-y-2.5">
-          {/* Main Numbers Row */}
-          <div className="flex items-baseline justify-between flex-wrap gap-2">
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-slate-900 tracking-tight">
-                {formatCurrency(currentSalesAmount)}
+        {/* Sales Numbers & Two Dedicated Metric Cards */}
+        <div className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-3.5 space-y-3.5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <span className="text-[11px] text-slate-400 font-medium uppercase tracking-wider block">
+                Personal Delivered Sales
               </span>
-              <span className="text-xs font-medium text-slate-400">
-                / {formatCurrency(MONTHLY_SALES_TARGET)}
-              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 tracking-tight">
+                  {formatCurrency(currentSalesAmount)}
+                </span>
+                <span className="text-xs font-medium text-slate-400 font-mono">
+                  / {formatCurrency(targetGoal)} goal
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded-md ${
-                achievementPercentage >= 100
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : achievementPercentage >= 80
-                  ? 'bg-blue-100 text-blue-800'
-                  : 'bg-slate-200 text-slate-700'
-              }`}>
-                {achievementPercentage}% Achieved
-              </span>
+            {/* Two Dedicated Cards for Percentage and Allowance */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-2.5 shrink-0">
+              {/* Card 1: Goal Achievement % */}
+              <div
+                className={`p-2.5 sm:px-3 sm:py-2 rounded-xl border flex flex-col justify-center transition-all ${
+                  achievementPercentage >= 100
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-2xs'
+                    : achievementPercentage >= 80
+                    ? 'bg-blue-50 border-blue-300 text-blue-950 shadow-2xs'
+                    : 'bg-white border-slate-200 text-slate-900'
+                }`}
+              >
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                  Goal Progress
+                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {achievementPercentage >= 100 ? (
+                    <Trophy className="w-4 h-4 text-emerald-600" />
+                  ) : achievementPercentage >= 80 ? (
+                    <Zap className="w-4 h-4 text-blue-600" />
+                  ) : (
+                    <TrendingUp className="w-4 h-4 text-slate-500" />
+                  )}
+                  <span
+                    className={`font-mono text-base sm:text-lg font-extrabold ${
+                      achievementPercentage >= 100
+                        ? 'text-emerald-700'
+                        : achievementPercentage >= 80
+                        ? 'text-blue-700'
+                        : 'text-slate-800'
+                    }`}
+                  >
+                    {achievementPercentage.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 2: Earned Allowance */}
+              <div
+                className={`p-2.5 sm:px-3 sm:py-2 rounded-xl border flex flex-col justify-center transition-all ${
+                  earnedAllowance > 0
+                    ? 'bg-amber-50/80 border-amber-300 text-amber-950 shadow-2xs'
+                    : 'bg-white border-slate-200 text-slate-900'
+                }`}
+              >
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                  Earned Allowance
+                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <Award className={`w-4 h-4 ${earnedAllowance > 0 ? 'text-amber-600' : 'text-slate-400'}`} />
+                  <span
+                    className={`font-mono text-base sm:text-lg font-extrabold ${
+                      earnedAllowance > 0 ? 'text-amber-900' : 'text-slate-600'
+                    }`}
+                  >
+                    {formatCurrency(earnedAllowance)}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Smooth Gradient Progress Bar */}
-          <div className="h-2.5 bg-slate-200 rounded-full overflow-hidden p-0.5">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                achievementPercentage >= 100
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
-                  : achievementPercentage >= 80
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-500'
-                  : 'bg-amber-500'
-              }`}
-              style={{ width: `${achievementProgressClamped}%` }}
-            />
-          </div>
-
-          {/* Clean Flat Metric Strip (No card borders) */}
-          <div className="flex items-center justify-between text-xs text-slate-600 pt-1 border-t border-slate-200/60 flex-wrap gap-y-1">
-            <div className="flex items-center gap-2 sm:gap-4 flex-wrap text-[11px] sm:text-xs">
-              <span>
-                <span className="text-slate-400">Base:</span>{' '}
-                <strong className="text-slate-800 font-mono">{formatCurrency(baseSalary)}</strong>
-              </span>
-              <span className="text-slate-300 hidden sm:inline">&bull;</span>
-              <span>
-                <span className="text-slate-400">Incentive:</span>{' '}
-                <strong className="text-emerald-700 font-mono">+{formatCurrency(incentiveAmount)}</strong>
-              </span>
+          {/* Smooth Progress Bar */}
+          <div className="space-y-1">
+            <div className="h-2.5 bg-slate-200/80 rounded-full overflow-hidden p-0.5">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  achievementPercentage >= 100
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                    : achievementPercentage >= 80
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-500'
+                    : 'bg-amber-500'
+                }`}
+                style={{ width: `${achievementProgressClamped}%` }}
+              />
             </div>
 
-            <div className="text-[11px] sm:text-xs font-semibold text-slate-900">
-              <span className="text-slate-400">Est. Payout:</span>{' '}
-              <span className="text-blue-700 font-bold font-mono text-sm">{formatCurrency(finalSalaryPayout)}</span>
+            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+              <span>
+                {achievementPercentage >= 100 ? (
+                  <strong className="text-emerald-700 font-semibold">🎉 100% Monthly Target Achieved!</strong>
+                ) : nextTier ? (
+                  <span>
+                    Need <strong className="font-mono text-slate-800">{formatCurrency(nextTierDeficit)}</strong> more for {nextTier.minPercentage}% ({formatCurrency(nextTier.allowanceAmount)} allowance)
+                  </span>
+                ) : (
+                  <span>Delivered orders count toward allowance</span>
+                )}
+              </span>
+              <span className="font-mono font-semibold text-slate-600">{achievementProgressClamped.toFixed(0)}%</span>
+            </div>
+          </div>
+
+          {/* Clean, Highlighted Achievement Tiers Strip */}
+          <div className="pt-2.5 border-t border-slate-200/70">
+            <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-500" />
+              <span>Achievement Tiers:</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {ascendingTiers.map((tier, idx) => {
+                const isReached = achievementPercentage >= tier.minPercentage;
+                const isNextTarget = !isReached && (!ascendingTiers[idx - 1] || achievementPercentage >= ascendingTiers[idx - 1].minPercentage);
+
+                return (
+                  <div
+                    key={idx}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-mono flex items-center justify-between transition-all ${
+                      isReached
+                        ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                        : isNextTarget
+                        ? 'bg-blue-50 text-blue-900 border-2 border-blue-400 font-bold'
+                        : 'bg-white text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1 font-bold">
+                      {isReached && <CheckCircle2 className="w-3 h-3 text-white" />}
+                      {isNextTarget && <Target className="w-3 h-3 text-blue-600" />}
+                      <span>{tier.minPercentage}%</span>
+                    </span>
+
+                    <span className="font-extrabold">
+                      {formatCurrency(tier.allowanceAmount)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

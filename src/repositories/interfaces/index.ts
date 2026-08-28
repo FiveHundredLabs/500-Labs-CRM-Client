@@ -19,6 +19,9 @@ import {
   PettyCashWallet,
   PettyCashTransaction,
   ApprovalStatus,
+  TeamSalesTarget,
+  TeamTargetTier,
+  DuplicatePhoneCheckResult,
 } from '../../models/domain';
 
 export interface ITeamRepository {
@@ -47,6 +50,7 @@ export interface IContactRepository {
   create(contact: Omit<Contact, 'id' | 'updatedAt'>): Promise<Contact>;
   createMany(contacts: Array<Omit<Contact, 'id' | 'updatedAt'>>): Promise<Contact[]>;
   addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string }): Promise<Contact>;
+  checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult>;
   update(id: string, updates: Partial<Contact>): Promise<Contact>;
   updateManyStatus(ids: string[], status: ContactStatus): Promise<void>;
 }
@@ -149,5 +153,19 @@ export interface IPettyCashRepository {
   getTransactions(): Promise<PettyCashTransaction[]>;
   allocate(amount: number, user: User, reason?: string): Promise<PettyCashWallet>;
   recordExpense(data: { amount: number; reason: string; category: string; description: string; date: string }, user: User): Promise<PettyCashTransaction>;
+}
+
+export interface ISalesTargetRepository {
+  getAll(month?: string, teamId?: string): Promise<TeamSalesTarget[]>;
+  getById(id: string): Promise<TeamSalesTarget | null>;
+  upsert(target: {
+    teamId: string;
+    month: string;
+    targetAmount: number;
+    notes?: string;
+    tiers: TeamTargetTier[];
+  }): Promise<TeamSalesTarget>;
+  update(id: string, updates: Partial<TeamSalesTarget>): Promise<TeamSalesTarget>;
+  delete(id: string): Promise<void>;
 }
 

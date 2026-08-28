@@ -33,6 +33,7 @@ import {
   Bell,
   Clock,
   AlertTriangle,
+  Target,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
 
@@ -222,6 +223,15 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<Target className="w-3.5 h-3.5 text-rose-600" />}
+                onClick={() => navigate('/admin/sales-goals')}
+                className="bg-rose-50/50 hover:bg-rose-50 text-rose-900 border-rose-200"
+              >
+                Sales Goals & Incentives
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"

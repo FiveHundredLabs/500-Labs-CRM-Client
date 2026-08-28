@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 type TabCategory =
+  | 'ALL'
   | 'NEW'
   | 'FOLLOW_UP'
   | 'ANSWERED'
@@ -24,6 +25,7 @@ type TabCategory =
   | 'DISPATCHED'
   | 'REJECTED'
   | 'DELIVERED'
+  | 'CANCELLED'
   | 'SAVED_CONTACTS';
 
 interface TabConfig {
@@ -31,8 +33,9 @@ interface TabConfig {
   label: string;
 }
 
-// Strictly ordered filter tabs as requested
+// Strictly ordered filter tabs with All first, New as default selected
 const TABS: TabConfig[] = [
+  { key: 'ALL', label: 'All' },
   { key: 'NEW', label: 'New' },
   { key: 'FOLLOW_UP', label: 'Follow Up' },
   { key: 'ANSWERED', label: 'Answered' },
@@ -43,6 +46,7 @@ const TABS: TabConfig[] = [
   { key: 'DISPATCHED', label: 'Dispatch' },
   { key: 'REJECTED', label: 'Rejected' },
   { key: 'DELIVERED', label: 'Delivered' },
+  { key: 'CANCELLED', label: 'Cancelled' },
   { key: 'SAVED_CONTACTS', label: 'Saved Contacts' },
 ];
 
@@ -86,6 +90,7 @@ export const MemberContactsPage: React.FC = () => {
 
   // Compute counts per category accurately reflecting team member's contacts
   const countMap: Record<TabCategory, number> = {
+    ALL: contacts.length,
     NEW: contacts.filter((c) => c.status === 'NEW').length,
     FOLLOW_UP: contacts.filter((c) => c.status !== 'NEW' && c.isFollowUp).length,
     ANSWERED: contacts.filter((c) => c.status === 'ANSWERED').length,
@@ -96,18 +101,29 @@ export const MemberContactsPage: React.FC = () => {
     DISPATCHED: contacts.filter((c) => c.status === 'DISPATCHED').length,
     REJECTED: contacts.filter((c) => c.status === 'REJECTED').length,
     DELIVERED: contacts.filter((c) => c.status === 'DELIVERED').length,
+    CANCELLED: contacts.filter((c) => c.status === 'CANCELLED').length,
     SAVED_CONTACTS: contacts.filter((c) => c.isSelfAdded || Boolean(c.addedBy)).length || contacts.length,
   };
 
-  // Filter contacts by active tab & search
+  // Filter contacts by active tab & search (Search matches across ALL stages)
   const filteredContacts = contacts.filter((c) => {
+    const q = search.trim().toLowerCase();
     const matchesSearch =
-      c.phone.toLowerCase().includes(search.toLowerCase()) ||
-      (c.city && c.city.toLowerCase().includes(search.toLowerCase())) ||
-      (c.secondaryMobile && c.secondaryMobile.toLowerCase().includes(search.toLowerCase()));
+      !q ||
+      c.phone.toLowerCase().includes(q) ||
+      (c.city && c.city.toLowerCase().includes(q)) ||
+      (c.secondaryMobile && c.secondaryMobile.toLowerCase().includes(q));
 
     if (!matchesSearch) return false;
 
+    // When a search term is entered, search across all stages
+    if (q) {
+      return true;
+    }
+
+    if (activeTab === 'ALL') {
+      return true;
+    }
     if (activeTab === 'FOLLOW_UP') {
       return c.status !== 'NEW' && Boolean(c.isFollowUp);
     }
