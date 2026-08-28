@@ -497,6 +497,29 @@ export const MemberImportPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Bottom Action Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 bg-slate-50/50">
+              <div className="text-xs text-slate-500">
+                <span>Saving will add </span>
+                <strong className="text-emerald-700 font-bold">{importSummary.validCount} verified numbers</strong>
+                <span> directly to your personal calling queue.</span>
+              </div>
+
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+                onClick={handleConfirmImport}
+                isLoading={isImporting}
+                disabled={importSummary.validCount === 0}
+                className="bg-emerald-600 hover:bg-emerald-700 font-semibold w-full sm:w-auto"
+              >
+                Confirm &amp; Add ({importSummary.validCount}) to My Queue
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

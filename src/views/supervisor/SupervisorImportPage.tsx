@@ -339,17 +339,83 @@ export const SupervisorImportPage: React.FC = () => {
 
       {/* Bottom Listing & Duplicate Audit Section */}
       {importSummary && (
-        <Card className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <Card className="animate-in fade-in slide-in-from-bottom-2 duration-200 border-blue-200 shadow-sm">
+          {/* Header with Summary Stats and Action Button */}
+          <CardHeader className="border-b border-slate-100 pb-4 bg-slate-50/50">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <span>Import Preview &amp; Verification</span>
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Contacts will be added to the database as unallocated pool numbers (ready to assign on the Allocation page).
+                </p>
+              </div>
 
-          <CardContent className="p-6 space-y-5">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setImportSummary(null);
+                    setFile(null);
+                    setParsedFileInfo(null);
+                    setBulkText('');
+                    setExecuteFn(null);
+                  }}
+                  disabled={isImporting}
+                >
+                  Cancel / Reset
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
+                  onClick={handleConfirmImport}
+                  isLoading={isImporting}
+                  disabled={importSummary.validCount === 0}
+                  className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+                >
+                  Confirm &amp; Add ({importSummary.validCount}) to Pool
+                </Button>
+              </div>
+            </div>
+
+            {/* Metric KPI Chips */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+              <div className="p-3 bg-white border border-slate-200 rounded-xl">
+                <div className="text-[11px] font-medium text-slate-500">Total Parsed</div>
+                <div className="text-xl font-bold text-slate-900">{importSummary.totalParsed}</div>
+              </div>
+              <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl">
+                <div className="text-[11px] font-bold text-emerald-800">Valid New Contacts</div>
+                <div className="text-xl font-bold text-emerald-700">{importSummary.validCount}</div>
+              </div>
+              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl">
+                <div className="text-[11px] font-bold text-amber-800">Duplicates (Excluded)</div>
+                <div className="text-xl font-bold text-amber-700">{importSummary.duplicateCount}</div>
+              </div>
+              <div className="p-3 bg-rose-50/80 border border-rose-200 rounded-xl">
+                <div className="text-[11px] font-bold text-rose-800">Invalid Formats</div>
+                <div className="text-xl font-bold text-rose-700">{importSummary.invalidCount}</div>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-6 space-y-4">
             {/* Filter Tabs */}
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+              <span className="text-xs text-slate-500 font-medium mr-1">Filter View:</span>
               <button
                 type="button"
                 onClick={() => setPreviewTab('ALL')}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                   previewTab === 'ALL'
-                    ? 'bg-slate-900 text-white'
+                    ? 'bg-slate-900 text-white shadow-2xs'
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -361,7 +427,7 @@ export const SupervisorImportPage: React.FC = () => {
                 onClick={() => setPreviewTab('VALID')}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                   previewTab === 'VALID'
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-emerald-600 text-white shadow-2xs'
                     : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
                 }`}
               >
@@ -373,7 +439,7 @@ export const SupervisorImportPage: React.FC = () => {
                 onClick={() => setPreviewTab('DUPLICATES')}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                   previewTab === 'DUPLICATES'
-                    ? 'bg-amber-600 text-white'
+                    ? 'bg-amber-600 text-white shadow-2xs'
                     : 'text-amber-700 bg-amber-50 hover:bg-amber-100'
                 }`}
               >
@@ -385,7 +451,7 @@ export const SupervisorImportPage: React.FC = () => {
                 onClick={() => setPreviewTab('INVALID')}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                   previewTab === 'INVALID'
-                    ? 'bg-rose-600 text-white'
+                    ? 'bg-rose-600 text-white shadow-2xs'
                     : 'text-rose-700 bg-rose-50 hover:bg-rose-100'
                 }`}
               >
@@ -394,51 +460,78 @@ export const SupervisorImportPage: React.FC = () => {
             </div>
 
             {/* Listing Table */}
-            <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl text-xs">
+            <div className="max-h-72 overflow-y-auto border border-slate-200 rounded-xl text-xs">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 font-semibold text-slate-600 border-b border-slate-200 sticky top-0">
                   <tr>
                     <th className="p-3">#</th>
                     <th className="p-3">Phone Number</th>
                     <th className="p-3">Audit Verification Status</th>
+                    <th className="p-3">Remarks</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 font-mono">
                   {displayedRows.map((row, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3 font-mono text-slate-400">{idx + 1}</td>
-                      <td className="p-3 font-mono font-semibold text-slate-900">{row.phone}</td>
-                      <td className="p-3">
+                      <td className="p-3 text-slate-400 font-sans">{idx + 1}</td>
+                      <td className="p-3 font-bold text-slate-900">{row.phone}</td>
+                      <td className="p-3 font-sans">
                         {row.isValid && !row.isDuplicate && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[11px]">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            Ready for Allocation
+                            Ready for Pool
                           </span>
                         )}
                         {row.isDuplicate && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold text-[11px]">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                            Already Exist (Filtered Out)
+                            Duplicate (Filtered)
                           </span>
                         )}
                         {!row.isValid && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-[11px]">
                             <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                            Invalid Phone Format
+                            Invalid Format
                           </span>
                         )}
+                      </td>
+                      <td className="p-3 text-slate-500 font-sans text-[11px]">
+                        {row.reason || 'Valid normalized Sri Lankan mobile number (07XXXXXXXX)'}
                       </td>
                     </tr>
                   ))}
                   {displayedRows.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="p-6 text-center text-slate-400 italic">
+                      <td colSpan={4} className="p-6 text-center text-slate-400 italic font-sans">
                         No numbers match this filter tab.
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Bottom Action Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
+              <div className="text-xs text-slate-500">
+                <span>Saving will import </span>
+                <strong className="text-emerald-700 font-bold">{importSummary.validCount} valid new contacts</strong>
+                <span> to the unallocated database pool.</span>
+              </div>
+
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+                onClick={handleConfirmImport}
+                isLoading={isImporting}
+                disabled={importSummary.validCount === 0}
+                className="bg-emerald-600 hover:bg-emerald-700 font-semibold w-full sm:w-auto"
+              >
+                Confirm &amp; Add ({importSummary.validCount}) Contacts to Database
+              </Button>
             </div>
           </CardContent>
         </Card>
