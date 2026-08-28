@@ -218,20 +218,30 @@ export const AdminProductsPage: React.FC = () => {
         customerRepository.getAll().catch(() => []),
       ]);
 
-      const custMap = Object.fromEntries(customers.map((c) => [c.id, c]));
+      const custMap = new Map(customers.map((c) => [c.id, c]));
+      const orderMap = new Map(orders.map((o) => [o.id, o]));
       const records: DamageAuditRecord[] = [];
 
       // 1. Stock Activity Logs
-      logs.forEach((log) => {
-        const orderMatch = log.performedByName?.match(/#ORD-[A-Za-z0-9-]+/i)?.[0];
+      const damageLogs = logs.filter(
+        (l) => l.action === 'RETURN_DAMAGE' || l.action === 'REMOVE' || l.newStatus === 'DAMAGED' || (l.reason && l.reason.toLowerCase().includes('damage'))
+      );
+
+      damageLogs.forEach((log) => {
+        const ord = log.orderId ? orderMap.get(log.orderId) : (log.orderNumber ? orders.find(o => o.orderNumber === log.orderNumber || `#${o.orderNumber}` === log.orderNumber) : null);
+        const cust = ord ? custMap.get(ord.customerId) : null;
         records.push({
           id: log.id,
-          source: 'STOCK_LOG',
-          orderNumber: orderMatch || null,
+          source: ord ? 'ORDER_RETURN' : 'STOCK_LOG',
+          orderNumber: log.orderNumber || (ord ? `#${ord.orderNumber}` : null),
+          orderStatus: ord?.status,
+          customerName: log.customerName || cust?.fullName || (ord ? 'Customer' : undefined),
+          customerPhone: cust?.phone,
+          customerCity: cust?.city || 'Sri Lanka',
           date: log.createdAt,
           quantity: log.quantity,
-          reason: log.performedByName || 'Damaged Stock Quarantined',
-          performedByName: log.performedByName,
+          reason: log.reason || 'Damaged Stock Quarantined',
+          performedByName: log.performedByName || 'Supervisor',
         });
       });
 
@@ -243,7 +253,7 @@ export const AdminProductsPage: React.FC = () => {
             (ord.remarks && ord.remarks.toLowerCase().includes('damage')) ||
             (ord.damagedItems && ord.damagedItems.length > 0))
         ) {
-          const cust = custMap[ord.customerId];
+          const cust = custMap.get(ord.customerId);
           const matchedDamagedItem = ord.damagedItems?.find(
             (di) =>
               di.productId === p.id ||

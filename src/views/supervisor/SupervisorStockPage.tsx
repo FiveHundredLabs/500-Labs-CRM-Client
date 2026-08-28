@@ -288,19 +288,27 @@ export const SupervisorStockPage: React.FC = () => {
       ]);
 
       const custMap = new Map(allCustomers.map((c) => [c.id, c]));
+      const orderMap = new Map(allOrders.map((o) => [o.id, o]));
       const records: any[] = [];
 
       // 1. Direct logs
       const productLogs = allLogs.filter(
-        (l) => l.productId === prod.id && (l.action === 'REMOVE' || l.action === 'ADJUST')
+        (l) => l.productId === prod.id && (l.action === 'RETURN_DAMAGE' || l.action === 'REMOVE' || l.action === 'ADJUST' || l.newStatus === 'DAMAGED' || (l.reason && l.reason.toLowerCase().includes('damage')))
       );
       productLogs.forEach((l) => {
+        const ord = l.orderId ? orderMap.get(l.orderId) : (l.orderNumber ? allOrders.find(o => o.orderNumber === l.orderNumber || `#${o.orderNumber}` === l.orderNumber) : null);
+        const cust = ord ? custMap.get(ord.customerId) : null;
         records.push({
           id: l.id,
-          source: 'STOCK_ADJUSTMENT',
+          source: ord ? 'ORDER_RETURN' : 'STOCK_ADJUSTMENT',
+          orderNumber: l.orderNumber || (ord ? `#${ord.orderNumber}` : null),
+          orderStatus: ord?.status,
+          customerName: l.customerName || cust?.fullName || (ord ? 'Customer' : null),
+          customerPhone: cust?.phone,
+          customerCity: cust?.city || 'Sri Lanka',
           date: l.createdAt,
           quantity: l.quantity,
-          reason: `Stock log ${l.action}`,
+          reason: l.reason || 'Damaged stock quarantined',
           performedByName: l.performedByName || 'Supervisor',
         });
       });
@@ -322,22 +330,28 @@ export const SupervisorStockPage: React.FC = () => {
             (item) => item.productId === prod.id || item.productName.toLowerCase() === prod.name.toLowerCase()
           );
 
-          records.push({
-            id: `ord_${ord.id}`,
-            source: 'ORDER_RETURN',
-            orderNumber: `#${ord.orderNumber}`,
-            orderStatus: ord.status,
-            customerName: cust?.fullName || 'Customer',
-            customerPhone: cust?.phone,
-            customerCity: cust?.city || 'Sri Lanka',
-            date: ord.rejectedAt || ord.updatedAt || ord.createdAt,
-            quantity: matchedDamagedItem?.quantity || 1,
-            reason:
-              matchedDamagedItem?.reason ||
-              ord.remarks ||
-              'Customer refused package - returned damaged during transit',
-            performedByName: 'Courier Return / Status Update',
-          });
+          const alreadyAdded = records.some(
+            (r) => r.orderNumber === `#${ord.orderNumber}` || r.orderNumber === ord.orderNumber
+          );
+
+          if (!alreadyAdded) {
+            records.push({
+              id: `ord_${ord.id}`,
+              source: 'ORDER_RETURN',
+              orderNumber: `#${ord.orderNumber}`,
+              orderStatus: ord.status,
+              customerName: cust?.fullName || 'Customer',
+              customerPhone: cust?.phone,
+              customerCity: cust?.city || 'Sri Lanka',
+              date: ord.rejectedAt || ord.updatedAt || ord.createdAt,
+              quantity: matchedDamagedItem?.quantity || 1,
+              reason:
+                matchedDamagedItem?.reason ||
+                ord.remarks ||
+                'Customer refused package - returned damaged during transit',
+              performedByName: 'Courier Return / Status Update',
+            });
+          }
         }
       });
 

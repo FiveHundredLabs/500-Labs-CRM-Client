@@ -395,7 +395,7 @@ export interface StockActivityLog {
   productId: string;
   productName: string;
   teamId: string;
-  action: 'ADD' | 'REMOVE' | 'ADJUST' | 'PRICE_CHANGE';
+  action: 'ADD' | 'REMOVE' | 'ADJUST' | 'PRICE_CHANGE' | 'ALLOCATE' | 'DISPATCH' | 'DELIVER' | 'RETURN_RESTOCK' | 'RETURN_DAMAGE' | 'CANCEL_DEALLOCATE' | 'CANCEL_RESTOCK' | string;
   quantity: number;
   previousStock: number;
   newStock: number;
@@ -403,10 +403,17 @@ export interface StockActivityLog {
   newCostPrice?: number;
   previousSellingPrice?: number;
   newSellingPrice?: number;
-  performedBy: string; // User ID
+  performedById?: string;
+  performedBy?: string; // User ID
   performedByName: string;
   approvalRequestId?: string;
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  orderId?: string;
+  orderNumber?: string;
+  customerName?: string;
+  previousStatus?: string;
+  newStatus?: string;
+  reason?: string;
   createdAt: string;
 }
 
