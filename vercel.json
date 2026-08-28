@@ -6,7 +6,7 @@
       "destination": "https://api.500crm.residuesolution.io/api/:path*"
     },
     {
-      "source": "/((?!api/.*).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
