@@ -42,7 +42,6 @@ export const AdminUsersPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [phone, setPhone] = useState('');
-  const [city, setCity] = useState('');
   const [teamId, setTeamId] = useState<string>('');
   const [supervisorId, setSupervisorId] = useState<string>('');
   const [nic, setNic] = useState('');
@@ -84,7 +83,6 @@ export const AdminUsersPage: React.FC = () => {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setPhone('');
-    setCity('');
     setTeamId(teams.length > 0 ? teams[0].id : '');
     setSupervisorId('');
     setNic('');
@@ -103,7 +101,6 @@ export const AdminUsersPage: React.FC = () => {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setPhone(u.phone);
-    setCity(u.city || '');
     setTeamId(u.teamId || (teams.length > 0 ? teams[0].id : ''));
     setSupervisorId(u.supervisorId || '');
     setNic(u.nic || '');
@@ -153,7 +150,6 @@ export const AdminUsersPage: React.FC = () => {
             email,
             password: password.trim() ? password.trim() : undefined,
             phone,
-            city,
             role,
             teamId: role === 'ADMIN' || role === 'FINANCE' ? null : (teamId || null),
             supervisorId: role === 'TEAM_MEMBER' ? (supervisorId || null) : null,
@@ -177,7 +173,6 @@ export const AdminUsersPage: React.FC = () => {
             role,
             teamId: role === 'ADMIN' || role === 'FINANCE' ? null : (teamId || null),
             supervisorId: role === 'TEAM_MEMBER' ? (supervisorId || null) : null,
-            city,
             phone,
             nic,
             dateOfBirth,
@@ -263,7 +258,7 @@ export const AdminUsersPage: React.FC = () => {
               <th className="py-3 px-4">User</th>
               <th className="py-3 px-4">Role</th>
               <th className="py-3 px-4">Assigned Team</th>
-              <th className="py-3 px-4">Phone / City</th>
+              <th className="py-3 px-4">Phone Number</th>
               <th className="py-3 px-4">Status</th>
               <th className="py-3 px-4 text-right">Actions</th>
             </tr>
@@ -288,9 +283,8 @@ export const AdminUsersPage: React.FC = () => {
                 <td className="py-3.5 px-4 text-xs text-slate-600">
                   {u.teamId ? PREDEFINED_TEAMS[u.teamId]?.name || u.teamId : 'System Wide'}
                 </td>
-                <td className="py-3.5 px-4 text-xs">
-                  <div className="font-mono text-slate-800">{u.phone}</div>
-                  <div className="text-slate-400">{u.city}</div>
+                <td className="py-3.5 px-4 text-xs font-mono text-slate-800">
+                  {u.phone}
                 </td>
                 <td className="py-3.5 px-4">
                   <StatusBadge type="user" status={String(u.isActive)} />
@@ -415,7 +409,6 @@ export const AdminUsersPage: React.FC = () => {
           )}
 
           <Input label="Phone Number *" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-          <Input label="City / Region *" value={city} onChange={(e) => setCity(e.target.value)} required />
 
           {(role === 'SUPERVISOR' || role === 'TEAM_MEMBER') && (
             <Select

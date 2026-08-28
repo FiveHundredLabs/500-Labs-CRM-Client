@@ -41,12 +41,14 @@ import { AdminSalesGoalsPage } from '../views/admin/AdminSalesGoalsPage';
 
 // Finance Views
 import { FinanceDashboard } from '../views/finance/FinanceDashboard';
+import { FinanceSalesAnalysisPage } from '../views/finance/FinanceSalesAnalysisPage';
 import { FinancePettyCashPage } from '../views/finance/FinancePettyCashPage';
 import { FinanceExpensesPage } from '../views/finance/FinanceExpensesPage';
 import { FinanceNewExpensePage } from '../views/finance/FinanceNewExpensePage';
 import { FinanceCategoriesPage } from '../views/finance/FinanceCategoriesPage';
 import { FinanceReportsPage } from '../views/finance/FinanceReportsPage';
 import { FinanceProfilePage } from '../views/finance/FinanceProfilePage';
+import { FinanceUnderDevelopmentPage } from '../views/finance/FinanceUnderDevelopmentPage';
 
 const RootLayout: React.FC = () => {
   return (
@@ -131,23 +133,25 @@ export const router = createBrowserRouter([
                   { path: 'allocation', element: <SupervisorAllocationPage /> },
                   { path: 'allocation/history', element: <SupervisorAllocationHistoryPage /> },
 
-                  // Finance Operations for Admin
-                  { path: 'finance/petty-cash', element: <FinancePettyCashPage /> },
-                  { path: 'finance/expenses', element: <FinanceExpensesPage /> },
-                  { path: 'finance/expenses/new', element: <FinanceNewExpensePage /> },
+                  // Finance Operations for Admin (Under Development Notice)
+                  { path: 'finance/sales-analysis', element: <FinanceUnderDevelopmentPage moduleName="Finance Sales Analysis & Profitability" /> },
+                  { path: 'finance/petty-cash', element: <FinanceUnderDevelopmentPage moduleName="Finance Petty Cash & Wallet Operations" /> },
+                  { path: 'finance/expenses', element: <FinanceUnderDevelopmentPage moduleName="Operational Expenses & Category Ledgers" /> },
+                  { path: 'finance/expenses/new', element: <FinanceUnderDevelopmentPage moduleName="New Expense Voucher Registration" /> },
                 ],
               },
-              // Finance Routes
+              // Finance Routes (Under Development Notice)
               {
                 path: 'finance',
-                element: <ProtectedRoute allowedRoles={['FINANCE']} />,
+                element: <ProtectedRoute allowedRoles={['FINANCE', 'ADMIN']} />,
                 children: [
-                  { path: 'dashboard', element: <FinanceDashboard /> },
-                  { path: 'petty-cash', element: <FinancePettyCashPage /> },
-                  { path: 'expenses', element: <FinanceExpensesPage /> },
-                  { path: 'expenses/new', element: <FinanceNewExpensePage /> },
-                  { path: 'reports', element: <FinanceReportsPage /> },
-                  { path: 'categories', element: <FinanceCategoriesPage /> },
+                  { path: 'dashboard', element: <FinanceUnderDevelopmentPage moduleName="Finance & Executive Financial Intelligence" /> },
+                  { path: 'sales-analysis', element: <FinanceUnderDevelopmentPage moduleName="Finance Sales Analysis & Profitability" /> },
+                  { path: 'petty-cash', element: <FinanceUnderDevelopmentPage moduleName="Finance Petty Cash & Wallet Operations" /> },
+                  { path: 'expenses', element: <FinanceUnderDevelopmentPage moduleName="Operational Expenses & Category Ledgers" /> },
+                  { path: 'expenses/new', element: <FinanceUnderDevelopmentPage moduleName="New Expense Voucher Registration" /> },
+                  { path: 'reports', element: <FinanceUnderDevelopmentPage moduleName="Official Financial & Sales Reports" /> },
+                  { path: 'categories', element: <FinanceUnderDevelopmentPage moduleName="Finance Expense Categories" /> },
                   { path: 'profile', element: <FinanceProfilePage /> },
                 ],
               },
