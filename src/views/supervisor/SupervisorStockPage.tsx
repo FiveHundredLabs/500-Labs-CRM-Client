@@ -24,6 +24,11 @@ export const SupervisorStockPage: React.FC = () => {
   // Request Stock Addition Modal
   const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
   const [addQty, setAddQty] = useState<number>(50);
+  const [stockBatchCost, setStockBatchCost] = useState<number>(0);
+  const [stockProposedSellingPrice, setStockProposedSellingPrice] = useState<number>(0);
+  const [stockPricingMode, setStockPricingMode] = useState<'GLOBAL' | 'BATCH_SPECIFIC'>('GLOBAL');
+  const [stockBatchNumber, setStockBatchNumber] = useState<string>('');
+  const [stockSupplier, setStockSupplier] = useState<string>('');
   const [stockReason, setStockReason] = useState<string>('');
   const [isSubmittingStock, setIsSubmittingStock] = useState(false);
 
@@ -37,8 +42,17 @@ export const SupervisorStockPage: React.FC = () => {
   // Bulk Multi-Product Stock Addition Modal (Requirement 1)
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [bulkQuantities, setBulkQuantities] = useState<Record<string, number>>({});
+  const [bulkBatchCosts, setBulkBatchCosts] = useState<Record<string, number>>({});
+  const [bulkProposedPrices, setBulkProposedPrices] = useState<Record<string, number>>({});
+  const [bulkPricingModes, setBulkPricingModes] = useState<Record<string, 'GLOBAL' | 'BATCH_SPECIFIC'>>({});
   const [bulkReason, setBulkReason] = useState<string>('');
   const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
+
+  // Report Damaged Stock Modal State
+  const [damageModalProduct, setDamageModalProduct] = useState<Product | null>(null);
+  const [damageQty, setDamageQty] = useState<number>(1);
+  const [damageReason, setDamageReason] = useState<string>('');
+  const [isSubmittingDamage, setIsSubmittingDamage] = useState(false);
 
   // Critical Action Confirmation States
   const [confirmingStockSubmit, setConfirmingStockSubmit] = useState(false);
@@ -68,13 +82,35 @@ export const SupervisorStockPage: React.FC = () => {
   }, [user]);
 
   const openBulkModal = () => {
-    const initialMap: Record<string, number> = {};
+    const initialQty: Record<string, number> = {};
+    const initialCosts: Record<string, number> = {};
+    const initialPrices: Record<string, number> = {};
+    const initialModes: Record<string, 'GLOBAL' | 'BATCH_SPECIFIC'> = {};
+
     products.forEach((p) => {
-      initialMap[p.id] = 0;
+      initialQty[p.id] = 0;
+      initialCosts[p.id] = p.costPrice;
+      initialPrices[p.id] = p.sellingPrice;
+      initialModes[p.id] = 'GLOBAL';
     });
-    setBulkQuantities(initialMap);
+    setBulkQuantities(initialQty);
+    setBulkBatchCosts(initialCosts);
+    setBulkProposedPrices(initialPrices);
+    setBulkPricingModes(initialModes);
     setBulkReason('');
     setIsBulkModalOpen(true);
+  };
+
+  // Open Single Stock Addition Modal with defaults
+  const openStockModal = (product: Product) => {
+    setStockModalProduct(product);
+    setAddQty(50);
+    setStockBatchCost(product.costPrice);
+    setStockProposedSellingPrice(product.sellingPrice);
+    setStockPricingMode('GLOBAL');
+    setStockBatchNumber(`BAT-${Date.now().toString().slice(-6)}`);
+    setStockSupplier('');
+    setStockReason('');
   };
 
   // Bulk Multi-Product Stock Addition Submit
@@ -84,13 +120,21 @@ export const SupervisorStockPage: React.FC = () => {
 
     const itemsToAdd = products
       .filter((p) => (bulkQuantities[p.id] || 0) > 0)
-      .map((p) => ({
-        productId: p.id,
-        productName: p.name,
-        quantity: bulkQuantities[p.id],
-        oldStock: p.currentStock,
-        newStock: p.currentStock + bulkQuantities[p.id],
-      }));
+      .map((p) => {
+        const rawCost = bulkBatchCosts[p.id] !== undefined && bulkBatchCosts[p.id] !== null ? bulkBatchCosts[p.id] : p.costPrice;
+        const rawPrice = bulkProposedPrices[p.id] !== undefined && bulkProposedPrices[p.id] !== null ? bulkProposedPrices[p.id] : p.sellingPrice;
+
+        return {
+          productId: p.id,
+          productName: p.name,
+          quantity: Number(bulkQuantities[p.id]),
+          unitCostPrice: Number(parseFloat(String(rawCost)) || 0),
+          proposedSellingPrice: Number(parseFloat(String(rawPrice)) || 0),
+          pricingMode: bulkPricingModes[p.id] || 'GLOBAL',
+          oldStock: Number(p.currentStock),
+          newStock: Number(p.currentStock + bulkQuantities[p.id]),
+        };
+      });
 
     if (itemsToAdd.length === 0) {
       toast.error('Please enter additional stock quantity for at least one product.');
@@ -123,7 +167,7 @@ export const SupervisorStockPage: React.FC = () => {
     }
   };
 
-  // Requirement 2.10: Supervisor requests stock addition (Creates pending ApprovalRequest)
+  // Supervisor requests stock addition with batch cost & pricing mode
   const handleRequestStockAddition = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stockModalProduct || !user || addQty <= 0) return;
@@ -137,13 +181,18 @@ export const SupervisorStockPage: React.FC = () => {
         teamId: user.teamId || 'team_001',
         productId: stockModalProduct.id,
         productName: stockModalProduct.name,
-        oldValue: stockModalProduct.currentStock,
-        newValue: stockModalProduct.currentStock + addQty,
-        quantity: addQty,
-        reason: stockReason || `Supervisor stock addition request for +${addQty} units`,
+        oldValue: Number(stockModalProduct.currentStock),
+        newValue: Number(stockModalProduct.currentStock + addQty),
+        quantity: Number(addQty),
+        unitCostPrice: Number(parseFloat(String(stockBatchCost)) || 0),
+        proposedSellingPrice: Number(parseFloat(String(stockProposedSellingPrice)) || 0),
+        pricingMode: stockPricingMode,
+        batchNumber: stockBatchNumber,
+        supplierName: stockSupplier,
+        reason: stockReason || `Stock addition +${addQty} units @ LKR ${stockBatchCost} (${stockPricingMode} pricing)`,
       });
 
-      toast.success(`Submitted stock addition request (+${addQty} units) for Admin approval.`);
+      toast.success(`Submitted stock addition request (+${addQty} units @ LKR ${stockBatchCost}) for Admin approval.`);
       setStockModalProduct(null);
       setStockReason('');
       loadData();
@@ -216,6 +265,24 @@ export const SupervisorStockPage: React.FC = () => {
       toast.error(err.message || 'Failed to submit price change request.');
     } finally {
       setIsSubmittingPrice(false);
+    }
+  };
+
+  // Supervisor reports damaged / broken units
+  const handleReportDamage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!damageModalProduct || damageQty <= 0) return;
+    setIsSubmittingDamage(true);
+    try {
+      await productRepository.reportDamage(damageModalProduct.id, damageQty, damageReason);
+      toast.success(`Recorded ${damageQty} damaged units for "${damageModalProduct.name}".`);
+      setDamageModalProduct(null);
+      setDamageReason('');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to report damaged stock.');
+    } finally {
+      setIsSubmittingDamage(false);
     }
   };
 
@@ -312,8 +379,16 @@ export const SupervisorStockPage: React.FC = () => {
                         )}
                       </td>
                       <td className="py-3 px-3 font-mono text-slate-500">{product.code}</td>
-                      <td className="py-3 px-3 font-bold text-slate-900 text-sm">
-                        {product.currentStock}
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 text-sm font-mono">{product.currentStock} units</span>
+                          {product.damagedStock && product.damagedStock > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md font-mono mt-1 w-fit">
+                              <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
+                              {product.damagedStock} damaged
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="py-3 px-3 text-slate-500 font-mono">
                         {product.minStockThreshold}
@@ -330,11 +405,7 @@ export const SupervisorStockPage: React.FC = () => {
                             variant="outline"
                             size="sm"
                             leftIcon={<PlusCircle className="w-3.5 h-3.5 text-blue-600" />}
-                            onClick={() => {
-                              setStockModalProduct(product);
-                              setAddQty(50);
-                              setStockReason('');
-                            }}
+                            onClick={() => openStockModal(product)}
                             className="text-xs px-2 py-1"
                             title="Request Stock Addition"
                           >
@@ -354,6 +425,20 @@ export const SupervisorStockPage: React.FC = () => {
                             title="Request Price Change"
                           >
                             Edit Price
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<AlertTriangle className="w-3.5 h-3.5 text-rose-500" />}
+                            onClick={() => {
+                              setDamageModalProduct(product);
+                              setDamageQty(1);
+                              setDamageReason('');
+                            }}
+                            className="text-xs px-2 py-1 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
+                            title="Report Damaged / Broken Units"
+                          >
+                            Damage
                           </Button>
                         </div>
                       </td>
@@ -438,8 +523,8 @@ export const SupervisorStockPage: React.FC = () => {
       <Dialog
         isOpen={!!stockModalProduct}
         onClose={() => setStockModalProduct(null)}
-        title="Request Stock Addition"
-        description="Submit stock quantity request for Admin approval"
+        title="Request Stock Batch Addition"
+        description="Submit incoming stock shipment with batch acquisition cost & pricing strategy for Admin approval"
       >
         <form
           onSubmit={(e) => {
@@ -451,22 +536,73 @@ export const SupervisorStockPage: React.FC = () => {
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1">
             <div className="font-bold text-blue-900">{stockModalProduct?.name}</div>
             <div className="text-blue-700">
-              Current Stock: <strong>{stockModalProduct?.currentStock}</strong> | Min Threshold: <strong>{stockModalProduct?.minStockThreshold}</strong>
+              Current Stock: <strong>{stockModalProduct?.currentStock} units</strong> | Reference Cost: <strong>LKR {stockModalProduct?.costPrice.toLocaleString()}</strong> | Catalog Price: <strong>LKR {stockModalProduct?.sellingPrice.toLocaleString()}</strong>
             </div>
           </div>
 
-          <Input
-            label="Additional Quantity (+)"
-            type="number"
-            min="1"
-            value={addQty}
-            onChange={(e) => setAddQty(parseInt(e.target.value) || 0)}
-            required
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Shipment Quantity (+) *"
+              type="number"
+              min="1"
+              value={addQty}
+              onChange={(e) => setAddQty(parseInt(e.target.value) || 0)}
+              required
+            />
+            <Input
+              label="Batch Acquisition Cost (LKR) *"
+              type="number"
+              min="0"
+              step="0.01"
+              value={stockBatchCost}
+              onChange={(e) => setStockBatchCost(parseFloat(e.target.value) || 0)}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Proposed Selling Price (LKR) *"
+              type="number"
+              min="0"
+              step="0.01"
+              value={stockProposedSellingPrice}
+              onChange={(e) => setStockProposedSellingPrice(parseFloat(e.target.value) || 0)}
+              required
+            />
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Pricing Strategy
+              </label>
+              <select
+                value={stockPricingMode}
+                onChange={(e) => setStockPricingMode(e.target.value as any)}
+                className="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              >
+                <option value="GLOBAL">Global Price Change (Update entire catalog)</option>
+                <option value="BATCH_SPECIFIC">Batch-Specific (Apply only to this shipment)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Batch / Lot Number (Optional)"
+              placeholder="e.g. BAT-2026-001"
+              value={stockBatchNumber}
+              onChange={(e) => setStockBatchNumber(e.target.value)}
+            />
+            <Input
+              label="Supplier / Invoice Ref (Optional)"
+              placeholder="e.g. INV-9842"
+              value={stockSupplier}
+              onChange={(e) => setStockSupplier(e.target.value)}
+            />
+          </div>
 
           <Input
-            label="Reason / Remarks *"
-            placeholder="e.g. Replenishing stock for promo campaign"
+            label="Supervisor Reason / Justification *"
+            placeholder="e.g. Received new shipment from supplier with updated wholesale cost"
             value={stockReason}
             onChange={(e) => setStockReason(e.target.value)}
             required
@@ -573,9 +709,9 @@ export const SupervisorStockPage: React.FC = () => {
       <Dialog
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
-        title="Bulk Add Stock Request (1 Approval for Multiple Products)"
-        description="Enter stock quantities to add across multiple team products. Admin will confirm with a single 1-approval action."
-        maxWidth="lg"
+        title="Bulk Add Stock Request"
+        description="Enter incoming shipment quantities and acquisition costs across team products. Admin will approve all items in a single action."
+        maxWidth="3xl"
       >
         <form
           onSubmit={(e) => {
@@ -584,40 +720,108 @@ export const SupervisorStockPage: React.FC = () => {
           }}
           className="space-y-4"
         >
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
+          {/* Top Live Stats Summary Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+            <div className="flex items-center gap-4">
+              <div>
+                <span className="text-slate-500">Items to Replenish:</span>{' '}
+                <strong className="text-slate-900 font-mono">
+                  {Object.values(bulkQuantities).filter((q) => q > 0).length} of {products.length}
+                </strong>
+              </div>
+              <div className="border-l border-slate-200 pl-4">
+                <span className="text-slate-500">Total Units:</span>{' '}
+                <strong className="text-emerald-700 font-mono text-sm">
+                  +{Object.values(bulkQuantities).reduce((sum, q) => sum + (q || 0), 0)} units
+                </strong>
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-400">
+              Leave quantity empty or 0 to skip products.
+            </div>
+          </div>
+
+          {/* Desktop Table View (md: and up) */}
+          <div className="hidden md:block border border-slate-200 rounded-xl overflow-hidden">
             <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-500 uppercase">
+              <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-500 uppercase tracking-wider">
                 <tr>
-                  <th className="py-2.5 px-3">Product</th>
-                  <th className="py-2.5 px-3">Code</th>
-                  <th className="py-2.5 px-3">Current Stock</th>
-                  <th className="py-2.5 px-3">Add Stock (+Qty)</th>
-                  <th className="py-2.5 px-3">New Projected Stock</th>
+                  <th className="py-3 px-4 w-[35%]">Product</th>
+                  <th className="py-3 px-3 w-[20%]">Add Qty (+)</th>
+                  <th className="py-3 px-3 w-[22%]">Batch Cost (LKR)</th>
+                  <th className="py-3 px-3 w-[23%]">Proposed Price (LKR)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {products.map((p) => {
                   const qty = bulkQuantities[p.id] || 0;
+                  const cost = bulkBatchCosts[p.id] ?? p.costPrice;
+                  const price = bulkProposedPrices[p.id] ?? p.sellingPrice;
+                  const isAdding = qty > 0;
+
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50">
-                      <td className="py-2.5 px-3 font-semibold text-slate-900">{p.name}</td>
-                      <td className="py-2.5 px-3 font-mono text-slate-500">{p.code}</td>
-                      <td className="py-2.5 px-3 font-mono">{p.currentStock}</td>
-                      <td className="py-2.5 px-3">
-                        <Input
+                    <tr key={p.id} className={`transition-colors ${isAdding ? 'bg-blue-50/50' : 'hover:bg-slate-50/70'}`}>
+                      {/* Product Name & On-Hand Badge */}
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-slate-900 text-xs">{p.name}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-mono text-slate-400">{p.code}</span>
+                          <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-mono">
+                            {p.currentStock} in stock
+                          </span>
+                          {isAdding && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-mono">
+                              → {p.currentStock + qty} projected
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Add Qty Input */}
+                      <td className="py-3 px-3">
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            value={qty === 0 ? '' : qty}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0;
+                              setBulkQuantities((prev) => ({ ...prev, [p.id]: val }));
+                            }}
+                            placeholder="0"
+                            className="w-full text-xs font-bold font-mono px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Batch Unit Cost */}
+                      <td className="py-3 px-3">
+                        <input
                           type="number"
                           min="0"
-                          value={qty === 0 ? '' : qty}
+                          step="0.01"
+                          value={cost}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setBulkQuantities((prev) => ({ ...prev, [p.id]: val }));
+                            const val = parseFloat(e.target.value) || 0;
+                            setBulkBatchCosts((prev) => ({ ...prev, [p.id]: val }));
                           }}
-                          placeholder="0"
-                          className="w-24 text-xs py-1 font-bold"
+                          className="w-full text-xs font-mono px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         />
                       </td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-emerald-700">
-                        {p.currentStock + qty}
+
+                      {/* Proposed Selling Price */}
+                      <td className="py-3 px-3">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={price}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setBulkProposedPrices((prev) => ({ ...prev, [p.id]: val }));
+                          }}
+                          className="w-full text-xs font-mono px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        />
                       </td>
                     </tr>
                   );
@@ -626,9 +830,98 @@ export const SupervisorStockPage: React.FC = () => {
             </table>
           </div>
 
+          {/* Mobile Card List View (< md) */}
+          <div className="block md:hidden space-y-3">
+            {products.map((p) => {
+              const qty = bulkQuantities[p.id] || 0;
+              const cost = bulkBatchCosts[p.id] ?? p.costPrice;
+              const price = bulkProposedPrices[p.id] ?? p.sellingPrice;
+              const isAdding = qty > 0;
+
+              return (
+                <div
+                  key={p.id}
+                  className={`p-3 rounded-xl border transition-colors space-y-2.5 ${
+                    isAdding ? 'border-blue-300 bg-blue-50/40 shadow-xs' : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  {/* Top info */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-slate-900 text-xs">{p.name}</div>
+                      <div className="text-[11px] font-mono text-slate-400">{p.code}</div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md font-mono">
+                        {p.currentStock} in stock
+                      </span>
+                      {isAdding && (
+                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md font-mono">
+                          → {p.currentStock + qty}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Input Grid */}
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                        Add Qty
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={qty === 0 ? '' : qty}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setBulkQuantities((prev) => ({ ...prev, [p.id]: val }));
+                        }}
+                        placeholder="0"
+                        className="w-full text-xs font-bold font-mono px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                        Cost (LKR)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={cost}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setBulkBatchCosts((prev) => ({ ...prev, [p.id]: val }));
+                        }}
+                        className="w-full text-xs font-mono px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                        Price (LKR)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={price}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setBulkProposedPrices((prev) => ({ ...prev, [p.id]: val }));
+                        }}
+                        className="w-full text-xs font-mono px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           <Input
             label="Reason / Remarks for Bulk Addition *"
-            placeholder="e.g. Monthly stock inventory replenishment for all team products"
+            placeholder="e.g. Monthly stock inventory replenishment with updated vendor shipment invoices"
             value={bulkReason}
             onChange={(e) => setBulkReason(e.target.value)}
             required
@@ -658,6 +951,54 @@ export const SupervisorStockPage: React.FC = () => {
         message="Are you sure you want to submit a single multi-product stock addition request to Admin for 1-click approval?"
         confirmText="Submit Bulk Request"
       />
+
+      {/* Report Damaged Stock Modal */}
+      <Dialog
+        isOpen={!!damageModalProduct}
+        onClose={() => setDamageModalProduct(null)}
+        title="Report Damaged Stock Units"
+        description="Segregate damaged or broken units from sellable inventory. Damaged items are tracked separately."
+        maxWidth="md"
+      >
+        {damageModalProduct && (
+          <form onSubmit={handleReportDamage} className="space-y-4">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-1">
+              <div className="font-bold text-rose-900">{damageModalProduct.name} ({damageModalProduct.code})</div>
+              <div className="text-rose-800">
+                Available Sellable Stock: <strong>{damageModalProduct.currentStock} units</strong>
+                {damageModalProduct.damagedStock ? ` | Existing Damaged: ${damageModalProduct.damagedStock} units` : ''}
+              </div>
+            </div>
+
+            <Input
+              label="Damaged Quantity to Quarantine *"
+              type="number"
+              min="1"
+              max={damageModalProduct.currentStock}
+              value={damageQty}
+              onChange={(e) => setDamageQty(parseInt(e.target.value) || 1)}
+              required
+            />
+
+            <Input
+              label="Damage Reason / Inspection Notes *"
+              placeholder="e.g. Broken packaging / expired seal / transport damage"
+              value={damageReason}
+              onChange={(e) => setDamageReason(e.target.value)}
+              required
+            />
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button type="button" variant="secondary" onClick={() => setDamageModalProduct(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="danger" isLoading={isSubmittingDamage} leftIcon={<AlertTriangle className="w-3.5 h-3.5" />}>
+                Quarantine Damaged Stock
+              </Button>
+            </div>
+          </form>
+        )}
+      </Dialog>
     </div>
   );
 };

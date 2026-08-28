@@ -13,6 +13,7 @@ import { Select } from '../../components/ui/Select';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
+import { GitHubVerificationDeleteDialog } from '../../components/shared/GitHubVerificationDeleteDialog';
 import toast from 'react-hot-toast';
 import {
   Package,
@@ -29,6 +30,7 @@ import {
   Info,
   XCircle,
   Building2,
+  Trash2,
 } from 'lucide-react';
 
 export const AdminProductsPage: React.FC = () => {
@@ -46,6 +48,13 @@ export const AdminProductsPage: React.FC = () => {
   // Add/Edit Product Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  // Product Batches Inspection Modal
+  const [inspectingBatchesProduct, setInspectingBatchesProduct] = useState<Product | null>(null);
+
+  // GitHub-style Soft Delete Modal State
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -156,6 +165,22 @@ export const AdminProductsPage: React.FC = () => {
       toast.error(err.message || 'Operation failed.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // GitHub-style Soft Delete Handler
+  const handleDeleteProduct = async () => {
+    if (!deletingProduct) return;
+    setIsDeleting(true);
+    try {
+      await productRepository.delete(deletingProduct.id);
+      toast.success(`Product "${deletingProduct.name}" has been deactivated successfully.`);
+      setDeletingProduct(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to deactivate product.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -440,23 +465,34 @@ export const AdminProductsPage: React.FC = () => {
                           </span>
                         </td>
 
-                        {/* Current Stock */}
-                        <td className="py-3 px-3.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-black text-slate-900 text-sm font-mono">{p.currentStock}</span>
-                            {isOutOfStock ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
-                                <XCircle className="w-3 h-3" /> Out of Stock
-                              </span>
-                            ) : isLow ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
-                                <AlertTriangle className="w-3 h-3" /> Low Stock
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
-                                In Stock
-                              </span>
-                            )}
+                        {/* Current Sellable Stock & Damaged Units */}
+                        <td className="py-3 px-3.5 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-slate-900 text-sm font-mono">{p.currentStock}</span>
+                              {isOutOfStock ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
+                                  <XCircle className="w-3 h-3" /> Out of Stock
+                                </span>
+                              ) : isLow ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                                  <AlertTriangle className="w-3 h-3" /> Low Stock
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                                  In Stock
+                                </span>
+                              )}
+                            </div>
+                            {/* Damaged Stock Badge (Not calculated into sellable stock) */}
+                            {p.damagedStock && p.damagedStock > 0 ? (
+                              <div className="mt-1">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md font-mono">
+                                  <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
+                                  {p.damagedStock} damaged
+                                </span>
+                              </div>
+                            ) : null}
                           </div>
                         </td>
 
@@ -465,32 +501,88 @@ export const AdminProductsPage: React.FC = () => {
                           {p.minStockThreshold} units
                         </td>
 
-                        {/* Cost Price */}
-                        <td className="py-3 px-3.5 font-mono text-slate-700 text-xs">
-                          {formatCurrency(p.costPrice)}
+                        {/* Cost Price (Showing Both Batch Acquisition & Base Catalog Cost) */}
+                        <td className="py-3 px-3.5 whitespace-nowrap">
+                          {(() => {
+                            const activeBatches = (p.batches || []).filter((b) => b.status === 'ACTIVE');
+                            const latestBatch = activeBatches[0];
+                            const hasDistinctBatchCost =
+                              latestBatch &&
+                              latestBatch.unitCostPrice !== undefined &&
+                              Number(latestBatch.unitCostPrice) !== Number(p.costPrice);
+
+                            if (hasDistinctBatchCost) {
+                              return (
+                                <div className="flex flex-col">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-amber-900 font-mono text-xs bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                      {formatCurrency(latestBatch.unitCostPrice)}
+                                    </span>
+                                    <span className="text-[9px] font-semibold text-amber-700">Latest</span>
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-mono mt-0.5 pl-0.5">
+                                    Base: {formatCurrency(p.costPrice)}
+                                  </span>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="flex flex-col">
+                                <span className="font-mono text-slate-800 font-semibold text-xs">
+                                  {formatCurrency(p.costPrice)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-sans">
+                                  Base Cost
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* Selling Price */}
-                        <td className="py-3 px-3.5 font-mono font-bold text-emerald-700 text-xs">
+                        <td className="py-3 px-3.5 font-mono font-bold text-emerald-700 text-xs whitespace-nowrap">
                           {formatCurrency(p.sellingPrice)}
                         </td>
 
                         {/* Profit Margin */}
-                        <td className="py-3 px-3.5 font-mono font-semibold text-blue-700 text-xs">
+                        <td className="py-3 px-3.5 font-mono font-semibold text-blue-700 text-xs whitespace-nowrap">
                           {marginPct}%
                         </td>
 
                         {/* Actions */}
                         <td className="py-3 px-3.5 text-right whitespace-nowrap">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<Edit2 className="w-3.5 h-3.5" />}
-                            onClick={() => openEditModal(p)}
-                            className="text-xs px-2.5 py-1 text-slate-700 hover:text-blue-600 hover:bg-blue-50"
-                          >
-                            Edit
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              leftIcon={<Boxes className="w-3.5 h-3.5 text-emerald-600" />}
+                              onClick={() => setInspectingBatchesProduct(p)}
+                              className="text-xs px-2 py-1 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50"
+                              title="Inspect Stock Batches & Cost Layers"
+                            >
+                              Batches
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                              onClick={() => openEditModal(p)}
+                              className="text-xs px-2 py-1 text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              leftIcon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
+                              onClick={() => setDeletingProduct(p)}
+                              className="text-xs px-2 py-1 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
+                              title="Soft-delete (deactivate) product"
+                            >
+                              Delete
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -618,6 +710,164 @@ export const AdminProductsPage: React.FC = () => {
         </form>
       </Dialog>
 
+      {/* Stock Batches Inspection Modal */}
+      <Dialog
+        isOpen={!!inspectingBatchesProduct}
+        onClose={() => setInspectingBatchesProduct(null)}
+        title="Stock Batches & Cost Layers"
+        description={`Inventory lots and historical acquisition costs for ${inspectingBatchesProduct?.name} (${inspectingBatchesProduct?.code})`}
+        maxWidth="3xl"
+      >
+        {inspectingBatchesProduct && (() => {
+          const activeBatches = (inspectingBatchesProduct.batches || []).filter((b) => b.status === 'ACTIVE');
+          const fifoValuation = activeBatches.length > 0
+            ? activeBatches.reduce((sum, b) => sum + Number(b.remainingQuantity) * Number(b.unitCostPrice), 0)
+            : Number(inspectingBatchesProduct.currentStock) * Number(inspectingBatchesProduct.costPrice);
+
+          return (
+            <div className="space-y-4">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                <div>
+                  <span className="text-slate-400 text-[11px]">Total Stock</span>
+                  <div className="text-sm font-bold text-slate-900 font-mono mt-0.5">
+                    {inspectingBatchesProduct.currentStock} units
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[11px]">Catalog Base Cost</span>
+                  <div className="text-sm font-bold text-slate-700 font-mono mt-0.5">
+                    {formatCurrency(inspectingBatchesProduct.costPrice)}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[11px]">Active Lots</span>
+                  <div className="text-sm font-bold text-blue-700 font-mono mt-0.5">
+                    {activeBatches.length} batches
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[11px]">FIFO Valuation</span>
+                  <div className="text-sm font-bold text-emerald-700 font-mono mt-0.5">
+                    {formatCurrency(fifoValuation)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop Batches Table (sm: and up) */}
+              <div className="hidden sm:block border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
+                    <tr>
+                      <th className="py-2.5 px-3 w-[26%]">Batch / Lot #</th>
+                      <th className="py-2.5 px-3 w-[20%] text-center">Remaining / Initial</th>
+                      <th className="py-2.5 px-3 w-[24%] text-center">Acquisition Cost</th>
+                      <th className="py-2.5 px-3 w-[20%] text-center">Selling Price</th>
+                      <th className="py-2.5 px-3 w-[10%] text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono">
+                    {!inspectingBatchesProduct.batches || inspectingBatchesProduct.batches.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-6 text-center text-slate-400 font-sans italic">
+                          No individual batches registered yet. Base reference cost: {formatCurrency(inspectingBatchesProduct.costPrice)}.
+                        </td>
+                      </tr>
+                    ) : (
+                      inspectingBatchesProduct.batches.map((batch) => (
+                        <tr key={batch.id} className="hover:bg-slate-50">
+                          <td className="py-2.5 px-3">
+                            <div className="font-bold text-slate-900 font-mono">{batch.batchNumber}</div>
+                            <div className="text-[10px] text-slate-400 font-sans">
+                              {batch.receivedDate ? new Date(batch.receivedDate).toLocaleDateString() : '—'}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="font-bold text-blue-700">{batch.remainingQuantity}</span>
+                            <span className="text-slate-400 text-[11px]"> / {batch.initialQuantity}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-bold text-amber-900 bg-amber-50/40">
+                            {formatCurrency(batch.unitCostPrice)}
+                          </td>
+                          <td className="py-2.5 px-3 text-center text-emerald-700">
+                            {batch.batchSellingPrice ? formatCurrency(batch.batchSellingPrice) : formatCurrency(inspectingBatchesProduct.sellingPrice)}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-sans">
+                            <span
+                              className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                batch.status === 'ACTIVE'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-slate-100 text-slate-500'
+                              }`}
+                            >
+                              {batch.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Batches Cards View (< sm) */}
+              <div className="block sm:hidden space-y-2.5">
+                {!inspectingBatchesProduct.batches || inspectingBatchesProduct.batches.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400 italic bg-slate-50 rounded-xl border border-slate-200">
+                    No individual batches registered yet. Base reference cost: {formatCurrency(inspectingBatchesProduct.costPrice)}.
+                  </div>
+                ) : (
+                  inspectingBatchesProduct.batches.map((batch) => (
+                    <div key={batch.id} className="p-3 bg-white border border-slate-200 rounded-xl space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-bold font-mono text-slate-900">{batch.batchNumber}</span>
+                          <span className="text-[10px] text-slate-400 block">
+                            {batch.receivedDate ? new Date(batch.receivedDate).toLocaleDateString() : '—'}
+                          </span>
+                        </div>
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            batch.status === 'ACTIVE'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {batch.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 font-mono text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-sans block">Remaining</span>
+                          <strong className="text-blue-700">{batch.remainingQuantity}</strong> / {batch.initialQuantity}
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-sans block">Cost (LKR)</span>
+                          <strong className="text-amber-900">{formatCurrency(batch.unitCostPrice)}</strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-sans block">Selling (LKR)</span>
+                          <strong className="text-emerald-700">
+                            {batch.batchSellingPrice ? formatCurrency(batch.batchSellingPrice) : formatCurrency(inspectingBatchesProduct.sellingPrice)}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="flex justify-end pt-3 border-t border-slate-100">
+                <Button type="button" variant="secondary" onClick={() => setInspectingBatchesProduct(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
+      </Dialog>
+
       {/* Confirmation Dialog */}
       <ConfirmDialog
         isOpen={confirmingSave}
@@ -636,6 +886,21 @@ export const AdminProductsPage: React.FC = () => {
         }
         confirmText={editingProduct ? 'Confirm & Save' : 'Confirm & Create'}
       />
+
+      {/* GitHub-style Security Verification Delete Dialog */}
+      {deletingProduct && (
+        <GitHubVerificationDeleteDialog
+          isOpen={!!deletingProduct}
+          onClose={() => setDeletingProduct(null)}
+          onConfirm={handleDeleteProduct}
+          title={`Delete product "${deletingProduct.name}"?`}
+          itemName={deletingProduct.name}
+          expectedText={deletingProduct.name}
+          warningMessage={`This will soft-delete (deactivate) "${deletingProduct.name}" (${deletingProduct.code}). The product will be disabled in the database and hidden from active inventory, allocations, and order forms. All historical transaction records, lots, and past invoice data remain permanently preserved.`}
+          confirmButtonText="I understand the consequences, delete this product"
+          isLoading={isDeleting}
+        />
+      )}
     </div>
   );
 };

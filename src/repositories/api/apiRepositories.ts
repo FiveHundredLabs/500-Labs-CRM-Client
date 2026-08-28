@@ -515,6 +515,14 @@ export class ApiProductRepository implements IProductRepository {
       await apiClient.patch<{ data: Product }>(`/products/${id}/stock`, { stockDelta })
     );
   }
+  async reportDamage(id: string, quantity: number, reason?: string, batchId?: string): Promise<Product> {
+    return unwrap(
+      await apiClient.post<{ data: Product }>(`/products/${id}/damage`, { quantity, reason, batchId })
+    );
+  }
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/products/${id}`);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

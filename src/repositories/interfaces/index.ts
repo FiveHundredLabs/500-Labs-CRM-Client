@@ -124,6 +124,8 @@ export interface IProductRepository {
   create(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product>;
   update(id: string, updates: Partial<Product>): Promise<Product>;
   updateStock(id: string, stockDelta: number): Promise<Product>;
+  reportDamage(id: string, quantity: number, reason?: string, batchId?: string): Promise<Product>;
+  delete(id: string): Promise<void>;
 }
 
 export interface IStockActivityLogRepository {
