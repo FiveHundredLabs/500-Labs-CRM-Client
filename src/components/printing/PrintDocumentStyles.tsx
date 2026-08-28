@@ -5,14 +5,14 @@ export const PrintDocumentStyles: React.FC = () => {
     <style>{`
       @media print {
         @page {
-          size: 148mm 105mm;
-          margin: 0;
+          size: A4 landscape;
+          margin: 6mm;
         }
 
         html,
         body {
-          width: 148mm !important;
-          min-height: 105mm !important;
+          width: auto !important;
+          min-height: auto !important;
           margin: 0 !important;
           padding: 0 !important;
           background: #ffffff !important;
@@ -30,29 +30,53 @@ export const PrintDocumentStyles: React.FC = () => {
         .print-billing-container {
           position: absolute !important;
           inset: 0 auto auto 0 !important;
-          width: 148mm !important;
+          width: 285mm !important;
           margin: 0 !important;
           padding: 0 !important;
           background: #ffffff !important;
         }
 
-        .billing-slip,
-        .billing-slip-page {
-          width: 148mm !important;
-          height: 105mm !important;
+        .billing-slip-sheet {
+          width: 285mm !important;
+          height: 198mm !important;
+          display: grid !important;
+          grid-template-columns: repeat(2, 1fr) !important;
+          grid-template-rows: repeat(2, 1fr) !important;
+          gap: 4mm !important;
           margin: 0 !important;
-          overflow: hidden !important;
-          box-shadow: none !important;
-        }
-
-        .billing-slip-page {
+          padding: 0 !important;
+          box-sizing: border-box !important;
           page-break-after: always !important;
           break-after: page !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          background: #ffffff !important;
         }
 
-        .billing-slip-page:last-child {
+        .billing-slip-sheet:last-child {
           page-break-after: auto !important;
           break-after: auto !important;
+        }
+
+        .billing-slip-page {
+          width: 100% !important;
+          height: 100% !important;
+          overflow: hidden !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          box-sizing: border-box !important;
+        }
+
+        .billing-slip {
+          width: 100% !important;
+          height: 100% !important;
+          margin: 0 !important;
+          overflow: hidden !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          box-shadow: none !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
         }
 
         .no-print {

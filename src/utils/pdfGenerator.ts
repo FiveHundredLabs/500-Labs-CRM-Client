@@ -24,11 +24,18 @@ const renderField = (label: string, value?: string | number | null, className = 
   </div>
 `;
 
+const chunkIntoSheets = <T,>(items: T[], size = 4): T[][] => {
+  const sheets: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    sheets.push(items.slice(index, index + size));
+  }
+  return sheets;
+};
+
 export const downloadBillingPDF = (items: LeadPrintItem[]): boolean => {
   if (items.length === 0) return false;
 
-  const slipsHtml = items
-    .map((item) => {
+  const renderSlip = (item: LeadPrintItem): string => {
       const brand = getBrandPrintConfig(item.team || item.order?.teamId || item.customer.teamId);
       if (!brand) {
         return `
@@ -56,15 +63,15 @@ export const downloadBillingPDF = (items: LeadPrintItem[]): boolean => {
           </header>
 
           <main class="slip-body">
-            <section class="merchant-column">
+            <div class="details-grid">
+            <section class="details-column merchant-column">
               <h2>Merchant Details</h2>
               ${renderField('Name', brand.merchantName)}
               ${renderField('Telephone', brand.merchantTelephone)}
               ${renderField('Description', brand.description, 'description-field')}
-              <div class="cod-line">Total COD = ${escapeHtml(codAmount)}</div>
             </section>
 
-            <section class="customer-column">
+            <section class="details-column customer-column">
               <h2>Customer Details</h2>
               ${renderField('Name', item.customer.fullName || 'Customer')}
               <div class="address-field">
@@ -73,10 +80,22 @@ export const downloadBillingPDF = (items: LeadPrintItem[]): boolean => {
               </div>
               ${renderField('Telephone', item.customer.phone || 'N/A')}
             </section>
+            </div>
+            <section class="cod-total">
+              <span>Total COD</span>
+              <strong>${escapeHtml(codAmount)}</strong>
+            </section>
           </main>
         </section>
       `;
-    })
+  };
+
+  const sheetsHtml = chunkIntoSheets(items)
+    .map((sheetItems) => `
+      <section class="billing-slip-sheet">
+        ${sheetItems.map(renderSlip).join('')}
+      </section>
+    `)
     .join('');
 
   const fullDocumentHtml = `<!DOCTYPE html>
@@ -85,83 +104,143 @@ export const downloadBillingPDF = (items: LeadPrintItem[]): boolean => {
   <meta charset="utf-8">
   <title>Billing COD Slips (${items.length})</title>
   <style>
-    @page { size: 148mm 105mm; margin: 0; }
-    html, body { width: 148mm; min-height: 105mm; margin: 0; padding: 0; background: #ffffff; color: #000000; }
-    body { font-family: Arial, Helvetica, sans-serif; }
-    .billing-slip {
-      width: 148mm;
-      height: 105mm;
-      border: 0.6mm solid #000;
+    @page { size: A4 landscape; margin: 6mm; }
+    html, body { margin: 0; padding: 0; background: #ffffff; color: #000000; }
+    body { font-family: Arial, Helvetica, "Segoe UI", sans-serif; }
+    .billing-slip-sheet {
+      width: 285mm;
+      height: 198mm;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 4mm;
       box-sizing: border-box;
-      overflow: hidden;
       page-break-after: always;
       break-after: page;
+      page-break-inside: avoid;
+      break-inside: avoid;
       background: #fff;
     }
-    .billing-slip:last-child { page-break-after: auto; break-after: auto; }
-    .slip-header {
-      height: 26mm;
-      border-bottom: 0.55mm solid #000;
-      display: grid;
-      grid-template-columns: 36mm 1fr;
-      align-items: center;
+    .billing-slip-sheet:last-child { page-break-after: auto; break-after: auto; }
+    .billing-slip {
+      width: 100%;
+      height: 100%;
+      border: 0.45mm solid #000;
+      box-sizing: border-box;
       overflow: hidden;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      background: #fff;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+    .slip-header {
+      height: 21mm;
+      border-bottom: 0.35mm solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      overflow: hidden;
+      padding: 2.5mm 4mm;
+      box-sizing: border-box;
     }
     .logo-cell {
-      height: 100%;
-      border-right: 0.35mm solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      max-width: 38mm;
+    }
+    .logo-cell img {
+      max-width: 34mm;
+      max-height: 16mm;
+      object-fit: contain;
+    }
+    .title-cell { text-align: right; flex: 1; padding-left: 4mm; }
+    .brand-title { font-size: 5.2mm; line-height: 1; font-weight: 600; text-transform: uppercase; }
+    .brand-address { margin-top: 1.25mm; font-size: 2.65mm; line-height: 1.15; font-weight: 400; }
+    .slip-body {
+      height: calc(100% - 21mm);
+      display: flex;
+      flex-direction: column;
+    }
+    .details-grid {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      border-bottom: 0.35mm solid #000;
+    }
+    .details-column {
+      min-width: 0;
+      overflow: hidden;
+    }
+    .merchant-column { border-right: 0.35mm solid #000; }
+    h2 {
+      margin: 0;
+      height: 7mm;
+      display: flex;
+      align-items: center;
+      padding: 0 3mm;
+      box-sizing: border-box;
+      background: #000;
+      color: #fff;
+      font-size: 2.8mm;
+      line-height: 1;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .details-column > div:not(.field-label):not(.field-value),
+    .details-column .description-field,
+    .details-column .address-field {
+      margin-left: 3mm;
+      margin-right: 3mm;
+    }
+    .details-column > div:not(h2) {
+      margin-top: 2.5mm;
+    }
+    .description-field,
+    .address-field {
+      min-height: 0;
+      overflow: hidden;
+    }
+    .field-label {
+      font-size: 2.35mm;
+      line-height: 1.15;
+      font-weight: 500;
+      color: #475569;
+      text-transform: uppercase;
+    }
+    .field-value {
+      margin-top: 0.65mm;
+      font-size: 3mm;
+      line-height: 1.22;
+      font-weight: 400;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+    .cod-total {
+      height: 15mm;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 3mm;
+      gap: 3mm;
+      background: #f8fafc;
+      text-align: center;
       box-sizing: border-box;
+      padding: 0 4mm;
     }
-    .logo-cell img {
-      max-width: 29mm;
-      max-height: 20mm;
-      object-fit: contain;
-    }
-    .title-cell { text-align: center; padding: 0 4mm; }
-    .brand-title { font-size: 7mm; line-height: 1; font-weight: 900; text-transform: uppercase; }
-    .brand-address { margin-top: 2mm; font-size: 3.25mm; line-height: 1.2; font-weight: 700; }
-    .slip-body {
-      height: 78mm;
-      display: grid;
-      grid-template-columns: 40fr 60fr;
-    }
-    .merchant-column,
-    .customer-column {
-      padding: 4mm;
-      box-sizing: border-box;
-      overflow: hidden;
-    }
-    .merchant-column { border-right: 0.45mm solid #000; }
-    h2 {
-      margin: 0 0 4mm;
-      font-size: 3.45mm;
+    .cod-total span {
+      font-size: 3.15mm;
       line-height: 1;
-      font-weight: 900;
+      font-weight: 500;
+      text-transform: uppercase;
+      color: #334155;
     }
-    .field-label {
-      font-size: 3mm;
-      line-height: 1.15;
-      font-weight: 800;
-    }
-    .field-value {
-      font-size: 3.25mm;
-      line-height: 1.22;
+    .cod-total strong {
+      font-size: 5.2mm;
+      line-height: 1.1;
       font-weight: 600;
-      overflow-wrap: anywhere;
-    }
-    .merchant-column .field-value { margin-bottom: 2.7mm; }
-    .description-field { min-height: 13mm; }
-    .address-field { min-height: 30mm; margin: 3mm 0; }
-    .cod-line {
-      margin-top: 5mm;
-      font-size: 4mm;
-      line-height: 1.2;
-      font-weight: 900;
-      overflow-wrap: anywhere;
+      color: #000;
     }
     .unresolved {
       height: 100%;
@@ -179,7 +258,7 @@ export const downloadBillingPDF = (items: LeadPrintItem[]): boolean => {
   </style>
 </head>
 <body>
-  ${slipsHtml}
+  ${sheetsHtml}
 </body>
 </html>`;
 

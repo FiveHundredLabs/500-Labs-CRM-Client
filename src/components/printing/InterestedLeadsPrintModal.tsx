@@ -29,63 +29,19 @@ export const InterestedLeadsPrintModal: React.FC<InterestedLeadsPrintModalProps>
       isOpen={isOpen}
       onClose={onClose}
       title="Print Billing Details & COD Slips"
-      description={`A6 Landscape Layout (148mm x 105mm) - ${items.length} Selected Leads`}
+      description={`A4 Landscape 4-up Layout - ${items.length} Selected Leads`}
       maxWidth="2xl"
     >
       <div className="space-y-4">
-        <style>{`
-          @media print {
-            @page {
-              size: 148mm 105mm;
-              margin: 0;
-            }
-
-            html,
-            body {
-              width: 148mm !important;
-              min-height: 105mm !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              background: #ffffff !important;
-            }
-
-            body * {
-              visibility: hidden !important;
-            }
-
-            .print-billing-container,
-            .print-billing-container * {
-              visibility: visible !important;
-            }
-
-            .print-billing-container {
-              position: absolute !important;
-              inset: 0 auto auto 0 !important;
-              width: 148mm !important;
-              margin: 0 !important;
-              padding: 0 !important;
-            }
-
-            .billing-slip,
-            .billing-slip-page {
-              width: 148mm !important;
-              height: 105mm !important;
-              margin: 0 !important;
-              overflow: hidden !important;
-              box-shadow: none !important;
-            }
-          }
-        `}</style>
-
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm font-bold text-slate-900">A6 Landscape Billing Layout</div>
+              <div className="text-sm font-bold text-slate-900">A4 Landscape 4-up Billing Layout</div>
               <div className="text-xs text-slate-500 font-medium mt-0.5">
-                {items.length} Billing Slips at 148mm x 105mm
+                {Math.ceil(items.length / 4)} sheet(s), up to 4 slips per sheet
               </div>
             </div>
           </div>
@@ -107,11 +63,11 @@ export const InterestedLeadsPrintModal: React.FC<InterestedLeadsPrintModalProps>
 
         <div className="flex items-center gap-2 text-xs text-slate-600 px-1">
           <CheckCircle className="w-4 h-4 text-emerald-500" />
-          <span>Ready to print <strong>{items.length}</strong> billing slip(s) on A6 landscape pages.</span>
+          <span>Ready to print <strong>{items.length}</strong> billing slip(s) on A4 landscape sheets.</span>
         </div>
 
         <div className="overflow-x-auto p-4 bg-slate-200/70 border border-slate-300 rounded-xl max-h-[60vh] flex justify-center">
-          <div className="transform scale-[0.55] sm:scale-75 md:scale-85 origin-top">
+          <div className="transform scale-[0.25] sm:scale-[0.34] md:scale-[0.42] origin-top">
             <BillingSlipPrintSheet items={items} />
           </div>
         </div>

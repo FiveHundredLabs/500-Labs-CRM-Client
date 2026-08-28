@@ -28,27 +28,27 @@ const SlipField: React.FC<{
   className?: string;
 }> = ({ label, value, className = '' }) => (
   <div className={`min-w-0 ${className}`}>
-    <div className="text-[3mm] font-extrabold leading-tight text-black">{label}</div>
-    <div className="text-[3.25mm] font-semibold leading-snug text-black whitespace-pre-wrap break-words">
+    <div className="text-[2.35mm] font-medium leading-tight text-slate-600 uppercase">{label}</div>
+    <div className="mt-[0.65mm] text-[3mm] font-normal leading-snug text-black whitespace-pre-wrap break-words">
       {value || <span>&nbsp;</span>}
     </div>
   </div>
 );
 
 const SlipHeader: React.FC<{ brand: BrandPrintConfig }> = ({ brand }) => (
-  <div className="h-[26mm] border-b-[0.55mm] border-black grid grid-cols-[36mm_1fr] items-center overflow-hidden">
-    <div className="h-full flex items-center justify-center border-r-[0.35mm] border-black px-[3mm]">
+  <div className="h-[21mm] border-b-[0.35mm] border-black flex items-center justify-between px-[4mm] py-[2.5mm] overflow-hidden">
+    <div className="flex items-center justify-start max-w-[38mm]">
       <img
         src={brand.logo}
         alt={`${brand.displayName} logo`}
-        className="max-w-[29mm] max-h-[20mm] object-contain"
+        className="max-w-[34mm] max-h-[16mm] object-contain"
       />
     </div>
-    <div className="text-center px-[4mm]">
-      <div className="text-[7mm] font-black leading-none text-black uppercase">
+    <div className="text-right flex-1 pl-[4mm]">
+      <div className="text-[5.2mm] font-semibold leading-none text-black uppercase">
         {brand.printTitle}
       </div>
-      <div className="mt-[2mm] text-[3.25mm] font-bold leading-tight text-black whitespace-pre-line">
+      <div className="mt-[1.25mm] text-[2.65mm] font-normal leading-tight text-black whitespace-pre-line">
         {brand.address}
       </div>
     </div>
@@ -57,8 +57,11 @@ const SlipHeader: React.FC<{ brand: BrandPrintConfig }> = ({ brand }) => (
 
 const UnresolvedBrandSlip: React.FC<{ className?: string }> = ({ className = '' }) => (
   <div
-    className={`billing-slip w-[148mm] h-[105mm] bg-white border-[0.6mm] border-black p-[6mm] text-black font-sans overflow-hidden shrink-0 ${className}`}
-    style={{ boxSizing: 'border-box' }}
+    className={`billing-slip w-[140.5mm] h-[97mm] bg-white border-[0.45mm] border-black p-[6mm] text-black overflow-hidden shrink-0 ${className}`}
+    style={{
+      boxSizing: 'border-box',
+      fontFamily: 'Arial, Helvetica, "Segoe UI", sans-serif',
+    }}
   >
     <div className="h-full flex flex-col items-center justify-center text-center gap-[3mm]">
       <div className="text-[5mm] font-black uppercase">Brand Not Resolved</div>
@@ -83,43 +86,49 @@ export const A6BillingSlip: React.FC<A6BillingSlipProps> = ({
 
   return (
     <div
-      className={`billing-slip w-[148mm] h-[105mm] bg-white border-[0.6mm] border-black overflow-hidden text-black font-sans shrink-0 ${className}`}
-      style={{ boxSizing: 'border-box' }}
+      className={`billing-slip w-[140.5mm] h-[97mm] bg-white border-[0.45mm] border-black overflow-hidden text-black shrink-0 ${className}`}
+      style={{
+        boxSizing: 'border-box',
+        fontFamily: 'Arial, Helvetica, "Segoe UI", sans-serif',
+      }}
     >
       <SlipHeader brand={brand} />
 
-      <div className="grid grid-cols-[40fr_60fr] h-[78mm]">
-        <section className="p-[4mm] border-r-[0.45mm] border-black min-w-0">
-          <h2 className="text-[4mm] font-black leading-none text-black mb-[4mm]">
-            Merchant Details
-          </h2>
+      <div className="flex flex-col" style={{ height: 'calc(100% - 21mm)' }}>
+        {/* Details area */}
+        <div className="grid grid-cols-2 flex-1 min-h-0 border-b-[0.35mm] border-black">
+          <section className="min-w-0 border-r-[0.35mm] border-black flex flex-col">
+            <div className="h-[7mm] bg-black text-white text-[2.8mm] font-semibold uppercase flex items-center px-[3mm]">
+              Merchant Details
+            </div>
+            <div className="flex-1 min-h-0 px-[3mm] py-[2.5mm] space-y-[2.8mm] overflow-hidden">
+              <SlipField label="Name" value={brand.merchantName} />
+              <SlipField label="Telephone" value={brand.merchantTelephone} />
+              <SlipField label="Description" value={brand.description} />
+            </div>
+          </section>
 
-          <div className="space-y-[2.7mm]">
-            <SlipField label="Name" value={brand.merchantName} />
-            <SlipField label="Telephone" value={brand.merchantTelephone} />
-            <SlipField label="Description" value={brand.description} className="min-h-[13mm]" />
+          <section className="min-w-0 flex flex-col">
+            <div className="h-[7mm] bg-black text-white text-[2.8mm] font-semibold uppercase flex items-center px-[3mm]">
+              Customer Details
+            </div>
+            <div className="flex-1 min-h-0 px-[3mm] py-[2.5mm] space-y-[2.8mm] overflow-hidden">
+              <SlipField label="Name" value={customer.fullName || 'Customer'} />
+              <SlipField label="Address" value={formatAddress(customer.address || 'N/A').join('\n')} />
+              <SlipField label="Telephone" value={customer.phone || 'N/A'} />
+            </div>
+          </section>
+        </div>
+
+        {/* Row 5: Total COD Section */}
+        <div className="h-[15mm] flex items-center justify-center bg-slate-50 text-center px-[4mm]">
+          <div className="text-[3.15mm] font-medium uppercase text-slate-700 leading-none mr-[3mm]">
+            Total COD
           </div>
-
-          <div className="mt-[5mm] text-[3.45mm] font-black leading-tight text-black break-words">
-            Total COD = {getCodAmount(order)}
+          <div className="text-[5.2mm] font-semibold text-black leading-tight">
+            {getCodAmount(order)}
           </div>
-        </section>
-
-        <section className="p-[4mm] min-w-0">
-          <h2 className="text-[4mm] font-black leading-none text-black mb-[4mm]">
-            Customer Details
-          </h2>
-
-          <div className="space-y-[3mm]">
-            <SlipField label="Name" value={customer.fullName || 'Customer'} />
-            <SlipField
-              label="Address"
-              value={formatAddress(customer.address || 'N/A').join('\n')}
-              className="min-h-[30mm]"
-            />
-            <SlipField label="Telephone" value={customer.phone || 'N/A'} />
-          </div>
-        </section>
+        </div>
       </div>
     </div>
   );
