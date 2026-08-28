@@ -269,17 +269,58 @@ export interface EmailNotification {
   sentAt: string;
 }
 
+export type BatchStatus = 'ACTIVE' | 'DEPLETED' | 'QUARANTINED' | 'EXPIRED' | 'DAMAGED';
+export type PricingMode = 'GLOBAL' | 'BATCH_SPECIFIC';
+
+export interface StockBatch {
+  id: string; // e.g. UUID
+  batchNumber: string; // e.g. "BAT-20260828-001"
+  productId: string;
+  teamId: string;
+  initialQuantity: number;
+  remainingQuantity: number;
+  reservedQuantity: number;
+  unitCostPrice: number; // Acquisition cost for THIS batch (e.g. Rs. 450, Rs. 500)
+  batchSellingPrice?: number | null; // Optional batch-specific price (e.g. Rs. 550, Rs. 600)
+  status: BatchStatus;
+  supplierName?: string | null;
+  invoiceNumber?: string | null;
+  receivedDate: string;
+  expiryDate?: string | null;
+  approvalRequestId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductPriceHistory {
+  id: string;
+  productId: string;
+  teamId: string;
+  oldSellingPrice: number;
+  newSellingPrice: number;
+  oldCostPrice?: number | null;
+  newCostPrice?: number | null;
+  reason: string;
+  changedById: string;
+  changedByName: string;
+  approvalRequestId?: string | null;
+  effectiveDate: string;
+}
+
 export interface Product {
-  id: string; // e.g., 'prd_001'
-  teamId: string; // 'team_001' (Team Alpha), 'team_002' (Team Beta)
-  name: string; // e.g., 'Adult Package', 'Kids Package', 'Product A'
-  code: string; // e.g., 'PKG-ADULT', 'PKG-KIDS'
+  id: string; // e.g., 'prod_001'
+  name: string;
+  code: string; // SKU
+  teamId: string;
   category?: string;
   currentStock: number;
-  minStockThreshold: number; // Configurable low-stock alert limit (e.g., 10)
-  costPrice: number; // LKR
-  sellingPrice: number; // LKR
+  damagedStock?: number; // Damaged units quarantined / not calculated in sellable stock
+  minStockThreshold: number;
+  costPrice: number; // Reference LKR cost
+  sellingPrice: number; // Active catalog LKR price
   isActive: boolean;
+  batches?: StockBatch[];
+  priceHistory?: ProductPriceHistory[];
   createdAt: string;
   updatedAt: string;
 }
@@ -315,6 +356,10 @@ export interface ApprovalRequestItem {
   productId: string;
   productName: string;
   quantity: number;
+  unitCostPrice?: number; // Batch cost (e.g. Rs. 500)
+  proposedSellingPrice?: number; // Proposed price (e.g. Rs. 600)
+  pricingMode?: PricingMode;
+  batchNumber?: string;
   oldStock?: number;
   newStock?: number;
 }
@@ -328,6 +373,13 @@ export interface ApprovalRequest {
   productId: string;
   productName: string;
   items?: ApprovalRequestItem[]; // Multi-product stock addition items
+  unitCostPrice?: number; // Batch cost (e.g. Rs. 500)
+  proposedSellingPrice?: number; // Proposed selling price (e.g. Rs. 600)
+  pricingMode?: PricingMode; // GLOBAL vs BATCH_SPECIFIC
+  batchNumber?: string;
+  supplierName?: string;
+  invoiceNumber?: string;
+  expiryDate?: string;
   oldValue?: number; // Previous stock or previous cost/selling price
   newValue?: number; // Proposed new stock addition or new cost/selling price
   quantity?: number; // Requested stock addition quantity

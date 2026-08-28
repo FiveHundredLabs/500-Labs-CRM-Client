@@ -25,7 +25,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
   const memberMap = new Map<string, string>();
   teamMembers.forEach((m) => memberMap.set(m.id, m.fullName));
 
-  const totalAmount = orders.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
+  const totalAmount = orders.reduce((acc, curr) => acc + (Number(curr.totalAmount) || 0), 0);
 
   const handleExportCSV = () => {
     if (orders.length === 0) {

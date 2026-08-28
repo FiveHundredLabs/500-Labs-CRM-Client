@@ -104,7 +104,7 @@ export class CallLogService {
             email: input.customerEmail,
             teamId: member.teamId!,
             responsibleTeamMemberId: member.id,
-            supervisorId: member.supervisorId || undefined,
+            supervisorId: member.supervisorId || '',
           });
         }
 
@@ -125,11 +125,15 @@ export class CallLogService {
           if (input.adultQty) itemsDesc.push(`Adult Package x ${input.adultQty}`);
           if (input.kidsQty) itemsDesc.push(`Kids Package x ${input.kidsQty}`);
           
+          const allOrders = await orderRepository.getAll();
+          const orderNumber = `ORD-2026-${String(allOrders.length + 1).padStart(3, '0')}`;
+
           await orderRepository.create({
+            orderNumber,
             customerId: createdOrUpdatedCustomer.id,
             teamId: member.teamId!,
             teamMemberId: member.id,
-            supervisorId: member.supervisorId || undefined,
+            supervisorId: member.supervisorId || '',
             status: 'PREPARED',
             itemsDescription: itemsDesc.join(', ') || 'Package Order',
             selectedPackage: input.selectedPackage || 'ADULT',

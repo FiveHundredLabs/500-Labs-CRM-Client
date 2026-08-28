@@ -1,6 +1,7 @@
 import { contactRepository } from '../repositories';
 import { Contact, User } from '../models/domain';
 import { ActivityLogService } from './activityLogService';
+import { normalizeSriLankanPhone } from '../utils/phoneUtils';
 
 export interface ImportPreviewRow {
   phone: string;
@@ -33,15 +34,15 @@ export class ContactService {
   }
 
   static async addManualContact(phone: string, actor: User): Promise<Contact> {
-    const cleanPhone = phone.trim();
-    if (!cleanPhone || cleanPhone.length < 7) {
-      throw new Error('Please enter a valid phone number with at least 7 digits.');
+    const normalized = normalizeSriLankanPhone(phone);
+    if (!normalized) {
+      throw new Error('Please enter a valid Sri Lankan mobile number (e.g., 0705787818, +94 70 578 7818, 705787818).');
     }
 
     // Check duplicate
-    const existing = await contactRepository.getByPhone(cleanPhone);
+    const existing = await contactRepository.getByPhone(normalized);
     if (existing) {
-      throw new Error(`Duplicate entry: Phone number ${cleanPhone} already exists in the system.`);
+      throw new Error(`Duplicate entry: Phone number ${normalized} already exists in the system.`);
     }
 
     const isMember = actor.role === 'TEAM_MEMBER';
@@ -49,7 +50,7 @@ export class ContactService {
     const batchId = `batch_imp_manual_${Date.now()}`;
 
     const newContact = await contactRepository.create({
-      phone: cleanPhone,
+      phone: normalized,
       status: 'NEW',
       teamId: actor.teamId || 'team_001',
       importedAt: now,
@@ -75,8 +76,8 @@ export class ContactService {
       entityType: 'Contact',
       entityId: newContact.id,
       description: isMember
-        ? `Team member ${actor.fullName} self-added contact ${cleanPhone}`
-        : `Manually added contact number ${cleanPhone}`,
+        ? `Team member ${actor.fullName} self-added contact ${normalized}`
+        : `Manually added contact number ${normalized}`,
     });
 
     return newContact;
@@ -97,25 +98,33 @@ export class ContactService {
     let duplicateCount = 0;
 
     rawPhones.forEach((raw) => {
-      const clean = raw.trim();
-      // Basic phone format check: 7-20 digits, allowing spaces, hyphens, plus
-      const isValid = /^\+?[0-9\s\-()]{7,20}$/.test(clean);
+      const normalized = normalizeSriLankanPhone(raw);
 
-      if (!isValid) {
+      if (!normalized) {
         invalidCount++;
-        rows.push({ phone: raw, isValid: false, isDuplicate: false, reason: 'Invalid phone format' });
+        rows.push({
+          phone: String(raw).trim(),
+          isValid: false,
+          isDuplicate: false,
+          reason: 'Invalid Sri Lankan mobile number (must be 10 digits starting with 07)',
+        });
         return;
       }
 
-      const isDuplicate = existingPhoneSet.has(clean) || seenInBatch.has(clean);
+      const isDuplicate = existingPhoneSet.has(normalized) || seenInBatch.has(normalized);
 
       if (isDuplicate) {
         duplicateCount++;
-        rows.push({ phone: clean, isValid: true, isDuplicate: true, reason: 'Already exists in system' });
+        rows.push({
+          phone: normalized,
+          isValid: true,
+          isDuplicate: true,
+          reason: existingPhoneSet.has(normalized) ? 'Already exists in system database' : 'Duplicate in upload file',
+        });
       } else {
-        seenInBatch.add(clean);
-        validUniquePhones.push(clean);
-        rows.push({ phone: clean, isValid: true, isDuplicate: false });
+        seenInBatch.add(normalized);
+        validUniquePhones.push(normalized);
+        rows.push({ phone: normalized, isValid: true, isDuplicate: false });
       }
     });
 

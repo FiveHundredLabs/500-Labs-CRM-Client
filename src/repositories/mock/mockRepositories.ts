@@ -698,6 +698,26 @@ export class MockProductRepository implements IProductRepository {
     setStoredItem(STORAGE_KEYS.PRODUCTS, products);
     return updated;
   }
+
+  async reportDamage(id: string, quantity: number): Promise<Product> {
+    await delay();
+    const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+    const idx = products.findIndex((p) => p.id === id);
+    if (idx === -1) throw new Error('Product not found');
+    const newStock = Math.max(0, products[idx].currentStock - quantity);
+    const newDamaged = (products[idx].damagedStock || 0) + quantity;
+    const updated = { ...products[idx], currentStock: newStock, damagedStock: newDamaged, updatedAt: new Date().toISOString() };
+    products[idx] = updated;
+    setStoredItem(STORAGE_KEYS.PRODUCTS, products);
+    return updated;
+  }
+
+  async delete(id: string): Promise<void> {
+    await delay();
+    const products = getStoredItem<Product>(STORAGE_KEYS.PRODUCTS, []);
+    const filtered = products.filter((p) => p.id !== id);
+    setStoredItem(STORAGE_KEYS.PRODUCTS, filtered);
+  }
 }
 
 export class MockStockActivityLogRepository implements IStockActivityLogRepository {
