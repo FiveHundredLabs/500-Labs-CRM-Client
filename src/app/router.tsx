@@ -7,6 +7,7 @@ import { AppProviders } from './providers';
 
 // Member Views
 import { MemberDashboard } from '../views/member/MemberDashboard';
+import { MemberSalesPage } from '../views/member/MemberSalesPage';
 import { MemberContactsPage } from '../views/member/MemberContactsPage';
 import { MemberFollowUpsPage } from '../views/member/MemberFollowUpsPage';
 import { MemberImportPage } from '../views/member/MemberImportPage';
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
                 element: <ProtectedRoute allowedRoles={['TEAM_MEMBER']} />,
                 children: [
                   { path: 'dashboard', element: <MemberDashboard /> },
+                  { path: 'sales', element: <MemberSalesPage /> },
                   { path: 'contacts', element: <MemberContactsPage /> },
                   { path: 'follow-ups', element: <MemberFollowUpsPage /> },
                   { path: 'import', element: <MemberImportPage /> },
