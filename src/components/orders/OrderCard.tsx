@@ -73,15 +73,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       handledByMember={handledByMember}
       dateString={formattedDate}
       middleContent={
-        isExpanded ? (
-          <OrderExpandedDetails
-            order={order}
-            onViewHistory={onViewHistory}
-            onOpenStatusModal={onOpenStatusModal}
-            onOpenRemarkModal={onOpenRemarkModal}
-            onPrintBillingSlip={onPrintBillingSlip}
-          />
-        ) : null
         <div className="space-y-2">
           {/* Active Duplicate Orders Warning Banner - Only shown while order is active, hidden after delivery */}
           {order.status !== 'DELIVERED' && order.status !== 'REJECTED' && conflictInfo?.hasDuplicateActiveOrders && (
@@ -133,6 +124,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               onViewHistory={onViewHistory}
               onOpenStatusModal={onOpenStatusModal}
               onOpenRemarkModal={onOpenRemarkModal}
+              onPrintBillingSlip={onPrintBillingSlip}
             />
           )}
         </div>

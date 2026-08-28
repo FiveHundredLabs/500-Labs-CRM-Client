@@ -318,7 +318,6 @@ export const AdminReportsPage: React.FC = () => {
         u.phone,
         u.role,
         getTeamName(teamsMap, u.teamId),
-        u.city || '',
         u.nic || '',
         u.isActive ? 'ACTIVE' : 'DISABLED',
         format(new Date(u.joiningDate), 'yyyy-MM-dd'),

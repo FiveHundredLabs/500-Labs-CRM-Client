@@ -29,6 +29,18 @@ export const SupervisorOrdersPage: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [directPrintItems, setDirectPrintItems] = useState<LeadPrintItem[] | null>(null);
 
+  useEffect(() => {
+    let isMounted = true;
+    teamRepository.getAll()
+      .then((data) => {
+        if (isMounted) setTeams(data);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const {
     orders,
     customersMap,
@@ -82,6 +94,9 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
 
+  const [inspectConflictOrder, setInspectConflictOrder] = useState<Order | null>(null);
+  const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
+
   // Status Change Modal Trigger
   const handleOpenStatusModal = (order: Order, defaultNewStatus: OrderStatus) => {
     setTargetOrder(order);
@@ -99,6 +114,49 @@ export const SupervisorOrdersPage: React.FC = () => {
   const handleInspectDuplicateOrders = (order: Order, conflictInfo: DuplicateOrderConflictInfo) => {
     setInspectConflictOrder(order);
     setInspectConflictInfo(conflictInfo);
+  };
+
+  const buildPrintItem = (order: Order): LeadPrintItem => {
+    const customer = customersMap[order.customerId];
+    const responsibleUser = membersMap[order.teamMemberId];
+    const team = teams.find((t) => t.id === order.teamId);
+    return {
+      customer: customer || {
+        id: order.customerId,
+        fullName: 'Customer',
+        phone: 'N/A',
+        address: 'N/A',
+        teamId: order.teamId,
+        responsibleTeamMemberId: order.teamMemberId,
+        createdAt: '',
+        updatedAt: '',
+        contactId: '',
+      },
+      responsibleUser,
+      order,
+      team,
+    };
+  };
+
+  const waitForBillingSlipImages = async () => {
+    const images = Array.from(document.querySelectorAll<HTMLImageElement>('.print-billing-container img'));
+    await Promise.all(
+      images.map(async (image) => {
+        if (image.complete && image.naturalWidth > 0) return;
+        if (typeof image.decode === 'function') {
+          try {
+            await image.decode();
+            return;
+          } catch {
+            return;
+          }
+        }
+        await new Promise<void>((resolve) => {
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+        });
+      })
+    );
   };
 
   // Selected Lead Print Items for PDF & Print
@@ -204,6 +262,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         onViewHistory={handleViewHistory}
         onOpenStatusModal={handleOpenStatusModal}
         onOpenRemarkModal={(order) => setRemarkOrder(order)}
+        onPrintBillingSlip={handlePrintBillingSlip}
       />
 
       {/* 4. Floating Action Panel */}

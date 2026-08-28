@@ -95,7 +95,7 @@ export const MemberProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Editable Fields: Full Name & Address / City */}
+              {/* Editable Fields: Full Name */}
               <div className="space-y-4">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
                   Editable Account Details
