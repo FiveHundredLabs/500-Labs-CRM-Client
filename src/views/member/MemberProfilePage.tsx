@@ -18,7 +18,6 @@ export const MemberProfilePage: React.FC = () => {
   const { user, updateCurrentUser } = useAuth();
 
   const [fullName, setFullName] = useState(user?.fullName || '');
-  const [city, setCity] = useState(user?.city || '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
 
   const [activities, setActivities] = useState<ActivityLog[]>([]);
@@ -27,7 +26,6 @@ export const MemberProfilePage: React.FC = () => {
   useEffect(() => {
     if (user) {
       setFullName(user.fullName || '');
-      setCity(user.city || '');
       setAvatarUrl(user.avatarUrl || '');
       activityLogRepository.getByUserId(user.id).then(setActivities);
     }
@@ -39,8 +37,8 @@ export const MemberProfilePage: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !city.trim()) {
-      toast.error('Full Name and Address / Location cannot be empty.');
+    if (!fullName.trim()) {
+      toast.error('Full Name cannot be empty.');
       return;
     }
 
@@ -50,7 +48,6 @@ export const MemberProfilePage: React.FC = () => {
         user.id,
         {
           fullName,
-          city,
           avatarUrl,
         },
         user
@@ -73,7 +70,7 @@ export const MemberProfilePage: React.FC = () => {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Personal Information</CardTitle>
-            <CardDescription>You can edit your Full Name, Profile Photo, and Address / City below.</CardDescription>
+            <CardDescription>You can edit your Full Name and Profile Photo below.</CardDescription>
           </CardHeader>
 
           <CardContent>
@@ -98,7 +95,7 @@ export const MemberProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Editable Fields: Full Name & Address / City */}
+              {/* Editable Fields: Full Name */}
               <div className="space-y-4">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
                   Editable Account Details
@@ -108,14 +105,6 @@ export const MemberProfilePage: React.FC = () => {
                   label="Full Name *"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-
-                <Input
-                  label="Address / City Location *"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  leftIcon={<MapPin className="w-4 h-4 text-slate-400" />}
                   required
                 />
               </div>
