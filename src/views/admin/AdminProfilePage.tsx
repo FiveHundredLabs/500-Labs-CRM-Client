@@ -18,7 +18,6 @@ export const AdminProfilePage: React.FC = () => {
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
-  const [city, setCity] = useState(user?.city || '');
   const [nic, setNic] = useState(user?.nic || '');
   const [dateOfBirth, setDateOfBirth] = useState(user?.dateOfBirth || '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
@@ -31,7 +30,6 @@ export const AdminProfilePage: React.FC = () => {
       setFullName(user.fullName || '');
       setEmail(user.email || '');
       setPhone(user.phone || '');
-      setCity(user.city || '');
       setNic(user.nic || '');
       setDateOfBirth(user.dateOfBirth || '');
       setAvatarUrl(user.avatarUrl || '');
@@ -56,7 +54,6 @@ export const AdminProfilePage: React.FC = () => {
           fullName,
           email,
           phone,
-          city,
           nic,
           dateOfBirth,
           avatarUrl,
@@ -120,23 +117,13 @@ export const AdminProfilePage: React.FC = () => {
                 required
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Phone Number"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  leftIcon={<Phone className="w-4 h-4 text-slate-400" />}
-                  placeholder="+1 (555) 000-0000"
-                />
-
-                <Input
-                  label="City / Location *"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  leftIcon={<MapPin className="w-4 h-4 text-slate-400" />}
-                  required
-                />
-              </div>
+              <Input
+                label="Phone Number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                leftIcon={<Phone className="w-4 h-4 text-slate-400" />}
+                placeholder="+1 (555) 000-0000"
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input

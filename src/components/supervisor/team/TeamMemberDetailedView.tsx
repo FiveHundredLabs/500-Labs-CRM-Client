@@ -161,7 +161,7 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
             </span>
           </h2>
           <p className="text-xs text-slate-300 mt-0.5">
-            Joined: {format(new Date(member.joiningDate), 'MMMM dd, yyyy')} | City: {member.city}
+            Joined: {format(new Date(member.joiningDate), 'MMMM dd, yyyy')}
           </p>
         </div>
         <Button variant="secondary" size="sm" onClick={onClose}>

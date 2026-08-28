@@ -85,7 +85,7 @@ export interface IOrderRepository {
   getByTeamId(teamId: string): Promise<Order[]>;
   getBySupervisorId(supervisorId: string): Promise<Order[]>;
   getByMemberId(memberId: string): Promise<Order[]>;
-  create(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
+  create(order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order>;
   updateStatus(id: string, status: any, remarks?: string): Promise<Order>;
 }
 

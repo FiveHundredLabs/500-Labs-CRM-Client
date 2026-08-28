@@ -38,7 +38,6 @@ export const SupervisorTeamPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [phone, setPhone] = useState('');
-  const [city, setCity] = useState('');
   const [nic, setNic] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('1995-05-15');
   const [joiningDate, setJoiningDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -72,7 +71,6 @@ export const SupervisorTeamPage: React.FC = () => {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setPhone('');
-    setCity('');
     setNic('');
     setDateOfBirth('1995-05-15');
     setJoiningDate(format(new Date(), 'yyyy-MM-dd'));
@@ -89,7 +87,6 @@ export const SupervisorTeamPage: React.FC = () => {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setPhone(member.phone);
-    setCity(member.city);
     setNic(member.nic || '');
     setDateOfBirth(member.dateOfBirth || '1995-05-15');
     setJoiningDate(member.joiningDate ? member.joiningDate.split('T')[0] : format(new Date(), 'yyyy-MM-dd'));
@@ -137,7 +134,6 @@ export const SupervisorTeamPage: React.FC = () => {
             email,
             password: password.trim() ? password.trim() : undefined,
             phone,
-            city,
             nic,
             dateOfBirth,
             joiningDate,
@@ -156,7 +152,6 @@ export const SupervisorTeamPage: React.FC = () => {
             role: 'TEAM_MEMBER',
             teamId: user!.teamId!,
             supervisorId: user!.id,
-            city,
             phone,
             nic,
             dateOfBirth,
@@ -221,7 +216,6 @@ export const SupervisorTeamPage: React.FC = () => {
             <tr>
               <th className="py-3 px-3 sm:px-4">Member</th>
               <th className="py-3 px-4 hidden md:table-cell">Contact Info</th>
-              <th className="py-3 px-4 hidden md:table-cell">Location</th>
               <th className="py-3 px-4 hidden md:table-cell">Joining Date</th>
               <th className="py-3 px-4 hidden md:table-cell">Status</th>
               <th className="py-3 px-3 sm:px-4 text-right">Actions</th>
@@ -246,8 +240,6 @@ export const SupervisorTeamPage: React.FC = () => {
                   <div className="text-slate-800">{member.email}</div>
                   <div className="text-slate-400 font-mono mt-0.5">{member.phone}</div>
                 </td>
-
-                <td className="py-3.5 px-4 text-xs text-slate-600 hidden md:table-cell">{member.city}</td>
 
                 <td className="py-3.5 px-4 text-xs text-slate-500 hidden md:table-cell">
                   {format(new Date(member.joiningDate), 'MMM dd, yyyy')}
@@ -387,12 +379,6 @@ export const SupervisorTeamPage: React.FC = () => {
             label="Phone Number *"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            required
-          />
-          <Input
-            label="City / Region *"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
             required
           />
           <Input

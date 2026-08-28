@@ -104,7 +104,7 @@ export class CallLogService {
             email: input.customerEmail,
             teamId: member.teamId!,
             responsibleTeamMemberId: member.id,
-            supervisorId: member.supervisorId || undefined,
+            supervisorId: member.supervisorId || '',
           });
         }
 
@@ -129,7 +129,7 @@ export class CallLogService {
             customerId: createdOrUpdatedCustomer.id,
             teamId: member.teamId!,
             teamMemberId: member.id,
-            supervisorId: member.supervisorId || undefined,
+            supervisorId: member.supervisorId || '',
             status: 'PREPARED',
             itemsDescription: itemsDesc.join(', ') || 'Package Order',
             selectedPackage: input.selectedPackage || 'ADULT',

@@ -102,7 +102,6 @@ export class ApiUserRepository implements IUserRepository {
       password: userData.password || 'ChangeThisStrongPassword123!',
       fullName: userData.fullName,
       role: userData.role,
-      city: userData.city,
       phone: userData.phone,
       joiningDate: userData.joiningDate ? userData.joiningDate.split('T')[0] : new Date().toISOString().split('T')[0],
     };
@@ -137,7 +136,6 @@ export class ApiUserRepository implements IUserRepository {
     if (updates.username !== undefined) payload.username = updates.username;
     if (updates.email !== undefined) payload.email = updates.email.trim().toLowerCase();
     if (updates.phone !== undefined) payload.phone = updates.phone;
-    if (updates.city !== undefined) payload.city = updates.city;
     if (updates.role !== undefined) payload.role = updates.role;
     if (updates.avatarUrl !== undefined) payload.avatarUrl = updates.avatarUrl;
     if (updates.nic !== undefined) payload.nic = updates.nic;
@@ -376,7 +374,7 @@ export class ApiOrderRepository implements IOrderRepository {
   async getByMemberId(memberId: string): Promise<Order[]> {
     return unwrap(await apiClient.get<{ data: Order[] }>(`/orders?memberId=${memberId}`));
   }
-  async create(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> {
+  async create(order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order> {
     return unwrap(await apiClient.post<{ data: Order }>('/orders', order));
   }
   async updateStatus(id: string, status: any, remarks?: string): Promise<Order> {

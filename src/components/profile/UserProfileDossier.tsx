@@ -208,11 +208,6 @@ export const UserProfileDossier: React.FC<UserProfileDossierProps> = ({ user, on
               <span>{teamBrand.name}</span>
               <span>&bull;</span>
               <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                {user.city || 'Not Specified'}
-              </span>
-              <span>&bull;</span>
-              <span className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
                 Joined {format(new Date(user.joiningDate || user.createdAt), 'MMM dd, yyyy')}
               </span>
@@ -416,7 +411,7 @@ export const UserProfileDossier: React.FC<UserProfileDossierProps> = ({ user, on
                     <ProfileAvatar name={m.fullName} avatarUrl={m.avatarUrl} size="sm" />
                     <div>
                       <div className="font-bold text-xs text-slate-900">{m.fullName}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">{m.phone} &bull; {m.city}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{m.phone}</div>
                     </div>
                   </div>
                   <Button variant="ghost" size="sm" className="text-[10px] text-blue-600">View Dossier</Button>
