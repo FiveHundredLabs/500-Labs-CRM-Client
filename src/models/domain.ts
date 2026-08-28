@@ -120,6 +120,14 @@ export interface CallLog {
   callDurationSeconds?: number;
   isFollowUp?: boolean; // Starred for Follow-Up List
   calledAt: string;
+  contactPhone?: string;
+  contact?: {
+    id: string;
+    phone: string;
+    secondaryMobile?: string;
+    city?: string;
+    status?: string;
+  };
 }
 
 export interface Customer {
