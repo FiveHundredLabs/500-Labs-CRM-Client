@@ -377,24 +377,23 @@ export const SupervisorStockPage: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+          <table className="w-full text-left text-xs table-fixed">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="py-3 px-3">Product Name</th>
-                <th className="py-3 px-3">Code</th>
-                <th className="py-3 px-3 text-center">Available</th>
-                <th className="py-3 px-3 text-center text-amber-600">Allocated</th>
-                <th className="py-3 px-3 text-center text-blue-600">Dispatched</th>
-                <th className="py-3 px-3 text-center text-emerald-600">Sold</th>
-                <th className="py-3 px-3 text-center text-rose-600">Damaged</th>
-                <th className="py-3 px-3">Price (LKR)</th>
-                <th className="py-3 px-3 text-right">Actions</th>
+                <th className="py-2.5 px-3 w-[26%]">Product & SKU</th>
+                <th className="py-2.5 px-1.5 text-center text-slate-700 w-[9%]">Available</th>
+                <th className="py-2.5 px-1.5 text-center text-amber-600 w-[8%]">Allocated</th>
+                <th className="py-2.5 px-1.5 text-center text-blue-600 w-[8%]">Dispatched</th>
+                <th className="py-2.5 px-1.5 text-center text-emerald-600 w-[8%]">Sold</th>
+                <th className="py-2.5 px-1.5 text-center text-rose-600 w-[8%]">Damaged</th>
+                <th className="py-2.5 px-2.5 w-[16%]">Price (LKR)</th>
+                <th className="py-2.5 px-3 text-right w-[17%]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-6 text-center text-slate-400 text-xs">
+                  <td colSpan={8} className="py-6 text-center text-slate-400 text-xs">
                     No products found for your team.
                   </td>
                 </tr>
@@ -403,44 +402,81 @@ export const SupervisorStockPage: React.FC = () => {
                   const isLow = product.currentStock <= product.minStockThreshold;
                   return (
                     <tr key={product.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-3 font-semibold text-slate-900 flex items-center gap-2">
-                        <span>{product.name}</span>
-                        {isLow && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
-                            <AlertTriangle className="w-3 h-3" /> Low Stock
+                      {/* Product & Code */}
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-900 text-xs truncate max-w-[150px] sm:max-w-none" title={product.name}>
+                            {product.name}
                           </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 font-mono text-slate-500">{product.code}</td>
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        <div className="flex flex-col items-center">
-                          <span className="font-bold text-slate-900 text-sm font-mono">{product.currentStock}</span>
+                          <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 font-medium shrink-0">
+                            {product.code}
+                          </span>
                         </div>
                       </td>
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        <span className="font-bold text-amber-700 text-sm font-mono">{product.allocatedStock || 0}</span>
+
+                      {/* Available */}
+                      <td className="py-2.5 px-1.5 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className={`font-black text-xs font-mono ${product.currentStock === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
+                            {product.currentStock}
+                          </span>
+                          {product.currentStock === 0 ? (
+                            <span className="text-[9px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1 rounded">Out</span>
+                          ) : isLow ? (
+                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 rounded">Low</span>
+                          ) : null}
+                        </div>
                       </td>
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        <span className="font-bold text-blue-700 text-sm font-mono">{product.dispatchedStock || 0}</span>
+
+                      {/* Allocated */}
+                      <td className="py-2.5 px-1.5 text-center">
+                        <span className={`font-bold text-xs font-mono ${(product.allocatedStock || 0) > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
+                          {product.allocatedStock || 0}
+                        </span>
                       </td>
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        <span className="font-bold text-emerald-700 text-sm font-mono">{product.soldStock || 0}</span>
+
+                      {/* Dispatched */}
+                      <td className="py-2.5 px-1.5 text-center">
+                        <span className={`font-bold text-xs font-mono ${(product.dispatchedStock || 0) > 0 ? 'text-blue-700' : 'text-slate-400'}`}>
+                          {product.dispatchedStock || 0}
+                        </span>
                       </td>
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        <span className="font-bold text-rose-700 text-sm font-mono">{product.damagedStock || 0}</span>
+
+                      {/* Sold */}
+                      <td className="py-2.5 px-1.5 text-center">
+                        <span className={`font-bold text-xs font-mono ${(product.soldStock || 0) > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                          {product.soldStock || 0}
+                        </span>
                       </td>
-                      <td className="py-3 px-3 font-mono">
-                        <div className="text-slate-500 text-[10px]">Cost: {product.costPrice.toLocaleString()}</div>
-                        <div className="font-bold text-emerald-600">Sell: {product.sellingPrice.toLocaleString()}</div>
+
+                      {/* Damaged */}
+                      <td className="py-2.5 px-1.5 text-center">
+                        <span className={`font-bold text-xs font-mono ${(product.damagedStock || 0) > 0 ? 'text-rose-600 font-black' : 'text-slate-400'}`}>
+                          {product.damagedStock || 0}
+                        </span>
                       </td>
-                      <td className="py-3 px-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
+
+                      {/* Pricing */}
+                      <td className="py-2.5 px-2.5">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-emerald-700 text-xs font-mono">
+                            {product.sellingPrice.toLocaleString()}
+                          </span>
+                          <span className="text-slate-400 text-[10px] font-mono mt-0.5">
+                            Cost: {product.costPrice.toLocaleString()}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="outline"
                             size="sm"
-                            leftIcon={<PlusCircle className="w-3.5 h-3.5 text-blue-600" />}
+                            leftIcon={<PlusCircle className="w-3 h-3 text-blue-600" />}
                             onClick={() => openStockModal(product)}
-                            className="text-xs px-2 py-1"
+                            className="text-xs px-1.5 py-0.5 h-6.5"
                             title="Request Stock Addition"
                           >
                             + Stock
@@ -448,28 +484,28 @@ export const SupervisorStockPage: React.FC = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            leftIcon={<DollarSign className="w-3.5 h-3.5 text-slate-600" />}
+                            leftIcon={<DollarSign className="w-3 h-3 text-slate-600" />}
                             onClick={() => {
                               setPriceModalProduct(product);
                               setNewCostPrice(product.costPrice);
                               setNewSellingPrice(product.sellingPrice);
                               setPriceReason('');
                             }}
-                            className="text-xs px-2 py-1"
+                            className="text-xs px-1.5 py-0.5 h-6.5"
                             title="Request Price Change"
                           >
-                            Edit Price
+                            Price
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            leftIcon={<AlertTriangle className="w-3.5 h-3.5 text-rose-500" />}
+                            leftIcon={<AlertTriangle className="w-3 h-3 text-rose-500" />}
                             onClick={() => {
                               setDamageModalProduct(product);
                               setDamageQty(1);
                               setDamageReason('');
                             }}
-                            className="text-xs px-2 py-1 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
+                            className="text-xs px-1.5 py-0.5 h-6.5 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
                             title="Report Damaged / Broken Units"
                           >
                             Damage
