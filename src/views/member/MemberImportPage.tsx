@@ -238,7 +238,7 @@ export const MemberImportPage: React.FC = () => {
   const totalSelectedToImport = (importSummary?.validCount || 0) + selectedClaimablePhones.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6 max-w-full overflow-hidden pb-24">
       <PageHeader
         title="Import Numbers Myself"
         description="Add calling contacts directly to your personal queue using bulk text, manual entry, or CSV"
@@ -422,76 +422,47 @@ export const MemberImportPage: React.FC = () => {
 
       {/* Bottom Listing & Duplicate Audit Section */}
       {importSummary && (
-        <Card className="animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <CardHeader className="border-b border-slate-100 pb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  <span>Parsed Numbers Audit ({importSummary.totalParsed} total)</span>
-                </CardTitle>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Review verified numbers &amp; optional claimable contacts before confirming import
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setImportSummary(null);
-                    setFile(null);
-                    setBulkText('');
-                    setExecuteFn(null);
-                    setSelectedClaimablePhones([]);
-                  }}
-                >
-                  Discard
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  isLoading={isImporting}
-                  disabled={totalSelectedToImport === 0}
-                  onClick={handleConfirmImport}
-                  rightIcon={<ArrowRight className="w-4 h-4" />}
-                >
-                  Confirm &amp; Add ({totalSelectedToImport}) to My Queue
-                </Button>
-              </div>
+        <Card className="animate-in fade-in slide-in-from-bottom-2 duration-200 border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-slate-100 p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+            {/* Title Header */}
+            <div>
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>Parsed Numbers Audit ({importSummary.totalParsed} total)</span>
+              </CardTitle>
             </div>
 
-            {/* Metric counters */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3">
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
-                <div className="text-[11px] font-semibold text-emerald-800">Valid Brand New</div>
-                <div className="text-lg font-bold text-emerald-900">{importSummary.validCount}</div>
+            {/* Metric counters grid - Clean Full Width */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+                <div className="text-[10px] sm:text-[11px] font-bold text-emerald-800 uppercase tracking-tight">Valid Brand New</div>
+                <div className="text-base sm:text-xl font-extrabold text-emerald-900 mt-0.5">{importSummary.validCount}</div>
               </div>
-              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-center">
-                <div className="text-[11px] font-semibold text-amber-800">Claimable Existing</div>
-                <div className="text-lg font-bold text-amber-900">{importSummary.claimableDuplicateCount}</div>
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                <div className="text-[10px] sm:text-[11px] font-bold text-amber-800 uppercase tracking-tight">Claimable Existing</div>
+                <div className="text-base sm:text-xl font-extrabold text-amber-900 mt-0.5">{importSummary.claimableDuplicateCount}</div>
               </div>
-              <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-center">
-                <div className="text-[11px] font-semibold text-slate-600">Own Duplicates (Skipped)</div>
-                <div className="text-lg font-bold text-slate-800">{importSummary.ownDuplicateCount}</div>
+              <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-center">
+                <div className="text-[10px] sm:text-[11px] font-bold text-slate-600 uppercase tracking-tight">Own Duplicates</div>
+                <div className="text-base sm:text-xl font-extrabold text-slate-800 mt-0.5">{importSummary.ownDuplicateCount}</div>
               </div>
-              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-center">
-                <div className="text-[11px] font-semibold text-rose-800">Invalid Formats</div>
-                <div className="text-lg font-bold text-rose-900">{importSummary.invalidCount}</div>
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-center">
+                <div className="text-[10px] sm:text-[11px] font-bold text-rose-800 uppercase tracking-tight">Invalid Formats</div>
+                <div className="text-base sm:text-xl font-extrabold text-rose-900 mt-0.5">{importSummary.invalidCount}</div>
               </div>
             </div>
           </CardHeader>
 
           <CardContent className="p-0">
-            {/* Filter Tabs */}
-            <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-slate-100 bg-slate-50/50 text-xs overflow-x-auto">
-              <span className="text-slate-400 font-medium mr-1 text-[11px]">Filter:</span>
+            {/* Wrapping Filter Tabs (Like Call Logs) */}
+            <div className="flex flex-wrap items-center gap-1.5 p-2.5 sm:p-3 border-b border-slate-100 bg-slate-50/70 text-xs">
               <button
                 type="button"
                 onClick={() => setPreviewTab('ALL')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs ${
-                  previewTab === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-2xs border border-slate-200' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  previewTab === 'ALL'
+                    ? 'bg-slate-900 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                 }`}
               >
                 All ({importSummary.rows.length})
@@ -499,8 +470,10 @@ export const MemberImportPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPreviewTab('VALID')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs ${
-                  previewTab === 'VALID' ? 'bg-emerald-100 text-emerald-800 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  previewTab === 'VALID'
+                    ? 'bg-emerald-600 text-white shadow-2xs'
+                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
                 }`}
               >
                 Valid New ({importSummary.validCount})
@@ -508,8 +481,10 @@ export const MemberImportPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPreviewTab('CLAIMABLE')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs ${
-                  previewTab === 'CLAIMABLE' ? 'bg-amber-100 text-amber-900 font-bold shadow-2xs border border-amber-300' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  previewTab === 'CLAIMABLE'
+                    ? 'bg-amber-600 text-white shadow-2xs'
+                    : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-300'
                 }`}
               >
                 Claimable ({importSummary.claimableDuplicateCount})
@@ -517,8 +492,10 @@ export const MemberImportPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPreviewTab('DUPLICATES')}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs ${
-                  previewTab === 'DUPLICATES' ? 'bg-slate-200 text-slate-800 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  previewTab === 'DUPLICATES'
+                    ? 'bg-slate-700 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
                 }`}
               >
                 Own Duplicates ({importSummary.ownDuplicateCount})
@@ -527,8 +504,10 @@ export const MemberImportPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setPreviewTab('INVALID')}
-                  className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs ${
-                    previewTab === 'INVALID' ? 'bg-rose-100 text-rose-800 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    previewTab === 'INVALID'
+                      ? 'bg-rose-600 text-white shadow-2xs'
+                      : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
                   }`}
                 >
                   Invalid ({importSummary.invalidCount})
@@ -632,26 +611,43 @@ export const MemberImportPage: React.FC = () => {
             </div>
 
             {/* Bottom Action Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 bg-slate-50/50">
-              <div className="text-xs text-slate-500">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 border-t border-slate-200 bg-slate-50/80">
+              <div className="text-xs text-slate-600 text-center sm:text-left">
                 <span>Saving will add </span>
                 <strong className="text-emerald-700 font-bold">{totalSelectedToImport} numbers</strong>
                 <span> directly to your personal calling queue.</span>
               </div>
 
-              <Button
-                type="button"
-                variant="primary"
-                size="md"
-                leftIcon={<CheckCircle2 className="w-4 h-4" />}
-                rightIcon={<ArrowRight className="w-4 h-4" />}
-                onClick={handleConfirmImport}
-                isLoading={isImporting}
-                disabled={totalSelectedToImport === 0}
-                className="bg-emerald-600 hover:bg-emerald-700 font-semibold w-full sm:w-auto cursor-pointer"
-              >
-                Confirm &amp; Add ({totalSelectedToImport}) to My Queue
-              </Button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  onClick={() => {
+                    setImportSummary(null);
+                    setFile(null);
+                    setBulkText('');
+                    setExecuteFn(null);
+                    setSelectedClaimablePhones([]);
+                  }}
+                  className="flex-1 sm:flex-initial"
+                >
+                  Discard
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
+                  onClick={handleConfirmImport}
+                  isLoading={isImporting}
+                  disabled={totalSelectedToImport === 0}
+                  className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 font-bold text-xs sm:text-sm cursor-pointer shadow-xs"
+                >
+                  Confirm
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
