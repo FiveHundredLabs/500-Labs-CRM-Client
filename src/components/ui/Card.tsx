@@ -7,8 +7,8 @@ export const Card: React.FC<{ children: React.ReactNode; className?: string; onC
 }) => (
   <div
     onClick={onClick}
-    className={`bg-white border border-slate-200 rounded-xl shadow-xs transition-colors ${
-      onClick ? 'cursor-pointer hover:border-slate-300' : ''
+    className={`bg-white/90 backdrop-blur-md border border-slate-200/85 rounded-2xl shadow-2xs transition-all duration-200 ${
+      onClick ? 'cursor-pointer hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5' : 'hover:border-slate-300/80 hover:shadow-xs'
     } ${className}`}
   >
     {children}
@@ -19,7 +19,7 @@ export const CardHeader: React.FC<{ children: React.ReactNode; className?: strin
   children,
   className = '',
 }) => (
-  <div className={`px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-4 ${className}`}>
+  <div className={`px-5 py-4 border-b border-slate-100/90 flex items-center justify-between gap-4 ${className}`}>
     {children}
   </div>
 );
@@ -27,12 +27,12 @@ export const CardHeader: React.FC<{ children: React.ReactNode; className?: strin
 export const CardTitle: React.FC<{ children: React.ReactNode; className?: string }> = ({
   children,
   className = '',
-}) => <h3 className={`text-sm font-semibold text-slate-900 ${className}`}>{children}</h3>;
+}) => <h3 className={`text-sm font-bold text-slate-900 tracking-tight ${className}`}>{children}</h3>;
 
 export const CardDescription: React.FC<{ children: React.ReactNode; className?: string }> = ({
   children,
   className = '',
-}) => <p className={`text-xs text-slate-500 mt-0.5 ${className}`}>{children}</p>;
+}) => <p className={`text-xs text-slate-500 mt-0.5 font-normal ${className}`}>{children}</p>;
 
 export const CardContent: React.FC<{ children: React.ReactNode; className?: string }> = ({
   children,
@@ -43,7 +43,7 @@ export const CardFooter: React.FC<{ children: React.ReactNode; className?: strin
   children,
   className = '',
 }) => (
-  <div className={`px-5 py-3.5 border-t border-slate-100 bg-slate-50/50 rounded-b-xl flex items-center justify-between ${className}`}>
+  <div className={`px-5 py-3.5 border-t border-slate-100/90 bg-slate-50/50 rounded-b-2xl flex items-center justify-between ${className}`}>
     {children}
   </div>
 );
