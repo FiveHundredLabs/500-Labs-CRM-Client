@@ -9,7 +9,8 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { PostCallModal } from '../../components/calling/PostCallModal';
-import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck } from 'lucide-react';
+import { AddPersonalNumberModal } from '../../components/calling/AddPersonalNumberModal';
+import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck, PlusCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -58,6 +59,7 @@ export const MemberContactsPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<TabCategory>('NEW'); // Default is New
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const loadContacts = async () => {
     if (!user) return;
@@ -141,6 +143,16 @@ export const MemberContactsPage: React.FC = () => {
       <PageHeader
         title="Contacts & Leads"
         description="Browse assigned leads by status category, filter follow-ups, and launch calling queue"
+        actions={
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<PlusCircle className="w-4 h-4" />}
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            Add Mobile Number
+          </Button>
+        }
       />
 
       {/* Filter Tabs Header */}
@@ -350,6 +362,13 @@ export const MemberContactsPage: React.FC = () => {
           onSuccess={loadContacts}
         />
       )}
+
+      {/* Add Personal Number Modal */}
+      <AddPersonalNumberModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={loadContacts}
+      />
     </div>
   );
 };

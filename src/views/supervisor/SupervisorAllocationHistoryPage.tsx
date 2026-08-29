@@ -49,9 +49,9 @@ interface BatchSummary {
 
 export const SupervisorAllocationHistoryPage: React.FC = () => {
   const { user } = useAuth();
-  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
 
-  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || 'team_001';
+  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || '';
 
   const [batches, setBatches] = useState<BatchSummary[]>([]);
   const [teamSalesmen, setTeamSalesmen] = useState<User[]>([]);
@@ -73,6 +73,12 @@ export const SupervisorAllocationHistoryPage: React.FC = () => {
   useEffect(() => {
     const loadHistory = async () => {
       if (!user) return;
+      if (!effectiveTeamId) {
+        setBatches([]);
+        setTeamSalesmen([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const [allAllocations, teamUsers, teamContacts] = await Promise.all([

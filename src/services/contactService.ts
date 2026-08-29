@@ -70,11 +70,14 @@ export class ContactService {
     if (dupCheck.exists && dupCheck.isOwnedBySelf) {
       throw new Error(`Duplicate rejected: Phone number ${normalized} is already in your profile.`);
     }
+    if (!actor.teamId) {
+      throw new Error('Your account is not assigned to a team. Please contact an administrator.');
+    }
 
     const newContact = await contactRepository.addPersonalNumber({
       phone: normalized,
       memberId: actor.id,
-      teamId: actor.teamId || 'team_001',
+      teamId: actor.teamId,
       city,
       secondaryMobile,
     });
@@ -83,7 +86,7 @@ export class ContactService {
       userId: actor.id,
       userRole: actor.role,
       userName: actor.fullName,
-      teamId: actor.teamId || 'team_001',
+      teamId: actor.teamId,
       action: 'NUMBER_ADDED',
       entityType: 'Contact',
       entityId: newContact.id,
@@ -207,13 +210,16 @@ export class ContactService {
       if (totalToImport.length === 0) {
         throw new Error('No valid phone numbers selected to import.');
       }
+      if (!actor.teamId) {
+        throw new Error('Select a real team before importing contacts.');
+      }
 
       const isMember = actor.role === 'TEAM_MEMBER';
       const now = new Date().toISOString();
       const contactsToCreate = totalToImport.map((phone) => ({
         phone,
         status: 'NEW' as const,
-        teamId: actor.teamId || 'team_001',
+        teamId: actor.teamId!,
         importedAt: now,
         importedBy: actor.id,
         importBatchId: batchId,
@@ -234,7 +240,7 @@ export class ContactService {
         userId: actor.id,
         userRole: actor.role,
         userName: actor.fullName,
-        teamId: actor.teamId || 'team_001',
+        teamId: actor.teamId,
         action: isMember ? 'NUMBER_ADDED' : 'CONTACT_IMPORTED',
         entityType: 'Contact',
         entityId: batchId,
