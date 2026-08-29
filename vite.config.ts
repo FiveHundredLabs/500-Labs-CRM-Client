@@ -3,7 +3,15 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
+  const config = {
+    plugins: [react(), tailwindcss()],
+  };
+
+  if (command !== "serve") {
+    return config;
+  }
+
   const env = loadEnv(mode, process.cwd(), "");
   const devApiTarget = env.DEV_API_TARGET?.trim();
 
@@ -12,7 +20,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react(), tailwindcss()],
+    ...config,
     server: {
       proxy: {
         "/api": {

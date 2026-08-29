@@ -71,14 +71,25 @@ VITE_API_BASE_URL=/api/v1
 DEV_API_TARGET=http://localhost:3000
 ```
 
-On Vercel, `/api/*` is rewritten externally to `https://api.500crm.residuesolution.io/api/*`. In local development, Vite proxies `/api` to `DEV_API_TARGET`.
+On Vercel, `/api/*` is rewritten externally to the configured `API_UPSTREAM_ORIGIN` plus `/api/*`. In local development, Vite proxies `/api` to `DEV_API_TARGET`.
+
+Vercel Project Settings -> Environment Variables:
+
+```text
+VITE_API_BASE_URL=/api/v1
+API_UPSTREAM_ORIGIN=<production backend origin>
+```
+
+`VITE_API_BASE_URL` is public browser configuration. `API_UPSTREAM_ORIGIN` is non-`VITE_` Vercel routing configuration used by `vercel.ts`; it is not intentionally embedded into the frontend bundle.
 
 Current production topology:
 
 - Frontend: `https://500-labs-crm-client.vercel.app`
-- Backend: `https://api.500crm.residuesolution.io`
+- Backend: configured in Vercel as `API_UPSTREAM_ORIGIN`
 
-The browser must not call `api.500crm.residuesolution.io` directly. JWTs are stored only in backend-set HttpOnly cookies scoped to the frontend origin through the rewrite response; frontend code must not read cookies, attach Bearer tokens, or store JWTs in `localStorage`/`sessionStorage`.
+The browser must not call the backend origin directly in proxy mode. JWTs are stored only in backend-set HttpOnly cookies scoped to the frontend origin through the rewrite response; frontend code must not read cookies, attach Bearer tokens, or store JWTs in `localStorage`/`sessionStorage`.
+
+Hiding the physical backend hostname from Git is configuration hygiene, not a security boundary. Security must still rely on authentication, authorization, RBAC, resource ownership, validation, and rate limiting.
 
 ---
 
