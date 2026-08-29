@@ -1,5 +1,5 @@
 import { callLogRepository } from '../repositories';
-import { ContactStatus, User, Customer, CallLog } from '../models/domain';
+import { ContactStatus, User, Customer, CallLog, DeliveryMethod } from '../models/domain';
 import apiClient from '../lib/apiClient';
 
 export interface SubmitCallResultInput {
@@ -10,6 +10,8 @@ export interface SubmitCallResultInput {
   city?: string;
   secondaryMobile?: string;
   customerEmail?: string;
+  deliveryMethod?: DeliveryMethod;
+  deliveryNote?: string;
   selectedPackage?: 'ADULT' | 'KIDS' | 'BOTH' | 'NONE' | string;
   adultQty?: number;
   adultUnitPrice?: number;

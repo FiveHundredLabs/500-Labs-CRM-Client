@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { ContactCodeConfirmationModal, ContactPreviewInfo } from '../../components/contacts/ContactCodeConfirmationModal';
 
 export const MemberImportPage: React.FC = () => {
   const { user } = useAuth();
@@ -48,6 +49,11 @@ export const MemberImportPage: React.FC = () => {
   const [claimIntelligence, setClaimIntelligence] = useState<DuplicatePhoneIntelligence | null>(null);
   const [isClaiming, setIsClaiming] = useState(false);
 
+  // Contact Code Confirmation Modal State
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
+  const [pendingContactInfo, setPendingContactInfo] = useState<ContactPreviewInfo | null>(null);
+  const [pendingActionType, setPendingActionType] = useState<'MANUAL_ADD' | 'CLAIM'>('MANUAL_ADD');
+
   // Bulk text area numbers state
   const [bulkText, setBulkText] = useState('');
   const [isBulkTextProcessing, setIsBulkTextProcessing] = useState(false);
@@ -56,7 +62,7 @@ export const MemberImportPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [parsedFileInfo, setParsedFileInfo] = useState<ExcelContactParseResult | null>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
-  const [executeFn, setExecuteFn] = useState<(() => Promise<any>) | null>(null);
+  const [executeFn, setExecuteFn] = useState<((code?: string) => Promise<any>) | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedClaimablePhones, setSelectedClaimablePhones] = useState<string[]>([]);
 
@@ -94,11 +100,13 @@ export const MemberImportPage: React.FC = () => {
         }
       }
 
-      // Brand new contact -> directly add
-      await ContactService.addPersonalContact(norm, user);
-      toast.success(`Successfully added contact ${norm} directly to your queue!`);
-      setManualPhone('');
-      navigate('/member/contacts');
+      // Brand new contact -> Open Contact Code Confirmation Modal
+      setPendingContactInfo({
+        phone: norm,
+        assigneeName: user.fullName,
+      });
+      setPendingActionType('MANUAL_ADD');
+      setCodeModalOpen(true);
     } catch (err: any) {
       toast.error(err.message || 'Failed to process contact.');
     } finally {
@@ -106,24 +114,81 @@ export const MemberImportPage: React.FC = () => {
     }
   };
 
-  // Confirm Claiming Duplicate Contact
-  const handleConfirmClaim = async () => {
+  // Open Code Confirmation for Claiming Duplicate Contact
+  const handleInitiateClaim = () => {
     if (!claimIntelligence || !user) return;
+    setPendingContactInfo({
+      phone: claimIntelligence.phone,
+      city: claimIntelligence.city || undefined,
+      assigneeName: user.fullName,
+    });
+    setPendingActionType('CLAIM');
+    setClaimModalOpen(false);
+    setCodeModalOpen(true);
+  };
+
+  // Open Bulk Confirmation Modal
+  const handleOpenBulkConfirmModal = () => {
+    if (!importSummary || !executeFn) return;
+    const totalToImport = importSummary.validCount + selectedClaimablePhones.length;
+    if (totalToImport === 0) return;
+
+    setPendingContactInfo({
+      batchCount: totalToImport,
+      assigneeName: user?.fullName,
+      customTitle: `Confirm Code for ${totalToImport} Contacts`,
+      customDescription: `Please enter the unique batch/contact code before importing these ${totalToImport} contacts into your personal calling queue.`,
+    });
+    setCodeModalOpen(true);
+  };
+
+  // Confirm Contact Creation / Bulk Import with Entered Code
+  const handleConfirmWithCode = async (enteredCode: string) => {
+    if (!pendingContactInfo || !user) return;
+
+    // 1. Bulk Import Mode
+    if (pendingContactInfo.batchCount && executeFn) {
+      setIsImporting(true);
+      try {
+        const imported = await executeFn(enteredCode.trim());
+        toast.success(`Successfully imported ${imported.length} contacts [Code: ${enteredCode.trim()}] into your calling queue!`);
+        setCodeModalOpen(false);
+        setPendingContactInfo(null);
+        setImportSummary(null);
+        setFile(null);
+        setBulkText('');
+        setExecuteFn(null);
+        setSelectedClaimablePhones([]);
+        navigate('/member/contacts');
+      } catch (err: any) {
+        toast.error(err.message || 'Import failed.');
+        throw err;
+      } finally {
+        setIsImporting(false);
+      }
+      return;
+    }
+
+    // 2. Single Contact Add / Claim Mode
     setIsClaiming(true);
     try {
       await ContactService.addPersonalContact(
-        claimIntelligence.phone,
+        pendingContactInfo.phone!,
         user,
-        claimIntelligence.city || undefined,
-        undefined
+        pendingContactInfo.city,
+        pendingContactInfo.secondaryMobile,
+        enteredCode
       );
-      toast.success(`Added ${claimIntelligence.phone} to your personal calling queue!`);
-      setClaimModalOpen(false);
+
+      toast.success(`Successfully added contact ${pendingContactInfo.phone} [${enteredCode}] to your queue!`);
+      setCodeModalOpen(false);
+      setPendingContactInfo(null);
       setClaimIntelligence(null);
       setManualPhone('');
       navigate('/member/contacts');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to claim contact.');
+      toast.error(err.message || 'Failed to save contact with code.');
+      throw err;
     } finally {
       setIsClaiming(false);
     }
@@ -640,12 +705,12 @@ export const MemberImportPage: React.FC = () => {
                   size="md"
                   leftIcon={<CheckCircle2 className="w-4 h-4" />}
                   rightIcon={<ArrowRight className="w-4 h-4" />}
-                  onClick={handleConfirmImport}
+                  onClick={handleOpenBulkConfirmModal}
                   isLoading={isImporting}
                   disabled={totalSelectedToImport === 0}
                   className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 font-bold text-xs sm:text-sm cursor-pointer shadow-xs"
                 >
-                  Confirm
+                  Confirm &amp; Import Contacts
                 </Button>
               </div>
             </div>
@@ -775,17 +840,28 @@ export const MemberImportPage: React.FC = () => {
               <Button
                 type="button"
                 variant="primary"
-                isLoading={isClaiming}
-                onClick={handleConfirmClaim}
+                onClick={handleInitiateClaim}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer"
                 leftIcon={<CheckCircle2 className="w-4 h-4" />}
               >
-                Confirm
+                Proceed to Code Confirmation
               </Button>
             </div>
           </div>
         )}
       </Dialog>
+
+      {/* Reusable Contact Code Confirmation Modal */}
+      <ContactCodeConfirmationModal
+        isOpen={codeModalOpen}
+        onClose={() => {
+          setCodeModalOpen(false);
+          setPendingContactInfo(null);
+        }}
+        contactInfo={pendingContactInfo}
+        onConfirm={handleConfirmWithCode}
+        isSubmitting={isClaiming}
+      />
     </div>
   );
 };

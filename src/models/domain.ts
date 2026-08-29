@@ -25,6 +25,8 @@ export type OrderStatus =
 
 export type EmailNotificationStatus = 'SENT' | 'SKIPPED' | 'FAILED';
 
+export type DeliveryMethod = 'POST' | 'ROYAL_COURIER';
+
 export interface Team {
   id: string; // e.g., 'team_001', 'team_002'
   name: string; // e.g., 'Easy Method English', 'Grow Mart'
@@ -63,6 +65,7 @@ export interface User {
 
 export interface Contact {
   id: string; // e.g., 'cnt_001'
+  code?: string; // Unique contact code e.g. 'CTC-001', 'LEAD-9821'
   phone: string;
   status: ContactStatus;
   teamId: string;
@@ -143,6 +146,8 @@ export interface CallLog {
   customerEmail?: string;
   city?: string;
   secondaryMobile?: string;
+  deliveryMethod?: DeliveryMethod;
+  deliveryNote?: string;
   selectedPackage?: 'ADULT' | 'KIDS' | 'BOTH' | 'NONE' | string;
   adultQty?: number;
   adultUnitPrice?: number;
@@ -169,15 +174,19 @@ export interface CallLog {
 export interface Customer {
   id: string; // e.g., 'cst_001'
   contactId: string;
+  code?: string;
   fullName: string;
   phone: string;
   secondaryMobile?: string;
   city?: string;
   address: string;
   email?: string;
+  deliveryMethod?: DeliveryMethod;
+  deliveryNote?: string;
   teamId: string;
   responsibleTeamMemberId: string;
   supervisorId: string;
+  contact?: Contact;
   createdAt: string;
   updatedAt: string;
 }
@@ -221,6 +230,8 @@ export interface Order {
   teamMemberId: string; // Responsible Team Member
   supervisorId: string;
   status: OrderStatus;
+  deliveryMethod?: DeliveryMethod;
+  deliveryNote?: string;
   itemsDescription: string;
   selectedPackage?: 'ADULT' | 'KIDS' | 'BOTH' | string;
   adultQty?: number;

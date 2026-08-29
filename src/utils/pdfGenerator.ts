@@ -250,12 +250,21 @@ const captureSlipImage = async (item: PrintReadyItem): Promise<string> => {
   }
 };
 
-export const generateBillingPdf = async (items: LeadPrintItem[]): Promise<BillingPdfResult> => {
+export type PdfProgressCallback = (current: number, total: number, percentage: number) => void;
+
+export const generateBillingPdf = async (
+  items: LeadPrintItem[],
+  onProgress?: PdfProgressCallback
+): Promise<BillingPdfResult> => {
   const printItems = resolvePrintItems(items);
   const slipImages: string[] = [];
 
-  for (const item of printItems) {
+  onProgress?.(0, printItems.length, 0);
+
+  for (let i = 0; i < printItems.length; i++) {
+    const item = printItems[i];
     slipImages.push(await captureSlipImage(item));
+    onProgress?.(i + 1, printItems.length, Math.round(((i + 1) / printItems.length) * 100));
   }
 
   const pages = chunkIntoSheets(slipImages, 4);
@@ -285,14 +294,20 @@ export const generateBillingPdf = async (items: LeadPrintItem[]): Promise<Billin
   return { pdf, pageCount: pages.length };
 };
 
-export const downloadBillingPDF = async (items: LeadPrintItem[]): Promise<boolean> => {
-  const { pdf } = await generateBillingPdf(items);
+export const downloadBillingPDF = async (
+  items: LeadPrintItem[],
+  onProgress?: PdfProgressCallback
+): Promise<boolean> => {
+  const { pdf } = await generateBillingPdf(items, onProgress);
   pdf.save(`billing_cod_slips_${items.length}.pdf`);
   return true;
 };
 
-export const printBillingPDF = async (items: LeadPrintItem[]): Promise<boolean> => {
-  const { pdf } = await generateBillingPdf(items);
+export const printBillingPDF = async (
+  items: LeadPrintItem[],
+  onProgress?: PdfProgressCallback
+): Promise<boolean> => {
+  const { pdf } = await generateBillingPdf(items, onProgress);
 
   const blob = pdf.output('blob');
   const url = URL.createObjectURL(blob);

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { LeadPrintItem, BillingSlipPrintSheet } from './BillingSlipPrintSheet';
 import { Printer, FileText, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { printBillingPDF } from '../../utils/pdfGenerator';
+import { CircularProgressPdfModal } from './CircularProgressPdfModal';
 
 export interface InterestedLeadsPrintModalProps {
   isOpen: boolean;
@@ -19,14 +20,43 @@ export const InterestedLeadsPrintModal: React.FC<InterestedLeadsPrintModalProps>
   items,
   onPrintExecuted,
 }) => {
+  const [pdfProgress, setPdfProgress] = useState({
+    isOpen: false,
+    title: 'Preparing Billing Slips for Printing...',
+    subtitle: '',
+    current: 0,
+    total: 0,
+    percentage: 0,
+    actionType: 'PRINT' as 'DOWNLOAD' | 'PRINT',
+  });
+
   const handlePrint = async () => {
+    setPdfProgress({
+      isOpen: true,
+      title: 'Preparing Billing Slips for Printing...',
+      subtitle: `Assembling ${items.length} billing slip(s)...`,
+      current: 0,
+      total: items.length,
+      percentage: 0,
+      actionType: 'PRINT',
+    });
     try {
-      await printBillingPDF(items);
+      await printBillingPDF(items, (curr, tot, pct) => {
+        setPdfProgress((prev) => ({
+          ...prev,
+          current: curr,
+          total: tot,
+          percentage: pct,
+          subtitle: `Rendering high-resolution slip ${curr} of ${tot}...`,
+        }));
+      });
       if (onPrintExecuted) {
         onPrintExecuted();
       }
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate billing print document.');
+    } finally {
+      setPdfProgress((prev) => ({ ...prev, isOpen: false }));
     }
   };
 
@@ -78,6 +108,8 @@ export const InterestedLeadsPrintModal: React.FC<InterestedLeadsPrintModalProps>
           </div>
         </div>
       </div>
+
+      <CircularProgressPdfModal {...pdfProgress} />
     </Dialog>
   );
 };
