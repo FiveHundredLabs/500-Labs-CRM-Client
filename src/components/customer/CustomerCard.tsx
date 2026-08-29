@@ -40,7 +40,7 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
     <div
       onClick={onToggleSelect}
       className={`
-        rounded-xl border p-2.5
+        rounded-xl border p-2
         transition-all cursor-pointer select-none
         bg-white
         ${
@@ -51,8 +51,8 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
       `}
     >
       {/* TOP ROW: Checkbox + Name + Order # | Status Badge */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
           <button
             type="button"
             className="shrink-0 flex items-center justify-center cursor-pointer"
@@ -62,9 +62,9 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
             }}
           >
             {isSelected ? (
-              <CheckSquare className="w-4 h-4 text-blue-600" />
+              <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
             ) : (
-              <Square className="w-4 h-4 text-slate-300 hover:text-slate-400" />
+              <Square className="w-3.5 h-3.5 text-slate-300 hover:text-slate-400" />
             )}
           </button>
 
@@ -74,7 +74,7 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
                 {customerName}
               </h3>
               {orderNumber && (
-                <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1 py-0.5 rounded shrink-0 font-semibold">
+                <span className="text-[9.5px] font-mono text-slate-500 bg-slate-100 px-1 py-0.2 rounded shrink-0 font-semibold border border-slate-200">
                   #{orderNumber}
                 </span>
               )}
@@ -86,11 +86,11 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
       </div>
 
       {/* CONTACT DETAILS & OPTIONAL MIDDLE CONTENT */}
-      <div className="mt-1.5 space-y-1.5 pl-3 sm:pl-6 pr-0.5 sm:pr-1">
+      <div className="mt-1 space-y-1 pl-2.5 sm:pl-5 pr-0.5">
         {phone && (
           <div className="flex items-center gap-1.5 min-w-0">
             <Phone className="w-3 h-3 text-blue-500 shrink-0" />
-            <span className="text-[10px] sm:text-[11px] font-mono font-semibold text-blue-600 truncate">
+            <span className="text-[10px] sm:text-[10.5px] font-mono font-semibold text-blue-600 truncate">
               {phone}
             </span>
           </div>
@@ -99,7 +99,7 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
         {address && (
           <div className="flex items-center gap-1.5 min-w-0">
             <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-            <span className="text-[10px] sm:text-[11px] text-slate-600 truncate">
+            <span className="text-[10px] sm:text-[10.5px] text-slate-600 truncate">
               {address}
             </span>
           </div>
@@ -109,7 +109,7 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
       </div>
 
       {/* BOTTOM ROW: Handled By | Date */}
-      <div className="mt-2 pl-3 sm:pl-6 flex items-center justify-between gap-2 min-w-0 text-[9px] sm:text-[10px]">
+      <div className="mt-1.5 pl-2.5 sm:pl-5 flex items-center justify-between gap-2 min-w-0 text-[9px] sm:text-[9.5px]">
         <div className="flex items-center gap-1 min-w-0">
           <UserCheck className="w-3 h-3 text-slate-400 shrink-0" />
           <span className="text-slate-600 truncate">

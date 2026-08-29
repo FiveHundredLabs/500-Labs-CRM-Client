@@ -8,6 +8,7 @@ import { InterestedList } from '../../components/interested/InterestedList';
 import { InterestedPdfConfirmDialog } from '../../components/interested/InterestedPdfConfirmDialog';
 import { InterestedCancelConfirmDialog } from '../../components/interested/InterestedCancelConfirmDialog';
 import { RoyalCourierDispatchConfirmDialog } from '../../components/interested/RoyalCourierDispatchConfirmDialog';
+import { CircularProgressPdfModal } from '../../components/printing/CircularProgressPdfModal';
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
@@ -50,6 +51,17 @@ export const SupervisorInterestedPage: React.FC = () => {
   const [isDispatching, setIsDispatching] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
   const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
+
+  // Circular Progress PDF Loading State
+  const [pdfProgress, setPdfProgress] = useState({
+    isOpen: false,
+    title: 'Generating Billing Slips PDF...',
+    subtitle: '',
+    current: 0,
+    total: 0,
+    percentage: 0,
+    actionType: 'DOWNLOAD' as 'DOWNLOAD' | 'PRINT',
+  });
 
   useEffect(() => {
     if (!user) return;
@@ -195,26 +207,63 @@ export const SupervisorInterestedPage: React.FC = () => {
   // TAB 1 (POST): PDF Download Trigger
   const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
+    setPdfProgress({
+      isOpen: true,
+      title: 'Downloading Billing Slips PDF...',
+      subtitle: `Preparing ${selectedPrintItems.length} billing slip(s)...`,
+      current: 0,
+      total: selectedPrintItems.length,
+      percentage: 0,
+      actionType: 'DOWNLOAD',
+    });
     try {
-      await downloadBillingPDF(selectedPrintItems);
+      await downloadBillingPDF(selectedPrintItems, (curr, tot, pct) => {
+        setPdfProgress((prev) => ({
+          ...prev,
+          current: curr,
+          total: tot,
+          percentage: pct,
+          subtitle: `Rendering high-resolution slip ${curr} of ${tot}...`,
+        }));
+      });
       toast.success('Billing slips PDF downloaded!');
       setIsPdfConfirmOpen(true);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate billing PDF.');
+    } finally {
+      setPdfProgress((prev) => ({ ...prev, isOpen: false }));
     }
   };
 
   // TAB 1 (POST): Native Print Trigger
   const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
+    setPdfProgress({
+      isOpen: true,
+      title: 'Preparing Billing Slips for Printing...',
+      subtitle: `Assembling ${selectedPrintItems.length} billing slip(s)...`,
+      current: 0,
+      total: selectedPrintItems.length,
+      percentage: 0,
+      actionType: 'PRINT',
+    });
     try {
-      await printBillingPDF(selectedPrintItems);
+      await printBillingPDF(selectedPrintItems, (curr, tot, pct) => {
+        setPdfProgress((prev) => ({
+          ...prev,
+          current: curr,
+          total: tot,
+          percentage: pct,
+          subtitle: `Rendering high-resolution slip ${curr} of ${tot}...`,
+        }));
+      });
       setIsDispatching(true);
       await dispatchInterestedLeads(selectedIds);
       clearSelection();
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate billing print document.');
     } finally {
+      setPdfProgress((prev) => ({ ...prev, isOpen: false }));
       setIsDispatching(false);
     }
   };
@@ -447,6 +496,9 @@ export const SupervisorInterestedPage: React.FC = () => {
           setInspectConflictInfo(null);
         }}
       />
+
+      {/* Circular Progress PDF / Print Loading Modal */}
+      <CircularProgressPdfModal {...pdfProgress} />
     </div>
   );
 };

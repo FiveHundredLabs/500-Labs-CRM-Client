@@ -466,16 +466,6 @@ export const SupervisorStockPage: React.FC = () => {
                       <td className="py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button
-                            variant="outline"
-                            size="sm"
-                            leftIcon={<PlusCircle className="w-3 h-3 text-blue-600" />}
-                            onClick={() => openStockModal(product)}
-                            className="text-xs px-1.5 py-0.5 h-6.5"
-                            title="Request Stock Addition"
-                          >
-                            + Stock
-                          </Button>
-                          <Button
                             variant="ghost"
                             size="sm"
                             leftIcon={<DollarSign className="w-3 h-3 text-slate-600" />}
@@ -593,16 +583,7 @@ export const SupervisorStockPage: React.FC = () => {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      leftIcon={<PlusCircle className="w-3.5 h-3.5 text-blue-600" />}
-                      onClick={() => openStockModal(product)}
-                      className="w-full text-xs font-semibold py-1.5 h-8 justify-center"
-                    >
-                      + Stock
-                    </Button>
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
                     <Button
                       variant="outline"
                       size="sm"
