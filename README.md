@@ -59,16 +59,23 @@ Browser API calls are same-origin and relative:
 
 ```ts
 axios.create({
-  baseURL: "/api/v1",
+  baseURL: env.apiBaseUrl,
   withCredentials: true,
 });
 ```
 
-On Vercel, `/api/*` is rewritten externally to `https://api.500crm.residuesolution.io/api/*`. In local development, Vite proxies `/api` to `http://localhost:3000`.
+Configure:
+
+```env
+VITE_API_BASE_URL=/api/v1
+DEV_API_TARGET=http://localhost:3000
+```
+
+On Vercel, `/api/*` is rewritten externally to `https://api.500crm.residuesolution.io/api/*`. In local development, Vite proxies `/api` to `DEV_API_TARGET`.
 
 Current production topology:
 
-- Frontend: `https://500crm-frontend.vercel.app`
+- Frontend: `https://500-labs-crm-client.vercel.app`
 - Backend: `https://api.500crm.residuesolution.io`
 
 The browser must not call `api.500crm.residuesolution.io` directly. JWTs are stored only in backend-set HttpOnly cookies scoped to the frontend origin through the rewrite response; frontend code must not read cookies, attach Bearer tokens, or store JWTs in `localStorage`/`sessionStorage`.
