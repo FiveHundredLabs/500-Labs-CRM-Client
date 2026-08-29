@@ -197,8 +197,10 @@ export const MemberFollowUpsPage: React.FC = () => {
 
     const matchesSearch =
       phone.toLowerCase().includes(search.toLowerCase()) ||
+      (contact?.code && contact.code.toLowerCase().includes(search.toLowerCase())) ||
       (log.customerName && log.customerName.toLowerCase().includes(search.toLowerCase())) ||
-      (log.remarks && log.remarks.toLowerCase().includes(search.toLowerCase()));
+      (log.remarks && log.remarks.toLowerCase().includes(search.toLowerCase())) ||
+      (log.city && log.city.toLowerCase().includes(search.toLowerCase()));
 
     if (!matchesSearch) return false;
 

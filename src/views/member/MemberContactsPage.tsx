@@ -113,8 +113,11 @@ export const MemberContactsPage: React.FC = () => {
     const matchesSearch =
       !q ||
       c.phone.toLowerCase().includes(q) ||
+      (c.code && c.code.toLowerCase().includes(q)) ||
       (c.city && c.city.toLowerCase().includes(q)) ||
-      (c.secondaryMobile && c.secondaryMobile.toLowerCase().includes(q));
+      (c.secondaryMobile && c.secondaryMobile.toLowerCase().includes(q)) ||
+      (c.importBatchId && c.importBatchId.toLowerCase().includes(q)) ||
+      (c.allocationSource && c.allocationSource.toLowerCase().includes(q));
 
     if (!matchesSearch) return false;
 
@@ -226,7 +229,7 @@ export const MemberContactsPage: React.FC = () => {
               activeTab === 'SAVED_CONTACTS'
                 ? 'saved contacts'
                 : activeTab.toLowerCase().replace('_', ' ')
-            } contacts by phone or city...`}
+            } by phone, contact code, or city...`}
           />
         </div>
         {search && (
@@ -307,13 +310,6 @@ export const MemberContactsPage: React.FC = () => {
                   )}
 
                   <StatusBadge type="contact" status={contact.status} />
-
-                  {contact.isSelfAdded && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
-                      <UserCheck className="w-3 h-3" />
-                      <span>Self-Added</span>
-                    </span>
-                  )}
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">

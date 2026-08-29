@@ -4,7 +4,7 @@ import { CustomerCard } from '../customer/CustomerCard';
 import { StatusBadge } from '../shared/StatusBadge';
 import { OrderExpandedDetails } from './OrderExpandedDetails';
 import type { DuplicateOrderConflictInfo } from './DuplicateOrderConflictDialog';
-import { ChevronDown, ChevronUp, AlertTriangle, Info } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertTriangle, Info, FileText, Mail, Truck } from 'lucide-react';
 import { format } from 'date-fns';
 
 export interface OrderCardProps {
@@ -43,6 +43,9 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     'MMM dd'
   );
 
+  const deliveryMethod = order.deliveryMethod || customer?.deliveryMethod || 'POST';
+  const deliveryNote = order.deliveryNote || customer?.deliveryNote;
+
   return (
     <CustomerCard
       isSelected={isSelected}
@@ -51,6 +54,17 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       orderNumber={order.orderNumber}
       badge={
         <div className="flex items-center gap-1.5 shrink-0">
+          {deliveryMethod === 'ROYAL_COURIER' ? (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+              <Truck className="w-2.5 h-2.5 text-purple-600" />
+              Royal Courier
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              <Mail className="w-2.5 h-2.5 text-blue-600" />
+              Post
+            </span>
+          )}
           <StatusBadge type="order" status={order.status} className="shrink-0 text-[10px]" />
           <button
             type="button"
@@ -76,6 +90,18 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       dateString={formattedDate}
       middleContent={
         <div className="space-y-2">
+          {/* Highlighted Delivery Note Callout */}
+          {deliveryNote && (
+            <div className="p-2 rounded-lg bg-amber-50/95 border border-amber-300 text-[11px] space-y-0.5 shadow-2xs">
+              <div className="flex items-center gap-1 font-bold text-amber-900">
+                <FileText className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <span>Delivery Note:</span>
+              </div>
+              <div className="text-slate-800 font-medium pl-4 text-[10.5px]">
+                "{deliveryNote}"
+              </div>
+            </div>
+          )}
           {/* Active Duplicate Orders Warning Banner - Only shown while order is active, hidden after delivery */}
           {order.status !== 'DELIVERED' && order.status !== 'REJECTED' && conflictInfo?.hasDuplicateActiveOrders && (
             <div

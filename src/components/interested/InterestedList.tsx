@@ -2,7 +2,7 @@ import React from 'react';
 import type { Customer, User, Order } from '../../models/domain';
 import { CustomerCard } from '../customer/CustomerCard';
 import { EmptyState } from '../shared/EmptyState';
-import { Sparkles, Truck, AlertTriangle, Info } from 'lucide-react';
+import { Sparkles, Truck, AlertTriangle, Info, FileText, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DuplicateOrderConflictInfo } from '../orders/DuplicateOrderConflictDialog';
 
@@ -29,7 +29,7 @@ export const InterestedList: React.FC<InterestedListProps> = ({
     return (
       <EmptyState
         title="No interested leads found"
-        description="No leads with status INTERESTED match the selected team member or search filter."
+        description="No leads with status INTERESTED match the selected filters."
       />
     );
   }
@@ -42,14 +42,31 @@ export const InterestedList: React.FC<InterestedListProps> = ({
         const formattedDate = format(new Date(customer.createdAt), 'MMM dd');
         const conflictInfo = interestedConflictMap[customer.id];
 
-        // Check for previous dispatches
+        // Check for orders
         const custOrders = ordersMap[customer.id] || [];
+        const currentOrder = custOrders[0];
+        const deliveryMethod = currentOrder?.deliveryMethod || customer.deliveryMethod || 'POST';
+        const deliveryNote = currentOrder?.deliveryNote || customer.deliveryNote;
+
         const previousOrder = custOrders.find((o) =>
           ['DISPATCHED', 'DELIVERED', 'REJECTED', 'RETURNED'].includes(o.status)
         );
 
         const previousDispatchContent = (
           <div className="space-y-1.5 mt-1.5">
+            {/* Highlighted Delivery Note Callout */}
+            {deliveryNote && (
+              <div className="p-2 rounded-lg bg-amber-50/95 border border-amber-300 text-[11px] space-y-0.5 shadow-2xs">
+                <div className="flex items-center gap-1 font-bold text-amber-900">
+                  <FileText className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <span>Delivery Note:</span>
+                </div>
+                <div className="text-slate-800 font-medium pl-4 text-[10.5px]">
+                  "{deliveryNote}"
+                </div>
+              </div>
+            )}
+
             {/* Early Duplicate Active Orders Warning Badge */}
             {conflictInfo?.hasDuplicateActiveOrders && (
               <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] space-y-1">
@@ -167,10 +184,23 @@ export const InterestedList: React.FC<InterestedListProps> = ({
             onToggleSelect={() => onToggleSelectCard(customer.id)}
             customerName={customer.fullName}
             badge={
-              <span className="inline-flex items-center justify-center gap-1 shrink-0 whitespace-nowrap text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
-                <Sparkles className="w-2.5 h-2.5 shrink-0" />
-                Interested
-              </span>
+              <div className="flex items-center gap-1.5">
+                {deliveryMethod === 'ROYAL_COURIER' ? (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                    <Truck className="w-2.5 h-2.5 text-purple-600" />
+                    Royal Courier
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                    <Mail className="w-2.5 h-2.5 text-blue-600" />
+                    Post
+                  </span>
+                )}
+                <span className="inline-flex items-center justify-center gap-1 shrink-0 whitespace-nowrap text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                  <Sparkles className="w-2.5 h-2.5 shrink-0" />
+                  Interested
+                </span>
+              </div>
             }
             phone={customer.phone}
             address={customer.address}

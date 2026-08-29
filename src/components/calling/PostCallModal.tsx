@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { StatusBadge } from '../shared/StatusBadge';
-import { Contact, ContactStatus, CallLog, Product } from '../../models/domain';
+import { Contact, ContactStatus, CallLog, Product, DeliveryMethod } from '../../models/domain';
 import { CallLogService } from '../../services/callLogService';
 import { callLogRepository, productRepository } from '../../repositories';
 import { useAuth } from '../../hooks/useAuth';
@@ -21,7 +21,10 @@ import {
   Plus, 
   Minus, 
   DollarSign, 
-  ShoppingBag
+  ShoppingBag,
+  Mail,
+  Truck,
+  FileText
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
@@ -53,6 +56,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   const [city, setCity] = useState('');
   const [secondaryMobile, setSecondaryMobile] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('POST');
+  const [deliveryNote, setDeliveryNote] = useState('');
   const [remarks, setRemarks] = useState('');
 
   // Dynamic Team Products
@@ -128,6 +133,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     setCity(contact.city || '');
     setSecondaryMobile(contact.secondaryMobile || '');
     setCustomerEmail('');
+    setDeliveryMethod('POST');
+    setDeliveryNote('');
     setRemarks('');
     setSelectedQuantities({});
     setCodAmount('0');
@@ -265,6 +272,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           city: isInterested ? city.trim() : undefined,
           secondaryMobile: isInterested && secondaryMobile.trim() ? secondaryMobile.trim() : undefined,
           customerEmail: customerEmail.trim() || undefined,
+          deliveryMethod: isInterested ? deliveryMethod : undefined,
+          deliveryNote: isInterested && deliveryNote.trim() ? deliveryNote.trim() : undefined,
           items: isInterested ? itemsPayload : undefined,
           totalPackageValue: isInterested ? totalOrderValue : undefined,
           codAmount: isInterested ? parseFloat(codAmount) || totalOrderValue : undefined,
@@ -296,7 +305,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
       description={`Contact Phone: ${contact.phone}`}
       maxWidth="lg"
     >
-      <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
+      <div className="space-y-4">
         {/* Launch Dialer Bar */}
         <div className="bg-blue-50/60 border border-blue-100 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -560,6 +569,64 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                     onChange={(e) => setCustomerEmail(e.target.value)}
                   />
                 </div>
+
+                {/* Delivery Method Selection */}
+                <div className="space-y-1.5 pt-1">
+                  <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Delivery Method *</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod('POST')}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
+                        deliveryMethod === 'POST'
+                          ? 'bg-blue-50/90 border-blue-500 ring-2 ring-blue-500/20 text-blue-950 font-bold shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        deliveryMethod === 'POST' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold">Post</div>
+                        <div className="text-[10px] text-slate-500 font-normal">Standard Post Delivery &amp; Billing Slip</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod('ROYAL_COURIER')}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
+                        deliveryMethod === 'ROYAL_COURIER'
+                          ? 'bg-purple-50/90 border-purple-500 ring-2 ring-purple-500/20 text-purple-950 font-bold shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        deliveryMethod === 'ROYAL_COURIER' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        <Truck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold">Royal Courier</div>
+                        <div className="text-[10px] text-slate-500 font-normal">Royal Courier Dispatch (Excel Batch Export)</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Delivery Note */}
+                <Input
+                  label="Delivery Note / Special Instructions (Optional)"
+                  placeholder="e.g. Call before delivery, deliver after 2 PM, near landmark..."
+                  value={deliveryNote}
+                  onChange={(e) => setDeliveryNote(e.target.value)}
+                  leftIcon={<FileText className="w-4 h-4 text-slate-400" />}
+                />
 
                 {/* Dynamic Product Selection & Pricing Breakdown */}
                 <div className="pt-3 border-t border-emerald-200 space-y-3">

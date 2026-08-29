@@ -6,18 +6,19 @@ import { PrintFloatingPanel } from '../../components/printing/PrintFloatingPanel
 import { InterestedFilters } from '../../components/interested/InterestedFilters';
 import { InterestedList } from '../../components/interested/InterestedList';
 import { InterestedPdfConfirmDialog } from '../../components/interested/InterestedPdfConfirmDialog';
-import { InterestedPrintConfirmDialog } from '../../components/interested/InterestedPrintConfirmDialog';
 import { InterestedCancelConfirmDialog } from '../../components/interested/InterestedCancelConfirmDialog';
+import { RoyalCourierDispatchConfirmDialog } from '../../components/interested/RoyalCourierDispatchConfirmDialog';
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
 import { downloadBillingPDF, printBillingPDF } from '../../utils/pdfGenerator';
+import { downloadRoyalCourierExcel, RoyalCourierExportItem } from '../../utils/royalCourierExcel';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
-import { XCircle } from 'lucide-react';
+import { XCircle, Mail, Truck, FileSpreadsheet, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { teamRepository } from '../../repositories';
-import { Team } from '../../models/domain';
+import { Team, DeliveryMethod } from '../../models/domain';
 
 export const SupervisorInterestedPage: React.FC = () => {
   const { user } = useAuth();
@@ -35,15 +36,19 @@ export const SupervisorInterestedPage: React.FC = () => {
     cancelInterestedLead,
   } = useInterestedLeads(user?.role === 'ADMIN' ? adminTeamId : undefined);
 
+  // Delivery Method Tab State ('POST' vs 'ROYAL_COURIER')
+  const [activeDeliveryTab, setActiveDeliveryTab] = useState<DeliveryMethod>('POST');
+
   // Filters State
   const [search, setSearch] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('ALL');
 
   // Workflow Dialog States
   const [isPdfConfirmOpen, setIsPdfConfirmOpen] = useState(false);
-  const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
+  const [isRoyalConfirmOpen, setIsRoyalConfirmOpen] = useState(false);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   const [isDispatching, setIsDispatching] = useState(false);
+  const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
   const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
 
   useEffect(() => {
@@ -80,23 +85,51 @@ export const SupervisorInterestedPage: React.FC = () => {
     return map;
   }, [teams]);
 
-  // Filtered Interested Leads
+  // Total counts per delivery method
+  const postLeadsCount = useMemo(() => {
+    return customers.filter((c) => {
+      const custOrders = ordersMap[c.id] || [];
+      const ord = custOrders[0];
+      const method = ord?.deliveryMethod || c.deliveryMethod || 'POST';
+      return method === 'POST';
+    }).length;
+  }, [customers, ordersMap]);
+
+  const royalCourierLeadsCount = useMemo(() => {
+    return customers.filter((c) => {
+      const custOrders = ordersMap[c.id] || [];
+      const ord = custOrders[0];
+      const method = ord?.deliveryMethod || c.deliveryMethod;
+      return method === 'ROYAL_COURIER';
+    }).length;
+  }, [customers, ordersMap]);
+
+  // Filtered Interested Leads (Filtered by active delivery tab + search + member)
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
+      const custOrders = ordersMap[c.id] || [];
+      const ord = custOrders[0];
+      const method = ord?.deliveryMethod || c.deliveryMethod || 'POST';
+
+      // Match delivery method tab
+      if (activeDeliveryTab === 'POST' && method !== 'POST') return false;
+      if (activeDeliveryTab === 'ROYAL_COURIER' && method !== 'ROYAL_COURIER') return false;
+
       const q = search.trim().toLowerCase();
       const matchesSearch =
         !q ||
         c.fullName.toLowerCase().includes(q) ||
         c.phone.includes(q) ||
         c.address.toLowerCase().includes(q) ||
-        (c.email && c.email.toLowerCase().includes(q));
+        (c.email && c.email.toLowerCase().includes(q)) ||
+        (ord?.orderNumber && ord.orderNumber.toLowerCase().includes(q));
 
       const matchesMember =
         selectedMemberId === 'ALL' || c.responsibleTeamMemberId === selectedMemberId;
 
       return matchesSearch && matchesMember;
     });
-  }, [customers, search, selectedMemberId]);
+  }, [customers, ordersMap, activeDeliveryTab, search, selectedMemberId]);
 
   const filteredCustomerIds = useMemo(
     () => filteredCustomers.map((c) => c.id),
@@ -113,19 +146,25 @@ export const SupervisorInterestedPage: React.FC = () => {
     clearSelection,
   } = useSelection(filteredCustomerIds);
 
+  // Clear selection when changing tabs
+  const handleTabChange = (tab: DeliveryMethod) => {
+    setActiveDeliveryTab(tab);
+    clearSelection();
+  };
+
   // Handle Team Member Filter Change (Auto-selects member's leads)
   const handleMemberFilterChange = (memberId: string) => {
     setSelectedMemberId(memberId);
 
     if (memberId !== 'ALL') {
-      const memberLeadIds = customers
+      const memberLeadIds = filteredCustomers
         .filter((c) => c.responsibleTeamMemberId === memberId)
         .map((c) => c.id);
       setSelectedIds(memberLeadIds);
     }
   };
 
-  // Selected Lead Objects for PDF / Printing
+  // Selected Lead Objects for Post Billing PDF / Print
   const selectedPrintItems: LeadPrintItem[] = customers
     .filter((c) => selectedIds.includes(c.id))
     .map((c) => {
@@ -139,7 +178,21 @@ export const SupervisorInterestedPage: React.FC = () => {
       };
     });
 
-  // PDF Download Trigger - Downloads PDF first, then prompts for status change to Dispatched
+  // Selected Lead Objects for Royal Courier Excel Export
+  const selectedRoyalItems: RoyalCourierExportItem[] = customers
+    .filter((c) => selectedIds.includes(c.id))
+    .map((c) => {
+      const custOrders = ordersMap[c.id] || [];
+      const latestOrder = custOrders[0];
+      return {
+        customer: c,
+        order: latestOrder,
+        responsibleUser: membersMap[c.responsibleTeamMemberId],
+        team: latestOrder?.team || teamsMap[c.teamId] || (user?.teamId === c.teamId ? user.team : undefined),
+      };
+    });
+
+  // TAB 1 (POST): PDF Download Trigger
   const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
     try {
@@ -151,7 +204,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     }
   };
 
-  // Generated PDF Print Trigger - prints only the assembled billing-slip PDF
+  // TAB 1 (POST): Native Print Trigger
   const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
     try {
@@ -166,15 +219,36 @@ export const SupervisorInterestedPage: React.FC = () => {
     }
   };
 
-  // Status Change Confirmation Handler (Executed after PDF download)
+  // TAB 2 (ROYAL COURIER): Download Excel Sheet
+  const handleDownloadRoyalCourierExcel = async () => {
+    if (selectedRoyalItems.length === 0) {
+      toast.error('Please select at least 1 Royal Courier order.');
+      return;
+    }
+
+    setIsDownloadingExcel(true);
+    try {
+      await downloadRoyalCourierExcel(selectedRoyalItems);
+      toast.success(`Royal Courier Excel sheet downloaded with ${selectedRoyalItems.length} orders!`);
+      // Trigger Royal Courier Dispatch Confirmation Prompt
+      setIsRoyalConfirmOpen(true);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to download Royal Courier Excel.');
+    } finally {
+      setIsDownloadingExcel(false);
+    }
+  };
+
+  // Common Dispatch Confirmation Handler (Executed after confirmation)
   const handleConfirmDispatched = async () => {
-    if (selectedPrintItems.length === 0) return;
+    if (selectedIds.length === 0) return;
     setIsDispatching(true);
     try {
       const success = await dispatchInterestedLeads(selectedIds);
       if (success) {
         clearSelection();
         setIsPdfConfirmOpen(false);
+        setIsRoyalConfirmOpen(false);
       }
     } finally {
       setIsDispatching(false);
@@ -194,8 +268,55 @@ export const SupervisorInterestedPage: React.FC = () => {
 
       <PageHeader
         title="Interested Leads"
-        description="View leads captured from tele-calling, filter by team member, and bulk-print billing slips."
+        description="Review captured interested orders, choose delivery method workflow, and process dispatch."
       />
+
+      {/* Two Delivery Method Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          type="button"
+          onClick={() => handleTabChange('POST')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+            activeDeliveryTab === 'POST'
+              ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/20'
+              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+          }`}
+        >
+          <Mail className="w-4 h-4" />
+          <span>Post</span>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+              activeDeliveryTab === 'POST'
+                ? 'bg-white/20 text-white'
+                : 'bg-slate-200 text-slate-700'
+            }`}
+          >
+            {postLeadsCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleTabChange('ROYAL_COURIER')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+            activeDeliveryTab === 'ROYAL_COURIER'
+              ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-500/20'
+              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+          }`}
+        >
+          <Truck className="w-4 h-4" />
+          <span>Royal Courier</span>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+              activeDeliveryTab === 'ROYAL_COURIER'
+                ? 'bg-white/20 text-white'
+                : 'bg-slate-200 text-slate-700'
+            }`}
+          >
+            {royalCourierLeadsCount}
+          </span>
+        </button>
+      </div>
 
       {/* Filter Toolbar */}
       <InterestedFilters
@@ -223,26 +344,59 @@ export const SupervisorInterestedPage: React.FC = () => {
         onInspectDuplicateOrders={(info) => setInspectConflictInfo(info)}
       />
 
-      {/* Bottom-Right Floating Action Panel */}
-      <PrintFloatingPanel
-        selectedCount={selectedIds.length}
-        countLabel="Selected"
-        onDownloadPDF={handleDownloadPDF}
-        onNativePrint={handleNativePrint}
-        extraActions={
+      {/* TAB 1 (POST): Standard Floating Action Panel (Billing Slips & Print) */}
+      {activeDeliveryTab === 'POST' && (
+        <PrintFloatingPanel
+          selectedCount={selectedIds.length}
+          countLabel="Selected"
+          onDownloadPDF={handleDownloadPDF}
+          onNativePrint={handleNativePrint}
+          extraActions={
+            <button
+              type="button"
+              onClick={() => setIsCancelConfirmOpen(true)}
+              className="py-1 px-2 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer"
+              title="Cancel selected interested leads"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Cancel</span>
+            </button>
+          }
+        />
+      )}
+
+      {/* TAB 2 (ROYAL COURIER): Dedicated Floating Action Panel (Excel Export Only) */}
+      {activeDeliveryTab === 'ROYAL_COURIER' && (
+        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-white/95 backdrop-blur-md border border-purple-200 p-2.5 rounded-2xl shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <div className="flex items-center gap-2 px-3 py-1 bg-purple-50 text-purple-950 rounded-xl text-xs font-bold border border-purple-200">
+            <Truck className="w-4 h-4 text-purple-600" />
+            <span>{selectedIds.length} Selected</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDownloadRoyalCourierExcel}
+            disabled={selectedIds.length === 0 || isDownloadingExcel}
+            className="py-2 px-4 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Download Royal Courier Excel</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsCancelConfirmOpen(true)}
-            className="py-1 px-2 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer"
+            disabled={selectedIds.length === 0}
+            className="py-2 px-3 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-xs border border-rose-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             title="Cancel selected interested leads"
           >
-            <XCircle className="w-3.5 h-3.5" />
+            <XCircle className="w-4 h-4" />
             <span>Cancel</span>
           </button>
-        }
-      />
+        </div>
+      )}
 
-      {/* PDF Download + Auto-Dispatch Confirmation Dialog */}
+      {/* Post PDF Download + Auto-Dispatch Confirmation Dialog */}
       <InterestedPdfConfirmDialog
         isOpen={isPdfConfirmOpen}
         selectedCount={selectedIds.length}
@@ -251,7 +405,16 @@ export const SupervisorInterestedPage: React.FC = () => {
         onConfirmDispatched={handleConfirmDispatched}
       />
 
-      {/* GitHub Style Strict Verification Cancel Dialog */}
+      {/* Royal Courier Excel Download + Auto-Dispatch Confirmation Dialog */}
+      <RoyalCourierDispatchConfirmDialog
+        isOpen={isRoyalConfirmOpen}
+        selectedCount={selectedIds.length}
+        isDispatching={isDispatching}
+        onClose={() => setIsRoyalConfirmOpen(false)}
+        onConfirmDispatched={handleConfirmDispatched}
+      />
+
+      {/* Strict Verification Cancel Dialog */}
       <InterestedCancelConfirmDialog
         isOpen={isCancelConfirmOpen}
         selectedCustomers={customers.filter((c) => selectedIds.includes(c.id))}
