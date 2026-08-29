@@ -59,7 +59,7 @@ const FILTER_TABS: FilterConfig[] = [
   { key: 'REJECTED', label: 'Rejected' },
   { key: 'DELIVERED', label: 'Delivered' },
   { key: 'CANCELLED', label: 'Cancelled' },
-  { key: 'SAVED_CONTACTS', label: 'Saved Contacts' },
+  { key: 'SAVED_CONTACTS', label: 'Saved' },
 ];
 
 export const MemberFollowUpsPage: React.FC = () => {
