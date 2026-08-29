@@ -252,17 +252,7 @@ export const SupervisorStockPage: React.FC = () => {
         });
       }
 
-      // Requirement 2.12: System sends an email notification/reminder to administrator
-      await emailNotificationRepository.create({
-        orderId: `price_req_${Date.now()}`,
-        customerId: `admin_notify`,
-        recipientEmail: 'admin@crm.com',
-        notificationType: 'DELIVERY_CONFIRMATION',
-        status: 'SENT',
-        reason: `Supervisor ${user.fullName} requested price changes for ${priceModalProduct.name}.`,
-      });
-
-      toast.success(`Submitted price change request for Admin approval & sent email notification.`);
+      toast.success(`Submitted price change request for Admin approval.`);
       setPriceModalProduct(null);
       setPriceReason('');
       loadData();

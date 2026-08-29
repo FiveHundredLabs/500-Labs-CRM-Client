@@ -172,50 +172,7 @@ export class OrderService {
       description: `Updated Order #${order.orderNumber} status from ${previousStatus} to ${newStatus}`,
     });
 
-    // Simulate Email Delivery Confirmation when DELIVERED
-    if (newStatus === 'DELIVERED') {
-      const customer = await customerRepository.getById(order.customerId);
-      if (customer && customer.email && customer.email.trim() !== '') {
-        const emailRecord = await emailNotificationRepository.create({
-          orderId: order.id,
-          customerId: customer.id,
-          recipientEmail: customer.email,
-          notificationType: 'DELIVERY_CONFIRMATION',
-          status: 'SENT',
-        });
-
-        await ActivityLogService.logAction({
-          userId: actor.id,
-          userRole: actor.role,
-          userName: actor.fullName,
-          teamId: order.teamId,
-          action: 'EMAIL_NOTIFICATION_SENT',
-          entityType: 'Email',
-          entityId: emailRecord.id,
-          description: `Delivery Confirmation email notification simulated -> ${customer.email}`,
-        });
-      } else {
-        const emailRecord = await emailNotificationRepository.create({
-          orderId: order.id,
-          customerId: customer ? customer.id : order.customerId,
-          recipientEmail: null,
-          notificationType: 'DELIVERY_CONFIRMATION',
-          status: 'SKIPPED',
-          reason: 'Customer email address was unavailable.',
-        });
-
-        await ActivityLogService.logAction({
-          userId: actor.id,
-          userRole: actor.role,
-          userName: actor.fullName,
-          teamId: order.teamId,
-          action: 'EMAIL_NOTIFICATION_SENT',
-          entityType: 'Email',
-          entityId: emailRecord.id,
-          description: `Delivery Confirmation email skipped: No customer email address.`,
-        });
-      }
-    }
+    // Email notification disabled for now
 
     return updatedOrder;
   }
