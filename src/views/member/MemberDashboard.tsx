@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { Contact, CallLog, Order, User, TeamSalesTarget, TeamTargetTier } from '../../models/domain';
 import { contactRepository, callLogRepository, orderRepository, userRepository, salesTargetRepository } from '../../repositories';
@@ -6,6 +6,7 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { PostCallModal } from '../../components/calling/PostCallModal';
 import { LoadingState } from '../../components/shared/LoadingState';
@@ -28,7 +29,20 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Leaderboard } from '../../components/leaderboard';
 import { formatCurrency } from '../../utils/currency';
-import { format } from 'date-fns';
+import { 
+  format, 
+  isWithinInterval, 
+  startOfDay, 
+  endOfDay, 
+  startOfWeek, 
+  endOfWeek, 
+  startOfMonth, 
+  endOfMonth, 
+  subMonths, 
+  subDays 
+} from 'date-fns';
+
+export type DashboardDateFilter = 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_6_MONTHS' | 'CUSTOM';
 
 interface LeaderboardMember {
   user: User;
@@ -42,11 +56,16 @@ export const MemberDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [, setCallLogs] = useState<CallLog[]>([]);
+  const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [salesTargets, setSalesTargets] = useState<TeamSalesTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+
+  // Date Filter State for Top KPI Cards (matching supervisor dashboard)
+  const [dateFilter, setDateFilter] = useState<DashboardDateFilter>('THIS_MONTH');
+  const [startDate, setStartDate] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   // Month selector for sales goal & incentive
   const [selectedMonthPreset, setSelectedMonthPreset] = useState<'THIS_MONTH' | 'LAST_MONTH'>('THIS_MONTH');
@@ -110,14 +129,62 @@ export const MemberDashboard: React.FC = () => {
     loadData();
   }, [user, selectedMonthPreset]);
 
+  // Date Range Matcher Helper for Top Cards
+  const isDateInFilter = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
+    const now = new Date();
+
+    if (dateFilter === 'TODAY') {
+      return isWithinInterval(date, { start: startOfDay(now), end: endOfDay(now) });
+    }
+    if (dateFilter === 'THIS_WEEK') {
+      return isWithinInterval(date, { start: startOfWeek(now), end: endOfWeek(now) });
+    }
+    if (dateFilter === 'THIS_MONTH') {
+      return isWithinInterval(date, { start: startOfMonth(now), end: endOfMonth(now) });
+    }
+    if (dateFilter === 'LAST_MONTH') {
+      const lastMonth = subMonths(now, 1);
+      return isWithinInterval(date, { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) });
+    }
+    if (dateFilter === 'LAST_6_MONTHS') {
+      const sixMonthsAgo = subMonths(now, 6);
+      return date >= sixMonthsAgo && date <= now;
+    }
+    if (dateFilter === 'CUSTOM') {
+      const s = new Date(startDate);
+      const e = new Date(endDate);
+      e.setHours(23, 59, 59, 999);
+      return date >= s && date <= e;
+    }
+    return true;
+  };
+
+  // Scoped Data for Top Metric Cards
+  const scopedCalls = useMemo(
+    () => callLogs.filter((cl) => isDateInFilter(cl.calledAt || (cl as any).createdAt)),
+    [callLogs, dateFilter, startDate, endDate]
+  );
+  const scopedContacts = useMemo(
+    () => contacts.filter((c) => isDateInFilter(c.allocatedAt || c.importedAt || c.updatedAt)),
+    [contacts, dateFilter, startDate, endDate]
+  );
+  const scopedInterestedContacts = useMemo(
+    () => contacts.filter((c) => c.status === 'INTERESTED' && isDateInFilter(c.updatedAt || c.lastCalledAt || c.importedAt)),
+    [contacts, dateFilter, startDate, endDate]
+  );
+  const scopedDeliveredOrders = useMemo(
+    () => orders.filter((o) => o.status === 'DELIVERED' && isDateInFilter(o.deliveredAt || o.updatedAt || o.createdAt)),
+    [orders, dateFilter, startDate, endDate]
+  );
+
   if (loading) return <LoadingState rows={6} />;
 
-  const totalAssigned = contacts.length;
-  const completedCalls = contacts.filter((c) => c.status !== 'NEW').length;
-  const remainingContacts = totalAssigned - completedCalls;
-  const interestedToday = contacts.filter((c) => c.status === 'INTERESTED').length;
-  const completionPercentage = totalAssigned > 0 ? Math.round((completedCalls / totalAssigned) * 100) : 0;
-  const deliveredOrders = orders.filter((o) => o.status === 'DELIVERED').length;
+  const scopedAssignedCount = dateFilter === 'THIS_MONTH' ? contacts.length : (scopedContacts.length || contacts.length);
+  const scopedCompletedCallsCount = scopedCalls.length || contacts.filter((c) => c.status !== 'NEW').length;
+  const scopedRemainingCount = Math.max(0, scopedAssignedCount - scopedCompletedCallsCount);
+  const scopedCompletionPercentage = scopedAssignedCount > 0 ? Math.min(100, Math.round((scopedCompletedCallsCount / scopedAssignedCount) * 100)) : 0;
 
   // Dynamic Sales Goal & Allowance calculation
   const currentTeamId = user?.teamId || 'team_001';
@@ -189,35 +256,86 @@ export const MemberDashboard: React.FC = () => {
         }
       />
 
-      {/* KPI Cards */}
+      {/* Date Range Selector Toolbar (Matching Supervisor Dashboard) */}
+      <div className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 font-bold text-xs text-slate-800 uppercase tracking-wider">
+            <Calendar className="w-4 h-4 text-blue-600" />
+            <span>Dashboard Date Scoping Filter</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { key: 'TODAY', label: 'Today' },
+              { key: 'THIS_WEEK', label: 'This Week' },
+              { key: 'THIS_MONTH', label: 'This Month' },
+              { key: 'LAST_MONTH', label: 'Last Month' },
+              { key: 'LAST_6_MONTHS', label: 'Last 6 Months' },
+              { key: 'CUSTOM', label: 'Custom' },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setDateFilter(item.key as DashboardDateFilter)}
+                className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  dateFilter === item.key
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {dateFilter === 'CUSTOM' && (
+          <div className="flex items-center gap-3 pt-2 border-t border-slate-100 max-w-md">
+            <Input
+              type="date"
+              label="Start Date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+            <Input
+              type="date"
+              label="End Date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* KPI Cards Scoped to Date Filter */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <StatCard
           title="Assigned Calls"
-          value={totalAssigned}
-          subtitle={`${remainingContacts} remaining`}
-          icon={<Phone className="w-4 h-4" />}
+          value={scopedAssignedCount}
+          subtitle={`${scopedRemainingCount} remaining`}
+          icon={<Phone className="w-4 h-4 text-blue-600" />}
           accentColor="blue"
         />
         <StatCard
-          title="Calls Completed"
-          value={completedCalls}
-          subtitle={`${completionPercentage}% completed`}
-          icon={<PhoneCall className="w-4 h-4" />}
+          title="Calls Handled"
+          value={scopedCompletedCallsCount}
+          subtitle={`${scopedCompletionPercentage}% completed`}
+          icon={<PhoneCall className="w-4 h-4 text-emerald-600" />}
           accentColor="green"
-          trend={{ value: `${completionPercentage}%`, isPositive: completionPercentage >= 50 }}
+          trend={{ value: `${scopedCompletionPercentage}%`, isPositive: scopedCompletionPercentage >= 50 }}
         />
         <StatCard
           title="Interested Leads"
-          value={interestedToday}
+          value={scopedInterestedContacts.length}
           subtitle="Converted to CRM leads"
-          icon={<CheckCircle2 className="w-4 h-4" />}
+          icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
           accentColor="green"
         />
         <StatCard
           title="Delivered Orders"
-          value={deliveredOrders}
+          value={scopedDeliveredOrders.length}
           subtitle="Fulfilled shipments"
-          icon={<Trophy className="w-4 h-4" />}
+          icon={<Trophy className="w-4 h-4 text-purple-600" />}
           accentColor="purple"
         />
       </div>

@@ -520,7 +520,14 @@ export class ApiProductRepository implements IProductRepository {
     return unwrap(await apiClient.post<{ data: Product }>('/products', product));
   }
   async update(id: string, updates: Partial<Product>): Promise<Product> {
-    return unwrap(await apiClient.patch<{ data: Product }>(`/products/${id}`, updates));
+    const payload: any = { ...updates };
+    delete payload.id;
+    delete payload.createdAt;
+    delete payload.updatedAt;
+    delete payload.team;
+    delete payload.batches;
+    delete payload.priceHistory;
+    return unwrap(await apiClient.patch<{ data: Product }>(`/products/${id}`, payload));
   }
   async updateStock(id: string, stockDelta: number): Promise<Product> {
     return unwrap(
