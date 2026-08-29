@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 
 export function useInterestedLeads(overrideTeamId?: string) {
   const { user } = useAuth();
-  const effectiveTeamId = overrideTeamId || user?.teamId || 'team_001';
+  const effectiveTeamId = overrideTeamId || user?.teamId || '';
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
@@ -21,6 +21,16 @@ export function useInterestedLeads(overrideTeamId?: string) {
 
   const loadData = useCallback(async () => {
     if (!user) return;
+    if (!effectiveTeamId) {
+      setCustomers([]);
+      setTeamMembers([]);
+      setMembersMap({});
+      setOrdersMap({});
+      setAllCustomersMap({});
+      setInterestedConflictMap({});
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [cList, contactList, teamUsers, oList, allOrders, allCusts] = await Promise.all([

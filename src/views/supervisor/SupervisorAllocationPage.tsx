@@ -19,9 +19,9 @@ import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 export const SupervisorAllocationPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
 
-  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || 'team_001';
+  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || '';
   const effectiveActor = user
     ? { ...user, teamId: effectiveTeamId }
     : null;
@@ -42,6 +42,13 @@ export const SupervisorAllocationPage: React.FC = () => {
 
   const loadAllocationData = async () => {
     if (!user) return;
+    if (!effectiveTeamId) {
+      setUnallocated([]);
+      setActiveMembers([]);
+      setSelectedMemberIds([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [allContacts, teamUsers] = await Promise.all([
@@ -121,7 +128,10 @@ export const SupervisorAllocationPage: React.FC = () => {
 
   // Confirm Bulk Allocation
   const handleConfirmAllocation = async () => {
-    if (!effectiveActor) return;
+    if (!effectiveActor?.teamId) {
+      toast.error('Select a real team before allocating contacts.');
+      return;
+    }
     setIsAllocating(true);
     try {
       await AllocationService.allocateTeamContacts(effectiveActor, selectedMemberIds);

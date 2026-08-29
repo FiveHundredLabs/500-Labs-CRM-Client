@@ -41,6 +41,10 @@ export const AddPersonalNumberModal: React.FC<AddPersonalNumberModalProps> = ({
       toast.error('Secondary mobile number must have at least 7 digits.');
       return;
     }
+    if (!user.teamId) {
+      toast.error('Your account is not assigned to a team. Please contact an administrator.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -48,7 +52,7 @@ export const AddPersonalNumberModal: React.FC<AddPersonalNumberModalProps> = ({
       const newContact = await contactRepository.addPersonalNumber({
         phone: cleanPhone,
         memberId: user.id,
-        teamId: user.teamId || 'team_001',
+        teamId: user.teamId,
         city: city.trim() || undefined,
         secondaryMobile: secondaryMobile.trim() || undefined,
       });
@@ -58,7 +62,7 @@ export const AddPersonalNumberModal: React.FC<AddPersonalNumberModalProps> = ({
         userId: user.id,
         userRole: user.role,
         userName: user.fullName,
-        teamId: user.teamId || 'team_001',
+        teamId: user.teamId,
         action: 'NUMBER_ADDED',
         entityType: 'Contact',
         entityId: newContact.id,

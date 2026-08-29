@@ -15,7 +15,7 @@ import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 export const SupervisorImportPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
 
   const effectiveActor = user
     ? { ...user, teamId: user.role === 'ADMIN' ? adminTeamId : user.teamId }
@@ -43,6 +43,10 @@ export const SupervisorImportPage: React.FC = () => {
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualPhone.trim() || !effectiveActor) return;
+    if (!effectiveActor.teamId) {
+      toast.error('Select a real team before importing contacts.');
+      return;
+    }
 
     setIsManualSubmitting(true);
     try {
@@ -68,6 +72,10 @@ export const SupervisorImportPage: React.FC = () => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected || !effectiveActor) return;
+    if (!effectiveActor.teamId) {
+      toast.error('Select a real team before importing contacts.');
+      return;
+    }
     setFile(selected);
 
     try {
@@ -98,6 +106,10 @@ export const SupervisorImportPage: React.FC = () => {
     e.preventDefault();
     if (!bulkText.trim() || !effectiveActor) {
       toast.error('Please paste or enter bulk numbers first.');
+      return;
+    }
+    if (!effectiveActor.teamId) {
+      toast.error('Select a real team before importing contacts.');
       return;
     }
 
