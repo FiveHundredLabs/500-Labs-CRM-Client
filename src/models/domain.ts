@@ -174,6 +174,7 @@ export interface CallLog {
 export interface Customer {
   id: string; // e.g., 'cst_001'
   contactId: string;
+  code?: string;
   fullName: string;
   phone: string;
   secondaryMobile?: string;
@@ -185,6 +186,7 @@ export interface Customer {
   teamId: string;
   responsibleTeamMemberId: string;
   supervisorId: string;
+  contact?: Contact;
   createdAt: string;
   updatedAt: string;
 }

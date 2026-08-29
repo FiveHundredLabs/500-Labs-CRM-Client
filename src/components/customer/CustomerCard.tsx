@@ -7,6 +7,7 @@ import {
   MapPin,
   UserCheck,
   Calendar,
+  Hash,
 } from 'lucide-react';
 
 export interface CustomerCardProps {
@@ -14,6 +15,7 @@ export interface CustomerCardProps {
   onToggleSelect: () => void;
   customerName: string;
   orderNumber?: string;
+  contactCode?: string;
   badge?: React.ReactNode;
   phone?: string;
   address?: string;
@@ -28,6 +30,7 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
   onToggleSelect,
   customerName,
   orderNumber,
+  contactCode,
   badge,
   phone,
   address,
@@ -88,11 +91,17 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
       {/* CONTACT DETAILS & OPTIONAL MIDDLE CONTENT */}
       <div className="mt-1 space-y-1 pl-2.5 sm:pl-5 pr-0.5">
         {phone && (
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
             <Phone className="w-3 h-3 text-blue-500 shrink-0" />
             <span className="text-[10px] sm:text-[10.5px] font-mono font-semibold text-blue-600 truncate">
               {phone}
             </span>
+            {contactCode && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-mono font-bold px-1 py-0.2 bg-blue-50 text-blue-700 border border-blue-200/90 rounded shrink-0">
+                <Hash className="w-2.5 h-2.5 text-blue-500" />
+                <span>{contactCode}</span>
+              </span>
+            )}
           </div>
         )}
 

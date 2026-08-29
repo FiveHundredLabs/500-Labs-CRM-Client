@@ -23,6 +23,7 @@ import {
   FileText,
   Phone,
   Star,
+  Hash,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSearchParams } from 'react-router-dom';
@@ -342,9 +343,15 @@ export const MemberFollowUpsPage: React.FC = () => {
                       </div>
                       <div className="min-w-0">
                         <h4 className="font-bold text-slate-900 text-sm truncate">{log.customerName}</h4>
-                        <div className="font-mono text-xs font-semibold text-slate-600 flex items-center gap-1.5 mt-0.5">
+                        <div className="font-mono text-xs font-semibold text-slate-600 flex items-center gap-1.5 mt-0.5 flex-wrap">
                           <Phone className="w-3 h-3 text-slate-400" />
                           <span>{phone}</span>
+                          {contact?.code && (
+                            <span className="inline-flex items-center gap-0.5 text-[9.5px] font-mono font-bold px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200/90 rounded shrink-0">
+                              <Hash className="w-2.5 h-2.5 text-blue-500" />
+                              <span>{contact.code}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -455,9 +462,15 @@ export const MemberFollowUpsPage: React.FC = () => {
                       )}
 
                       <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4 space-y-1 sm:space-y-0">
-                        {/* Phone Number */}
-                        <div className="font-bold text-sm sm:text-base text-slate-900 font-mono tracking-tight shrink-0 flex items-center gap-1.5">
+                        {/* Phone Number & Contact Code */}
+                        <div className="font-bold text-sm sm:text-base text-slate-900 font-mono tracking-tight shrink-0 flex items-center gap-1.5 flex-wrap">
                           <span>{phone}</span>
+                          {contact?.code && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-mono font-bold px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200/90 rounded shrink-0">
+                              <Hash className="w-2.5 h-2.5 text-blue-500" />
+                              <span>{contact.code}</span>
+                            </span>
+                          )}
                         </div>
 
                         {/* Call Time */}

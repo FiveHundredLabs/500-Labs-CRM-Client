@@ -186,6 +186,7 @@ export const InterestedList: React.FC<InterestedListProps> = ({
               </div>
             }
             phone={customer.phone}
+            contactCode={customer.code}
             address={customer.address}
             handledByMember={member}
             dateString={formattedDate}
