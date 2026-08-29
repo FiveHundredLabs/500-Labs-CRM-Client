@@ -7,11 +7,18 @@ const normalizeApiBaseUrl = (value: unknown): string => {
 
   const normalized = trimTrailingSlashes(value.trim());
 
+  if (normalized.startsWith("/")) {
+    if (normalized.startsWith("//")) {
+      throw new Error("Invalid API_BASE_URL. Protocol-relative URLs are not supported.");
+    }
+    return normalized;
+  }
+
   let url: URL;
   try {
     url = new URL(normalized);
   } catch {
-    throw new Error("Invalid API_BASE_URL. Use an absolute http(s) URL.");
+    throw new Error("Invalid API_BASE_URL. Use a relative path starting with '/' or an absolute http(s) URL.");
   }
 
   if (url.protocol !== "http:" && url.protocol !== "https:") {
