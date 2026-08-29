@@ -10,7 +10,7 @@ import { EmptyState } from '../../components/shared/EmptyState';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { PostCallModal } from '../../components/calling/PostCallModal';
 import { AddPersonalNumberModal } from '../../components/calling/AddPersonalNumberModal';
-import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck, PlusCircle } from 'lucide-react';
+import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck, PlusCircle, Hash } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -299,6 +299,13 @@ export const MemberContactsPage: React.FC = () => {
                     {contact.phone}
                   </span>
                   
+                  {contact.code && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/90 rounded-md">
+                      <Hash className="w-3 h-3 text-blue-500" />
+                      <span>{contact.code}</span>
+                    </span>
+                  )}
+
                   <StatusBadge type="contact" status={contact.status} />
 
                   {contact.isSelfAdded && (

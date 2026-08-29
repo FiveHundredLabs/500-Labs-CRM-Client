@@ -379,7 +379,14 @@ export const SupervisorAllocationPage: React.FC = () => {
                     .map((c, idx) => (
                       <tr key={c.id || idx} className="hover:bg-slate-50/80 transition-colors">
                         <td className="p-3 text-slate-400 font-sans">{idx + 1}</td>
-                        <td className="p-3 font-bold text-slate-900">{c.phone}</td>
+                        <td className="p-3 font-bold text-slate-900">
+                          {c.phone}
+                          {c.code && (
+                            <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-bold">
+                              {c.code}
+                            </span>
+                          )}
+                        </td>
                         <td className="p-3 text-slate-500 text-[11px]">{c.importBatchId || 'Initial Seed'}</td>
                         <td className="p-3 text-slate-500 text-[11px] font-sans">
                           {c.importedAt ? format(new Date(c.importedAt), 'MMM dd, yyyy HH:mm') : '—'}

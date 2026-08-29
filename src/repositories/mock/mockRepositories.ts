@@ -223,12 +223,13 @@ export class MockContactRepository implements IContactRepository {
     if (changed) setStoredItem(STORAGE_KEYS.CONTACTS, contacts);
   }
 
-  async addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string }): Promise<Contact> {
+  async addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string; code?: string }): Promise<Contact> {
     await delay();
     const contacts = getStoredItem<Contact>(STORAGE_KEYS.CONTACTS, []);
     const now = new Date().toISOString();
     const targetContact: Contact = {
       id: `cnt_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      code: data.code,
       phone: data.phone.trim(),
       status: 'NEW',
       teamId: data.teamId,

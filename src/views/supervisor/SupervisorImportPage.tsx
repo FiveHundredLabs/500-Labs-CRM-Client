@@ -11,6 +11,9 @@ import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Phone, A
 import { useNavigate } from 'react-router-dom';
 
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
+import { ContactCodeConfirmationModal, ContactPreviewInfo } from '../../components/contacts/ContactCodeConfirmationModal';
+import { contactRepository } from '../../repositories';
+import { ActivityLogService } from '../../services/activityLogService';
 
 export const SupervisorImportPage: React.FC = () => {
   const { user } = useAuth();
@@ -25,6 +28,10 @@ export const SupervisorImportPage: React.FC = () => {
   const [manualPhone, setManualPhone] = useState('');
   const [isManualSubmitting, setIsManualSubmitting] = useState(false);
 
+  // Single contact code confirmation modal
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
+  const [pendingContactInfo, setPendingContactInfo] = useState<ContactPreviewInfo | null>(null);
+
   // Bulk text area numbers state
   const [bulkText, setBulkText] = useState('');
   const [isBulkTextProcessing, setIsBulkTextProcessing] = useState(false);
@@ -33,13 +40,13 @@ export const SupervisorImportPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [parsedFileInfo, setParsedFileInfo] = useState<ExcelContactParseResult | null>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
-  const [executeFn, setExecuteFn] = useState<(() => Promise<any>) | null>(null);
+  const [executeFn, setExecuteFn] = useState<((code?: string) => Promise<any>) | null>(null);
   const [isImporting, setIsImporting] = useState(false);
 
   // Tab filter for bottom numbers preview
   const [previewTab, setPreviewTab] = useState<'ALL' | 'VALID' | 'DUPLICATES' | 'INVALID'>('ALL');
 
-  // Single Contact Submit
+  // Single Contact Submit -> Open Confirmation Modal
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualPhone.trim() || !effectiveActor) return;
@@ -48,23 +55,109 @@ export const SupervisorImportPage: React.FC = () => {
       return;
     }
 
-    setIsManualSubmitting(true);
-    try {
-      const { summary, executeImport } = await ContactService.processBulkImport([manualPhone], effectiveActor);
-      setImportSummary(summary);
-      setExecuteFn(() => executeImport);
-      if (summary.duplicateCount > 0) {
-        toast.error(`Phone number ${manualPhone} already exists in system database and was removed.`);
-      } else if (summary.invalidCount > 0) {
-        toast.error(`Invalid Sri Lankan mobile format. Must be 10 digits starting with 07.`);
-      } else {
-        toast.success(`Processed contact ${manualPhone}. Confirm import below.`);
+    const cleanPhone = manualPhone.trim();
+    if (cleanPhone.length < 7) {
+      toast.error('Please enter a valid mobile number (at least 7 digits).');
+      return;
+    }
+
+    setPendingContactInfo({
+      phone: cleanPhone,
+      assigneeName: 'Unallocated Pool',
+    });
+    setCodeModalOpen(true);
+  };
+
+  // Open Bulk Confirmation Modal
+  const handleOpenBulkConfirmModal = () => {
+    if (!importSummary || importSummary.validCount === 0 || !executeFn) return;
+    setPendingContactInfo({
+      batchCount: importSummary.validCount,
+      assigneeName: 'Unallocated Database Pool',
+      customTitle: `Confirm Code for ${importSummary.validCount} Contacts`,
+      customDescription: `Please enter the unique batch/contact code before importing these ${importSummary.validCount} contacts into the system.`,
+    });
+    setCodeModalOpen(true);
+  };
+
+  // Unified Code Confirmation Handler for both Single & Bulk Import
+  const handleUnifiedCodeConfirm = async (enteredCode: string) => {
+    if (!pendingContactInfo || !effectiveActor || !effectiveActor.teamId) return;
+
+    // 1. Bulk Import Flow
+    if (pendingContactInfo.batchCount && executeFn) {
+      setIsImporting(true);
+      try {
+        const imported = await executeFn(enteredCode.trim());
+        toast.success(`Successfully imported ${imported.length} contacts [Code: ${enteredCode.trim()}] into system!`);
+        setCodeModalOpen(false);
+        setPendingContactInfo(null);
+        setImportSummary(null);
+        setFile(null);
+        setBulkText('');
+        setExecuteFn(null);
+        navigate(
+          user?.role === 'ADMIN'
+            ? '/admin/allocation'
+            : user?.role === 'TEAM_MEMBER'
+            ? '/member/contacts'
+            : '/supervisor/allocation'
+        );
+      } catch (err: any) {
+        toast.error(err.message || 'Import failed.');
+        throw err;
+      } finally {
+        setIsImporting(false);
       }
-      setManualPhone('');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to add contact.');
-    } finally {
-      setIsManualSubmitting(false);
+      return;
+    }
+
+    // 2. Single Contact Flow
+    if (pendingContactInfo.phone) {
+      setIsManualSubmitting(true);
+      try {
+        const now = new Date().toISOString();
+        const batchId = `manual_sup_${Date.now()}`;
+        const newContact = await contactRepository.create({
+          phone: pendingContactInfo.phone,
+          code: enteredCode.trim(),
+          status: 'NEW',
+          teamId: effectiveActor.teamId,
+          importedAt: now,
+          importedBy: effectiveActor.id,
+          importBatchId: batchId,
+          isAllocated: false,
+          allocatedToId: null,
+          allocatedAt: null,
+          allocationBatchId: null,
+          isSelfAdded: false,
+          attemptCount: 0,
+          lastCalledAt: null,
+          isFollowUp: false,
+        });
+
+        await ActivityLogService.logAction({
+          userId: effectiveActor.id,
+          userRole: effectiveActor.role,
+          userName: effectiveActor.fullName,
+          teamId: effectiveActor.teamId,
+          action: 'CONTACT_IMPORTED',
+          entityType: 'Contact',
+          entityId: newContact.id,
+          description: `Added single contact number ${pendingContactInfo.phone} [Code: ${enteredCode.trim()}] to unallocated pool`,
+        });
+
+        toast.success(`Contact ${pendingContactInfo.phone} [${enteredCode.trim()}] added to pool!`);
+        setCodeModalOpen(false);
+        setPendingContactInfo(null);
+        setManualPhone('');
+        navigate(user?.role === 'ADMIN' ? '/admin/allocation' : '/supervisor/allocation');
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to add contact.');
+        throw err;
+      } finally {
+        setIsManualSubmitting(false);
+      }
     }
   };
 
@@ -537,10 +630,10 @@ export const SupervisorImportPage: React.FC = () => {
                 size="lg"
                 leftIcon={<CheckCircle2 className="w-4 h-4" />}
                 rightIcon={<ArrowRight className="w-4 h-4" />}
-                onClick={handleConfirmImport}
+                onClick={handleOpenBulkConfirmModal}
                 isLoading={isImporting}
                 disabled={importSummary.validCount === 0}
-                className="bg-emerald-600 hover:bg-emerald-700 font-semibold w-full sm:w-auto"
+                className="bg-emerald-600 hover:bg-emerald-700 font-semibold w-full sm:w-auto cursor-pointer"
               >
                 Confirm &amp; Add ({importSummary.validCount}) Contacts to Database
               </Button>
@@ -548,6 +641,18 @@ export const SupervisorImportPage: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Unified Contact / Batch Code Confirmation Modal */}
+      <ContactCodeConfirmationModal
+        isOpen={codeModalOpen}
+        onClose={() => {
+          setCodeModalOpen(false);
+          setPendingContactInfo(null);
+        }}
+        contactInfo={pendingContactInfo}
+        onConfirm={handleUnifiedCodeConfirm}
+        isSubmitting={isImporting || isManualSubmitting}
+      />
     </div>
   );
 };

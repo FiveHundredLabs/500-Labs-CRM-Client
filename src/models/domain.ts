@@ -63,6 +63,7 @@ export interface User {
 
 export interface Contact {
   id: string; // e.g., 'cnt_001'
+  code?: string; // Unique contact code e.g. 'CTC-001', 'LEAD-9821'
   phone: string;
   status: ContactStatus;
   teamId: string;

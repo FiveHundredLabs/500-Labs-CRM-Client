@@ -202,6 +202,7 @@ export class ApiContactRepository implements IContactRepository {
       allocationSource: contact.allocationSource,
       isSelfAdded: contact.isSelfAdded,
       city: contact.city,
+      code: contact.code,
       secondaryMobile: contact.secondaryMobile,
       attemptCount: contact.attemptCount,
       lastCalledAt: contact.lastCalledAt,
@@ -211,6 +212,7 @@ export class ApiContactRepository implements IContactRepository {
   }
   async createMany(contacts: Array<Omit<Contact, 'id' | 'updatedAt'>>): Promise<Contact[]> {
     const cleaned = contacts.map((c) => ({
+      code: c.code,
       phone: c.phone,
       status: c.status,
       teamId: c.teamId,
@@ -237,6 +239,7 @@ export class ApiContactRepository implements IContactRepository {
     teamId: string;
     city?: string;
     secondaryMobile?: string;
+    code?: string;
   }): Promise<Contact> {
     return unwrap(await apiClient.post<{ data: Contact }>('/contacts/personal', data));
   }
