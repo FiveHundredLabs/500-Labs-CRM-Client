@@ -1,22 +1,34 @@
-const trimSlashes = (value: string) => value.replace(/\/+$/, "");
+const trimTrailingSlashes = (value: string) => value.replace(/\/+$/, "");
 
 const normalizeApiBaseUrl = (value: unknown): string => {
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error("Missing required frontend config: VITE_API_BASE_URL");
+    throw new Error("Missing required frontend config: API_BASE_URL");
   }
 
-  const normalized = trimSlashes(value.trim());
+  const normalized = trimTrailingSlashes(value.trim());
 
-  if (!normalized.startsWith("/") && !/^https?:\/\//i.test(normalized)) {
-    throw new Error(
-      "Invalid VITE_API_BASE_URL. Use a relative path such as /api/v1 or an explicit http(s) URL.",
-    );
+  let url: URL;
+  try {
+    url = new URL(normalized);
+  } catch {
+    throw new Error("Invalid API_BASE_URL. Use an absolute http(s) URL.");
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Invalid API_BASE_URL. Only http and https URLs are supported.");
+  }
+
+  if (url.username || url.password) {
+    throw new Error("Invalid API_BASE_URL. Credentials must not be embedded in the URL.");
+  }
+
+  if (import.meta.env.MODE !== "development" && url.protocol !== "https:") {
+    throw new Error("Invalid API_BASE_URL. Production builds must use https.");
   }
 
   return normalized;
 };
 
 export const env = {
-  apiBaseUrl: normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL),
+  apiBaseUrl: normalizeApiBaseUrl(import.meta.env.API_BASE_URL),
 } as const;
-

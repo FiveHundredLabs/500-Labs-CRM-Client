@@ -55,7 +55,7 @@ npm run build
 
 ## Backend API & Cookie Authentication
 
-Browser API calls are same-origin and relative:
+Browser API calls use the configured API origin:
 
 ```ts
 axios.create({
@@ -67,18 +67,29 @@ axios.create({
 Configure:
 
 ```env
-VITE_API_BASE_URL=/api/v1
-DEV_API_TARGET=http://localhost:3000
+API_BASE_URL=http://localhost:3000/api/v1
 ```
 
-On Vercel, `/api/*` is rewritten externally to `https://api.500crm.residuesolution.io/api/*`. In local development, Vite proxies `/api` to `DEV_API_TARGET`.
+Local development calls the NestJS API directly. Vercel production should also build with the direct API origin.
+
+Vercel Project Settings -> Environment Variables:
+
+```text
+API_BASE_URL=https://api.500crm.residuesolution.io/api/v1
+```
+
+`API_BASE_URL` is public browser configuration and is intentionally exposed to the Vite client through the `API_` environment prefix. The backend hostname will be visible in browser network requests; it is not a secret.
 
 Current production topology:
 
 - Frontend: `https://500-labs-crm-client.vercel.app`
 - Backend: `https://api.500crm.residuesolution.io`
 
-The browser must not call `api.500crm.residuesolution.io` directly. JWTs are stored only in backend-set HttpOnly cookies scoped to the frontend origin through the rewrite response; frontend code must not read cookies, attach Bearer tokens, or store JWTs in `localStorage`/`sessionStorage`.
+The browser calls the backend origin directly. JWTs are stored only in backend-set HttpOnly cookies; frontend code must not read cookies, attach Bearer tokens, or store JWTs in `localStorage`/`sessionStorage`.
+
+Because production auth is cross-site, Dockploy must use `AUTH_COOKIE_SECURE=true`, `AUTH_COOKIE_SAME_SITE=none`, exact credentialed CORS, and host-only cookies.
+
+The backend hostname is not a security boundary. Security must rely on authentication, authorization, RBAC, resource ownership, validation, and rate limiting.
 
 ---
 
