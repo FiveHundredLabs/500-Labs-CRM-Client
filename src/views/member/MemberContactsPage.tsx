@@ -10,7 +10,7 @@ import { EmptyState } from '../../components/shared/EmptyState';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { PostCallModal } from '../../components/calling/PostCallModal';
 import { AddPersonalNumberModal } from '../../components/calling/AddPersonalNumberModal';
-import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck, PlusCircle } from 'lucide-react';
+import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck, PlusCircle, Hash } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -113,8 +113,11 @@ export const MemberContactsPage: React.FC = () => {
     const matchesSearch =
       !q ||
       c.phone.toLowerCase().includes(q) ||
+      (c.code && c.code.toLowerCase().includes(q)) ||
       (c.city && c.city.toLowerCase().includes(q)) ||
-      (c.secondaryMobile && c.secondaryMobile.toLowerCase().includes(q));
+      (c.secondaryMobile && c.secondaryMobile.toLowerCase().includes(q)) ||
+      (c.importBatchId && c.importBatchId.toLowerCase().includes(q)) ||
+      (c.allocationSource && c.allocationSource.toLowerCase().includes(q));
 
     if (!matchesSearch) return false;
 
@@ -226,7 +229,7 @@ export const MemberContactsPage: React.FC = () => {
               activeTab === 'SAVED_CONTACTS'
                 ? 'saved contacts'
                 : activeTab.toLowerCase().replace('_', ' ')
-            } contacts by phone or city...`}
+            } by phone, contact code, or city...`}
           />
         </div>
         {search && (
@@ -299,14 +302,14 @@ export const MemberContactsPage: React.FC = () => {
                     {contact.phone}
                   </span>
                   
-                  <StatusBadge type="contact" status={contact.status} />
-
-                  {contact.isSelfAdded && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
-                      <UserCheck className="w-3 h-3" />
-                      <span>Self-Added</span>
+                  {contact.code && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/90 rounded-md">
+                      <Hash className="w-3 h-3 text-blue-500" />
+                      <span>{contact.code}</span>
                     </span>
                   )}
+
+                  <StatusBadge type="contact" status={contact.status} />
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">

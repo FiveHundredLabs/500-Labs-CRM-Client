@@ -18,6 +18,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { useOrderFilters } from '../../hooks/useOrderFilters';
 import { useSelection } from '../../hooks/useSelection';
 import { downloadBillingPDF, printBillingPDF } from '../../utils/pdfGenerator';
+import { CircularProgressPdfModal } from '../../components/printing/CircularProgressPdfModal';
 import toast from 'react-hot-toast';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
@@ -27,6 +28,17 @@ export const SupervisorOrdersPage: React.FC = () => {
   const { user } = useAuth();
   const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
   const [teams, setTeams] = useState<Team[]>([]);
+
+  // Circular Progress PDF Loading State
+  const [pdfProgress, setPdfProgress] = useState({
+    isOpen: false,
+    title: 'Generating Billing Slips PDF...',
+    subtitle: '',
+    current: 0,
+    total: 0,
+    percentage: 0,
+    actionType: 'DOWNLOAD' as 'DOWNLOAD' | 'PRINT',
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -136,29 +148,86 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
+    setPdfProgress({
+      isOpen: true,
+      title: 'Downloading Billing Slips PDF...',
+      subtitle: `Preparing ${selectedPrintItems.length} billing slip(s)...`,
+      current: 0,
+      total: selectedPrintItems.length,
+      percentage: 0,
+      actionType: 'DOWNLOAD',
+    });
     try {
-      await downloadBillingPDF(selectedPrintItems);
+      await downloadBillingPDF(selectedPrintItems, (curr, tot, pct) => {
+        setPdfProgress((prev) => ({
+          ...prev,
+          current: curr,
+          total: tot,
+          percentage: pct,
+          subtitle: `Rendering high-resolution slip ${curr} of ${tot}...`,
+        }));
+      });
       toast.success('Billing slips PDF downloaded!');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate billing PDF.');
+    } finally {
+      setPdfProgress((prev) => ({ ...prev, isOpen: false }));
     }
   };
 
   const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
+    setPdfProgress({
+      isOpen: true,
+      title: 'Preparing Billing Slips for Printing...',
+      subtitle: `Assembling ${selectedPrintItems.length} billing slip(s)...`,
+      current: 0,
+      total: selectedPrintItems.length,
+      percentage: 0,
+      actionType: 'PRINT',
+    });
     try {
-      await printBillingPDF(selectedPrintItems);
+      await printBillingPDF(selectedPrintItems, (curr, tot, pct) => {
+        setPdfProgress((prev) => ({
+          ...prev,
+          current: curr,
+          total: tot,
+          percentage: pct,
+          subtitle: `Rendering high-resolution slip ${curr} of ${tot}...`,
+        }));
+      });
       setIsPrintConfirmOpen(true);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate billing print document.');
+    } finally {
+      setPdfProgress((prev) => ({ ...prev, isOpen: false }));
     }
   };
 
   const handlePrintBillingSlip = async (order: Order) => {
+    const item = buildPrintItem(order);
+    setPdfProgress({
+      isOpen: true,
+      title: 'Generating COD Billing Slip...',
+      subtitle: `Rendering slip for Order #${order.orderNumber}...`,
+      current: 0,
+      total: 1,
+      percentage: 0,
+      actionType: 'PRINT',
+    });
     try {
-      await printBillingPDF([buildPrintItem(order)]);
+      await printBillingPDF([item], (curr, tot, pct) => {
+        setPdfProgress((prev) => ({
+          ...prev,
+          current: curr,
+          total: tot,
+          percentage: pct,
+        }));
+      });
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate billing print document.');
+    } finally {
+      setPdfProgress((prev) => ({ ...prev, isOpen: false }));
     }
   };
 
@@ -314,6 +383,9 @@ export const SupervisorOrdersPage: React.FC = () => {
           setInspectConflictInfo(null);
         }}
       />
+
+      {/* Circular Progress PDF / Print Loading Modal */}
+      <CircularProgressPdfModal {...pdfProgress} />
     </div>
   );
 };

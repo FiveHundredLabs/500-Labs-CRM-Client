@@ -59,7 +59,8 @@ export class ContactService {
     phone: string,
     actor: User,
     city?: string,
-    secondaryMobile?: string
+    secondaryMobile?: string,
+    code?: string
   ): Promise<Contact> {
     const normalized = normalizeSriLankanPhone(phone);
     if (!normalized) {
@@ -80,6 +81,7 @@ export class ContactService {
       teamId: actor.teamId,
       city,
       secondaryMobile,
+      code: code?.trim() || undefined,
     });
 
     await ActivityLogService.logAction({
@@ -91,15 +93,15 @@ export class ContactService {
       entityType: 'Contact',
       entityId: newContact.id,
       description: dupCheck.exists
-        ? `Team member ${actor.fullName} claimed/added existing contact ${normalized} (previously in CRM under ${dupCheck.intelligence?.assignedMemberName || 'another rep'})`
-        : `Team member ${actor.fullName} added personal contact ${normalized}`,
+        ? `Team member ${actor.fullName} claimed/added existing contact ${normalized} [Code: ${code || 'N/A'}] (previously in CRM under ${dupCheck.intelligence?.assignedMemberName || 'another rep'})`
+        : `Team member ${actor.fullName} added personal contact ${normalized} [Code: ${code || 'N/A'}]`,
     });
 
     return newContact;
   }
 
-  static async addManualContact(phone: string, actor: User): Promise<Contact> {
-    return this.addPersonalContact(phone, actor);
+  static async addManualContact(phone: string, actor: User, code?: string): Promise<Contact> {
+    return this.addPersonalContact(phone, actor, undefined, undefined, code);
   }
 
   static async processBulkImport(
@@ -206,7 +208,7 @@ export class ContactService {
       rows,
     };
 
-    const executeImport = async (): Promise<Contact[]> => {
+    const executeImport = async (batchCode?: string): Promise<Contact[]> => {
       if (totalToImport.length === 0) {
         throw new Error('No valid phone numbers selected to import.');
       }
@@ -218,6 +220,7 @@ export class ContactService {
       const now = new Date().toISOString();
       const contactsToCreate = totalToImport.map((phone) => ({
         phone,
+        code: batchCode?.trim() || undefined,
         status: 'NEW' as const,
         teamId: actor.teamId!,
         importedAt: now,
@@ -245,8 +248,8 @@ export class ContactService {
         entityType: 'Contact',
         entityId: batchId,
         description: isMember
-          ? `Team member ${actor.fullName} imported and allocated ${created.length} numbers (Batch #${batchId})`
-          : `Imported ${created.length} phone numbers via Bulk Import (Batch #${batchId})`,
+          ? `Team member ${actor.fullName} imported and allocated ${created.length} numbers [Batch Code: ${batchCode || 'N/A'}] (Batch #${batchId})`
+          : `Imported ${created.length} phone numbers via Bulk Import [Batch Code: ${batchCode || 'N/A'}] (Batch #${batchId})`,
       });
 
       return created;
