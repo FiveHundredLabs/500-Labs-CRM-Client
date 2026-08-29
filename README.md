@@ -75,12 +75,11 @@ Local development calls the NestJS API directly. Vercel production builds use a 
 Vercel Project Settings -> Environment Variables:
 
 - `API_BASE_URL`: `/api/v1` (embedded in browser build)
-- `API_UPSTREAM_ORIGIN`: `https://api.your-backend-domain.example.com` (server-side routing only)
 
 Current production topology:
 
 - Frontend: `https://500-labs-crm-client.vercel.app`
-- Backend rewrite proxy: `/api/v1` -> `https://api.your-backend-domain.example.com/api/v1`
+- Backend rewrite proxy: `/api/v1` -> `https://api.500crm.residuesolution.io/api/v1`
 
 Browser calls `/api/v1` on the frontend origin, ensuring same-origin cookie delivery and avoiding cross-site cookie restrictions on mobile browsers. Cookies are configured with `SameSite=Lax` and `Secure=true`.
 
