@@ -77,7 +77,7 @@ export const AdminProductsPage: React.FC = () => {
   // Form Fields
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [formTeamId, setFormTeamId] = useState('team_001');
+  const [formTeamId, setFormTeamId] = useState('');
   const [category, setCategory] = useState('Supplements');
   const [costPrice, setCostPrice] = useState<number | string>(2500);
   const [sellingPrice, setSellingPrice] = useState<number | string>(5000);
@@ -96,7 +96,7 @@ export const AdminProductsPage: React.FC = () => {
       ]);
       setProducts(allProducts);
       setTeams(allTeams);
-      if (allTeams.length > 0 && formTeamId === 'team_001') {
+      if (allTeams.length > 0 && !formTeamId) {
         setFormTeamId(allTeams[0].id);
       }
     } catch (err: any) {
@@ -115,7 +115,7 @@ export const AdminProductsPage: React.FC = () => {
     setEditingProduct(null);
     setName('');
     setCode(`PROD-${Math.floor(100 + Math.random() * 900)}`);
-    setFormTeamId(teams[0]?.id || 'team_001');
+    setFormTeamId(teams[0]?.id || '');
     setCategory('Supplements');
     setCostPrice(2500);
     setSellingPrice(5000);
@@ -464,7 +464,7 @@ export const AdminProductsPage: React.FC = () => {
                     const isOutOfStock = p.currentStock === 0;
                     const isLow = p.currentStock > 0 && p.currentStock <= p.minStockThreshold;
                     const teamInfo = teams.find((t) => t.id === p.teamId);
-                    const brand = getTeamBranding(p.teamId);
+                    const brand = getTeamBranding(p.team || teamInfo);
                     const marginPct =
                       p.sellingPrice > 0
                         ? (((p.sellingPrice - p.costPrice) / p.sellingPrice) * 100).toFixed(1)
