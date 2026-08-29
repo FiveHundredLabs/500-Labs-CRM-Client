@@ -70,26 +70,18 @@ Configure:
 API_BASE_URL=http://localhost:3000/api/v1
 ```
 
-Local development calls the NestJS API directly. Vercel production should also build with the direct API origin.
+Local development calls the NestJS API directly. Vercel production builds use a same-origin relative path, which Vercel proxies to the physical backend.
 
 Vercel Project Settings -> Environment Variables:
 
-```text
-API_BASE_URL=https://api.500crm.residuesolution.io/api/v1
-```
-
-`API_BASE_URL` is public browser configuration and is intentionally exposed to the Vite client through the `API_` environment prefix. The backend hostname will be visible in browser network requests; it is not a secret.
+- `API_BASE_URL`: `/api/v1` (embedded in browser build)
 
 Current production topology:
 
 - Frontend: `https://500-labs-crm-client.vercel.app`
-- Backend: `https://api.500crm.residuesolution.io`
+- Backend rewrite proxy: `/api/v1` -> `https://api.500crm.residuesolution.io/api/v1`
 
-The browser calls the backend origin directly. JWTs are stored only in backend-set HttpOnly cookies; frontend code must not read cookies, attach Bearer tokens, or store JWTs in `localStorage`/`sessionStorage`.
-
-Because production auth is cross-site, Dockploy must use `AUTH_COOKIE_SECURE=true`, `AUTH_COOKIE_SAME_SITE=none`, exact credentialed CORS, and host-only cookies.
-
-The backend hostname is not a security boundary. Security must rely on authentication, authorization, RBAC, resource ownership, validation, and rate limiting.
+Browser calls `/api/v1` on the frontend origin, ensuring same-origin cookie delivery and avoiding cross-site cookie restrictions on mobile browsers. Cookies are configured with `SameSite=Lax` and `Secure=true`.
 
 ---
 
