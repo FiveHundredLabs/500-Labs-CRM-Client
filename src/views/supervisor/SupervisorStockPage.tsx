@@ -319,7 +319,7 @@ export const SupervisorStockPage: React.FC = () => {
             size="sm"
             leftIcon={<PlusCircle className="w-4 h-4" />}
             onClick={openBulkModal}
-            className="bg-blue-600 hover:bg-blue-700 font-bold shadow-xs"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 font-bold shadow-xs justify-center"
           >
             Bulk Add Stock Request
           </Button>
@@ -351,23 +351,24 @@ export const SupervisorStockPage: React.FC = () => {
         />
       </div>
 
-      {/* Product Stock Table */}
-      <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      {/* Product Stock Table & Mobile Card List */}
+      <div className="p-3.5 sm:p-4 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-1">
           <div>
-            <h3 className="font-bold text-slate-900 text-base">Team Products Inventory</h3>
+            <h3 className="font-bold text-slate-900 text-sm sm:text-base">Team Products Inventory</h3>
             <p className="text-xs text-slate-500">
               Only products assigned to your team are visible. Product creation is restricted to Admin only.
             </p>
           </div>
         </div>
 
-        <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
+        {/* Filter Tabs with touch scrolling */}
+        <div className="flex gap-1.5 sm:gap-2 mb-2 overflow-x-auto pb-1.5 scrollbar-none no-scrollbar">
           {['ALL', 'AVAILABLE', 'ALLOCATED', 'DISPATCHED', 'SOLD', 'DAMAGED'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors shrink-0 ${
                 activeTab === tab
                   ? 'bg-blue-100 text-blue-700 border border-blue-200'
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
@@ -378,11 +379,12 @@ export const SupervisorStockPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        {/* Desktop Table View (md: and up) */}
+        <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left text-xs table-fixed">
             <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="py-2.5 px-3 w-[26%]">Product & SKU</th>
+                <th className="py-2.5 px-3 w-[26%]">Product &amp; SKU</th>
                 <th className="py-2.5 px-1.5 text-center text-slate-700 w-[9%]">Available</th>
                 <th className="py-2.5 px-1.5 text-center text-amber-600 w-[8%]">Allocated</th>
                 <th className="py-2.5 px-1.5 text-center text-blue-600 w-[8%]">Dispatched</th>
@@ -520,6 +522,129 @@ export const SupervisorStockPage: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Product Card List View (< md) */}
+        <div className="block md:hidden space-y-3">
+          {filteredProducts.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 text-xs bg-slate-50 rounded-xl border border-slate-200">
+              No products found for your team.
+            </div>
+          ) : (
+            filteredProducts.map((product) => {
+              const isLow = product.currentStock <= product.minStockThreshold;
+              return (
+                <div
+                  key={product.id}
+                  className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3"
+                >
+                  {/* Top: Name, SKU, Status */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm leading-snug">
+                        {product.name}
+                      </h4>
+                      <span className="font-mono text-[11px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 font-medium inline-block mt-1">
+                        {product.code}
+                      </span>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      {product.currentStock === 0 ? (
+                        <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                          Out of Stock
+                        </span>
+                      ) : isLow ? (
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                          Low Stock ({product.currentStock})
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          {product.currentStock} Available
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Stock Breakdown Metric Pills */}
+                  <div className="grid grid-cols-5 gap-1.5 p-2 bg-slate-50 rounded-lg border border-slate-100 text-center">
+                    <div>
+                      <div className="text-[10px] font-semibold text-slate-500 uppercase">Avail</div>
+                      <div className="font-black font-mono text-xs text-slate-900">{product.currentStock}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold text-amber-600 uppercase">Alloc</div>
+                      <div className="font-bold font-mono text-xs text-amber-700">{product.allocatedStock || 0}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold text-blue-600 uppercase">Disp</div>
+                      <div className="font-bold font-mono text-xs text-blue-700">{product.dispatchedStock || 0}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold text-emerald-600 uppercase">Sold</div>
+                      <div className="font-bold font-mono text-xs text-emerald-700">{product.soldStock || 0}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold text-rose-600 uppercase">Dmg</div>
+                      <div className="font-bold font-mono text-xs text-rose-700">{product.damagedStock || 0}</div>
+                    </div>
+                  </div>
+
+                  {/* Pricing Info */}
+                  <div className="flex items-center justify-between text-xs px-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500 text-[11px]">Selling:</span>
+                      <span className="font-bold font-mono text-emerald-700">LKR {product.sellingPrice.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-400 text-[11px]">Cost:</span>
+                      <span className="font-mono text-slate-500 text-[11px]">LKR {product.costPrice.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<PlusCircle className="w-3.5 h-3.5 text-blue-600" />}
+                      onClick={() => openStockModal(product)}
+                      className="w-full text-xs font-semibold py-1.5 h-8 justify-center"
+                    >
+                      + Stock
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<DollarSign className="w-3.5 h-3.5 text-slate-600" />}
+                      onClick={() => {
+                        setPriceModalProduct(product);
+                        setNewCostPrice(product.costPrice);
+                        setNewSellingPrice(product.sellingPrice);
+                        setPriceReason('');
+                      }}
+                      className="w-full text-xs font-semibold py-1.5 h-8 justify-center"
+                    >
+                      Price
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<AlertTriangle className="w-3.5 h-3.5 text-rose-500" />}
+                      onClick={() => {
+                        setDamageModalProduct(product);
+                        setDamageQty(1);
+                        setDamageReason('');
+                      }}
+                      className="w-full text-xs font-semibold py-1.5 h-8 text-rose-700 hover:bg-rose-50 border-rose-200 justify-center"
+                    >
+                      Damage
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -680,11 +805,11 @@ export const SupervisorStockPage: React.FC = () => {
             required
           />
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <Button type="button" variant="secondary" onClick={() => setStockModalProduct(null)}>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button type="button" variant="secondary" onClick={() => setStockModalProduct(null)} className="w-full sm:w-auto justify-center">
               Cancel
             </Button>
-            <Button type="submit" variant="primary" isLoading={isSubmittingStock} leftIcon={<Send className="w-3.5 h-3.5" />}>
+            <Button type="submit" variant="primary" isLoading={isSubmittingStock} leftIcon={<Send className="w-3.5 h-3.5" />} className="w-full sm:w-auto justify-center">
               Submit for Admin Approval
             </Button>
           </div>
@@ -738,11 +863,11 @@ export const SupervisorStockPage: React.FC = () => {
             required
           />
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <Button type="button" variant="secondary" onClick={() => setPriceModalProduct(null)}>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button type="button" variant="secondary" onClick={() => setPriceModalProduct(null)} className="w-full sm:w-auto justify-center">
               Cancel
             </Button>
-            <Button type="submit" variant="primary" isLoading={isSubmittingPrice} leftIcon={<Send className="w-3.5 h-3.5" />}>
+            <Button type="submit" variant="primary" isLoading={isSubmittingPrice} leftIcon={<Send className="w-3.5 h-3.5" />} className="w-full sm:w-auto justify-center">
               Submit Price Request & Notify Admin
             </Button>
           </div>
@@ -999,11 +1124,11 @@ export const SupervisorStockPage: React.FC = () => {
             required
           />
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <Button type="button" variant="secondary" onClick={() => setIsBulkModalOpen(false)}>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button type="button" variant="secondary" onClick={() => setIsBulkModalOpen(false)} className="w-full sm:w-auto justify-center">
               Cancel
             </Button>
-            <Button type="submit" variant="primary" isLoading={isSubmittingBulk} leftIcon={<Send className="w-3.5 h-3.5" />}>
+            <Button type="submit" variant="primary" isLoading={isSubmittingBulk} leftIcon={<Send className="w-3.5 h-3.5" />} className="w-full sm:w-auto justify-center">
               Submit 1 Approval Request for All Products
             </Button>
           </div>
@@ -1060,11 +1185,11 @@ export const SupervisorStockPage: React.FC = () => {
               required
             />
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-              <Button type="button" variant="secondary" onClick={() => setDamageModalProduct(null)}>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button type="button" variant="secondary" onClick={() => setDamageModalProduct(null)} className="w-full sm:w-auto justify-center">
                 Cancel
               </Button>
-              <Button type="submit" variant="danger" isLoading={isSubmittingDamage} leftIcon={<AlertTriangle className="w-3.5 h-3.5" />}>
+              <Button type="submit" variant="danger" isLoading={isSubmittingDamage} leftIcon={<AlertTriangle className="w-3.5 h-3.5" />} className="w-full sm:w-auto justify-center">
                 Quarantine Damaged Stock
               </Button>
             </div>
