@@ -31,10 +31,10 @@ export const MobileBottomNav: React.FC = () => {
               <button
                 key="more-btn"
                 onClick={() => setIsMoreOpen(true)}
-                className="flex flex-col items-center justify-center py-1 px-3 min-w-[60px] text-slate-500 hover:text-blue-600 cursor-pointer"
+                className="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-1 text-slate-500 hover:text-blue-600 cursor-pointer transition-colors"
               >
-                <Icon className="w-4.5 h-4.5" />
-                <span className="text-[10px] font-medium mt-1">More</span>
+                <Icon className="w-4.5 h-4.5 shrink-0" />
+                <span className="text-[10px] font-medium mt-0.5 truncate max-w-full text-center">More</span>
               </button>
             );
           }
@@ -44,13 +44,13 @@ export const MobileBottomNav: React.FC = () => {
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center py-1 px-3 min-w-[60px] transition-colors ${
+                `flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-1 transition-colors ${
                   isActive ? 'text-blue-600 font-semibold' : 'text-slate-500 hover:text-slate-900'
                 }`
               }
             >
-              <Icon className="w-4.5 h-4.5" />
-              <span className="text-[10px] font-medium mt-1 truncate max-w-[64px] text-center">
+              <Icon className="w-4.5 h-4.5 shrink-0" />
+              <span className="text-[10px] font-medium mt-0.5 truncate max-w-full text-center">
                 {item.label}
               </span>
             </NavLink>

@@ -19,9 +19,9 @@ import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 export const SupervisorAllocationPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || 'team_001');
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
 
-  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || 'team_001';
+  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || '';
   const effectiveActor = user
     ? { ...user, teamId: effectiveTeamId }
     : null;
@@ -42,6 +42,13 @@ export const SupervisorAllocationPage: React.FC = () => {
 
   const loadAllocationData = async () => {
     if (!user) return;
+    if (!effectiveTeamId) {
+      setUnallocated([]);
+      setActiveMembers([]);
+      setSelectedMemberIds([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [allContacts, teamUsers] = await Promise.all([
@@ -121,7 +128,10 @@ export const SupervisorAllocationPage: React.FC = () => {
 
   // Confirm Bulk Allocation
   const handleConfirmAllocation = async () => {
-    if (!effectiveActor) return;
+    if (!effectiveActor?.teamId) {
+      toast.error('Select a real team before allocating contacts.');
+      return;
+    }
     setIsAllocating(true);
     try {
       await AllocationService.allocateTeamContacts(effectiveActor, selectedMemberIds);
@@ -212,7 +222,7 @@ export const SupervisorAllocationPage: React.FC = () => {
         </Card>
 
         {/* Multi-Select Salesmen Roster */}
-        <Card className="lg:col-span-2 flex flex-col justify-between">
+        <Card className="lg:col-span-2 flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <CardTitle className="flex items-center gap-2 text-sm">
@@ -240,7 +250,7 @@ export const SupervisorAllocationPage: React.FC = () => {
             </button>
           </CardHeader>
 
-          <CardContent className="p-0 divide-y divide-slate-100 max-h-80 overflow-y-auto">
+          <CardContent className="p-0 divide-y divide-slate-100 max-h-[380px] overflow-y-auto flex-1">
             {activeMembers.length === 0 ? (
               <div className="p-6 text-center text-xs text-red-600 font-medium">
                 No active salesmen found in team. Please add or activate salesmen first.

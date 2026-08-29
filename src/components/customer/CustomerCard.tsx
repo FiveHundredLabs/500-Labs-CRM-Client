@@ -86,7 +86,7 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
       </div>
 
       {/* CONTACT DETAILS & OPTIONAL MIDDLE CONTENT */}
-      <div className="mt-1.5 space-y-1 pl-6 pr-1">
+      <div className="mt-1.5 space-y-1.5 pl-3 sm:pl-6 pr-0.5 sm:pr-1">
         {phone && (
           <div className="flex items-center gap-1.5 min-w-0">
             <Phone className="w-3 h-3 text-blue-500 shrink-0" />
@@ -109,7 +109,7 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
       </div>
 
       {/* BOTTOM ROW: Handled By | Date */}
-      <div className="mt-2 pl-6 flex items-center justify-between gap-2 min-w-0 text-[9px] sm:text-[10px]">
+      <div className="mt-2 pl-3 sm:pl-6 flex items-center justify-between gap-2 min-w-0 text-[9px] sm:text-[10px]">
         <div className="flex items-center gap-1 min-w-0">
           <UserCheck className="w-3 h-3 text-slate-400 shrink-0" />
           <span className="text-slate-600 truncate">

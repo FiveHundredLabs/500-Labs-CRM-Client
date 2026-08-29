@@ -50,32 +50,49 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4 sm:p-6 font-sans">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+    <div className="relative min-h-screen w-full flex flex-col justify-center items-center p-4 sm:p-6 font-sans overflow-hidden select-none">
+      {/* Dynamic Responsive Background */}
+      <picture className="absolute inset-0 w-full h-full pointer-events-none z-0">
+        <source media="(min-width: 768px)" srcSet="/login_bg_landscape.jpg" />
+        <source media="(orientation: landscape)" srcSet="/login_bg_landscape.jpg" />
+        <img
+          src="/login_bg_portrait.jpg"
+          alt="CRM Login Background"
+          className="w-full h-full object-cover object-center transform scale-[1.02] transition-transform duration-1000 ease-out"
+          loading="eager"
+        />
+      </picture>
+
+      {/* Cinematic Dark Vignette & Glassmorphism Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/65 to-slate-950/75 backdrop-blur-[2px] pointer-events-none z-0" />
+
+      {/* Floating Glassmorphic Login Card */}
+      <div className="relative z-10 w-full max-w-md backdrop-blur-2xl bg-white/95 border border-white/60 shadow-2xl shadow-black/60 rounded-3xl overflow-hidden transition-all duration-300">
         {/* Header */}
-        <div className="p-8 pb-6 border-b border-slate-100 text-center bg-white">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-bold text-sm mx-auto flex items-center justify-center shadow-xs mb-3">
-            <Building2 className="w-5 h-5" />
+        <div className="p-7 sm:p-8 pb-5 text-center border-b border-slate-100/80 bg-white/50">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-sm mx-auto flex items-center justify-center shadow-lg shadow-blue-500/25 mb-3.5 transition-transform hover:scale-105 duration-200">
+            <Building2 className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Enterprise CRM &amp; Sales Portal
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            Enterprise CRM
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Multi-Role Order Fulfillment &amp; Tele-calling System
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Order Fulfillment &amp; Sales Workspace
           </p>
         </div>
 
         {/* Login Form */}
-        <form onSubmit={handleLogin} className="p-8 pt-6 space-y-4">
+        <form onSubmit={handleLogin} className="p-7 sm:p-8 pt-5 space-y-4">
           <Input
             label="Email or Username"
             type="text"
             placeholder="e.g. admin@crm.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            leftIcon={<Mail className="w-4 h-4" />}
+            leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
             required
             autoFocus
+            className="bg-slate-50/70 focus:bg-white transition-colors"
           />
 
           <Input
@@ -84,12 +101,13 @@ export const LoginPage: React.FC = () => {
             placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            leftIcon={<Lock className="w-4 h-4" />}
+            leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
             rightIcon={
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer p-1"
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
                   <EyeOff className="w-4 h-4" />
@@ -99,27 +117,29 @@ export const LoginPage: React.FC = () => {
               </button>
             }
             required
+            className="bg-slate-50/70 focus:bg-white transition-colors"
           />
 
-          <div className="flex items-center justify-between text-xs text-slate-600">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
+          <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
+            <label className="flex items-center gap-2 cursor-pointer select-none group">
               <input
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20"
+                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-3.5 h-3.5"
               />
-              <span>Remember me</span>
+              <span className="group-hover:text-slate-900 transition-colors">Remember me</span>
             </label>
-            <span className="text-slate-400 font-normal">
-              Encrypted Session
+            <span className="text-slate-400 font-medium flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+              Secure 256-bit SSL
             </span>
           </div>
 
           <Button
             type="submit"
             variant="primary"
-            className="w-full h-10 text-sm mt-2"
+            className="w-full h-11 text-sm font-semibold mt-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-500/20 active:scale-[0.99] transition-all rounded-xl"
             isLoading={isLoading || status === "checking"}
           >
             Sign In to Workspace
@@ -127,8 +147,9 @@ export const LoginPage: React.FC = () => {
         </form>
       </div>
 
-      <div className="text-xs text-slate-400 mt-6 text-center">
-        Enterprise Role-Based Management System &bull; 2026 Production Edition
+      {/* Modern Footer Branding */}
+      <div className="relative z-10 text-xs text-slate-300/80 mt-6 text-center tracking-wide drop-shadow-sm">
+        500 Flow CRM Platform &bull; 2026 Production Edition
       </div>
     </div>
   );

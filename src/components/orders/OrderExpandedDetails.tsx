@@ -47,23 +47,23 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
       </div>
 
       {/* Action Buttons Slot */}
-      <div className="flex items-center justify-between gap-1.5 pt-1">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-slate-100">
         <button
           type="button"
           onClick={() => onViewHistory(order)}
-          className="text-xs text-slate-600 hover:text-slate-900 font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+          className="text-[11px] sm:text-xs text-slate-600 hover:text-slate-900 font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
         >
           <History className="w-3.5 h-3.5" />
           <span>History</span>
         </button>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <Button
             variant="secondary"
             size="sm"
             leftIcon={<Printer className="w-3.5 h-3.5 text-slate-700" />}
             onClick={() => onPrintBillingSlip(order)}
-            className="text-xs py-1 px-2.5 text-slate-700 bg-white hover:bg-slate-100 border-slate-300 cursor-pointer h-7"
+            className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 text-slate-700 bg-white hover:bg-slate-100 border-slate-300 cursor-pointer h-7"
           >
             COD Slip
           </Button>
@@ -75,7 +75,7 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
                 size="sm"
                 leftIcon={<CheckCheck className="w-3.5 h-3.5" />}
                 onClick={() => onOpenStatusModal(order, 'DELIVERED')}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-1 px-2.5 cursor-pointer h-7"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold shadow-2xs"
               >
                 Delivered
               </Button>
@@ -84,7 +84,7 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
                 size="sm"
                 leftIcon={<XCircle className="w-3.5 h-3.5" />}
                 onClick={() => onOpenStatusModal(order, 'REJECTED')}
-                className="text-xs py-1 px-2.5 cursor-pointer h-7"
+                className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold shadow-2xs"
               >
                 Rejected
               </Button>
@@ -97,7 +97,7 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
               size="sm"
               leftIcon={<ShieldAlert className="w-3.5 h-3.5 text-rose-600" />}
               onClick={() => onInspectDamages?.(order)}
-              className="text-xs py-1 px-2.5 text-rose-800 bg-rose-50 hover:bg-rose-100 border-rose-200 cursor-pointer h-7"
+              className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 text-rose-800 bg-rose-50 hover:bg-rose-100 border-rose-200 cursor-pointer h-7"
             >
               Damage Details
             </Button>
@@ -115,7 +115,7 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
                 )
               }
               onClick={() => onOpenRemarkModal(order)}
-              className="text-xs py-1 px-2.5 text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300 cursor-pointer h-7"
+              className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300 cursor-pointer h-7"
             >
               {order.remarks && order.remarks.trim() !== '' ? 'Edit Remark' : 'Add Remark'}
             </Button>

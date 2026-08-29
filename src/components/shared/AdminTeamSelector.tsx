@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { PREDEFINED_TEAMS, getTeamBranding } from '../../config/branding';
+import { getTeamBranding } from '../../config/branding';
 import { Team } from '../../models/domain';
 import { teamRepository } from '../../repositories';
 import { Select } from '../ui/Select';
@@ -41,10 +41,7 @@ export const AdminTeamSelector: React.FC<AdminTeamSelectorProps> = ({
     };
   }, [activeTeamId, onTeamChange, role]);
 
-  const teamList = useMemo(
-    () => (teams.length > 0 ? teams : Object.values(PREDEFINED_TEAMS)),
-    [teams]
-  );
+  const teamList = useMemo(() => teams, [teams]);
   const selectedTeam = teamList.find((team) => team.id === activeTeamId);
   const currentTeam = getTeamBranding(selectedTeam || activeTeamId);
 
@@ -74,10 +71,13 @@ export const AdminTeamSelector: React.FC<AdminTeamSelectorProps> = ({
         <Select
           value={activeTeamId}
           onChange={(e) => onTeamChange(e.target.value)}
-          options={teamList.map((t) => ({
-            value: t.id,
-            label: `${t.name} (${t.id === 'team_001' ? 'Team 1' : 'Team 2'})`,
-          }))}
+          options={[
+            { value: '', label: '-- Select Team --' },
+            ...teamList.map((t) => ({
+              value: t.id,
+              label: `${t.name} (${t.code})`,
+            })),
+          ]}
           className="w-56 text-xs font-bold bg-white"
         />
       </div>
