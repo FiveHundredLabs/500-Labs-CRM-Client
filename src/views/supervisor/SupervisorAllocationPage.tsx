@@ -222,7 +222,7 @@ export const SupervisorAllocationPage: React.FC = () => {
         </Card>
 
         {/* Multi-Select Salesmen Roster */}
-        <Card className="lg:col-span-2 flex flex-col justify-between">
+        <Card className="lg:col-span-2 flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <CardTitle className="flex items-center gap-2 text-sm">
@@ -250,7 +250,7 @@ export const SupervisorAllocationPage: React.FC = () => {
             </button>
           </CardHeader>
 
-          <CardContent className="p-0 divide-y divide-slate-100 max-h-80 overflow-y-auto">
+          <CardContent className="p-0 divide-y divide-slate-100 max-h-[380px] overflow-y-auto flex-1">
             {activeMembers.length === 0 ? (
               <div className="p-6 text-center text-xs text-red-600 font-medium">
                 No active salesmen found in team. Please add or activate salesmen first.
