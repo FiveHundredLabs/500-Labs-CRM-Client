@@ -92,8 +92,9 @@ export class ApiUserRepository implements IUserRepository {
     return all.filter((u) => u.role === role);
   }
   async getByTeamId(teamId: string): Promise<User[]> {
-    const all = await this.getAll();
-    return all.filter((u) => u.teamId === teamId);
+    return unwrap(
+      await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
+    );
   }
   async getBySupervisorId(supervisorId: string): Promise<User[]> {
     const all = await this.getAll();
