@@ -128,6 +128,13 @@ export class MockUserRepository implements IUserRepository {
     return updated;
   }
 
+  async updateMe(updates: Partial<User>): Promise<User> {
+    const rawCurr = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    if (!rawCurr) throw new Error('No authenticated user found');
+    const parsed = JSON.parse(rawCurr);
+    return this.update(parsed.id, updates);
+  }
+
   async disable(id: string): Promise<void> {
     await delay();
     const users = getStoredItem<User>(STORAGE_KEYS.USERS, []);
