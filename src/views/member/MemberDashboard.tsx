@@ -251,14 +251,14 @@ export const MemberDashboard: React.FC = () => {
               leftIcon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
               onClick={() => navigate('/member/sales')}
             >
-              My Sales & Fulfillment
+              My Sales
             </Button>
             <Button
               variant="primary"
               leftIcon={<PhoneCall className="w-4 h-4" />}
               onClick={() => navigate('/member/contacts')}
             >
-              Start Calling Queue
+              Start Calling
             </Button>
           </div>
         }
