@@ -27,6 +27,8 @@ import {
 export interface ITeamRepository {
   getAll(): Promise<Team[]>;
   getById(id: string): Promise<Team | null>;
+  create(team: Omit<Team, 'id' | 'createdAt' | 'updatedAt'>): Promise<Team>;
+  update(id: string, updates: Partial<Team>): Promise<Team>;
 }
 
 export interface IUserRepository {

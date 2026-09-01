@@ -55,6 +55,32 @@ export class MockTeamRepository implements ITeamRepository {
     const teams = getStoredItem<Team>(STORAGE_KEYS.TEAMS, []);
     return teams.find((t) => t.id === id) || null;
   }
+
+  async create(teamData: Omit<Team, 'id' | 'createdAt' | 'updatedAt'>): Promise<Team> {
+    await delay();
+    const teams = getStoredItem<Team>(STORAGE_KEYS.TEAMS, []);
+    const now = new Date().toISOString();
+    const newTeam: Team = {
+      ...teamData,
+      id: `team_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    teams.push(newTeam);
+    setStoredItem(STORAGE_KEYS.TEAMS, teams);
+    return newTeam;
+  }
+
+  async update(id: string, updates: Partial<Team>): Promise<Team> {
+    await delay();
+    const teams = getStoredItem<Team>(STORAGE_KEYS.TEAMS, []);
+    const index = teams.findIndex((team) => team.id === id);
+    if (index === -1) throw new Error('Team not found');
+    const updated = { ...teams[index], ...updates, updatedAt: new Date().toISOString() };
+    teams[index] = updated;
+    setStoredItem(STORAGE_KEYS.TEAMS, teams);
+    return updated;
+  }
 }
 
 export class MockUserRepository implements IUserRepository {

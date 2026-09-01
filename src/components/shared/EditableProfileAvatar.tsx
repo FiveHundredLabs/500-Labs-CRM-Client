@@ -1,11 +1,12 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { ProfileAvatar } from './ProfileAvatar';
 import { Camera, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { optimizeImageDataUrl } from '../../utils/imageDataUrl';
 
 export interface EditableProfileAvatarProps {
   name: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   onChangeAvatar: (newUrl: string) => void;
   size?: 'lg' | 'xl' | '2xl';
   className?: string;
@@ -19,61 +20,22 @@ export const EditableProfileAvatar: React.FC<EditableProfileAvatarProps> = ({
   className = '',
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select a valid image file (PNG, JPG, WEBP, etc.)');
-      return;
+    setIsProcessing(true);
+    try {
+      onChangeAvatar(await optimizeImageDataUrl(file, 'profile'));
+      toast.success('Photo preview updated! Click "Save Changes" to apply.');
+    } catch (error: any) {
+      toast.error(error.message || 'Unable to process profile photo.');
+    } finally {
+      setIsProcessing(false);
     }
-
-    // Limit file selection to 10MB
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Image file size should be less than 10MB');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        const img = new Image();
-        img.onload = () => {
-          const maxDim = 400;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > maxDim) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            }
-          } else {
-            if (height > maxDim) {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-            onChangeAvatar(optimizedBase64);
-            toast.success('Photo preview updated! Click "Save Changes" to apply.');
-          } else {
-            onChangeAvatar(reader.result as string);
-            toast.success('Photo preview updated! Click "Save Changes" to apply.');
-          }
-        };
-        img.src = reader.result;
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleRemovePhoto = (e: React.MouseEvent) => {
@@ -91,7 +53,7 @@ export const EditableProfileAvatar: React.FC<EditableProfileAvatarProps> = ({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           className="hidden"
           onChange={handleFileChange}
         />
@@ -100,6 +62,7 @@ export const EditableProfileAvatar: React.FC<EditableProfileAvatarProps> = ({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
+          disabled={isProcessing}
           title="Change profile photo"
           aria-label="Change profile photo"
           className="absolute -bottom-1 -right-1 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white p-2 rounded-full shadow-lg border-2 border-white transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"

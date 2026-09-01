@@ -2,7 +2,7 @@ export interface LeaderboardItem {
   id: string;
   rank: number;
   name: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   isCurrentUser?: boolean;
   primaryValue: number; // Total Delivered Sales Amount (LKR)
   secondaryValue: number; // Delivered Orders count or Total Handled Orders

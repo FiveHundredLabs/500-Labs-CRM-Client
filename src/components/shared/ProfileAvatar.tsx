@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 export interface ProfileAvatarProps {
   name: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   className?: string;
 }
@@ -13,6 +13,12 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   size = 'md',
   className = '',
 }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
   const getInitials = (str: string) => {
     if (!str) return 'U';
     const parts = str.trim().split(' ');
@@ -28,12 +34,13 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
     '2xl': 'w-20 h-20 text-xl',
   };
 
-  if (avatarUrl) {
+  if (avatarUrl && !imageFailed) {
     return (
       <img
         src={avatarUrl}
         alt={name}
         className={`${sizes[size]} rounded-full object-cover border border-slate-200 shrink-0 ${className}`}
+        onError={() => setImageFailed(true)}
       />
     );
   }

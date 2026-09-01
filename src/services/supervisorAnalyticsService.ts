@@ -5,7 +5,7 @@ export interface LeaderboardMemberStats {
   rank: number;
   memberId: string;
   memberName: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   email: string;
   phone: string;
   totalOrders: number;

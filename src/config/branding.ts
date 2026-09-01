@@ -8,6 +8,7 @@ export type TeamBranding = Pick<
   | 'brandColor'
   | 'accentColor'
   | 'logoText'
+  | 'logo'
   | 'contactEmail'
   | 'contactPhone'
   | 'address'
@@ -20,6 +21,7 @@ export interface BrandPrintConfig {
   merchantName: string;
   merchantTelephone: string;
   description: string;
+  logo?: string | null;
 }
 
 export type BrandIdentity =
@@ -35,6 +37,7 @@ const UNKNOWN_TEAM_BRANDING: TeamBranding = {
   brandColor: '#475569',
   accentColor: '#F8FAFC',
   logoText: 'TEAM',
+  logo: null,
   contactEmail: '',
   contactPhone: '',
   address: '',
@@ -58,6 +61,7 @@ export const getTeamBranding = (identity?: BrandIdentity): TeamBranding => {
     brandColor: identity.brandColor || UNKNOWN_TEAM_BRANDING.brandColor,
     accentColor: identity.accentColor || UNKNOWN_TEAM_BRANDING.accentColor,
     logoText: identity.logoText || identity.name || UNKNOWN_TEAM_BRANDING.logoText,
+    logo: identity.logo || null,
     contactEmail: identity.contactEmail || UNKNOWN_TEAM_BRANDING.contactEmail,
     contactPhone: identity.contactPhone || UNKNOWN_TEAM_BRANDING.contactPhone,
     address: identity.address || UNKNOWN_TEAM_BRANDING.address,
@@ -72,7 +76,7 @@ export const getBrandPrintConfig = (identity?: BrandIdentity): BrandPrintConfig 
 
   return {
     displayName: team.name,
-    printTitle: team.logoText || team.name,
+    printTitle: team.name,
     address: team.address
       .split(/\r?\n|,/)
       .map((part) => part.trim())
@@ -81,5 +85,6 @@ export const getBrandPrintConfig = (identity?: BrandIdentity): BrandPrintConfig 
     merchantName: team.name,
     merchantTelephone: team.contactPhone,
     description: team.logoText || team.name,
+    logo: team.logo || null,
   };
 };
