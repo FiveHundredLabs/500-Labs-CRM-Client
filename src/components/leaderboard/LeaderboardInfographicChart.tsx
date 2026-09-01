@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Trophy } from 'lucide-react';
 import { LeaderboardItem, ROW_GRADIENTS } from './types';
+import { formatCurrency } from '../../utils/currency';
 
 interface LeaderboardInfographicChartProps {
   items: LeaderboardItem[];
@@ -11,8 +12,8 @@ interface LeaderboardInfographicChartProps {
 
 export const LeaderboardInfographicChart: React.FC<LeaderboardInfographicChartProps> = ({
   items,
-  chartTitle = 'This Month Interested Calls Ranking',
-  unitLabel = 'calls',
+  chartTitle = 'Delivered Sales Revenue Ranking',
+  unitLabel = 'orders',
 }) => {
   const maxPrimary = Math.max(...items.map((i) => i.primaryValue), 1);
 
@@ -83,12 +84,13 @@ export const LeaderboardInfographicChart: React.FC<LeaderboardInfographicChartPr
               </div>
 
               {/* Outer Right Number of Metric */}
-              <div className="w-20 sm:w-32 text-right font-extrabold text-slate-900 text-xs sm:text-base font-mono tracking-tight shrink-0">
-                <span className="text-emerald-600 font-black">{item.primaryValue}</span>
-                <span className="text-slate-400 font-normal">/</span>
-                <span className="text-slate-700 font-bold">{item.secondaryValue}</span>{' '}
-                <span className="text-[10px] sm:text-xs font-normal text-slate-500 font-sans hidden sm:inline">
-                  {unitLabel}
+              <div className="text-right font-extrabold text-slate-900 text-xs sm:text-sm font-mono tracking-tight shrink-0 whitespace-nowrap">
+                <span className="text-emerald-600 font-black">
+                  {item.formattedPrimary || formatCurrency(item.primaryValue)}
+                </span>
+                <span className="text-slate-400 font-normal"> / </span>
+                <span className="text-slate-700 font-bold">
+                  {item.formattedSecondary || `${item.secondaryValue} ${unitLabel}`}
                 </span>
               </div>
             </div>

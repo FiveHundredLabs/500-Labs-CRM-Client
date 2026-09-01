@@ -17,8 +17,13 @@ import toast from 'react-hot-toast';
 import { UserPlus, Edit2, UserX, Eye, EyeOff, Mail, Phone, MapPin, Calendar, CreditCard, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
+
 export const SupervisorTeamPage: React.FC = () => {
   const { user } = useAuth();
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
+
+  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || '';
 
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,10 +53,15 @@ export const SupervisorTeamPage: React.FC = () => {
   const [disablingId, setDisablingId] = useState<string | null>(null);
 
   const loadTeam = async () => {
-    if (!user || !user.teamId) return;
+    if (!user) return;
+    if (!effectiveTeamId) {
+      setMembers([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const data = await userRepository.getByTeamId(user.teamId);
+      const data = await userRepository.getByTeamId(effectiveTeamId);
       setMembers(data.filter((m) => m.role === 'TEAM_MEMBER'));
     } finally {
       setLoading(false);
@@ -60,7 +70,7 @@ export const SupervisorTeamPage: React.FC = () => {
 
   useEffect(() => {
     loadTeam();
-  }, [user]);
+  }, [user, effectiveTeamId]);
 
   const openAddModal = () => {
     setEditingMember(null);
@@ -150,7 +160,7 @@ export const SupervisorTeamPage: React.FC = () => {
             password,
             fullName,
             role: 'TEAM_MEMBER',
-            teamId: user!.teamId!,
+            teamId: effectiveTeamId,
             supervisorId: user!.id,
             phone,
             nic,
@@ -208,6 +218,12 @@ export const SupervisorTeamPage: React.FC = () => {
             Add Team Member
           </Button>
         }
+      />
+
+      <AdminTeamSelector
+        activeTeamId={effectiveTeamId}
+        onTeamChange={setAdminTeamId}
+        title="Team Management Scope"
       />
 
       <div className="enterprise-table-container overflow-x-auto rounded-xl border border-slate-200 bg-white">

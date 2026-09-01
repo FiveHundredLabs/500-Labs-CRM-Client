@@ -4,11 +4,13 @@ export interface LeaderboardItem {
   name: string;
   avatarUrl?: string;
   isCurrentUser?: boolean;
-  primaryValue: number;
-  secondaryValue: number;
+  primaryValue: number; // Total Delivered Sales Amount (LKR)
+  secondaryValue: number; // Delivered Orders count or Total Handled Orders
   primaryLabel?: string;
   secondaryLabel?: string;
   unitLabel?: string;
+  formattedPrimary?: string;
+  formattedSecondary?: string;
 }
 
 export interface LeaderboardProps {
@@ -22,6 +24,7 @@ export interface LeaderboardProps {
   primaryLabel?: string;
   secondaryLabel?: string;
   unitLabel?: string;
+  isCurrency?: boolean;
   onViewFullLeaderboard?: () => void;
   emptyMessage?: string;
 }

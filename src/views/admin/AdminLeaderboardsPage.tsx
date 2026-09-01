@@ -143,16 +143,16 @@ export const AdminLeaderboardsPage: React.FC = () => {
           rank: m.rank,
           name: m.memberName,
           avatarUrl: m.avatarUrl,
-          primaryValue: m.deliveredOrders,
-          secondaryValue: m.totalOrders,
-          primaryLabel: 'Delivered',
-          secondaryLabel: 'Handled Orders',
+          primaryValue: m.totalSalesValue,
+          secondaryValue: m.deliveredOrders,
+          primaryLabel: 'Delivered Sales',
+          secondaryLabel: 'Delivered Orders',
           unitLabel: 'orders',
         }))}
-        chartTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Member Delivered Orders Ranking`}
-        tableTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Performance Data Table`}
-        primaryLabel="Delivered"
-        secondaryLabel="Total Orders"
+        chartTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Member Delivered Sales Ranking`}
+        tableTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Sales Performance Data Table`}
+        primaryLabel="Delivered Sales"
+        secondaryLabel="Delivered Orders"
         unitLabel="orders"
         emptyMessage={`No leaderboard data available for ${selectedTeam ? selectedTeam.name : 'this team'}.`}
       />

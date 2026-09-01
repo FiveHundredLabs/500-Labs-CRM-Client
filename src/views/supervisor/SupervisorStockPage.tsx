@@ -13,8 +13,13 @@ import toast from 'react-hot-toast';
 import { Package, PlusCircle, DollarSign, AlertTriangle, Clock, CheckCircle2, XCircle, History, Send, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
+
 export const SupervisorStockPage: React.FC = () => {
   const { user } = useAuth();
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
+
+  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || '';
 
   const [products, setProducts] = useState<Product[]>([]);
   const [stockLogs, setStockLogs] = useState<StockActivityLog[]>([]);
@@ -63,13 +68,20 @@ export const SupervisorStockPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ALL' | 'AVAILABLE' | 'ALLOCATED' | 'DISPATCHED' | 'SOLD' | 'DAMAGED'>('ALL');
 
   const loadData = async () => {
-    if (!user || !user.teamId) return;
+    if (!user) return;
+    if (!effectiveTeamId) {
+      setProducts([]);
+      setStockLogs([]);
+      setApprovalRequests([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [teamProducts, logs, requests] = await Promise.all([
-        productRepository.getByTeamId(user.teamId),
-        stockActivityLogRepository.getByTeamId(user.teamId),
-        approvalRequestRepository.getByTeamId(user.teamId),
+        productRepository.getByTeamId(effectiveTeamId).catch(() => []),
+        stockActivityLogRepository.getByTeamId(effectiveTeamId).catch(() => []),
+        approvalRequestRepository.getByTeamId(effectiveTeamId).catch(() => []),
       ]);
 
       setProducts(teamProducts);
@@ -84,7 +96,7 @@ export const SupervisorStockPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, [user, effectiveTeamId]);
 
   const openBulkModal = () => {
     const initialQty: Record<string, number> = {};
@@ -325,6 +337,12 @@ export const SupervisorStockPage: React.FC = () => {
             Bulk Add Stock Request
           </Button>
         }
+      />
+
+      <AdminTeamSelector
+        activeTeamId={effectiveTeamId}
+        onTeamChange={setAdminTeamId}
+        title="Stock & Inventory Scope"
       />
 
       {/* KPI Cards */}

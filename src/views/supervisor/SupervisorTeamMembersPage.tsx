@@ -12,8 +12,13 @@ import { Leaderboard } from '../../components/leaderboard';
 import { TeamMemberFilters } from '../../components/supervisor/team/TeamMemberFilters';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from 'date-fns';
 
+import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
+
 export const SupervisorTeamMembersPage: React.FC = () => {
   const { user } = useAuth();
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
+
+  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || '';
 
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -27,12 +32,18 @@ export const SupervisorTeamMembersPage: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!user || !user.teamId) return;
+      if (!user) return;
+      if (!effectiveTeamId) {
+        setTeamMembers([]);
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const [membersData, ordersData] = await Promise.all([
-          userRepository.getByTeamId(user.teamId),
-          orderRepository.getByTeamId(user.teamId),
+          userRepository.getByTeamId(effectiveTeamId).catch(() => []),
+          orderRepository.getByTeamId(effectiveTeamId).catch(() => []),
         ]);
         setTeamMembers(membersData.filter((m) => m.role === 'TEAM_MEMBER'));
         setOrders(ordersData);
@@ -42,7 +53,7 @@ export const SupervisorTeamMembersPage: React.FC = () => {
     };
 
     loadData();
-  }, [user]);
+  }, [user, effectiveTeamId]);
 
   const handleDatePresetChange = (preset: string) => {
     setDatePreset(preset);
@@ -87,6 +98,12 @@ export const SupervisorTeamMembersPage: React.FC = () => {
         description="Comprehensive analysis of team member order handling, delivery rates, and revenue performance"
       />
 
+      <AdminTeamSelector
+        activeTeamId={effectiveTeamId}
+        onTeamChange={setAdminTeamId}
+        title="Team Leaderboard Scope"
+      />
+
       {/* Filters */}
       <TeamMemberFilters
         datePreset={datePreset}
@@ -107,16 +124,16 @@ export const SupervisorTeamMembersPage: React.FC = () => {
           name: m.memberName,
           avatarUrl: m.avatarUrl,
           isCurrentUser: m.memberId === user?.id,
-          primaryValue: m.deliveredOrders,
-          secondaryValue: m.totalOrders,
-          primaryLabel: 'Delivered',
-          secondaryLabel: 'Handled Orders',
+          primaryValue: m.totalSalesValue,
+          secondaryValue: m.deliveredOrders,
+          primaryLabel: 'Delivered Sales',
+          secondaryLabel: 'Delivered Orders',
           unitLabel: 'orders',
         }))}
-        chartTitle="Team Member Delivered Orders Ranking"
-        tableTitle="Team Performance Data Table"
-        primaryLabel="Delivered"
-        secondaryLabel="Total Orders"
+        chartTitle="Team Member Delivered Sales Ranking"
+        tableTitle="Team Performance & Delivered Sales Table"
+        primaryLabel="Delivered Sales"
+        secondaryLabel="Delivered Orders"
         unitLabel="orders"
       />
     </div>
