@@ -17,7 +17,8 @@ import {
   Wallet,
   Boxes,
   Target,
-  TrendingUp
+  TrendingUp,
+  Building2
 } from 'lucide-react';
 
 export interface NavItem {
@@ -59,6 +60,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     // Admin Specific Items
     { label: 'Home', path: '/admin/dashboard', icon: Home, isBottomNav: true, group: 'Admin' },
     { label: 'Sales Goals', path: '/admin/sales-goals', icon: Target, isBottomNav: false, group: 'Admin' },
+    { label: 'Teams', path: '/admin/teams', icon: Building2, isBottomNav: false, group: 'Admin' },
     { label: 'Users', path: '/admin/users', icon: Users, isBottomNav: true, group: 'Admin' },
     { label: 'Products', path: '/admin/products', icon: Boxes, isBottomNav: true, group: 'Admin' },
     { label: 'Approvals', path: '/admin/approvals', icon: FileCheck, isBottomNav: false, group: 'Admin' },
@@ -77,8 +79,11 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
         { label: 'Import Contacts', path: '/admin/import', icon: Upload },
         { label: 'Interested', path: '/admin/customers', icon: FileCheck },
         { label: 'Orders', path: '/admin/orders', icon: Package },
+        { label: 'Stock Management', path: '/admin/stock', icon: Boxes },
         { label: 'Allocation', path: '/admin/allocation', icon: Layers },
         { label: 'Allocation History', path: '/admin/allocation/history', icon: Clock },
+        { label: 'Team Specialists', path: '/admin/team', icon: Users },
+        { label: 'Team Leaderboard', path: '/admin/team-members', icon: Trophy },
       ],
     },
 

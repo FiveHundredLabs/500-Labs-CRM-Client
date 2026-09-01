@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Trophy, ArrowRight } from 'lucide-react';
 import { ProfileAvatar } from '../shared/ProfileAvatar';
 import { LeaderboardItem } from './types';
+import { formatCurrency } from '../../utils/currency';
 
 interface LeaderboardCompactWidgetProps {
   items: LeaderboardItem[];
@@ -14,8 +15,8 @@ interface LeaderboardCompactWidgetProps {
 
 export const LeaderboardCompactWidget: React.FC<LeaderboardCompactWidgetProps> = ({
   items,
-  title = 'Team Leaderboard',
-  unitLabel = 'calls',
+  title = 'Team Delivered Sales Leaderboard',
+  unitLabel = 'orders',
   onViewFullLeaderboard,
 }) => {
   const topPerformer = items.find((i) => i.rank === 1) || items[0];
@@ -64,11 +65,11 @@ export const LeaderboardCompactWidget: React.FC<LeaderboardCompactWidgetProps> =
 
               {/* Score Display */}
               <div className="text-right shrink-0">
-                <div className="text-lg font-black text-blue-700 font-mono leading-none">
-                  {topPerformer.primaryValue}/{topPerformer.secondaryValue}
+                <div className="text-base sm:text-lg font-black text-blue-700 font-mono leading-none">
+                  {topPerformer.formattedPrimary || formatCurrency(topPerformer.primaryValue)}
                 </div>
                 <div className="text-[11px] font-semibold text-slate-600 mt-1 whitespace-nowrap">
-                  {unitLabel}
+                  {topPerformer.formattedSecondary || `${topPerformer.secondaryValue} ${topPerformer.secondaryLabel || unitLabel}`}
                 </div>
               </div>
             </div>
@@ -92,9 +93,11 @@ export const LeaderboardCompactWidget: React.FC<LeaderboardCompactWidgetProps> =
 
             <div className="text-right shrink-0">
               <div className="font-mono font-bold text-slate-900 text-xs">
-                {currentUserBoardMember.primaryValue}/{currentUserBoardMember.secondaryValue} {unitLabel}
+                {currentUserBoardMember.formattedPrimary || formatCurrency(currentUserBoardMember.primaryValue)}
               </div>
-              <div className="text-[10px] text-slate-400">Your Progress</div>
+              <div className="text-[10px] text-slate-400">
+                {currentUserBoardMember.formattedSecondary || `${currentUserBoardMember.secondaryValue} ${currentUserBoardMember.secondaryLabel || unitLabel}`}
+              </div>
             </div>
           </div>
         ) : (
@@ -111,8 +114,13 @@ export const LeaderboardCompactWidget: React.FC<LeaderboardCompactWidgetProps> =
                     {item.name.split(' ')[0]}
                   </span>
                 </div>
-                <div className="font-mono font-bold text-slate-900 text-xs">
-                  {item.primaryValue}/{item.secondaryValue} <span className="text-[10px] text-slate-500 font-sans">{unitLabel}</span>
+                <div className="text-right shrink-0">
+                  <div className="font-mono font-bold text-slate-900 text-xs">
+                    {item.formattedPrimary || formatCurrency(item.primaryValue)}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {item.formattedSecondary || `${item.secondaryValue} ${item.secondaryLabel || unitLabel}`}
+                  </div>
                 </div>
               </div>
             ))}

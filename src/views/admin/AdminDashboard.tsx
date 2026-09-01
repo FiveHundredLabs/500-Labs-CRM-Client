@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   teamRepository,
@@ -34,9 +34,23 @@ import {
   Clock,
   AlertTriangle,
   Target,
+  Calendar,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
+import {
+  format,
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  subMonths,
+  isWithinInterval,
+} from 'date-fns';
 import toast from 'react-hot-toast';
+
+export type AdminDashboardDateFilter = 'THIS_MONTH' | 'LAST_MONTH' | 'TODAY' | 'THIS_WEEK' | 'ALL' | 'CUSTOM';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -49,6 +63,11 @@ export const AdminDashboard: React.FC = () => {
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailNotification[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Date Filter State
+  const [dateFilter, setDateFilter] = useState<AdminDashboardDateFilter>('THIS_MONTH');
+  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   useEffect(() => {
     const loadAll = async () => {
@@ -81,32 +100,80 @@ export const AdminDashboard: React.FC = () => {
     loadAll();
   }, []);
 
+  // Date Range Matcher Helper
+  const isDateInFilter = (dateStr?: string | null) => {
+    if (!dateStr) return false;
+    if (dateFilter === 'ALL') return true;
+
+    const date = new Date(dateStr);
+    const now = new Date();
+
+    if (dateFilter === 'TODAY') {
+      return isWithinInterval(date, { start: startOfDay(now), end: endOfDay(now) });
+    }
+    if (dateFilter === 'THIS_WEEK') {
+      return isWithinInterval(date, { start: startOfWeek(now), end: endOfWeek(now) });
+    }
+    if (dateFilter === 'THIS_MONTH') {
+      return isWithinInterval(date, { start: startOfMonth(now), end: endOfMonth(now) });
+    }
+    if (dateFilter === 'LAST_MONTH') {
+      const lastMonth = subMonths(now, 1);
+      return isWithinInterval(date, { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) });
+    }
+    if (dateFilter === 'CUSTOM') {
+      const s = new Date(startDate);
+      const e = new Date(endDate);
+      e.setHours(23, 59, 59, 999);
+      return date >= s && date <= e;
+    }
+    return true;
+  };
+
+  // Filtered Datasets based on selected date range
+  const scopedOrders = useMemo(
+    () => orders.filter((o) => isDateInFilter(o.createdAt)),
+    [orders, dateFilter, startDate, endDate]
+  );
+
+  const scopedContacts = useMemo(
+    () => contacts.filter((c) => isDateInFilter(c.updatedAt || c.importedAt)),
+    [contacts, dateFilter, startDate, endDate]
+  );
+
+  const scopedExpenses = useMemo(
+    () => expenses.filter((e: any) => isDateInFilter(e.expenseDate || e.createdAt || e.date)),
+    [expenses, dateFilter, startDate, endDate]
+  );
+
   // Dynamic KPI Metrics with explicit Number() casting
-  const totalGrossSales = orders.reduce(
+  const totalGrossSales = scopedOrders.reduce(
     (acc, curr) =>
       acc + Number(curr.codAmount !== undefined && curr.codAmount !== null ? curr.codAmount : (curr.totalAmount || 0)),
     0
   );
-  const lastDispatchedCount = orders.filter((o) => o.status === 'DISPATCHED').length;
-  const totalDeliveredOrders = orders.filter((o) => o.status === 'DELIVERED').length;
-  const todayInterestedCount = contacts.filter((c) => c.status === 'INTERESTED').length;
-  const totalMonthlyExpenses = expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const lastDispatchedCount = scopedOrders.filter((o) => o.status === 'DISPATCHED').length;
+  const totalDeliveredOrders = scopedOrders.filter((o) => o.status === 'DELIVERED').length;
+  const todayInterestedCount = scopedContacts.filter((c) => c.status === 'INTERESTED').length;
+  const totalMonthlyExpenses = scopedExpenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
-  // Dynamic Per-Team Leaderboards based on loaded teams
+  // Dynamic Per-Team Leaderboards based on loaded teams and scoped orders
   const teamLeaderboards = teams.map((team) => {
     const teamMembers = users.filter((u) => u.teamId === team.id && u.role === 'TEAM_MEMBER');
     const list = teamMembers.map((m) => {
-      const memberOrders = orders.filter((o) => o.teamMemberId === m.id);
-      const deliveredCount = memberOrders.filter((o) => o.status === 'DELIVERED').length;
+      const memberOrders = scopedOrders.filter((o) => o.teamMemberId === m.id);
+      const deliveredOrders = memberOrders.filter((o) => o.status === 'DELIVERED');
+      const deliveredSalesAmount = deliveredOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+      const deliveredCount = deliveredOrders.length;
       return {
         id: m.id,
         rank: 0,
         name: m.fullName,
         avatarUrl: m.avatarUrl,
-        primaryValue: deliveredCount,
-        secondaryValue: memberOrders.length,
-        primaryLabel: 'Delivered',
-        secondaryLabel: 'Handled Orders',
+        primaryValue: deliveredSalesAmount,
+        secondaryValue: deliveredCount,
+        primaryLabel: 'Delivered Sales',
+        secondaryLabel: 'Delivered Orders',
         unitLabel: 'orders',
       };
     });
@@ -179,12 +246,83 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Executive Date Scoping Filter Tab Toolbar */}
+      <div className="p-3 sm:p-4 bg-white border border-slate-200 rounded-2xl shadow-2xs space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 font-bold text-xs text-slate-800 uppercase tracking-wider">
+            <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+            <span>Time Period Scope:</span>
+            <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-2.5 py-0.5 rounded-full capitalize tracking-normal border border-blue-100">
+              {dateFilter === 'ALL'
+                ? 'All Time (Total)'
+                : dateFilter === 'THIS_MONTH'
+                ? 'This Month'
+                : dateFilter === 'LAST_MONTH'
+                ? 'Last Month'
+                : dateFilter === 'TODAY'
+                ? 'Today'
+                : dateFilter === 'THIS_WEEK'
+                ? 'This Week'
+                : `${startDate} to ${endDate}`}
+            </span>
+          </div>
+
+          {/* Filter Tab Buttons */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { key: 'THIS_MONTH', label: 'This Month' },
+              { key: 'LAST_MONTH', label: 'Last Month' },
+              { key: 'TODAY', label: 'Today' },
+              { key: 'THIS_WEEK', label: 'This Week' },
+              { key: 'ALL', label: 'All Time (Total)' },
+              { key: 'CUSTOM', label: 'Custom' },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setDateFilter(item.key as AdminDashboardDateFilter)}
+                className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  dateFilter === item.key
+                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {dateFilter === 'CUSTOM' && (
+          <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-slate-600">From Date:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-slate-600">To Date:</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 1. Executive KPI Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
         <StatCard
           title="Gross Sales"
           value={formatCurrency(totalGrossSales)}
-          subtitle={`${orders.length} Total Booked Orders`}
+          subtitle={`${scopedOrders.length} Booked Orders`}
           icon={<DollarSign className="w-4 h-4 text-emerald-600" />}
           accentColor="green"
           className="col-span-2 sm:col-span-1"
@@ -291,7 +429,7 @@ export const AdminDashboard: React.FC = () => {
               <span>Top Tele-Calling Specialists Ranking</span>
             </h2>
             <p className="text-[11px] sm:text-xs text-slate-500">
-              Performance leaderboard by verified delivered orders across teams
+              Performance leaderboard by verified delivered sales amount (LKR) across teams
             </p>
           </div>
           <Button
@@ -311,7 +449,7 @@ export const AdminDashboard: React.FC = () => {
               key={team.id}
               items={items}
               compact={true}
-              title={`${team.name} Leaderboard`}
+              title={`${team.name} Sales Leaderboard`}
               unitLabel="orders"
               onViewFullLeaderboard={() => navigate('/supervisor/team-members')}
             />

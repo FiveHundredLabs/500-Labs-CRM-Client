@@ -45,10 +45,19 @@ const SlipField: React.FC<{
 
 const SlipHeader: React.FC<{ brand: BrandPrintConfig }> = ({ brand }) => (
   <div className="h-[26mm] border-b-[0.55mm] border-[#000000] flex items-center justify-between px-[5mm] py-[2.5mm] overflow-hidden bg-[#FFFFFF]">
-    <div className="flex items-center justify-start max-w-[42mm] h-full pl-[1mm]">
-      <div className="text-[18px] font-black leading-tight text-[#000000] uppercase" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-        {brand.printTitle}
-      </div>
+    <div className="flex items-center justify-start w-[42mm] h-full pl-[1mm] overflow-hidden">
+      {brand.logo ? (
+        <img
+          src={brand.logo}
+          alt={brand.displayName}
+          className="max-w-[34mm] max-h-[18mm] object-contain"
+          style={{ display: 'block' }}
+        />
+      ) : (
+        <div className="text-[16px] font-black leading-tight text-[#000000] uppercase break-words" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+          {brand.displayName}
+        </div>
+      )}
     </div>
     {/* Business Info Container */}
     <div className="text-right flex-1 pl-[4mm] pr-[1mm] flex flex-col justify-center h-full">

@@ -33,7 +33,7 @@ export const Sheet: React.FC<SheetProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex bg-slate-900/40 backdrop-blur-xs transition-opacity duration-150">
-      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
+      <div className="fixed inset-0" aria-hidden="true" />
 
       <div
         className={`relative bg-white z-10 shadow-xl flex flex-col transition-transform duration-200 ease-out border-slate-200 ${

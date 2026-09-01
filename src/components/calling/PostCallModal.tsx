@@ -34,6 +34,7 @@ export interface PostCallModalProps {
   onClose: () => void;
   contact: Contact | null;
   onSuccess: () => void;
+  initialDirection?: 'OUTBOUND' | 'INBOUND';
 }
 
 export const PostCallModal: React.FC<PostCallModalProps> = ({
@@ -41,9 +42,11 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   onClose,
   contact,
   onSuccess,
+  initialDirection = 'OUTBOUND',
 }) => {
   const { user } = useAuth();
 
+  const [direction, setDirection] = useState<'OUTBOUND' | 'INBOUND'>(initialDirection);
   const [hasDialed, setHasDialed] = useState(false);
   const [history, setHistory] = useState<CallLog[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -71,11 +74,19 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
 
-  // Filter products strictly for the logged-in team member's team
+  // Filter products for the active context (matching user team, contact team, global products, or fallback to all active products)
   const teamProducts = useMemo(() => {
-    if (!user?.teamId) return products;
-    return products.filter((p) => p.teamId === user.teamId && p.isActive !== false);
-  }, [products, user?.teamId]);
+    const effectiveTeamId = user?.teamId || contact?.teamId;
+    if (!effectiveTeamId) return products.filter((p) => p.isActive !== false);
+
+    const teamFiltered = products.filter(
+      (p) =>
+        (!p.teamId || p.teamId === effectiveTeamId || p.teamId === user?.teamId || p.teamId === contact?.teamId) &&
+        p.isActive !== false
+    );
+
+    return teamFiltered.length > 0 ? teamFiltered : products.filter((p) => p.isActive !== false);
+  }, [products, user?.teamId, contact?.teamId]);
 
   // Calculate items and total order value dynamically
   const selectedItems = useMemo(() => {
@@ -122,9 +133,15 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   useEffect(() => {
     if (!contact || !isOpen || !user) return;
 
-    // Auto-launch dialer on modal open
-    window.location.href = `tel:${contact.phone.replace(/[^0-9+]/g, '')}`;
-    setHasDialed(true);
+    setDirection(initialDirection);
+
+    // If inbound callback, auto-activate form without launching native dialer
+    if (initialDirection === 'INBOUND') {
+      setHasDialed(true);
+    } else {
+      window.location.href = `tel:${contact.phone.replace(/[^0-9+]/g, '')}`;
+      setHasDialed(true);
+    }
 
     setStatus(contact.status === 'NEW' ? 'ANSWERED' : contact.status);
     setIsFollowUp(Boolean(contact.isFollowUp));
@@ -144,23 +161,37 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
       setLoadingHistory(true);
       setLoadingProducts(true);
       try {
+        const effectiveTeamId = user?.teamId || contact?.teamId;
         const [logs, allProds] = await Promise.all([
           callLogRepository.getByContactId(contact.id),
-          user.teamId ? productRepository.getByTeamId(user.teamId) : productRepository.getAll(),
+          productRepository.getAll().catch(async () => {
+            if (effectiveTeamId) {
+              return productRepository.getByTeamId(effectiveTeamId).catch(() => []);
+            }
+            return [];
+          }),
         ]);
 
         const contactLogs = logs.filter((l) => l.contactId === contact.id);
         contactLogs.sort((a, b) => new Date(b.calledAt).getTime() - new Date(a.calledAt).getTime());
         setHistory(contactLogs);
 
-        const activeTeamProds = allProds.filter(
-          (p) => (!user.teamId || p.teamId === user.teamId) && p.isActive !== false
+        const activeProds = (allProds || []).filter((p) => p.isActive !== false);
+        const activeTeamProds = activeProds.filter(
+          (p) =>
+            !p.teamId ||
+            !effectiveTeamId ||
+            p.teamId === effectiveTeamId ||
+            p.teamId === user?.teamId ||
+            p.teamId === contact?.teamId
         );
-        setProducts(activeTeamProds);
+
+        const resolvedProds = activeTeamProds.length > 0 ? activeTeamProds : activeProds;
+        setProducts(resolvedProds);
 
         // Pre-select 1 unit of first in-stock product by default if available
-        if (activeTeamProds.length > 0) {
-          const firstInStock = activeTeamProds.find((p) => p.currentStock > 0);
+        if (resolvedProds.length > 0) {
+          const firstInStock = resolvedProds.find((p) => p.currentStock > 0);
           if (firstInStock) {
             setSelectedQuantities({ [firstInStock.id]: 1 });
           }
@@ -266,6 +297,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
         {
           contactId: contact.id,
           status,
+          direction,
           isFollowUp,
           customerName: customerName.trim() || undefined,
           customerAddress: isInterested ? customerAddress.trim() : undefined,
@@ -306,28 +338,30 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
       maxWidth="lg"
     >
       <div className="space-y-4">
-        {/* Launch Dialer Bar */}
-        <div className="bg-blue-50/60 border border-blue-100 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-xs">
-              <Phone className="w-4 h-4" />
+        {/* Launch Dialer Bar (Only relevant for Outbound) */}
+        {direction === 'OUTBOUND' && (
+          <div className="bg-blue-50/60 border border-blue-100 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-xs">
+                <Phone className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Phone Number</div>
+                <div className="text-base font-bold text-slate-900 font-mono">{contact.phone}</div>
+              </div>
             </div>
-            <div>
-              <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Phone Number</div>
-              <div className="text-base font-bold text-slate-900 font-mono">{contact.phone}</div>
-            </div>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              leftIcon={<Phone className="w-3.5 h-3.5" />}
+              onClick={triggerNativeDialer}
+              className="w-full sm:w-auto"
+            >
+              Launch Dialer
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            leftIcon={<Phone className="w-3.5 h-3.5" />}
-            onClick={triggerNativeDialer}
-            className="w-full sm:w-auto"
-          >
-            Launch Dialer
-          </Button>
-        </div>
+        )}
 
         {/* Call History Section */}
         {!isNew && (
@@ -353,9 +387,18 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                     key={log.id}
                     className="bg-white border border-slate-200/80 rounded-lg p-2.5 text-xs text-slate-700 space-y-1 shadow-2xs"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <StatusBadge type="contact" status={log.status} />
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider ${
+                            log.direction === 'INBOUND'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-blue-100 text-blue-800 border border-blue-200'
+                          }`}
+                        >
+                          {log.direction === 'INBOUND' ? 'Inbound' : 'Outbound'}
+                        </span>
                         <span className="font-mono text-slate-400 text-[11px]">
                           {format(new Date(log.calledAt), 'MMM dd, yyyy • hh:mm a')}
                         </span>
@@ -785,7 +828,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary" isLoading={isLoading}>
-                  Save Call Outcome
+                  Save Call
                 </Button>
               </div>
             </div>

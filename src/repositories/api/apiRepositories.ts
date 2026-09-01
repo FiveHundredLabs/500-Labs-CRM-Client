@@ -61,6 +61,16 @@ export class ApiTeamRepository implements ITeamRepository {
       return null;
     }
   }
+  async create(teamData: Omit<Team, 'id' | 'createdAt' | 'updatedAt'>): Promise<Team> {
+    return unwrap(await apiClient.post<{ data: Team }>('/teams', teamData));
+  }
+  async update(id: string, updates: Partial<Team>): Promise<Team> {
+    const payload: Partial<Team> = { ...updates };
+    delete payload.id;
+    delete payload.createdAt;
+    delete payload.updatedAt;
+    return unwrap(await apiClient.patch<{ data: Team }>(`/teams/${id}`, payload));
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,7 +152,7 @@ export class ApiUserRepository implements IUserRepository {
     if (updates.email !== undefined) payload.email = updates.email.trim().toLowerCase();
     if (updates.phone !== undefined) payload.phone = updates.phone;
     if (updates.role !== undefined) payload.role = updates.role;
-    if (updates.avatarUrl !== undefined) payload.avatarUrl = updates.avatarUrl;
+    if (updates.avatarUrl !== undefined) payload.avatarUrl = updates.avatarUrl || null;
     if (updates.nic !== undefined) payload.nic = updates.nic;
     if (updates.dateOfBirth !== undefined) payload.dateOfBirth = updates.dateOfBirth ? updates.dateOfBirth.split('T')[0] : undefined;
     if (updates.joiningDate !== undefined) payload.joiningDate = updates.joiningDate ? updates.joiningDate.split('T')[0] : undefined;
@@ -158,7 +168,7 @@ export class ApiUserRepository implements IUserRepository {
     const payload: Record<string, any> = {};
     if (updates.fullName !== undefined) payload.fullName = updates.fullName;
     if (updates.phone !== undefined) payload.phone = updates.phone;
-    if (updates.avatarUrl !== undefined) payload.avatarUrl = updates.avatarUrl;
+    if (updates.avatarUrl !== undefined) payload.avatarUrl = updates.avatarUrl || null;
     if (updates.dateOfBirth !== undefined) payload.dateOfBirth = updates.dateOfBirth ? updates.dateOfBirth.split('T')[0] : undefined;
     if (updates.password !== undefined && updates.password.trim() !== '') payload.password = updates.password;
 

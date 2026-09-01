@@ -39,6 +39,7 @@ import { AdminProfilePage } from "../views/admin/AdminProfilePage";
 import { AdminApprovalsPage } from "../views/admin/AdminApprovalsPage";
 import { AdminProductsPage } from "../views/admin/AdminProductsPage";
 import { AdminSalesGoalsPage } from "../views/admin/AdminSalesGoalsPage";
+import { AdminTeamsPage } from "../views/admin/AdminTeamsPage";
 
 // Finance Views
 import { FinanceDashboard } from "../views/finance/FinanceDashboard";
@@ -95,6 +96,10 @@ export const router = createBrowserRouter([
                     path: "team-members",
                     element: <SupervisorTeamMembersPage />,
                   },
+                  {
+                    path: "leaderboard",
+                    element: <SupervisorTeamMembersPage />,
+                  },
                   { path: "reports", element: <SupervisorReportsPage /> },
                   { path: "stock", element: <SupervisorStockPage /> },
                   { path: "import", element: <SupervisorImportPage /> },
@@ -127,6 +132,7 @@ export const router = createBrowserRouter([
                 children: [
                   { path: "dashboard", element: <AdminDashboard /> },
                   { path: "sales-goals", element: <AdminSalesGoalsPage /> },
+                  { path: "teams", element: <AdminTeamsPage /> },
                   { path: "approvals", element: <AdminApprovalsPage /> },
                   { path: "products", element: <AdminProductsPage /> },
                   { path: "users", element: <AdminUsersPage /> },
@@ -141,6 +147,9 @@ export const router = createBrowserRouter([
                     element: <SupervisorCustomerDetailPage />,
                   },
                   { path: "orders", element: <SupervisorOrdersPage /> },
+                  { path: "stock", element: <SupervisorStockPage /> },
+                  { path: "team", element: <SupervisorTeamPage /> },
+                  { path: "team-members", element: <SupervisorTeamMembersPage /> },
                   { path: "import", element: <SupervisorImportPage /> },
                   { path: "allocation", element: <SupervisorAllocationPage /> },
                   {

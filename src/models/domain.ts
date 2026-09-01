@@ -34,6 +34,7 @@ export interface Team {
   brandColor: string; // Hex color for branding
   accentColor: string;
   logoText: string;
+  logo?: string | null;
   contactEmail: string;
   contactPhone: string;
   address: string;
@@ -52,7 +53,7 @@ export interface User {
   teamId: string | null; // null for ADMIN & FINANCE if multi-team
   supervisorId: string | null; // null for ADMIN, FINANCE, SUPERVISOR
   phone: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   nic?: string;
   dateOfBirth?: string;
   joiningDate: string;
@@ -88,6 +89,8 @@ export interface Contact {
   attemptCount: number;
   lastCalledAt: string | null;
   isFollowUp?: boolean; // Starred for Follow-Up List
+  callLogs?: CallLog[];
+  customers?: Customer[];
   updatedAt: string;
 }
 
@@ -134,6 +137,7 @@ export interface DuplicatePhoneCheckResult {
   exists: boolean;
   isOwnedBySelf: boolean;
   message?: string;
+  contact?: Contact;
   intelligence?: DuplicatePhoneIntelligence;
 }
 
@@ -143,6 +147,7 @@ export interface CallLog {
   teamMemberId: string;
   teamId: string;
   status: ContactStatus;
+  direction?: 'OUTBOUND' | 'INBOUND';
   customerName?: string;
   customerAddress?: string;
   customerEmail?: string;
