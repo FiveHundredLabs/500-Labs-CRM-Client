@@ -17,7 +17,7 @@ RUN test -d dist && test -f dist/index.html
 
 FROM nginx:alpine AS runtime
 
-ENV BACKEND_ORIGIN=
+ENV BACKEND_ORIGIN=https://testapi.500crm.residuesolution.io
 
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY docker-entrypoint-wrapper.sh /usr/local/bin/docker-entrypoint-wrapper.sh
