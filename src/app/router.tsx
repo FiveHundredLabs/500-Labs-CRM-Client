@@ -95,6 +95,10 @@ export const router = createBrowserRouter([
                     path: "team-members",
                     element: <SupervisorTeamMembersPage />,
                   },
+                  {
+                    path: "leaderboard",
+                    element: <SupervisorTeamMembersPage />,
+                  },
                   { path: "reports", element: <SupervisorReportsPage /> },
                   { path: "stock", element: <SupervisorStockPage /> },
                   { path: "import", element: <SupervisorImportPage /> },
@@ -141,6 +145,9 @@ export const router = createBrowserRouter([
                     element: <SupervisorCustomerDetailPage />,
                   },
                   { path: "orders", element: <SupervisorOrdersPage /> },
+                  { path: "stock", element: <SupervisorStockPage /> },
+                  { path: "team", element: <SupervisorTeamPage /> },
+                  { path: "team-members", element: <SupervisorTeamMembersPage /> },
                   { path: "import", element: <SupervisorImportPage /> },
                   { path: "allocation", element: <SupervisorAllocationPage /> },
                   {

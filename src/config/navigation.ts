@@ -77,8 +77,11 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
         { label: 'Import Contacts', path: '/admin/import', icon: Upload },
         { label: 'Interested', path: '/admin/customers', icon: FileCheck },
         { label: 'Orders', path: '/admin/orders', icon: Package },
+        { label: 'Stock Management', path: '/admin/stock', icon: Boxes },
         { label: 'Allocation', path: '/admin/allocation', icon: Layers },
         { label: 'Allocation History', path: '/admin/allocation/history', icon: Clock },
+        { label: 'Team Specialists', path: '/admin/team', icon: Users },
+        { label: 'Team Leaderboard', path: '/admin/team-members', icon: Trophy },
       ],
     },
 

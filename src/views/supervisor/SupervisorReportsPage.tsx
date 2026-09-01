@@ -14,8 +14,13 @@ import { ReportCharts } from '../../components/supervisor/reports/ReportCharts';
 import { ReportTable } from '../../components/supervisor/reports/ReportTable';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from 'date-fns';
 
+import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
+
 export const SupervisorReportsPage: React.FC = () => {
   const { user } = useAuth();
+  const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
+
+  const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || '';
 
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -31,12 +36,18 @@ export const SupervisorReportsPage: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!user || !user.teamId) return;
+      if (!user) return;
+      if (!effectiveTeamId) {
+        setTeamMembers([]);
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const [membersData, ordersData] = await Promise.all([
-          userRepository.getByTeamId(user.teamId),
-          orderRepository.getByTeamId(user.teamId),
+          userRepository.getByTeamId(effectiveTeamId).catch(() => []),
+          orderRepository.getByTeamId(effectiveTeamId).catch(() => []),
         ]);
         setTeamMembers(membersData.filter((m) => m.role === 'TEAM_MEMBER'));
         setOrders(ordersData);
@@ -46,7 +57,7 @@ export const SupervisorReportsPage: React.FC = () => {
     };
 
     loadData();
-  }, [user]);
+  }, [user, effectiveTeamId]);
 
   // Handle Preset Changes
   const handleDatePresetChange = (preset: string) => {
@@ -98,6 +109,12 @@ export const SupervisorReportsPage: React.FC = () => {
       <PageHeader
         title="Supervisor Sales & Financial Reports"
         description="Business reporting, financial KPIs in LKR, order delivery rates, and team member sales performance"
+      />
+
+      <AdminTeamSelector
+        activeTeamId={effectiveTeamId}
+        onTeamChange={setAdminTeamId}
+        title="Sales & Financial Reports Scope"
       />
 
       {/* Filter Parameters Section */}

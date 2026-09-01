@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/Card';
 import { ProfileAvatar } from '../shared/ProfileAvatar';
 import { LeaderboardItem } from './types';
+import { formatCurrency } from '../../utils/currency';
 
 interface LeaderboardDataTableProps {
   items: LeaderboardItem[];
@@ -12,16 +13,16 @@ interface LeaderboardDataTableProps {
 
 export const LeaderboardDataTable: React.FC<LeaderboardDataTableProps> = ({
   items,
-  tableTitle = 'Leaderboard Data Table',
-  primaryLabel = 'Interested',
-  secondaryLabel = 'Total Calls',
+  tableTitle = 'Delivered Sales Leaderboard',
+  primaryLabel = 'Delivered Sales',
+  secondaryLabel = 'Delivered Orders',
 }) => {
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base sm:text-lg">{tableTitle}</CardTitle>
         <CardDescription className="text-xs sm:text-sm">
-          All employee monthly activity data ({items.length} Active Employees)
+          All employee performance rankings based on delivered sales ({items.length} Active Employees)
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
@@ -78,10 +79,14 @@ export const LeaderboardDataTable: React.FC<LeaderboardDataTableProps> = ({
                     </td>
 
                     {/* Metric Column */}
-                    <td className="py-3.5 px-4 sm:px-6 text-right font-mono font-extrabold text-slate-900 text-sm sm:text-base">
-                      <span className="text-emerald-600 font-black">{item.primaryValue}</span>
+                    <td className="py-3.5 px-4 sm:px-6 text-right font-mono font-extrabold text-slate-900 text-xs sm:text-base whitespace-nowrap">
+                      <span className="text-emerald-600 font-black">
+                        {item.formattedPrimary || formatCurrency(item.primaryValue)}
+                      </span>
                       <span className="text-slate-400 font-normal"> / </span>
-                      <span className="text-slate-700 font-bold">{item.secondaryValue}</span>
+                      <span className="text-slate-700 font-bold text-xs sm:text-sm">
+                        {item.formattedSecondary || `${item.secondaryValue} ${item.secondaryLabel || 'orders'}`}
+                      </span>
                     </td>
                   </tr>
                 );

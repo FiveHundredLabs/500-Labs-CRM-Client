@@ -171,11 +171,11 @@ export class SupervisorAnalyticsService {
       };
     });
 
-    // Sort by 1. Delivered Orders desc, 2. Delivery Rate desc, 3. Total Sales Value desc
+    // Sort primarily by: 1. Total Delivered Sales Value desc, 2. Delivered Orders count desc, 3. Delivery Rate desc
     statsList.sort((a, b) => {
+      if (b.totalSalesValue !== a.totalSalesValue) return b.totalSalesValue - a.totalSalesValue;
       if (b.deliveredOrders !== a.deliveredOrders) return b.deliveredOrders - a.deliveredOrders;
-      if (b.deliveryRate !== a.deliveryRate) return b.deliveryRate - a.deliveryRate;
-      return b.totalSalesValue - a.totalSalesValue;
+      return b.deliveryRate - a.deliveryRate;
     });
 
     // Assign rank 1-N
