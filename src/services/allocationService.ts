@@ -9,16 +9,16 @@ import { ActivityLogService } from './activityLogService';
 
 export class AllocationService {
   static async allocateTeamContacts(
-    supervisor: User,
+    actor: User,
     targetMemberIds?: string[],
     contactIds?: string[]
   ): Promise<{ batchId: string; result: AllocationResult }> {
-    if (!supervisor.teamId) {
-      throw new Error('Supervisor does not belong to a valid team.');
+    if (!actor.teamId) {
+      throw new Error('Please select a valid team before allocating contacts.');
     }
 
     // Fetch team members
-    const teamMembers = await userRepository.getByTeamId(supervisor.teamId);
+    const teamMembers = await userRepository.getByTeamId(actor.teamId);
     let activeMembers = teamMembers.filter((m) => m.role === 'TEAM_MEMBER' && m.isActive);
 
     if (targetMemberIds && targetMemberIds.length > 0) {
@@ -30,7 +30,7 @@ export class AllocationService {
     }
 
     // Fetch contacts
-    let contactsToAllocate = await contactRepository.getByTeamId(supervisor.teamId);
+    let contactsToAllocate = await contactRepository.getByTeamId(actor.teamId);
     contactsToAllocate = contactsToAllocate.filter((c) => !c.isAllocated && c.status === 'NEW');
 
     if (contactIds && contactIds.length > 0) {
@@ -46,8 +46,8 @@ export class AllocationService {
     const result = strategy.allocate(
       contactsToAllocate,
       activeMembers,
-      supervisor.id,
-      supervisor.teamId,
+      actor.id,
+      actor.teamId,
       batchId
     );
 
@@ -65,12 +65,12 @@ export class AllocationService {
       });
     }
 
-    // Log action
+    // Log action attributing to actual actor (ADMIN or SUPERVISOR)
     await ActivityLogService.logAction({
-      userId: supervisor.id,
-      userRole: supervisor.role,
-      userName: supervisor.fullName,
-      teamId: supervisor.teamId,
+      userId: actor.id,
+      userRole: actor.role,
+      userName: actor.fullName,
+      teamId: actor.teamId,
       action: 'CONTACT_ALLOCATED',
       entityType: 'Allocation',
       entityId: batchId,
