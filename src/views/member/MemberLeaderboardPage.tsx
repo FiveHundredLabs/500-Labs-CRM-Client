@@ -25,10 +25,18 @@ export const MemberLeaderboardPage: React.FC = () => {
 
         const members = teamUsers.filter((u) => u.role === 'TEAM_MEMBER' && u.isActive);
 
-        const list: LeaderboardItem[] = members.map((m) => {
+        const list: LeaderboardItem[] = members.map((m: any) => {
           const mOrders = allOrders.filter((o) => o.teamMemberId === m.id);
-          const deliveredOrdersCount = mOrders.filter((o) => o.status === 'DELIVERED').length;
-          const totalOrdersCount = mOrders.length;
+          const deliveredOrders = mOrders.filter((o) => o.status === 'DELIVERED');
+          const deliveredSalesAmount = m.deliveredSalesAmount !== undefined
+            ? Number(m.deliveredSalesAmount)
+            : deliveredOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+          const deliveredOrdersCount = m.deliveredOrdersCount !== undefined
+            ? Number(m.deliveredOrdersCount)
+            : deliveredOrders.length;
+          const totalOrdersCount = m.totalOrdersCount !== undefined
+            ? Number(m.totalOrdersCount)
+            : mOrders.length;
 
           return {
             id: m.id,
@@ -36,15 +44,15 @@ export const MemberLeaderboardPage: React.FC = () => {
             name: m.fullName,
             avatarUrl: m.avatarUrl,
             isCurrentUser: m.id === user?.id,
-            primaryValue: deliveredOrdersCount,
-            secondaryValue: totalOrdersCount,
-            primaryLabel: 'Delivered',
-            secondaryLabel: 'Total Orders',
+            primaryValue: deliveredSalesAmount,
+            secondaryValue: deliveredOrdersCount,
+            primaryLabel: 'Delivered Sales',
+            secondaryLabel: 'Delivered Orders',
             unitLabel: 'orders',
           };
         });
 
-        // 1.2 Rank by Delivered Orders (highest delivered count first)
+        // Rank primarily by Total Delivered Sales Value (highest revenue first)
         list.sort((a, b) => b.primaryValue - a.primaryValue || b.secondaryValue - a.secondaryValue);
 
         list.forEach((item, idx) => {
@@ -63,17 +71,17 @@ export const MemberLeaderboardPage: React.FC = () => {
   return (
     <div className="space-y-6 max-w-full overflow-hidden">
       <PageHeader
-        title="Delivered Orders Leaderboard"
-        description="Team member rankings ranked by verified delivered customer orders"
+        title="Delivered Sales Leaderboard"
+        description="Team member rankings based on total verified delivered sales revenue (LKR)"
       />
 
       <Leaderboard
         items={items}
         loading={loading}
-        chartTitle="Delivered Orders Ranking"
-        tableTitle="Delivered Orders Performance Table"
-        primaryLabel="Delivered"
-        secondaryLabel="Total Orders"
+        chartTitle="Delivered Sales Revenue Ranking"
+        tableTitle="Delivered Sales Performance Table"
+        primaryLabel="Delivered Sales"
+        secondaryLabel="Delivered Orders"
         unitLabel="orders"
       />
     </div>

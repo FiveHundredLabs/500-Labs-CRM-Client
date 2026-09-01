@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trophy, Award } from 'lucide-react';
 import { LeaderboardItem } from './types';
+import { formatCurrency } from '../../utils/currency';
 
 interface LeaderboardWinnerBannerProps {
   topPerformer: LeaderboardItem;
@@ -10,8 +11,8 @@ interface LeaderboardWinnerBannerProps {
 
 export const LeaderboardWinnerBanner: React.FC<LeaderboardWinnerBannerProps> = ({
   topPerformer,
-  primaryLabel = 'Interested',
-  secondaryLabel = 'Total Calls',
+  primaryLabel = 'Delivered Sales',
+  secondaryLabel = 'Delivered Orders',
 }) => {
   const firstName = topPerformer.name.split(' ')[0];
 
@@ -36,11 +37,11 @@ export const LeaderboardWinnerBanner: React.FC<LeaderboardWinnerBannerProps> = (
       {/* Right Stat Section */}
       <div className="relative z-10 flex items-center justify-around w-full sm:w-auto gap-5 sm:gap-8 bg-white px-5 py-2.5 sm:py-3 rounded-xl border border-slate-200 text-center shadow-xs">
         <div>
-          <div className="text-xl sm:text-3xl font-black text-blue-600 font-mono tracking-tight">
-            {topPerformer.primaryValue}/{topPerformer.secondaryValue}
+          <div className="text-lg sm:text-2xl font-black text-blue-600 font-mono tracking-tight">
+            {topPerformer.formattedPrimary || formatCurrency(topPerformer.primaryValue)}
           </div>
           <div className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider mt-0.5">
-            {primaryLabel} / {secondaryLabel}
+            {primaryLabel} • {topPerformer.formattedSecondary || `${topPerformer.secondaryValue} ${secondaryLabel}`}
           </div>
         </div>
       </div>
