@@ -88,6 +88,8 @@ export interface Contact {
   attemptCount: number;
   lastCalledAt: string | null;
   isFollowUp?: boolean; // Starred for Follow-Up List
+  callLogs?: CallLog[];
+  customers?: Customer[];
   updatedAt: string;
 }
 
@@ -134,6 +136,7 @@ export interface DuplicatePhoneCheckResult {
   exists: boolean;
   isOwnedBySelf: boolean;
   message?: string;
+  contact?: Contact;
   intelligence?: DuplicatePhoneIntelligence;
 }
 
@@ -143,6 +146,7 @@ export interface CallLog {
   teamMemberId: string;
   teamId: string;
   status: ContactStatus;
+  direction?: 'OUTBOUND' | 'INBOUND';
   customerName?: string;
   customerAddress?: string;
   customerEmail?: string;
