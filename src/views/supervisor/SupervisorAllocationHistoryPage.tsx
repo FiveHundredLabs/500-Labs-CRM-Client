@@ -33,7 +33,7 @@ interface EnrichedAllocation extends ContactAllocation {
 interface SalesmanBatchBreakdown {
   salesmanId: string;
   salesmanName: string;
-  salesmanAvatar?: string;
+  salesmanAvatar?: string | null;
   count: number;
   allocations: EnrichedAllocation[];
 }

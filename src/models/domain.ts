@@ -34,6 +34,7 @@ export interface Team {
   brandColor: string; // Hex color for branding
   accentColor: string;
   logoText: string;
+  logo?: string | null;
   contactEmail: string;
   contactPhone: string;
   address: string;
@@ -52,7 +53,7 @@ export interface User {
   teamId: string | null; // null for ADMIN & FINANCE if multi-team
   supervisorId: string | null; // null for ADMIN, FINANCE, SUPERVISOR
   phone: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   nic?: string;
   dateOfBirth?: string;
   joiningDate: string;

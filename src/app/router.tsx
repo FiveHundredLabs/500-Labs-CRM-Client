@@ -39,6 +39,7 @@ import { AdminProfilePage } from "../views/admin/AdminProfilePage";
 import { AdminApprovalsPage } from "../views/admin/AdminApprovalsPage";
 import { AdminProductsPage } from "../views/admin/AdminProductsPage";
 import { AdminSalesGoalsPage } from "../views/admin/AdminSalesGoalsPage";
+import { AdminTeamsPage } from "../views/admin/AdminTeamsPage";
 
 // Finance Views
 import { FinanceDashboard } from "../views/finance/FinanceDashboard";
@@ -131,6 +132,7 @@ export const router = createBrowserRouter([
                 children: [
                   { path: "dashboard", element: <AdminDashboard /> },
                   { path: "sales-goals", element: <AdminSalesGoalsPage /> },
+                  { path: "teams", element: <AdminTeamsPage /> },
                   { path: "approvals", element: <AdminApprovalsPage /> },
                   { path: "products", element: <AdminProductsPage /> },
                   { path: "users", element: <AdminUsersPage /> },

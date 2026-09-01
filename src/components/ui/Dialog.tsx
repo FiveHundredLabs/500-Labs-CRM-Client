@@ -46,7 +46,7 @@ export const Dialog: React.FC<DialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
+      <div className="fixed inset-0" aria-hidden="true" />
 
       <div
         className={`relative w-full bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-10 ${maxWidthClasses[maxWidth]} max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-150`}
