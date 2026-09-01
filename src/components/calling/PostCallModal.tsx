@@ -74,11 +74,19 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
 
-  // Filter products strictly for the logged-in team member's team
+  // Filter products for the active context (matching user team, contact team, global products, or fallback to all active products)
   const teamProducts = useMemo(() => {
-    if (!user?.teamId) return products;
-    return products.filter((p) => p.teamId === user.teamId && p.isActive !== false);
-  }, [products, user?.teamId]);
+    const effectiveTeamId = user?.teamId || contact?.teamId;
+    if (!effectiveTeamId) return products.filter((p) => p.isActive !== false);
+
+    const teamFiltered = products.filter(
+      (p) =>
+        (!p.teamId || p.teamId === effectiveTeamId || p.teamId === user?.teamId || p.teamId === contact?.teamId) &&
+        p.isActive !== false
+    );
+
+    return teamFiltered.length > 0 ? teamFiltered : products.filter((p) => p.isActive !== false);
+  }, [products, user?.teamId, contact?.teamId]);
 
   // Calculate items and total order value dynamically
   const selectedItems = useMemo(() => {
@@ -148,34 +156,42 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     setSelectedQuantities({});
     setCodAmount('0');
     setCustomCodManual(false);
-    setDeliveryMethod('POST');
-    setDeliveryNote('');
-    setRemarks('');
-    setSelectedQuantities({});
-    setCodAmount('0');
-    setCustomCodManual(false);
 
     const loadData = async () => {
       setLoadingHistory(true);
       setLoadingProducts(true);
       try {
+        const effectiveTeamId = user?.teamId || contact?.teamId;
         const [logs, allProds] = await Promise.all([
           callLogRepository.getByContactId(contact.id),
-          user.teamId ? productRepository.getByTeamId(user.teamId) : productRepository.getAll(),
+          productRepository.getAll().catch(async () => {
+            if (effectiveTeamId) {
+              return productRepository.getByTeamId(effectiveTeamId).catch(() => []);
+            }
+            return [];
+          }),
         ]);
 
         const contactLogs = logs.filter((l) => l.contactId === contact.id);
         contactLogs.sort((a, b) => new Date(b.calledAt).getTime() - new Date(a.calledAt).getTime());
         setHistory(contactLogs);
 
-        const activeTeamProds = allProds.filter(
-          (p) => (!user.teamId || p.teamId === user.teamId) && p.isActive !== false
+        const activeProds = (allProds || []).filter((p) => p.isActive !== false);
+        const activeTeamProds = activeProds.filter(
+          (p) =>
+            !p.teamId ||
+            !effectiveTeamId ||
+            p.teamId === effectiveTeamId ||
+            p.teamId === user?.teamId ||
+            p.teamId === contact?.teamId
         );
-        setProducts(activeTeamProds);
+
+        const resolvedProds = activeTeamProds.length > 0 ? activeTeamProds : activeProds;
+        setProducts(resolvedProds);
 
         // Pre-select 1 unit of first in-stock product by default if available
-        if (activeTeamProds.length > 0) {
-          const firstInStock = activeTeamProds.find((p) => p.currentStock > 0);
+        if (resolvedProds.length > 0) {
+          const firstInStock = resolvedProds.find((p) => p.currentStock > 0);
           if (firstInStock) {
             setSelectedQuantities({ [firstInStock.id]: 1 });
           }
