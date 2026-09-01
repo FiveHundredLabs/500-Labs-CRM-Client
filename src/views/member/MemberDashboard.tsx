@@ -42,12 +42,13 @@ import {
   subDays 
 } from 'date-fns';
 
-export type DashboardDateFilter = 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_6_MONTHS' | 'CUSTOM';
+export type DashboardDateFilter = 'THIS_MONTH' | 'LAST_MONTH' | 'TODAY' | 'THIS_WEEK' | 'ALL' | 'LAST_6_MONTHS' | 'CUSTOM';
 
 interface LeaderboardMember {
   user: User;
   totalOrders: number;
   deliveredCount: number;
+  deliveredSalesAmount: number;
   rank: number;
 }
 
@@ -59,42 +60,34 @@ export const MemberDashboard: React.FC = () => {
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [salesTargets, setSalesTargets] = useState<TeamSalesTarget[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-
-  // Date Filter State for Top KPI Cards (matching supervisor dashboard)
-  const [dateFilter, setDateFilter] = useState<DashboardDateFilter>('THIS_MONTH');
-  const [startDate, setStartDate] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-
-  // Month selector for sales goal & incentive
-  const [selectedMonthPreset, setSelectedMonthPreset] = useState<'THIS_MONTH' | 'LAST_MONTH'>('THIS_MONTH');
-
   const [leaderboard, setLeaderboard] = useState<LeaderboardMember[]>([]);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Month preset for goal tracking
+  const [selectedMonthPreset, setSelectedMonthPreset] = useState<string>('THIS_MONTH');
+  // Date filter for top KPI cards & call queue
+  const [dateFilter, setDateFilter] = useState<DashboardDateFilter>('THIS_MONTH');
+  
+  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   const loadData = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const currentTeamId = user.teamId;
-      if (!currentTeamId) {
-        setContacts([]);
-        setCallLogs([]);
-        setOrders([]);
-        setSalesTargets([]);
-        setLeaderboard([]);
-        return;
-      }
+      const currentTeamId = user.teamId || '';
       const now = new Date();
-      const targetYear = now.getFullYear();
-      const targetMonthIndex = selectedMonthPreset === 'THIS_MONTH' ? now.getMonth() : now.getMonth() - 1;
-      const targetMonthPrefix = `${targetYear}-${String(targetMonthIndex + 1).padStart(2, '0')}`;
+      let targetMonthPrefix = format(now, 'yyyy-MM');
+      if (selectedMonthPreset === 'LAST_MONTH') {
+        targetMonthPrefix = format(subMonths(now, 1), 'yyyy-MM');
+      }
 
-      const [mContacts, mLogs, mOrders, allUsers, teamOrders, fetchedTargets] = await Promise.all([
+      const [mContacts, mLogs, mOrders, teamUsers, teamOrders, fetchedTargets] = await Promise.all([
         contactRepository.getByMemberId(user.id).catch(() => []),
         callLogRepository.getByMemberId(user.id).catch(() => []),
         orderRepository.getByMemberId(user.id).catch(() => []),
-        userRepository.getAll().catch(() => []),
+        userRepository.getByTeamId(currentTeamId).catch(() => []),
         orderRepository.getByTeamId(currentTeamId).catch(() => []),
         salesTargetRepository.getAll(targetMonthPrefix, currentTeamId).catch(() => []),
       ]);
@@ -104,25 +97,34 @@ export const MemberDashboard: React.FC = () => {
       setOrders(mOrders);
       setSalesTargets(fetchedTargets);
 
-      // Build Leaderboard Roster ranked by Delivered Orders (1.2)
-      const membersOnly = allUsers.filter(
-        (u) => u.role === 'TEAM_MEMBER' && u.teamId === currentTeamId
+      // Build Leaderboard Roster ranked by Delivered Sales Amount (LKR)
+      const membersOnly = teamUsers.filter(
+        (u) => u.role === 'TEAM_MEMBER' && (u.teamId === currentTeamId || !u.teamId)
       );
 
-      const computedRoster: LeaderboardMember[] = membersOnly.slice(0, 7).map((u) => {
+      const computedRoster: LeaderboardMember[] = membersOnly.slice(0, 7).map((u: any) => {
         const uOrders = teamOrders.filter((o) => o.teamMemberId === u.id);
-        const deliveredCount = uOrders.filter((o) => o.status === 'DELIVERED').length;
-        const totalOrders = uOrders.length;
+        const uDeliveredOrders = uOrders.filter((o) => o.status === 'DELIVERED');
+        const deliveredSalesAmount = u.deliveredSalesAmount !== undefined
+          ? Number(u.deliveredSalesAmount)
+          : uDeliveredOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+        const deliveredCount = u.deliveredOrdersCount !== undefined
+          ? Number(u.deliveredOrdersCount)
+          : uDeliveredOrders.length;
+        const totalOrders = u.totalOrdersCount !== undefined
+          ? Number(u.totalOrdersCount)
+          : uOrders.length;
 
         return {
           user: u,
           totalOrders,
           deliveredCount,
+          deliveredSalesAmount,
           rank: 0,
         };
       });
 
-      computedRoster.sort((a, b) => b.deliveredCount - a.deliveredCount || b.totalOrders - a.totalOrders);
+      computedRoster.sort((a, b) => b.deliveredSalesAmount - a.deliveredSalesAmount || b.deliveredCount - a.deliveredCount);
       computedRoster.forEach((m, idx) => {
         m.rank = idx + 1;
       });
@@ -138,8 +140,10 @@ export const MemberDashboard: React.FC = () => {
   }, [user, selectedMonthPreset]);
 
   // Date Range Matcher Helper for Top Cards
-  const isDateInFilter = (dateStr?: string) => {
+  const isDateInFilter = (dateStr?: string | null) => {
     if (!dateStr) return false;
+    if (dateFilter === 'ALL') return true;
+
     const date = new Date(dateStr);
     const now = new Date();
 
@@ -186,23 +190,23 @@ export const MemberDashboard: React.FC = () => {
     () => orders.filter((o) => o.status === 'DELIVERED' && isDateInFilter(o.deliveredAt || o.updatedAt || o.createdAt)),
     [orders, dateFilter, startDate, endDate]
   );
+  const scopedDeliveredSalesValue = useMemo(
+    () => scopedDeliveredOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0),
+    [scopedDeliveredOrders]
+  );
 
   if (loading) return <LoadingState rows={6} />;
 
-  const scopedAssignedCount = dateFilter === 'THIS_MONTH' ? contacts.length : (scopedContacts.length || contacts.length);
-  const scopedCompletedCallsCount = scopedCalls.length || contacts.filter((c) => c.status !== 'NEW').length;
-  const scopedRemainingCount = Math.max(0, scopedAssignedCount - scopedCompletedCallsCount);
+  const scopedAssignedCount = dateFilter === 'ALL' || dateFilter === 'THIS_MONTH' ? contacts.length : scopedContacts.length;
+  const scopedCompletedCallsCount = scopedCalls.length;
+  const scopedRemainingCount = contacts.filter((c) => c.status === 'NEW' || c.status === 'FOLLOW_UP').length;
   const scopedCompletionPercentage = scopedAssignedCount > 0 ? Math.min(100, Math.round((scopedCompletedCallsCount / scopedAssignedCount) * 100)) : 0;
 
   // Dynamic Sales Goal & Allowance calculation
   const currentTeamId = user?.teamId || '';
   const activeTarget = salesTargets.find((t) => t.teamId === currentTeamId) || salesTargets[0];
-  const targetGoal = activeTarget ? activeTarget.targetAmount : 500000;
-  const activeTiers = activeTarget?.tiers && activeTarget.tiers.length > 0 ? activeTarget.tiers : [
-    { minPercentage: 80, allowanceAmount: 10000, title: '80% Tier Allowance' },
-    { minPercentage: 100, allowanceAmount: 20000, title: '100% Target Achieved Allowance' },
-    { minPercentage: 120, allowanceAmount: 35000, title: '120% Super Achiever Incentive' },
-  ];
+  const targetGoal = activeTarget ? activeTarget.targetAmount : (user?.monthlyGoal || 0);
+  const activeTiers = activeTarget?.tiers && activeTarget.tiers.length > 0 ? activeTarget.tiers : [];
 
   const now = new Date();
   const targetYear = now.getFullYear();
@@ -219,7 +223,7 @@ export const MemberDashboard: React.FC = () => {
   const memberBreakdown = activeTarget?.memberBreakdowns?.find((m) => m.id === user?.id);
   const currentSalesAmount = memberBreakdown
     ? memberBreakdown.actualSales
-    : monthlyDeliveredOrders.reduce((sum, o) => sum + (o.codAmount || o.totalAmount || 0), 0);
+    : monthlyDeliveredOrders.reduce((sum, o) => sum + (Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : o.totalAmount) || 0), 0);
 
   const achievementPercentage = targetGoal > 0 ? (currentSalesAmount / targetGoal) * 100 : 0;
   const achievementProgressClamped = Math.min(100, achievementPercentage);
@@ -264,20 +268,36 @@ export const MemberDashboard: React.FC = () => {
         }
       />
 
-      {/* Date Range Selector Toolbar (Matching Supervisor Dashboard) */}
-      <div className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Date Range Selector Toolbar (Matching Supervisor & Admin Dashboard) */}
+      <div className="p-3.5 bg-white border border-slate-200 rounded-2xl shadow-2xs space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2 font-bold text-xs text-slate-800 uppercase tracking-wider">
-            <Calendar className="w-4 h-4 text-blue-600" />
-            <span>Dashboard Date Scoping Filter</span>
+            <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+            <span>Time Period Scope:</span>
+            <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-2.5 py-0.5 rounded-full capitalize tracking-normal border border-blue-100">
+              {dateFilter === 'ALL'
+                ? 'All Time (Total)'
+                : dateFilter === 'THIS_MONTH'
+                ? 'This Month'
+                : dateFilter === 'LAST_MONTH'
+                ? 'Last Month'
+                : dateFilter === 'TODAY'
+                ? 'Today'
+                : dateFilter === 'THIS_WEEK'
+                ? 'This Week'
+                : dateFilter === 'LAST_6_MONTHS'
+                ? 'Last 6 Months'
+                : `${startDate} to ${endDate}`}
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
             {[
-              { key: 'TODAY', label: 'Today' },
-              { key: 'THIS_WEEK', label: 'This Week' },
               { key: 'THIS_MONTH', label: 'This Month' },
               { key: 'LAST_MONTH', label: 'Last Month' },
+              { key: 'TODAY', label: 'Today' },
+              { key: 'THIS_WEEK', label: 'This Week' },
+              { key: 'ALL', label: 'All Time (Total)' },
               { key: 'LAST_6_MONTHS', label: 'Last 6 Months' },
               { key: 'CUSTOM', label: 'Custom' },
             ].map((item) => (
@@ -287,8 +307,8 @@ export const MemberDashboard: React.FC = () => {
                 onClick={() => setDateFilter(item.key as DashboardDateFilter)}
                 className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   dateFilter === item.key
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
                 {item.label}
@@ -298,19 +318,25 @@ export const MemberDashboard: React.FC = () => {
         </div>
 
         {dateFilter === 'CUSTOM' && (
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-100 max-w-md">
-            <Input
-              type="date"
-              label="Start Date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-            <Input
-              type="date"
-              label="End Date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
+          <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-slate-600">From Date:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-slate-600">To Date:</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -320,14 +346,14 @@ export const MemberDashboard: React.FC = () => {
         <StatCard
           title="Assigned Calls"
           value={scopedAssignedCount}
-          subtitle={`${scopedRemainingCount} remaining`}
+          subtitle={`${scopedRemainingCount} remaining in queue`}
           icon={<Phone className="w-4 h-4 text-blue-600" />}
           accentColor="blue"
         />
         <StatCard
           title="Calls Handled"
           value={scopedCompletedCallsCount}
-          subtitle={`${scopedCompletionPercentage}% completed`}
+          subtitle={`${scopedCompletedCallsCount} logged (${scopedCompletionPercentage}%)`}
           icon={<PhoneCall className="w-4 h-4 text-emerald-600" />}
           accentColor="green"
           trend={{ value: `${scopedCompletionPercentage}%`, isPositive: scopedCompletionPercentage >= 50 }}
@@ -336,15 +362,15 @@ export const MemberDashboard: React.FC = () => {
           title="Interested Leads"
           value={scopedInterestedContacts.length}
           subtitle="Converted to CRM leads"
-          icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-          accentColor="green"
+          icon={<CheckCircle2 className="w-4 h-4 text-purple-600" />}
+          accentColor="purple"
         />
         <StatCard
           title="Delivered Orders"
           value={scopedDeliveredOrders.length}
-          subtitle="Fulfilled shipments"
-          icon={<Trophy className="w-4 h-4 text-purple-600" />}
-          accentColor="purple"
+          subtitle={`${formatCurrency(scopedDeliveredSalesValue)} delivered`}
+          icon={<Trophy className="w-4 h-4 text-amber-600" />}
+          accentColor="amber"
         />
       </div>
 
@@ -510,35 +536,41 @@ export const MemberDashboard: React.FC = () => {
               <span>Achievement Tiers:</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {ascendingTiers.map((tier, idx) => {
-                const isReached = achievementPercentage >= tier.minPercentage;
-                const isNextTarget = !isReached && (!ascendingTiers[idx - 1] || achievementPercentage >= ascendingTiers[idx - 1].minPercentage);
+            {ascendingTiers.length === 0 ? (
+              <div className="text-xs text-slate-500 py-1 font-sans">
+                No tiered allowances configured for this period. All verified delivered orders contribute toward performance.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {ascendingTiers.map((tier, idx) => {
+                  const isReached = achievementPercentage >= tier.minPercentage;
+                  const isNextTarget = !isReached && (!ascendingTiers[idx - 1] || achievementPercentage >= ascendingTiers[idx - 1].minPercentage);
 
-                return (
-                  <div
-                    key={idx}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-mono flex items-center justify-between transition-all ${
-                      isReached
-                        ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                        : isNextTarget
-                        ? 'bg-blue-50 text-blue-900 border-2 border-blue-400 font-bold'
-                        : 'bg-white text-slate-600 border border-slate-200'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1 font-bold">
-                      {isReached && <CheckCircle2 className="w-3 h-3 text-white" />}
-                      {isNextTarget && <Target className="w-3 h-3 text-blue-600" />}
-                      <span>{tier.minPercentage}%</span>
-                    </span>
+                  return (
+                    <div
+                      key={idx}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-mono flex items-center justify-between transition-all ${
+                        isReached
+                          ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                          : isNextTarget
+                          ? 'bg-blue-50 text-blue-900 border-2 border-blue-400 font-bold'
+                          : 'bg-white text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1 font-bold">
+                        {isReached && <CheckCircle2 className="w-3 h-3 text-white" />}
+                        {isNextTarget && <Target className="w-3 h-3 text-blue-600" />}
+                        <span>{tier.minPercentage}%</span>
+                      </span>
 
-                    <span className="font-extrabold">
-                      {formatCurrency(tier.allowanceAmount)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                      <span className="font-extrabold">
+                        {formatCurrency(tier.allowanceAmount)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -600,7 +632,7 @@ export const MemberDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Dashboard Leaderboard Card (Ranked by Delivered Orders) */}
+        {/* Dashboard Leaderboard Card (Ranked by Delivered Sales Revenue) */}
         <Leaderboard
           items={leaderboard.map((m) => ({
             id: m.user.id,
@@ -608,13 +640,14 @@ export const MemberDashboard: React.FC = () => {
             name: m.user.fullName,
             avatarUrl: m.user.avatarUrl,
             isCurrentUser: m.user.id === user?.id,
-            primaryValue: m.deliveredCount,
-            secondaryValue: m.totalOrders,
-            primaryLabel: 'Delivered',
-            secondaryLabel: 'Total Orders',
+            primaryValue: m.deliveredSalesAmount,
+            secondaryValue: m.deliveredCount,
+            primaryLabel: 'Delivered Sales',
+            secondaryLabel: 'Delivered Orders',
             unitLabel: 'orders',
           }))}
           compact={true}
+          title="Team Sales Leaderboard"
           onViewFullLeaderboard={() => navigate('/member/leaderboard')}
         />
       </div>

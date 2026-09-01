@@ -14,10 +14,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
   const { user, role, logout } = useAuth();
   const location = useLocation();
 
-  // State to track open dropdowns by group/label
+  // State to track open dropdowns by group/label (collapsed by default)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    Supervisor: true,
-    Finance: true,
+    Supervisor: false,
+    Finance: false,
   });
 
   const navItems = (role && ROLE_NAVIGATION[role]) || [];
