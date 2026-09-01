@@ -9,7 +9,7 @@ RUN npm ci
 
 COPY . .
 
-ARG API_BASE_URL=/api/v1
+ARG API_BASE_URL=https://testapi.500crm.residuesolution.io/api/v1
 ENV API_BASE_URL=${API_BASE_URL}
 
 RUN npm run build
