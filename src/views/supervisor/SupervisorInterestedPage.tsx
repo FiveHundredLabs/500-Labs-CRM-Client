@@ -14,6 +14,7 @@ import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
 import { downloadBillingPDF, printBillingPDF } from '../../utils/pdfGenerator';
 import { downloadRoyalCourierExcel, RoyalCourierExportItem } from '../../utils/royalCourierExcel';
+import { downloadPostLeadExcel, PostLeadExportItem } from '../../utils/postLeadExcel';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
 import { XCircle, Mail, Truck, FileSpreadsheet, Download } from 'lucide-react';
@@ -50,6 +51,7 @@ export const SupervisorInterestedPage: React.FC = () => {
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   const [isDispatching, setIsDispatching] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
+  const [isDownloadingPostExcel, setIsDownloadingPostExcel] = useState(false);
   const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
 
   // Circular Progress PDF Loading State
@@ -204,6 +206,20 @@ export const SupervisorInterestedPage: React.FC = () => {
       };
     });
 
+  // Selected Lead Objects for Post Lead Excel Export
+  const selectedPostItems: PostLeadExportItem[] = customers
+    .filter((c) => selectedIds.includes(c.id))
+    .map((c) => {
+      const custOrders = ordersMap[c.id] || [];
+      const latestOrder = custOrders[0];
+      return {
+        customer: c,
+        order: latestOrder,
+        responsibleUser: membersMap[c.responsibleTeamMemberId],
+        team: latestOrder?.team || teamsMap[c.teamId] || (user?.teamId === c.teamId ? user.team : undefined),
+      };
+    });
+
   // TAB 1 (POST): PDF Download Trigger
   const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
@@ -265,6 +281,24 @@ export const SupervisorInterestedPage: React.FC = () => {
     } finally {
       setPdfProgress((prev) => ({ ...prev, isOpen: false }));
       setIsDispatching(false);
+    }
+  };
+
+  // TAB 1 (POST): Download Post Lead Excel Sheet
+  const handleDownloadPostLeadExcel = async () => {
+    if (selectedPostItems.length === 0) {
+      toast.error('Please select at least 1 Post order.');
+      return;
+    }
+
+    setIsDownloadingPostExcel(true);
+    try {
+      await downloadPostLeadExcel(selectedPostItems);
+      toast.success(`Post Lead Excel sheet downloaded with ${selectedPostItems.length} orders!`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to download Post Lead Excel.');
+    } finally {
+      setIsDownloadingPostExcel(false);
     }
   };
 
@@ -393,7 +427,7 @@ export const SupervisorInterestedPage: React.FC = () => {
         onInspectDuplicateOrders={(info) => setInspectConflictInfo(info)}
       />
 
-      {/* TAB 1 (POST): Standard Floating Action Panel (Billing Slips & Print) */}
+      {/* TAB 1 (POST): Standard Floating Action Panel (Billing Slips, Excel & Print) */}
       {activeDeliveryTab === 'POST' && (
         <PrintFloatingPanel
           selectedCount={selectedIds.length}
@@ -401,15 +435,27 @@ export const SupervisorInterestedPage: React.FC = () => {
           onDownloadPDF={handleDownloadPDF}
           onNativePrint={handleNativePrint}
           extraActions={
-            <button
-              type="button"
-              onClick={() => setIsCancelConfirmOpen(true)}
-              className="py-1 px-2 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer"
-              title="Cancel selected interested leads"
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              <span>Cancel</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleDownloadPostLeadExcel}
+                disabled={selectedIds.length === 0 || isDownloadingPostExcel}
+                className="py-1 px-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                title="Download Post Lead Excel"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCancelConfirmOpen(true)}
+                className="py-1 px-2 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer"
+                title="Cancel selected interested leads"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </button>
+            </>
           }
         />
       )}
