@@ -4,22 +4,25 @@ import { createRoot } from 'react-dom/client';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { LeadPrintItem } from '../components/printing/printTypes';
-import { A6BillingSlip } from '../components/printing/A6BillingSlip';
-import { BrandPrintConfig, getBrandPrintConfig } from '../config/branding';
+import { PortraitParcelSlip } from '../components/printing/PortraitParcelSlip';
+import { ParcelSlipData } from '../models/domain';
+import { buildPublicParcelSlipUrl, generateParcelSlipQrDataUrl } from './parcelSlipQr';
+import { toParcelSlipDataList } from './parcelSlipData';
 
-const A4_LANDSCAPE_WIDTH_MM = 297;
-const A4_LANDSCAPE_HEIGHT_MM = 210;
+const A4_PORTRAIT_WIDTH_MM = 210;
+const A4_PORTRAIT_HEIGHT_MM = 297;
 const PDF_MARGIN_MM = 6;
 const PDF_GAP_MM = 4;
-const SLIP_WIDTH_MM = (A4_LANDSCAPE_WIDTH_MM - PDF_MARGIN_MM * 2 - PDF_GAP_MM) / 2;
-const SLIP_HEIGHT_MM = (A4_LANDSCAPE_HEIGHT_MM - PDF_MARGIN_MM * 2 - PDF_GAP_MM) / 2;
-const CAPTURE_SCALE = 3;
+const PARCEL_SLIP_WIDTH_MM = 97; // (210 - 6*2 - 4) / 2 = 97mm
+const PARCEL_SLIP_HEIGHT_MM = 140.5; // (297 - 6*2 - 4) / 2 = 140.5mm
 
-type PrintReadyItem = LeadPrintItem & {
-  brand: BrandPrintConfig;
-};
+const PRINT_DPI = 300;
+const CSS_DPI = 96;
+const CAPTURE_SCALE = PRINT_DPI / CSS_DPI; // 3.125 (~300 DPI high-resolution capture)
 
-export interface BillingPdfResult {
+export type ParcelPdfProgressCallback = (current: number, total: number, percentage: number) => void;
+
+export interface ParcelPdfResult {
   pdf: jsPDF;
   pageCount: number;
 }
@@ -55,74 +58,24 @@ const waitForImages = async (container: HTMLElement) => {
           try {
             await image.decode();
           } catch {
-            // The image is already loaded; a decode quirk should not block capture.
+            // Loaded images (like data URLs) may throw decode errors in some environments
           }
         }
         return;
       }
 
       await new Promise<void>((resolve, reject) => {
-        image.onload = () => resolve();
-        image.onerror = () => reject(new Error(`Logo failed to load: ${image.currentSrc || image.src}`));
+        image.onload = () => {
+          if (typeof image.decode === 'function') {
+            image.decode().then(() => resolve()).catch(() => resolve());
+          } else {
+            resolve();
+          }
+        };
+        image.onerror = () => reject(new Error(`Parcel slip image failed to load: ${image.currentSrc || image.src}`));
       });
-    })
+    }),
   );
-};
-
-const getOrderLabel = (item: LeadPrintItem, index: number) =>
-  item.order?.orderNumber || item.order?.id || item.customer?.fullName || `item ${index + 1}`;
-
-const resolvePrintItems = (items: LeadPrintItem[]): PrintReadyItem[] => {
-  if (items.length === 0) {
-    throw new Error('Select at least one billing slip to generate.');
-  }
-
-  return items.map((item, index) => {
-    const orderLabel = getOrderLabel(item, index);
-    if (!item.customer) {
-      throw new Error(`Customer print details are missing for order ${orderLabel}.`);
-    }
-
-    const orderTeam = item.order?.team;
-    const brandIdentity = item.team || orderTeam || item.customer.team;
-    const brand = getBrandPrintConfig(brandIdentity);
-
-    if (!brand) {
-      throw new Error(`Brand could not be resolved for order ${orderLabel}.`);
-    }
-
-    if (!item.customer.fullName || !item.customer.address || !item.customer.phone) {
-      throw new Error(`Customer print details are incomplete for order ${orderLabel}.`);
-    }
-
-    const amount = item.order?.codAmount ?? item.order?.totalAmount;
-    if (amount === undefined || amount === null) {
-      throw new Error(`COD amount is missing for order ${orderLabel}.`);
-    }
-
-    return {
-      ...item,
-      team: item.team || orderTeam,
-      brand,
-    };
-  });
-};
-
-const createCaptureContainer = () => {
-  const container = document.createElement('div');
-  container.className = 'billing-slip-raster-capture-root';
-  Object.assign(container.style, {
-    position: 'fixed',
-    left: '-10000px',
-    top: '0',
-    width: `${SLIP_WIDTH_MM}mm`,
-    height: `${SLIP_HEIGHT_MM}mm`,
-    background: '#ffffff',
-    pointerEvents: 'none',
-    overflow: 'hidden',
-  });
-  document.body.appendChild(container);
-  return container;
 };
 
 const convertOklchToRgb = (colorStr: string): string => {
@@ -135,12 +88,10 @@ const convertOklchToRgb = (colorStr: string): string => {
       if (ctx) {
         ctx.fillStyle = match;
         const resolved = ctx.fillStyle;
-        if (resolved && !resolved.includes('oklch')) {
-          return resolved;
-        }
+        if (resolved && !resolved.includes('oklch')) return resolved;
       }
-    } catch (e) {
-      // ignore
+    } catch {
+      // Grayscale approximation fallback below
     }
 
     const parts = match
@@ -148,14 +99,12 @@ const convertOklchToRgb = (colorStr: string): string => {
       .replace(/\)/, '')
       .split(/[\s/]+/);
     if (parts.length >= 3) {
-      const L = parseFloat(parts[0]);
+      const lightness = parseFloat(parts[0]);
       const alpha = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
-      
-      if (L <= 0.1) return `rgba(0, 0, 0, ${alpha})`;
-      if (L >= 0.95) return `rgba(255, 255, 255, ${alpha})`;
-      
-      const grayVal = Math.round(L * 255);
-      return `rgba(${grayVal}, ${grayVal}, ${grayVal}, ${alpha})`;
+      if (lightness <= 0.1) return `rgba(0, 0, 0, ${alpha})`;
+      if (lightness >= 0.95) return `rgba(255, 255, 255, ${alpha})`;
+      const gray = Math.round(lightness * 255);
+      return `rgba(${gray}, ${gray}, ${gray}, ${alpha})`;
     }
     return match;
   });
@@ -163,8 +112,7 @@ const convertOklchToRgb = (colorStr: string): string => {
 
 const replaceOklchStyles = (element: HTMLElement) => {
   const elements = [element, ...Array.from(element.querySelectorAll<HTMLElement>('*'))];
-  
-  const stylesToApply = elements.map((el) => {
+  const computedStyles = elements.map((el) => {
     const computed = window.getComputedStyle(el);
     return {
       color: convertOklchToRgb(computed.color),
@@ -175,13 +123,12 @@ const replaceOklchStyles = (element: HTMLElement) => {
       borderRightColor: convertOklchToRgb(computed.borderRightColor),
       fill: convertOklchToRgb(computed.fill),
       stroke: convertOklchToRgb(computed.stroke),
-      boxShadow: convertOklchToRgb(computed.boxShadow),
       outlineColor: convertOklchToRgb(computed.outlineColor),
     };
   });
 
   elements.forEach((el, index) => {
-    const styles = stylesToApply[index];
+    const styles = computedStyles[index];
     if (styles.color) el.style.color = styles.color;
     if (styles.backgroundColor) el.style.backgroundColor = styles.backgroundColor;
     if (styles.borderTopColor) el.style.borderTopColor = styles.borderTopColor;
@@ -190,25 +137,46 @@ const replaceOklchStyles = (element: HTMLElement) => {
     if (styles.borderRightColor) el.style.borderRightColor = styles.borderRightColor;
     if (styles.fill) el.style.fill = styles.fill;
     if (styles.stroke) el.style.stroke = styles.stroke;
-    if (styles.boxShadow) el.style.boxShadow = styles.boxShadow;
     if (styles.outlineColor) el.style.outlineColor = styles.outlineColor;
   });
 };
 
-const captureSlipImage = async (item: PrintReadyItem): Promise<string> => {
+const createCaptureContainer = () => {
+  const container = document.createElement('div');
+  container.className = 'portrait-parcel-slip-raster-capture-root';
+  Object.assign(container.style, {
+    position: 'fixed',
+    left: '-10000px',
+    top: '0',
+    width: `${PARCEL_SLIP_WIDTH_MM}mm`,
+    height: `${PARCEL_SLIP_HEIGHT_MM}mm`,
+    background: '#ffffff',
+    pointerEvents: 'none',
+    overflow: 'hidden',
+  });
+  document.body.appendChild(container);
+  return container;
+};
+
+const captureParcelSlipImage = async (item: ParcelSlipData): Promise<string> => {
+  const publicUrl = buildPublicParcelSlipUrl(item.publicSlipToken);
+  const qrImageDataUrl = await generateParcelSlipQrDataUrl(publicUrl);
+
+  if (!qrImageDataUrl) {
+    throw new Error(`Failed to generate QR code for order ${item.orderNumber || item.publicSlipToken}.`);
+  }
+
   const container = createCaptureContainer();
   const root = createRoot(container);
 
   try {
     flushSync(() => {
       root.render(
-        React.createElement(A6BillingSlip, {
-          customer: item.customer,
-          responsibleUser: item.responsibleUser,
-          order: item.order,
-          team: item.team,
-          className: 'billing-slip-capture',
-        })
+        React.createElement(PortraitParcelSlip, {
+          data: item,
+          qrImageDataUrl,
+          className: 'portrait-parcel-slip-capture',
+        }),
       );
     });
 
@@ -217,9 +185,9 @@ const captureSlipImage = async (item: PrintReadyItem): Promise<string> => {
     await waitForImages(container);
     await nextPaint();
 
-    const slipNode = container.querySelector<HTMLElement>('.billing-slip-capture');
+    const slipNode = container.querySelector<HTMLElement>('.portrait-parcel-slip-capture');
     if (!slipNode) {
-      throw new Error('Billing slip capture node was not rendered.');
+      throw new Error('Parcel slip capture node was not rendered.');
     }
 
     replaceOklchStyles(slipNode);
@@ -246,26 +214,28 @@ const captureSlipImage = async (item: PrintReadyItem): Promise<string> => {
   }
 };
 
-export type PdfProgressCallback = (current: number, total: number, percentage: number) => void;
-
-export const generateBillingPdf = async (
+export const generateParcelSlipPdf = async (
   items: LeadPrintItem[],
-  onProgress?: PdfProgressCallback
-): Promise<BillingPdfResult> => {
-  const printItems = resolvePrintItems(items);
-  const slipImages: string[] = [];
-
-  onProgress?.(0, printItems.length, 0);
-
-  for (let i = 0; i < printItems.length; i++) {
-    const item = printItems[i];
-    slipImages.push(await captureSlipImage(item));
-    onProgress?.(i + 1, printItems.length, Math.round(((i + 1) / printItems.length) * 100));
+  onProgress?: ParcelPdfProgressCallback,
+): Promise<ParcelPdfResult> => {
+  if (items.length === 0) {
+    throw new Error('No items provided for parcel slip PDF generation.');
   }
 
-  const pages = chunkIntoSheets(slipImages, 4);
+  const parcelItems = toParcelSlipDataList(items);
+  const slipImages: string[] = [];
+
+  onProgress?.(0, parcelItems.length, 0);
+
+  for (let i = 0; i < parcelItems.length; i++) {
+    const pngDataUrl = await captureParcelSlipImage(parcelItems[i]);
+    slipImages.push(pngDataUrl);
+    onProgress?.(i + 1, parcelItems.length, Math.round(((i + 1) / parcelItems.length) * 100));
+  }
+
+  const pages = chunkIntoSheets(slipImages);
   const pdf = new jsPDF({
-    orientation: 'landscape',
+    orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
     compress: true,
@@ -273,16 +243,16 @@ export const generateBillingPdf = async (
 
   pages.forEach((pageImages, pageIndex) => {
     if (pageIndex > 0) {
-      pdf.addPage('a4', 'landscape');
+      pdf.addPage('a4', 'portrait');
     }
 
     pageImages.forEach((image, imageIndex) => {
       const column = imageIndex % 2;
       const row = Math.floor(imageIndex / 2);
-      const x = PDF_MARGIN_MM + column * (SLIP_WIDTH_MM + PDF_GAP_MM);
-      const y = PDF_MARGIN_MM + row * (SLIP_HEIGHT_MM + PDF_GAP_MM);
+      const x = PDF_MARGIN_MM + column * (PARCEL_SLIP_WIDTH_MM + PDF_GAP_MM);
+      const y = PDF_MARGIN_MM + row * (PARCEL_SLIP_HEIGHT_MM + PDF_GAP_MM);
 
-      pdf.addImage(image, 'PNG', x, y, SLIP_WIDTH_MM, SLIP_HEIGHT_MM, undefined, 'FAST');
+      pdf.addImage(image, 'PNG', x, y, PARCEL_SLIP_WIDTH_MM, PARCEL_SLIP_HEIGHT_MM, undefined, 'FAST');
     });
   });
 
@@ -290,21 +260,20 @@ export const generateBillingPdf = async (
   return { pdf, pageCount: pages.length };
 };
 
-export const downloadBillingPDF = async (
+export const downloadParcelSlipPDF = async (
   items: LeadPrintItem[],
-  onProgress?: PdfProgressCallback
+  onProgress?: ParcelPdfProgressCallback,
 ): Promise<boolean> => {
-  const { pdf } = await generateBillingPdf(items, onProgress);
-  pdf.save(`billing_cod_slips_${items.length}.pdf`);
+  const { pdf } = await generateParcelSlipPdf(items, onProgress);
+  pdf.save(`portrait_parcel_slips_${items.length}.pdf`);
   return true;
 };
 
-export const printBillingPDF = async (
+export const printParcelSlipPDF = async (
   items: LeadPrintItem[],
-  onProgress?: PdfProgressCallback
+  onProgress?: ParcelPdfProgressCallback,
 ): Promise<boolean> => {
-  const { pdf } = await generateBillingPdf(items, onProgress);
-
+  const { pdf } = await generateParcelSlipPdf(items, onProgress);
   const blob = pdf.output('blob');
   const url = URL.createObjectURL(blob);
 
@@ -324,7 +293,7 @@ export const printBillingPDF = async (
       try {
         const printWindow = iframe.contentWindow;
         if (!printWindow) {
-          reject(new Error('Unable to open generated PDF for printing.'));
+          reject(new Error('Unable to open generated parcel PDF for printing.'));
           return;
         }
 
@@ -334,7 +303,6 @@ export const printBillingPDF = async (
       } catch (err) {
         reject(err);
       } finally {
-        // Clean up the iframe and object URL after a delay of 1 minute to ensure printing works
         setTimeout(() => {
           URL.revokeObjectURL(url);
           iframe.remove();
@@ -345,7 +313,7 @@ export const printBillingPDF = async (
     iframe.onerror = () => {
       URL.revokeObjectURL(url);
       iframe.remove();
-      reject(new Error('Unable to load generated PDF for printing.'));
+      reject(new Error('Unable to load generated parcel PDF for printing.'));
     };
 
     iframe.src = url;
@@ -353,12 +321,13 @@ export const printBillingPDF = async (
   });
 };
 
-export const billingPdfLayout = {
-  pageWidthMm: A4_LANDSCAPE_WIDTH_MM,
-  pageHeightMm: A4_LANDSCAPE_HEIGHT_MM,
+export const parcelPdfLayout = {
+  pageWidthMm: A4_PORTRAIT_WIDTH_MM,
+  pageHeightMm: A4_PORTRAIT_HEIGHT_MM,
   marginMm: PDF_MARGIN_MM,
   gapMm: PDF_GAP_MM,
-  slipWidthMm: SLIP_WIDTH_MM,
-  slipHeightMm: SLIP_HEIGHT_MM,
+  slipWidthMm: PARCEL_SLIP_WIDTH_MM,
+  slipHeightMm: PARCEL_SLIP_HEIGHT_MM,
   captureScale: CAPTURE_SCALE,
+  captureDpi: PRINT_DPI,
 };

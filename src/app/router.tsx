@@ -1,6 +1,7 @@
 import React from "react";
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { LoginPage } from "../views/auth/LoginPage";
+import { PublicParcelSlipPage } from "../views/public/PublicParcelSlipPage";
 import { AppShell } from "../components/navigation/AppShell";
 import { ProtectedRoute } from "../components/navigation/ProtectedRoute";
 import { RoleLanding } from "../components/navigation/RoleLanding";
@@ -59,6 +60,10 @@ export const router = createBrowserRouter([
       {
         path: "/login",
         element: <LoginPage />,
+      },
+      {
+        path: "/parcel/:token",
+        element: <PublicParcelSlipPage />,
       },
       {
         path: "/",

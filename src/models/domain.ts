@@ -233,6 +233,7 @@ export interface OrderItem {
 export interface Order {
   id: string; // e.g., 'ord_001'
   orderNumber: string; // e.g., 'ORD-2026-001'
+  publicSlipToken?: string;
   customerId: string;
   teamId: string;
   teamMemberId: string; // Responsible Team Member
@@ -263,6 +264,43 @@ export interface Order {
   updatedAt: string;
   customer?: Customer;
   team?: Team;
+}
+
+export interface ParcelSlipTeam {
+  name: string;
+  code?: string;
+  logo?: string | null;
+  address?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+}
+
+export interface ParcelSlipCustomer {
+  fullName: string;
+  phone: string;
+  address: string;
+  code?: string | null;
+  contactCode?: string | null;
+}
+
+export interface ParcelSlipItem {
+  productName: string;
+  quantity: number;
+}
+
+export interface ParcelSlipData {
+  publicSlipToken: string;
+  orderNumber: string;
+  orderDate: string;
+  itemsDescription: string;
+  paymentMethod?: string | null;
+  codAmount?: number | string | null;
+  totalAmount: number | string;
+  currency?: string;
+  contactCode?: string | null;
+  customer: ParcelSlipCustomer;
+  team: ParcelSlipTeam;
+  items?: ParcelSlipItem[];
 }
 
 export interface DeliveryStatusHistory {

@@ -9,7 +9,7 @@ export interface OrderExpandedDetailsProps {
   onViewHistory: (order: Order) => void;
   onOpenStatusModal: (order: Order, defaultNewStatus: OrderStatus) => void;
   onOpenRemarkModal: (order: Order) => void;
-  onPrintBillingSlip: (order: Order) => void;
+  onPrintSlip: (order: Order) => void;
   onInspectDamages?: (order: Order) => void;
 }
 
@@ -18,7 +18,7 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
   onViewHistory,
   onOpenStatusModal,
   onOpenRemarkModal,
-  onPrintBillingSlip,
+  onPrintSlip,
   onInspectDamages,
 }) => {
   return (
@@ -58,17 +58,16 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
         </button>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          {order.deliveryMethod !== 'ROYAL_COURIER' && (
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<Printer className="w-3.5 h-3.5 text-slate-700" />}
-              onClick={() => onPrintBillingSlip(order)}
-              className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 text-slate-700 bg-white hover:bg-slate-100 border-slate-300 cursor-pointer h-7"
-            >
-              COD Slip
-            </Button>
-          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Printer className="w-3.5 h-3.5 text-slate-700" />}
+            onClick={() => onPrintSlip(order)}
+            className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 text-slate-700 bg-white hover:bg-slate-100 border-slate-300 cursor-pointer h-7 font-medium"
+            title="Print Slip"
+          >
+            Print Slip
+          </Button>
 
           {order.status === 'DISPATCHED' && (
             <>
