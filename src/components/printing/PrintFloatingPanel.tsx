@@ -47,7 +47,7 @@ export const PrintFloatingPanel: React.FC<PrintFloatingPanelProps> = ({
             type="button"
             onClick={onNativePrint}
             className="flex-1 py-1 px-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/20 cursor-pointer"
-            title="Print Billing Slips"
+            title="Print Slips"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Print</span>

@@ -14,7 +14,7 @@ export interface OrderListProps {
   onViewHistory: (order: Order) => void;
   onOpenStatusModal: (order: Order, defaultNewStatus: OrderStatus) => void;
   onOpenRemarkModal: (order: Order) => void;
-  onPrintBillingSlip: (order: Order) => void;
+  onPrintSlip: (order: Order) => void;
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
   onInspectDamages?: (order: Order) => void;
 }
@@ -29,7 +29,7 @@ export const OrderList: React.FC<OrderListProps> = ({
   onViewHistory,
   onOpenStatusModal,
   onOpenRemarkModal,
-  onPrintBillingSlip,
+  onPrintSlip,
   onInspectDuplicateOrders,
   onInspectDamages,
 }) => {
@@ -62,7 +62,7 @@ export const OrderList: React.FC<OrderListProps> = ({
             onViewHistory={onViewHistory}
             onOpenStatusModal={onOpenStatusModal}
             onOpenRemarkModal={onOpenRemarkModal}
-            onPrintBillingSlip={onPrintBillingSlip}
+            onPrintSlip={onPrintSlip}
             onInspectDuplicateOrders={onInspectDuplicateOrders}
             onInspectDamages={onInspectDamages}
           />
