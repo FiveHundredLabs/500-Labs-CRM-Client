@@ -1,13 +1,7 @@
 import React from 'react';
-import { Customer, Order, Team, User } from '../../models/domain';
 import { A6BillingSlip } from './A6BillingSlip';
-
-export interface LeadPrintItem {
-  customer: Customer;
-  responsibleUser?: User;
-  order?: Order;
-  team?: Team;
-}
+import type { LeadPrintItem } from './printTypes';
+export type { LeadPrintItem } from './printTypes';
 
 export interface BillingSlipPrintSheetProps {
   items: LeadPrintItem[];

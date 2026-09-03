@@ -200,29 +200,102 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ═══════════════════════════════════════════════
-   PRINT ENGINE (A4 Landscape & A6 Delivery Labels)
+   PRINT ENGINE (A4 Portrait 4-Up Slip Sheets)
    ═══════════════════════════════════════════════ */
+@page {
+  size: A4 portrait;
+  margin: 6mm;
+}
+
 @media print {
+  html,
   body {
     background-color: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 210mm !important;
+    overflow: hidden !important;
   }
+
   aside, header, nav, button, .no-print {
     display: none !important;
   }
-  .print-container {
-    width: 100% !important;
+
+  .print-parcel-container {
+    width: 198mm !important;
     margin: 0 !important;
     padding: 0 !important;
+    background: #ffffff !important;
   }
+
+  .portrait-parcel-slip-sheet,
+  .parcel-print-page {
+    width: 198mm !important;
+    height: 285mm !important;
+    min-width: 198mm !important;
+    min-height: 285mm !important;
+    max-width: 198mm !important;
+    max-height: 285mm !important;
+    display: grid !important;
+    grid-template-columns: 97mm 97mm !important;
+    grid-template-rows: 140.5mm 140.5mm !important;
+    column-gap: 4mm !important;
+    row-gap: 4mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    break-after: page !important;
+    page-break-after: always !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+  }
+
+  .portrait-parcel-slip-sheet:last-child,
+  .parcel-print-page:last-child {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  .portrait-parcel-slip-cell {
+    width: 97mm !important;
+    height: 140.5mm !important;
+    min-width: 97mm !important;
+    min-height: 140.5mm !important;
+    max-width: 97mm !important;
+    max-height: 140.5mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .portrait-parcel-slip,
+  .parcel-slip {
+    width: 97mm !important;
+    height: 140.5mm !important;
+    min-width: 97mm !important;
+    min-height: 140.5mm !important;
+    max-width: 97mm !important;
+    max-height: 140.5mm !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    transform: none !important;
+    zoom: 1 !important;
+    box-sizing: border-box !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
   .page-break-after-always {
     page-break-after: always !important;
     break-after: page !important;
   }
-  @page {
-    size: A4 landscape;
-    margin: 0mm;
-  }
 }
+

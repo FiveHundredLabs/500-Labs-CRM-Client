@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
-import { LeadPrintItem, BillingSlipPrintSheet } from './BillingSlipPrintSheet';
+import type { LeadPrintItem } from './printTypes';
+import { PortraitParcelSlipPrintSheet } from './PortraitParcelSlipPrintSheet';
+import { toParcelSlipDataList } from '../../utils/parcelSlipData';
 import { Printer, FileText, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { printBillingPDF } from '../../utils/pdfGenerator';
+import { printParcelSlipPDF } from '../../utils/parcelPdfGenerator';
 import { CircularProgressPdfModal } from './CircularProgressPdfModal';
 
 export interface InterestedLeadsPrintModalProps {
@@ -22,7 +24,7 @@ export const InterestedLeadsPrintModal: React.FC<InterestedLeadsPrintModalProps>
 }) => {
   const [pdfProgress, setPdfProgress] = useState({
     isOpen: false,
-    title: 'Preparing Billing Slips for Printing...',
+    title: 'Preparing Slips for Printing...',
     subtitle: '',
     current: 0,
     total: 0,
@@ -33,15 +35,15 @@ export const InterestedLeadsPrintModal: React.FC<InterestedLeadsPrintModalProps>
   const handlePrint = async () => {
     setPdfProgress({
       isOpen: true,
-      title: 'Preparing Billing Slips for Printing...',
-      subtitle: `Assembling ${items.length} billing slip(s)...`,
+      title: 'Preparing Slips for Printing...',
+      subtitle: `Assembling ${items.length} slip(s)...`,
       current: 0,
       total: items.length,
       percentage: 0,
       actionType: 'PRINT',
     });
     try {
-      await printBillingPDF(items, (curr, tot, pct) => {
+      await printParcelSlipPDF(items, (curr, tot, pct) => {
         setPdfProgress((prev) => ({
           ...prev,
           current: curr,
@@ -54,18 +56,20 @@ export const InterestedLeadsPrintModal: React.FC<InterestedLeadsPrintModalProps>
         onPrintExecuted();
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to generate billing print document.');
+      toast.error(err?.message || 'Failed to generate print document.');
     } finally {
       setPdfProgress((prev) => ({ ...prev, isOpen: false }));
     }
   };
 
+  const parcelDataList = items.length > 0 ? toParcelSlipDataList(items) : [];
+
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Print Billing Details & COD Slips"
-      description={`A4 Landscape 4-up Layout - ${items.length} Selected Leads`}
+      title="Print Order Slips"
+      description={`A4 Portrait 4-up Layout - ${items.length} Selected Leads`}
       maxWidth="2xl"
     >
       <div className="space-y-4">
@@ -75,7 +79,7 @@ export const InterestedLeadsPrintModal: React.FC<InterestedLeadsPrintModalProps>
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm font-bold text-slate-900">A4 Landscape 4-up Billing Layout</div>
+              <div className="text-sm font-bold text-slate-900">A4 Portrait 4-up Layout</div>
               <div className="text-xs text-slate-500 font-medium mt-0.5">
                 {Math.ceil(items.length / 4)} sheet(s), up to 4 slips per sheet
               </div>
@@ -99,12 +103,12 @@ export const InterestedLeadsPrintModal: React.FC<InterestedLeadsPrintModalProps>
 
         <div className="flex items-center gap-2 text-xs text-slate-600 px-1">
           <CheckCircle className="w-4 h-4 text-emerald-500" />
-          <span>Ready to print <strong>{items.length}</strong> billing slip(s) on A4 landscape sheets.</span>
+          <span>Ready to print <strong>{items.length}</strong> slip(s) on A4 portrait sheets.</span>
         </div>
 
         <div className="overflow-x-auto p-4 bg-slate-200/70 border border-slate-300 rounded-xl max-h-[60vh] flex justify-center">
           <div className="transform scale-[0.25] sm:scale-[0.34] md:scale-[0.42] origin-top">
-            <BillingSlipPrintSheet items={items} />
+            <PortraitParcelSlipPrintSheet items={parcelDataList} />
           </div>
         </div>
       </div>

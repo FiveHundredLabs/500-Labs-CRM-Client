@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { LoadingState } from '../../components/shared/LoadingState';
-import { LeadPrintItem } from '../../components/printing/BillingSlipPrintSheet';
+import type { LeadPrintItem } from '../../components/printing/printTypes';
 import { PrintFloatingPanel } from '../../components/printing/PrintFloatingPanel';
 import { InterestedFilters } from '../../components/interested/InterestedFilters';
 import { InterestedList } from '../../components/interested/InterestedList';
@@ -12,12 +12,12 @@ import { CircularProgressPdfModal } from '../../components/printing/CircularProg
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
-import { downloadBillingPDF, printBillingPDF } from '../../utils/pdfGenerator';
+import { downloadParcelSlipPDF, printParcelSlipPDF } from '../../utils/parcelPdfGenerator';
 import { downloadRoyalCourierExcel, RoyalCourierExportItem } from '../../utils/royalCourierExcel';
 import { downloadPostLeadExcel, PostLeadExportItem } from '../../utils/postLeadExcel';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
-import { XCircle, Mail, Truck, FileSpreadsheet, Download } from 'lucide-react';
+import { XCircle, Mail, Truck, FileSpreadsheet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { teamRepository } from '../../repositories';
 import { Team, DeliveryMethod } from '../../models/domain';
@@ -57,7 +57,7 @@ export const SupervisorInterestedPage: React.FC = () => {
   // Circular Progress PDF Loading State
   const [pdfProgress, setPdfProgress] = useState({
     isOpen: false,
-    title: 'Generating Billing Slips PDF...',
+    title: 'Generating Slips...',
     subtitle: '',
     current: 0,
     total: 0,
@@ -178,7 +178,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     }
   };
 
-  // Selected Lead Objects for Post Billing PDF / Print
+  // Selected Lead Objects for Post Slip PDF / Print
   const selectedPrintItems: LeadPrintItem[] = customers
     .filter((c) => selectedIds.includes(c.id))
     .map((c) => {
@@ -225,15 +225,15 @@ export const SupervisorInterestedPage: React.FC = () => {
     if (selectedPrintItems.length === 0) return;
     setPdfProgress({
       isOpen: true,
-      title: 'Downloading Billing Slips PDF...',
-      subtitle: `Preparing ${selectedPrintItems.length} billing slip(s)...`,
+      title: 'Downloading Slips PDF...',
+      subtitle: `Preparing ${selectedPrintItems.length} slip(s)...`,
       current: 0,
       total: selectedPrintItems.length,
       percentage: 0,
       actionType: 'DOWNLOAD',
     });
     try {
-      await downloadBillingPDF(selectedPrintItems, (curr, tot, pct) => {
+      await downloadParcelSlipPDF(selectedPrintItems, (curr, tot, pct) => {
         setPdfProgress((prev) => ({
           ...prev,
           current: curr,
@@ -242,10 +242,10 @@ export const SupervisorInterestedPage: React.FC = () => {
           subtitle: `Rendering high-resolution slip ${curr} of ${tot}...`,
         }));
       });
-      toast.success('Billing slips PDF downloaded!');
+      toast.success('Slips PDF downloaded!');
       setIsPdfConfirmOpen(true);
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to generate billing PDF.');
+      toast.error(err?.message || 'Failed to generate slips PDF.');
     } finally {
       setPdfProgress((prev) => ({ ...prev, isOpen: false }));
     }
@@ -256,15 +256,15 @@ export const SupervisorInterestedPage: React.FC = () => {
     if (selectedPrintItems.length === 0) return;
     setPdfProgress({
       isOpen: true,
-      title: 'Preparing Billing Slips for Printing...',
-      subtitle: `Assembling ${selectedPrintItems.length} billing slip(s)...`,
+      title: 'Preparing Slips for Printing...',
+      subtitle: `Assembling ${selectedPrintItems.length} slip(s)...`,
       current: 0,
       total: selectedPrintItems.length,
       percentage: 0,
       actionType: 'PRINT',
     });
     try {
-      await printBillingPDF(selectedPrintItems, (curr, tot, pct) => {
+      await printParcelSlipPDF(selectedPrintItems, (curr, tot, pct) => {
         setPdfProgress((prev) => ({
           ...prev,
           current: curr,
@@ -277,7 +277,7 @@ export const SupervisorInterestedPage: React.FC = () => {
       await dispatchInterestedLeads(selectedIds);
       clearSelection();
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to generate billing print document.');
+      toast.error(err?.message || 'Failed to generate print document.');
     } finally {
       setPdfProgress((prev) => ({ ...prev, isOpen: false }));
       setIsDispatching(false);
@@ -427,7 +427,7 @@ export const SupervisorInterestedPage: React.FC = () => {
         onInspectDuplicateOrders={(info) => setInspectConflictInfo(info)}
       />
 
-      {/* TAB 1 (POST): Standard Floating Action Panel (Billing Slips, Excel & Print) */}
+      {/* TAB 1 (POST): Standard Floating Action Panel (Slips, Excel & Print) */}
       {activeDeliveryTab === 'POST' && (
         <PrintFloatingPanel
           selectedCount={selectedIds.length}
