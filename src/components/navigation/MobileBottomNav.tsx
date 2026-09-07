@@ -31,7 +31,7 @@ export const MobileBottomNav: React.FC = () => {
               <button
                 key="more-btn"
                 onClick={() => setIsMoreOpen(true)}
-                className="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-1 text-slate-500 hover:text-blue-600 cursor-pointer transition-colors"
+                className="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-1 text-slate-500 hover:text-[#01A8F3] cursor-pointer transition-colors"
               >
                 <Icon className="w-4.5 h-4.5 shrink-0" />
                 <span className="text-[10px] font-medium mt-0.5 truncate max-w-full text-center">More</span>
@@ -45,7 +45,7 @@ export const MobileBottomNav: React.FC = () => {
               to={item.path}
               className={({ isActive }) =>
                 `flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-1 transition-colors ${
-                  isActive ? 'text-blue-600 font-semibold' : 'text-slate-500 hover:text-slate-900'
+                  isActive ? 'text-[#01A8F3] font-semibold' : 'text-slate-500 hover:text-slate-900'
                 }`
               }
             >
@@ -77,9 +77,9 @@ export const MobileBottomNav: React.FC = () => {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsMoreOpen(false)}
-                    className="flex flex-col items-center p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-xl transition-colors text-center"
+                    className="flex flex-col items-center p-3 bg-slate-50 hover:bg-[#E8F7FE] border border-slate-200 rounded-xl transition-colors text-center"
                   >
-                    <div className="p-2 bg-white text-blue-600 rounded-lg border border-slate-200 shadow-2xs mb-1.5">
+                    <div className="p-2 bg-white text-[#01A8F3] rounded-lg border border-slate-200 shadow-2xs mb-1.5">
                       <Icon className="w-4 h-4" />
                     </div>
                     <span className="text-xs font-semibold text-slate-800">{item.label}</span>

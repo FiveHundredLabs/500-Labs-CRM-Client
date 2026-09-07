@@ -10,7 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { EditableProfileAvatar } from '../../components/shared/EditableProfileAvatar';
 import { ActivityTimeline } from '../../components/shared/ActivityTimeline';
 import toast from 'react-hot-toast';
-import { Shield, MapPin, Save, Calendar, Mail, Phone, CreditCard, Lock } from 'lucide-react';
+import { Shield, Save, Calendar, Mail, Phone, CreditCard, Lock } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const FinanceProfilePage: React.FC = () => {
@@ -79,7 +79,7 @@ export const FinanceProfilePage: React.FC = () => {
                 <div className="space-y-1">
                   <div className="font-bold text-lg text-slate-900">{fullName}</div>
                   <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <Shield className="w-3.5 h-3.5 text-emerald-600" />
+                    <Shield className="w-3.5 h-3.5 text-[#547E1B]" />
                     <span className="font-medium text-slate-700">{user.role}</span>
                     <span>&bull;</span>
                     <span>Finance Department</span>
@@ -90,7 +90,7 @@ export const FinanceProfilePage: React.FC = () => {
 
               {/* Editable Fields */}
               <div className="space-y-4">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-[#0188C7]">
                   Editable Account Details
                 </h4>
 
@@ -158,7 +158,7 @@ export const FinanceProfilePage: React.FC = () => {
               <CardTitle>Monthly Activity Log</CardTitle>
               <CardDescription>Finance audit log for this month</CardDescription>
             </div>
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 bg-[#E8F7FE] text-[#0188C7] rounded-full border border-[#B9E7FC]">
               <Calendar className="w-3 h-3" />
               {format(new Date(), 'MMMM yyyy')}
             </span>

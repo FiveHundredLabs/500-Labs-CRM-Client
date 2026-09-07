@@ -15,14 +15,14 @@ export interface StatCardProps {
 
 const colorMap = {
   blue: {
-    badge: 'bg-blue-500/10 text-blue-600 border border-blue-500/20 shadow-xs shadow-blue-500/10',
-    topBar: 'bg-gradient-to-r from-blue-500 to-indigo-500',
-    glow: 'group-hover:border-blue-300/80',
+    badge: 'bg-[#01A8F3]/10 text-[#0188C7] border border-[#01A8F3]/25 shadow-xs shadow-[#01A8F3]/10',
+    topBar: 'bg-[#01A8F3]',
+    glow: 'group-hover:border-[#01A8F3]/50',
   },
   green: {
-    badge: 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shadow-xs shadow-emerald-500/10',
-    topBar: 'bg-gradient-to-r from-emerald-500 to-teal-500',
-    glow: 'group-hover:border-emerald-300/80',
+    badge: 'bg-[#80BD2B]/15 text-[#547E1B] border border-[#80BD2B]/30 shadow-xs shadow-[#80BD2B]/10',
+    topBar: 'bg-[#80BD2B]',
+    glow: 'group-hover:border-[#80BD2B]/50',
   },
   amber: {
     badge: 'bg-amber-500/10 text-amber-600 border border-amber-500/20 shadow-xs shadow-amber-500/10',

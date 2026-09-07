@@ -25,10 +25,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyle =
-      'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer select-none';
+      'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/25 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer select-none';
 
     const variants: Record<string, string> = {
-      primary: 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs border border-transparent',
+      primary: 'bg-[#01A8F3] hover:bg-[#0096DC] text-white shadow-xs border border-transparent',
       secondary: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-xs',
       outline: 'bg-transparent hover:bg-slate-50 text-slate-700 border border-slate-200',
       ghost: 'bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900',

@@ -191,7 +191,7 @@ export const AdminActivityPage: React.FC = () => {
   if (loading) return <LoadingState rows={8} />;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6">
       <PageHeader
         title="System Audit & Activity Logs"
         description="Monitor comprehensive user-wise activity, date intervals, role actions, and platform state transitions"
@@ -202,14 +202,14 @@ export const AdminActivityPage: React.FC = () => {
         <CardContent className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <Filter className="w-4 h-4 text-blue-600" />
+              <Filter className="w-4 h-4 text-[#01A8F3]" />
               <span>Activity Filters &amp; User Monitoring</span>
             </div>
             {hasActiveFilters && (
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-xs font-semibold text-[#0188C7] hover:text-[#0096DC] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reset Filters</span>
@@ -332,8 +332,8 @@ export const AdminActivityPage: React.FC = () => {
                 <div>
                   <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
                     <span>Monitoring User:</span>
-                    <span className="text-blue-700 text-sm font-extrabold">{selectedUserObj.fullName}</span>
-                    <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                    <span className="text-[#0188C7] text-sm font-extrabold">{selectedUserObj.fullName}</span>
+                    <span className="px-2 py-0.5 rounded bg-[#E8F7FE] text-[#0188C7] text-[10px] font-bold">
                       {selectedUserObj.role}
                     </span>
                   </div>
@@ -350,7 +350,7 @@ export const AdminActivityPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedUserId('ALL')}
-                  className="text-[11px] text-blue-600 hover:underline font-semibold mt-0.5 cursor-pointer"
+                  className="text-[11px] text-[#0188C7] hover:underline font-semibold mt-0.5 cursor-pointer"
                 >
                   Clear User Filter
                 </button>
@@ -365,10 +365,10 @@ export const AdminActivityPage: React.FC = () => {
         <CardHeader className="pb-3 border-b border-slate-100">
           <CardTitle className="flex items-center justify-between text-base">
             <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-600" />
+              <Activity className="w-4 h-4 text-[#01A8F3]" />
               <span>Activity Audit Trail</span>
             </div>
-            <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full font-mono">
+            <span className="text-xs font-bold text-[#0188C7] bg-[#E8F7FE] border border-[#B9E7FC] px-2.5 py-0.5 rounded-full font-mono">
               {filteredActivities.length} Entries
             </span>
           </CardTitle>

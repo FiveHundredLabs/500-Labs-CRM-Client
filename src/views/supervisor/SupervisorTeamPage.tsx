@@ -98,8 +98,12 @@ export const SupervisorTeamPage: React.FC = () => {
     setShowConfirmPassword(false);
     setPhone(member.phone);
     setNic(member.nic || '');
-    setDateOfBirth(member.dateOfBirth || '1995-05-15');
-    setJoiningDate(member.joiningDate ? member.joiningDate.split('T')[0] : format(new Date(), 'yyyy-MM-dd'));
+    setDateOfBirth(member.dateOfBirth ? member.dateOfBirth.split('T')[0] : '1995-05-15');
+    setJoiningDate(
+      member.joiningDate && !isNaN(new Date(member.joiningDate).getTime())
+        ? member.joiningDate.split('T')[0]
+        : format(new Date(), 'yyyy-MM-dd')
+    );
     setAvatarUrl(member.avatarUrl || '');
     setIsModalOpen(true);
   };
@@ -258,7 +262,9 @@ export const SupervisorTeamPage: React.FC = () => {
                 </td>
 
                 <td className="py-3.5 px-4 text-xs text-slate-500 hidden md:table-cell">
-                  {format(new Date(member.joiningDate), 'MMM dd, yyyy')}
+                  {member.joiningDate && !isNaN(new Date(member.joiningDate).getTime())
+                    ? format(new Date(member.joiningDate), 'MMM dd, yyyy')
+                    : '—'}
                 </td>
 
                 <td className="py-3.5 px-4 hidden md:table-cell">

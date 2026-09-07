@@ -3,46 +3,222 @@ import { expenseRepository } from '../../repositories';
 import { ExpenseCategory } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Dialog } from '../../components/ui/Dialog';
 import { LoadingState } from '../../components/shared/LoadingState';
-import { Tag } from 'lucide-react';
+import { EmptyState } from '../../components/shared/EmptyState';
+import { SearchInput } from '../../components/shared/SearchInput';
+import toast from 'react-hot-toast';
+import { 
+  Tag, 
+  Plus, 
+  Edit3, 
+} from 'lucide-react';
 
 export const FinanceCategoriesPage: React.FC = () => {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  // Add / Edit Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'CREATE' | 'EDIT'>('CREATE');
+  const [activeCatId, setActiveCatId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const data = await expenseRepository.getCategories();
+      setCategories(data || []);
+    } catch {
+      toast.error('Failed to load expense categories.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    expenseRepository.getCategories().then((data) => {
-      setCategories(data);
-      setLoading(false);
-    });
+    loadData();
   }, []);
 
-  if (loading) return <LoadingState rows={5} />;
+  const openCreate = () => {
+    setModalMode('CREATE');
+    setActiveCatId(null);
+    setName('');
+    setDescription('');
+    setIsModalOpen(true);
+  };
+
+  const openEdit = (cat: ExpenseCategory) => {
+    setModalMode('EDIT');
+    setActiveCatId(cat.id);
+    setName(cat.name);
+    setDescription(cat.description || '');
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error('Please enter a category title.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (modalMode === 'CREATE') {
+        await expenseRepository.createCategory({
+          name: name.trim(),
+          description: description.trim() || undefined,
+          isCustom: true,
+        });
+        toast.success('Custom expense category created!');
+      } else if (activeCatId) {
+        await expenseRepository.updateCategory(activeCatId, {
+          name: name.trim(),
+          description: description.trim() || undefined,
+        });
+        toast.success('Category updated successfully!');
+      }
+
+      setIsModalOpen(false);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Operation failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const filtered = categories.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.description && c.description.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  if (loading) return <LoadingState rows={6} />;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Expense Categories" description="Predefined and custom expense classifications" />
+      <PageHeader
+        title="Expense Categories & Accounting Classifications"
+        description="Configure standardized OpEx classification tags and create custom operational ledgers."
+        actions={
+          <Button
+            variant="primary"
+            leftIcon={<Plus className="w-4 h-4" />}
+            onClick={openCreate}
+          >
+            Create Category
+          </Button>
+        }
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {categories.map((cat) => (
-          <Card key={cat.id}>
-            <CardContent className="p-5 space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                  <Tag className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900 text-sm">{cat.name}</h3>
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                    {cat.isCustom ? 'Custom Category' : 'Standard Category'}
-                  </span>
-                </div>
-              </div>
-              {cat.description && <p className="text-xs text-slate-500 mt-1">{cat.description}</p>}
-            </CardContent>
-          </Card>
-        ))}
+      {/* Search Bar */}
+      <div className="max-w-md">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Filter categories by name or description..."
+        />
       </div>
+
+      {/* Grid */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          title="No categories found"
+          description="No categories match your search keyword. Click Create Category to add one."
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((cat) => (
+            <Card key={cat.id} className="border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all">
+              <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="w-9 h-9 rounded-xl bg-[#E8F7FE] border border-[#B9E7FC] flex items-center justify-center text-[#0188C7]">
+                      <Tag className="w-4.5 h-4.5" />
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                        cat.isCustom
+                          ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      {cat.isCustom ? 'Custom OpEx' : 'Standard'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm">{cat.name}</h3>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                      {cat.description || 'Predefined accounting expenditure classification ledger.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                  <span className="font-mono text-[11px] truncate max-w-[150px]">{cat.id}</span>
+                  <button
+                    onClick={() => openEdit(cat)}
+                    className="inline-flex items-center gap-1 text-[#0188C7] hover:text-[#016DA0] font-semibold cursor-pointer text-xs transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Add / Edit Dialog */}
+      <Dialog
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={modalMode === 'CREATE' ? 'Register New Expense Category' : 'Edit Expense Category'}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Category Title <span className="text-red-500">*</span>
+            </label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Marketing & Digital Ads, Office Utilities"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Description / Policy Scope
+            </label>
+            <textarea
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Guidelines on what vouchers qualify under this category..."
+              className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 focus:border-[#01A8F3] shadow-2xs"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : modalMode === 'CREATE' ? 'Create Category' : 'Save Changes'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 };

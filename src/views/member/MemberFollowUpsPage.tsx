@@ -252,7 +252,7 @@ export const MemberFollowUpsPage: React.FC = () => {
                       ? 'bg-emerald-50 text-emerald-800 font-bold border border-emerald-300 shadow-2xs'
                       : isSavedTab
                       ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-300 shadow-2xs'
-                      : 'bg-blue-50 text-blue-700 font-bold border border-blue-200 shadow-2xs'
+                      : 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs'
                     : isFollowUpTab
                     ? 'bg-amber-50/70 hover:bg-amber-100/80 text-amber-800 border border-amber-200/80 font-medium'
                     : isRejected
@@ -278,7 +278,7 @@ export const MemberFollowUpsPage: React.FC = () => {
                         ? 'bg-emerald-600 text-white'
                         : isSavedTab
                         ? 'bg-emerald-600 text-white'
-                        : 'bg-blue-600 text-white'
+                        : 'bg-[#01A8F3] text-white'
                       : isFollowUpTab
                       ? 'bg-amber-200 text-amber-900 font-bold'
                       : isRejected
@@ -347,8 +347,8 @@ export const MemberFollowUpsPage: React.FC = () => {
                           <Phone className="w-3 h-3 text-slate-400" />
                           <span>{phone}</span>
                           {contact?.code && (
-                            <span className="inline-flex items-center gap-0.5 text-[9.5px] font-mono font-bold px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200/90 rounded shrink-0">
-                              <Hash className="w-2.5 h-2.5 text-blue-500" />
+                            <span className="inline-flex items-center gap-0.5 text-[9.5px] font-mono font-bold px-1.5 py-0.2 bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC] rounded shrink-0">
+                              <Hash className="w-2.5 h-2.5 text-[#01A8F3]" />
                               <span>{contact.code}</span>
                             </span>
                           )}
@@ -439,7 +439,7 @@ export const MemberFollowUpsPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => toggleExpand(log.id)}
-                        className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-500 hover:text-blue-600 flex items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200/80"
+                        className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[#E8F7FE] text-slate-500 hover:text-[#01A8F3] flex items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200/80"
                         title={isExpanded ? 'Collapse details' : 'Expand full call details'}
                       >
                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -466,8 +466,8 @@ export const MemberFollowUpsPage: React.FC = () => {
                         <div className="font-bold text-sm sm:text-base text-slate-900 font-mono tracking-tight shrink-0 flex items-center gap-1.5 flex-wrap">
                           <span>{phone}</span>
                           {contact?.code && (
-                            <span className="inline-flex items-center gap-0.5 text-[10px] font-mono font-bold px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200/90 rounded shrink-0">
-                              <Hash className="w-2.5 h-2.5 text-blue-500" />
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-mono font-bold px-1.5 py-0.2 bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC] rounded shrink-0">
+                              <Hash className="w-2.5 h-2.5 text-[#01A8F3]" />
                               <span>{contact.code}</span>
                             </span>
                           )}
@@ -497,7 +497,7 @@ export const MemberFollowUpsPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenEditRemarks(log)}
-                        className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-500 hover:text-blue-600 flex items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200/80"
+                        className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[#E8F7FE] text-slate-500 hover:text-[#01A8F3] flex items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200/80"
                         title="Update Remarks"
                       >
                         <Edit3 className="w-4 h-4" />
@@ -572,7 +572,7 @@ export const MemberFollowUpsPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenEditRemarks(log)}
-                          className="w-8 h-8 rounded-lg bg-white hover:bg-blue-50 text-slate-500 hover:text-blue-600 flex items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200"
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-[#E8F7FE] text-slate-500 hover:text-[#01A8F3] flex items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200"
                           title="Update Remarks"
                         >
                           <Edit3 className="w-4 h-4" />

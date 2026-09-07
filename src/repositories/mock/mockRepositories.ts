@@ -15,6 +15,9 @@ import {
   IApprovalRequestRepository,
   IPettyCashRepository,
   ISalesTargetRepository,
+  ActivityLogWritePayload,
+  ExpenseWritePayload,
+  PettyCashExpensePayload,
 } from '../interfaces';
 import {
   Team,
@@ -606,11 +609,14 @@ export class MockActivityLogRepository implements IActivityLogRepository {
     return logs.filter((l) => l.entityType === entityType && l.entityId === entityId);
   }
 
-  async create(logData: Omit<ActivityLog, 'id' | 'createdAt'>): Promise<ActivityLog> {
+  async create(logData: ActivityLogWritePayload): Promise<ActivityLog> {
     await delay();
     const logs = getStoredItem<ActivityLog>(STORAGE_KEYS.ACTIVITY_LOGS, []);
     const newLog: ActivityLog = {
       ...logData,
+      userId: 'mock_actor',
+      userRole: 'ADMIN',
+      userName: 'Mock Actor',
       id: `act_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       createdAt: new Date().toISOString(),
     };
@@ -631,11 +637,13 @@ export class MockExpenseRepository implements IExpenseRepository {
     return getStoredItem<ExpenseCategory>(STORAGE_KEYS.EXPENSE_CATEGORIES, []);
   }
 
-  async create(expenseData: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense> {
+  async create(expenseData: ExpenseWritePayload): Promise<Expense> {
     await delay();
     const expenses = getStoredItem<Expense>(STORAGE_KEYS.EXPENSES, []);
     const newExpense: Expense = {
       ...expenseData,
+      createdBy: 'mock_actor',
+      createdByName: 'Mock Actor',
       id: `exp_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       createdAt: new Date().toISOString(),
     };
@@ -654,6 +662,58 @@ export class MockExpenseRepository implements IExpenseRepository {
     categories.push(newCategory);
     setStoredItem(STORAGE_KEYS.EXPENSE_CATEGORIES, categories);
     return newCategory;
+  }
+
+  async getById(id: string): Promise<Expense | null> {
+    await delay();
+    const expenses = getStoredItem<Expense>(STORAGE_KEYS.EXPENSES, []);
+    return expenses.find((e) => e.id === id) || null;
+  }
+
+  async updateCategory(id: string, data: Partial<ExpenseCategory>): Promise<ExpenseCategory> {
+    await delay();
+    const categories = getStoredItem<ExpenseCategory>(STORAGE_KEYS.EXPENSE_CATEGORIES, []);
+    const idx = categories.findIndex((c) => c.id === id);
+    if (idx !== -1) {
+      categories[idx] = { ...categories[idx], ...data };
+      setStoredItem(STORAGE_KEYS.EXPENSE_CATEGORIES, categories);
+      return categories[idx];
+    }
+    throw new Error('Category not found');
+  }
+
+  async update(id: string, updates: Partial<Expense>): Promise<Expense> {
+    await delay();
+    const expenses = getStoredItem<Expense>(STORAGE_KEYS.EXPENSES, []);
+    const idx = expenses.findIndex((e) => e.id === id);
+    if (idx !== -1) {
+      expenses[idx] = { ...expenses[idx], ...updates };
+      setStoredItem(STORAGE_KEYS.EXPENSES, expenses);
+      return expenses[idx];
+    }
+    throw new Error('Expense not found');
+  }
+
+  async delete(id: string): Promise<void> {
+    await delay();
+    const expenses = getStoredItem<Expense>(STORAGE_KEYS.EXPENSES, []);
+    const filtered = expenses.filter((e) => e.id !== id);
+    setStoredItem(STORAGE_KEYS.EXPENSES, filtered);
+  }
+
+  async requestChange(id: string, data: { action: 'EDIT' | 'DELETE'; reason: string; [key: string]: any }): Promise<any> {
+    await delay();
+    return { id: `cr_${Date.now()}`, expenseId: id, status: 'PENDING', ...data };
+  }
+
+  async getChangeRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<any[]> {
+    await delay();
+    return [];
+  }
+
+  async reviewChangeRequest(id: string, decision: 'APPROVED' | 'REJECTED', rejectionReason?: string): Promise<any> {
+    await delay();
+    return { id, status: decision, rejectionReason };
   }
 }
 
@@ -1024,15 +1084,32 @@ export class MockPettyCashRepository implements IPettyCashRepository {
     return wallet;
   }
 
-  async getTransactions(): Promise<PettyCashTransaction[]> {
+  async getTransactions(teamId?: string): Promise<PettyCashTransaction[]> {
     await delay();
     const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
-    return txs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const filtered = teamId ? txs.filter((t) => {
+      const wallets = getStoredItem<PettyCashWallet>(STORAGE_KEYS.PETTY_CASH_WALLET, []);
+      const wallet = wallets.find(w => w.teamId === teamId);
+      return wallet && t.remainingBalance !== undefined; // Simplistic link check
+    }) : txs;
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  async allocate(amount: number, user: User, reason = 'Petty Cash Allocation'): Promise<PettyCashWallet> {
+  async getAllocations(teamId?: string): Promise<any[]> {
     await delay();
-    const wallet = await this.getWallet(user.teamId || undefined);
+    const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
+    return txs.filter(t => t.transactionType === 'ALLOCATION' && (!teamId || t.teamId === teamId));
+  }
+
+  async getAllocationById(id: string): Promise<any> {
+    await delay();
+    const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
+    return txs.find(t => t.id === id && t.transactionType === 'ALLOCATION') || null;
+  }
+
+  async allocate(amount: number, reason = 'Petty Cash Allocation', teamId?: string, remarks?: string): Promise<any> {
+    await delay();
+    const wallet = await this.getWallet(teamId);
     const wallets = getStoredItem<PettyCashWallet>(STORAGE_KEYS.PETTY_CASH_WALLET, []);
     const idx = wallets.findIndex((w) => w.id === wallet.id);
 
@@ -1053,30 +1130,28 @@ export class MockPettyCashRepository implements IPettyCashRepository {
 
     // Record transaction
     const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
-    txs.push({
+    txs.unshift({
       id: `pct_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       transactionType: 'ALLOCATION',
       reason,
       category: 'Allocation',
       amount,
       date: new Date().toISOString().split('T')[0],
-      description: `Allocated LKR ${amount.toLocaleString()} by ${user.fullName}`,
-      userId: user.id,
-      userName: user.fullName,
+      description: remarks || `Allocated LKR ${amount.toLocaleString()}`,
+      userId: 'mock_actor',
+      userName: 'Mock Actor',
       remainingBalance: newRemaining,
       createdAt: new Date().toISOString(),
+      teamId
     });
     setStoredItem(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, txs);
 
     return updatedWallet;
   }
 
-  async recordExpense(
-    data: { amount: number; reason: string; category: string; description: string; date: string },
-    user: User
-  ): Promise<PettyCashTransaction> {
+  async recordExpense(data: PettyCashExpensePayload): Promise<PettyCashTransaction> {
     await delay();
-    const wallet = await this.getWallet(user.teamId || undefined);
+    const wallet = await this.getWallet(data.teamId);
 
     if (data.amount > wallet.remainingBalance) {
       throw new Error(`Expense amount (LKR ${data.amount.toLocaleString()}) exceeds available petty cash balance (LKR ${wallet.remainingBalance.toLocaleString()})`);
@@ -1106,8 +1181,9 @@ export class MockPettyCashRepository implements IPettyCashRepository {
       amount: data.amount,
       date: data.date,
       description: data.description,
-      userId: user.id,
-      userName: user.fullName,
+      userId: 'mock_actor',
+      userName: 'Mock Actor',
+      teamId: data.teamId,
       remainingBalance: newRemaining,
       createdAt: new Date().toISOString(),
     };

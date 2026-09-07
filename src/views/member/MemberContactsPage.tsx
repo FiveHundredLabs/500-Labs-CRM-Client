@@ -179,21 +179,21 @@ export const MemberContactsPage: React.FC = () => {
             const isRejected = tab.key === 'REJECTED';
             const isNew = tab.key === 'NEW';
 
-            let activeBadgeStyle = 'bg-blue-600 text-white';
-            let activeContainerStyle = 'bg-blue-50 text-blue-700 font-bold border border-blue-200 shadow-2xs';
+            let activeBadgeStyle = 'bg-[#01A8F3] text-white';
+            let activeContainerStyle = 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs';
 
             if (isFollowUpTab) {
               activeBadgeStyle = 'bg-amber-500 text-white font-bold';
               activeContainerStyle = 'bg-amber-100/90 text-amber-900 font-bold border border-amber-300 shadow-2xs';
             } else if (isDelivered) {
-              activeBadgeStyle = 'bg-emerald-600 text-white font-bold';
-              activeContainerStyle = 'bg-emerald-50 text-emerald-800 font-bold border border-emerald-300 shadow-2xs';
+              activeBadgeStyle = 'bg-[#80BD2B] text-white font-bold';
+              activeContainerStyle = 'bg-[#F2F9E9] text-[#547E1B] font-bold border border-[#D4ECC6] shadow-2xs';
             } else if (isRejected) {
               activeBadgeStyle = 'bg-rose-600 text-white font-bold';
               activeContainerStyle = 'bg-rose-50 text-rose-800 font-bold border border-rose-300 shadow-2xs';
             } else if (isNew) {
-              activeBadgeStyle = 'bg-blue-600 text-white font-bold';
-              activeContainerStyle = 'bg-blue-50 text-blue-700 font-bold border border-blue-200 shadow-2xs';
+              activeBadgeStyle = 'bg-[#01A8F3] text-white font-bold';
+              activeContainerStyle = 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs';
             }
 
             return (
@@ -313,8 +313,8 @@ export const MemberContactsPage: React.FC = () => {
                   </span>
                   
                   {contact.code && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/90 rounded-md">
-                      <Hash className="w-3 h-3 text-blue-500" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC] rounded-md">
+                      <Hash className="w-3 h-3 text-[#01A8F3]" />
                       <span>{contact.code}</span>
                     </span>
                   )}

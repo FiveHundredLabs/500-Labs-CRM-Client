@@ -1206,7 +1206,7 @@ export const AdminReportsPage: React.FC = () => {
                       onClick={() => setFinanceReport(rep.id as FinanceReportType)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         isActive
-                          ? 'bg-emerald-700 text-white shadow-2xs'
+                          ? 'bg-[#80BD2B] text-white shadow-xs font-bold'
                           : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
                       }`}
                     >
@@ -1235,7 +1235,7 @@ export const AdminReportsPage: React.FC = () => {
                       onClick={() => setSalesReport(rep.id as SalesReportType)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         isActive
-                          ? 'bg-blue-700 text-white shadow-2xs'
+                          ? 'bg-[#01A8F3] text-white shadow-xs font-bold'
                           : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
                       }`}
                     >
