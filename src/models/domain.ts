@@ -66,6 +66,14 @@ export interface User {
   team?: Team | null;
 }
 
+export interface SalesAnalysisMember {
+  id: string;
+  fullName: string;
+  teamId?: string | null;
+  role: UserRole | string;
+  username: string;
+}
+
 export interface Contact {
   id: string; // e.g., 'cnt_001'
   code?: string; // Unique contact code e.g. 'CTC-001', 'LEAD-9821'

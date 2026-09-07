@@ -17,6 +17,7 @@ import {
   IPettyCashRepository,
   ISalesTargetRepository,
   ISupervisorTargetRepository,
+  IFinanceRepository,
   ExpenseWritePayload,
   ExpenseUpdatePayload,
   PettyCashExpensePayload,
@@ -766,9 +767,10 @@ import type {
   ExpenseReportData,
   PettyCashAllocation,
   ExpenseChangeRequest,
+  SalesAnalysisMember,
 } from '../../models/domain';
 
-export class ApiFinanceRepository {
+export class ApiFinanceRepository implements IFinanceRepository {
   private buildParams(startDate?: string, endDate?: string, extra?: Record<string, string>) {
     const params: Record<string, string> = {};
     if (startDate) params.startDate = startDate;
@@ -858,6 +860,12 @@ export class ApiFinanceRepository {
       await apiClient.get<{ data: any }>('/finance/delivery-report', {
         params: this.buildParams(startDate, endDate),
       })
+    );
+  }
+
+  async getSalesAnalysisMembers(): Promise<SalesAnalysisMember[]> {
+    return unwrap(
+      await apiClient.get<{ data: SalesAnalysisMember[] }>('/finance/sales-analysis/members')
     );
   }
 }
