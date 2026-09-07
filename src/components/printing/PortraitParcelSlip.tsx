@@ -217,6 +217,8 @@ export const PortraitParcelSlip: React.FC<
     (data as any)?.code ||
     '';
 
+  const senderAddress = formatAddress(data.team.address);
+
   const consigneeAddress = formatAddress(
     data.customer.address,
   );
