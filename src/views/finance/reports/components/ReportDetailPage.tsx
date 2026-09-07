@@ -103,12 +103,12 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
             filters.teamId !== 'ALL' ? filters.teamId : undefined
           );
           if (active) {
-            setLiveReportData(orders);
+            setLiveReportData(orders || []);
           }
         } catch (err) {
           console.error('Failed to fetch live realized sales report from backend:', err);
           if (active) {
-            setLiveReportData(null);
+            setLiveReportData([]);
           }
         } finally {
           if (active) {
@@ -129,8 +129,8 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
 
   // Query raw filtered report dataset (prefer live backend data when available)
   const rawReportData = useMemo(() => {
-    if ((report.id === 'product-cost' || report.id === 'income-summary') && liveReportData !== null) {
-      return report.getData(liveReportData, filters);
+    if (report.id === 'product-cost' || report.id === 'income-summary') {
+      return liveReportData !== null ? report.getData(liveReportData, filters) : [];
     }
     return report.getData(MOCK_FINANCE_DATABASE, filters);
   }, [report, filters, liveReportData]);

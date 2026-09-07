@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ReportColumn } from '../types';
 import { EmptyState } from '../../../../components/shared/EmptyState';
 import { formatCurrency } from '../../../../utils/currency';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -79,6 +79,22 @@ export const ReportTable: React.FC<ReportTableProps> = ({
 
     if (column.format === 'date') {
       try {
+        const dStr = String(value);
+        if (dStr.includes('T')) {
+          return (
+            <span className="font-mono text-slate-600 text-xs">
+              {format(parseISO(dStr), 'MMM dd, yyyy')}
+            </span>
+          );
+        }
+        const parts = dStr.split('-').map(Number);
+        if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+          return (
+            <span className="font-mono text-slate-600 text-xs">
+              {format(new Date(parts[0], parts[1] - 1, parts[2]), 'MMM dd, yyyy')}
+            </span>
+          );
+        }
         return (
           <span className="font-mono text-slate-600 text-xs">
             {format(new Date(value), 'MMM dd, yyyy')}
@@ -112,7 +128,17 @@ export const ReportTable: React.FC<ReportTableProps> = ({
     return <span className="text-slate-800">{String(value)}</span>;
   };
 
-  if (!isLoading && data.length === 0) {
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-12 text-center shadow-2xs">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mb-3" />
+        <p className="text-sm font-semibold text-slate-700">Loading ledger records from live database...</p>
+        <p className="text-xs text-slate-400 mt-1">Querying verified delivered orders and cost metrics</p>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
     return (
       <EmptyState
         title="No financial ledger entries"

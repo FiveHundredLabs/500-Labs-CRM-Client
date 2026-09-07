@@ -49,7 +49,26 @@ export const ReportChart: React.FC<ReportChartProps> = ({
   const chartData = config.getChartData(data, filters);
 
   if (!chartData || chartData.length === 0) {
-    return null;
+    return (
+      <Card className="border border-slate-200/90 shadow-2xs">
+        <CardHeader className="pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-blue-600" />
+            <span>{reportName} — Financial Visualization</span>
+          </CardTitle>
+          <span className="text-[11px] font-medium text-slate-400">
+            Filter-responsive visualization
+          </span>
+        </CardHeader>
+        <CardContent className="p-8 text-center flex flex-col items-center justify-center">
+          <BarChart3 className="w-9 h-9 text-slate-300 stroke-1 mb-2" />
+          <p className="text-sm font-semibold text-slate-600">No Realized Sales Data in Selected Period</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Zero delivered consignments match the active team or date filters.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   const formatTooltipValue = (value: any) => {
@@ -93,6 +112,8 @@ export const ReportChart: React.FC<ReportChartProps> = ({
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill={`url(#grad_${s.key})`}
+                  dot={{ r: 4, stroke: s.color, strokeWidth: 2, fill: '#ffffff' }}
+                  activeDot={{ r: 6, stroke: s.color, strokeWidth: 2 }}
                 />
               ))}
             </AreaChart>

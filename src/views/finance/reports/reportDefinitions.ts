@@ -216,7 +216,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
         id: 'total-income',
         label: 'Gross Realized Sales',
         format: 'currency',
-        getValue: (data) => data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + curr.totalAmount, 0),
+        getValue: (data) => data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + (Number(curr.totalAmount) || 0), 0),
         subtitle: (data) => `${data.length} delivered order consignments`,
         accentColor: 'green',
       },
@@ -224,7 +224,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
         id: 'avg-order-val',
         label: 'Average Order Value',
         format: 'currency',
-        getValue: (data) => data.length ? Math.round(data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + curr.totalAmount, 0) / data.length) : 0,
+        getValue: (data) => data.length ? Math.round(data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + (Number(curr.totalAmount) || 0), 0) / data.length) : 0,
         subtitle: () => 'Per delivered order',
         accentColor: 'blue',
       },
@@ -232,10 +232,10 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
         id: 'total-cogs',
         label: 'Delivered Product COGS',
         format: 'currency',
-        getValue: (data) => data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + curr.cogs, 0),
+        getValue: (data) => data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + (Number(curr.cogs) || 0), 0),
         subtitle: (data) => {
-          const rev = data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + curr.totalAmount, 0);
-          const cogs = data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + curr.cogs, 0);
+          const rev = data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + (Number(curr.totalAmount) || 0), 0);
+          const cogs = data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + (Number(curr.cogs) || 0), 0);
           return rev ? `${((cogs / rev) * 100).toFixed(1)}% of gross revenue` : '0%';
         },
         accentColor: 'amber',
@@ -244,10 +244,10 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
         id: 'realized-profit',
         label: 'Realized Gross Margin',
         format: 'currency',
-        getValue: (data) => data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + curr.grossProfit, 0),
+        getValue: (data) => data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + (Number(curr.grossProfit) || 0), 0),
         subtitle: (data) => {
-          const rev = data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + curr.totalAmount, 0);
-          const gp = data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + curr.grossProfit, 0);
+          const rev = data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + (Number(curr.totalAmount) || 0), 0);
+          const gp = data.reduce((acc: number, curr: DeliveredOrderRecord) => acc + (Number(curr.grossProfit) || 0), 0);
           return rev ? `${((gp / rev) * 100).toFixed(1)}% trading margin` : '0%';
         },
         accentColor: 'purple',
@@ -258,27 +258,54 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
       xAxisKey: 'period',
       series: [
         { key: 'amount', name: 'Realized Revenue (LKR)', color: '#10B981' },
+        { key: 'grossProfit', name: 'Gross Margin (LKR)', color: '#6366F1' },
       ],
       getChartData: (filteredData) => {
-        const monthMap: Record<string, number> = {};
-        filteredData.forEach((d: DeliveredOrderRecord) => {
-          const m = d.deliveredAt ? d.deliveredAt.substring(0, 7) : '';
-          if (m) {
-            monthMap[m] = (monthMap[m] || 0) + d.totalAmount;
+        if (!filteredData || filteredData.length === 0) return [];
+
+        const dateMap: Record<
+          string,
+          {
+            period: string;
+            dateSortKey: string;
+            amount: number;
+            grossProfit: number;
+            cogs: number;
+            ordersCount: number;
           }
-        });
-        return Object.entries(monthMap)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([period, amount]) => {
+        > = {};
+
+        filteredData.forEach((d: DeliveredOrderRecord) => {
+          const dateStr = d.deliveredAt
+            ? d.deliveredAt.split('T')[0]
+            : (d.createdAt ? d.createdAt.split('T')[0] : '');
+          if (!dateStr) return;
+
+          if (!dateMap[dateStr]) {
+            let label = dateStr;
             try {
-              return {
-                period: format(parseISO(`${period}-01`), 'MMM yyyy'),
-                amount,
-              };
+              label = format(parseISO(dateStr), 'dd MMM');
             } catch {
-              return { period, amount };
+              label = dateStr;
             }
-          });
+            dateMap[dateStr] = {
+              period: label,
+              dateSortKey: dateStr,
+              amount: 0,
+              grossProfit: 0,
+              cogs: 0,
+              ordersCount: 0,
+            };
+          }
+          dateMap[dateStr].amount += Number(d.totalAmount) || 0;
+          dateMap[dateStr].grossProfit += Number(d.grossProfit) || 0;
+          dateMap[dateStr].cogs += Number(d.cogs) || 0;
+          dateMap[dateStr].ordersCount += 1;
+        });
+
+        return Object.values(dateMap).sort((a, b) =>
+          a.dateSortKey.localeCompare(b.dateSortKey)
+        );
       },
     },
     columns: [
@@ -318,16 +345,17 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
       },
     },
     getData: (db, filters) => {
-      const items: DeliveredOrderRecord[] = Array.isArray(db) ? db : (db.deliveredOrders || []);
+      const items: DeliveredOrderRecord[] = Array.isArray(db) ? db : [];
       return items.filter((o: DeliveredOrderRecord) => {
         if (!isDateInRange(o.deliveredAt, filters.dateRange.startDate, filters.dateRange.endDate)) return false;
-        if (filters.teamId && filters.teamId !== 'ALL' && o.teamId && o.teamId !== filters.teamId) return false;
+        if (filters.teamId && filters.teamId !== 'ALL' && o.teamId !== filters.teamId) return false;
         if (filters.search && filters.search.trim()) {
           const q = filters.search.toLowerCase().trim();
           const matchOrder = (o.orderNumber || '').toLowerCase().includes(q);
           const matchCust = (o.customerName || '').toLowerCase().includes(q);
           const matchCity = (o.city || '').toLowerCase().includes(q);
-          return matchOrder || matchCust || matchCity;
+          const matchTeam = (o.teamName || '').toLowerCase().includes(q);
+          return matchOrder || matchCust || matchCity || matchTeam;
         }
         return true;
       });
