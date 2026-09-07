@@ -113,7 +113,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Petty Cash', path: '/finance/petty-cash', icon: Wallet, isBottomNav: true },
     { label: 'Inventory Valuation', path: '/finance/inventory', icon: Boxes, isBottomNav: false },
     { label: 'Categories', path: '/finance/categories', icon: Layers, isBottomNav: false },
-    { label: 'Expense Authorizations', path: '/finance/approvals', icon: FileCheck, isBottomNav: false },
+    { label: 'Change Requests', path: '/finance/approvals', icon: FileCheck, isBottomNav: false },
     { label: 'Reports', path: '/finance/reports', icon: PieChart, isBottomNav: true },
     { label: 'Profile', path: '/finance/profile', icon: User, isBottomNav: false },
   ],
