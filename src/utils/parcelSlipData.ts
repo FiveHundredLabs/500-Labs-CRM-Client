@@ -26,6 +26,13 @@ export const toParcelSlipData = (item: LeadPrintItem, index = 0): ParcelSlipData
     throw new Error(`Team parcel sender details are missing for order ${orderLabel}.`);
   }
 
+  const contactCode =
+    (customer as any)?.code ||
+    (customer as any)?.contactCode ||
+    (order as any)?.contactCode ||
+    (customer as any)?.contact?.code ||
+    null;
+
   return {
     publicSlipToken: order.publicSlipToken,
     orderNumber: order.orderNumber,
@@ -35,10 +42,13 @@ export const toParcelSlipData = (item: LeadPrintItem, index = 0): ParcelSlipData
     codAmount: order.codAmount ?? null,
     totalAmount: order.totalAmount,
     currency: order.currency,
+    contactCode: contactCode || null,
     customer: {
       fullName: customer.fullName,
       phone: customer.phone,
       address: customer.address,
+      contactCode: contactCode || null,
+      code: (customer as any)?.code || null,
     },
     team: {
       name: team.name,

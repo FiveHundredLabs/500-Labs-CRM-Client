@@ -210,6 +210,13 @@ export const PortraitParcelSlip: React.FC<
     data.codAmount ?? data.totalAmount,
   );
 
+  const contactCode =
+    data.contactCode ||
+    data.customer?.contactCode ||
+    data.customer?.code ||
+    (data as any)?.code ||
+    '';
+
   const senderAddress = formatAddress(data.team.address);
 
   const consigneeAddress = formatAddress(
@@ -832,6 +839,8 @@ export const PortraitParcelSlip: React.FC<
           overflow: 'hidden',
 
           minWidth: 0,
+
+          position: 'relative',
         }}
       >
         <div
@@ -902,6 +911,37 @@ export const PortraitParcelSlip: React.FC<
             </div>
           )}
         </div>
+
+        {contactCode && (
+          <div
+            className="sender-contact-code"
+            style={{
+              position: 'absolute',
+              right: '2.5mm',
+              bottom: '2.5mm',
+
+              fontSize: '8.5pt',
+              fontWeight: 800,
+              lineHeight: 1,
+
+              letterSpacing: '0.03em',
+              textTransform: 'uppercase',
+
+              color: '#000000',
+              backgroundColor: '#ffffff',
+              padding: '0.6mm 1.5mm',
+              border: '0.3mm solid #000000',
+
+              boxSizing: 'border-box',
+              whiteSpace: 'nowrap',
+
+              printColorAdjust: 'exact',
+              WebkitPrintColorAdjust: 'exact',
+            }}
+          >
+            {contactCode}
+          </div>
+        )}
       </div>
 
       {/* =========================================================

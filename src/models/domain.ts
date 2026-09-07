@@ -279,6 +279,8 @@ export interface ParcelSlipCustomer {
   fullName: string;
   phone: string;
   address: string;
+  code?: string | null;
+  contactCode?: string | null;
 }
 
 export interface ParcelSlipItem {
@@ -295,6 +297,7 @@ export interface ParcelSlipData {
   codAmount?: number | string | null;
   totalAmount: number | string;
   currency?: string;
+  contactCode?: string | null;
   customer: ParcelSlipCustomer;
   team: ParcelSlipTeam;
   items?: ParcelSlipItem[];
