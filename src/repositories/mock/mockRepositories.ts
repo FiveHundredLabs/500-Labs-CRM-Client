@@ -655,6 +655,58 @@ export class MockExpenseRepository implements IExpenseRepository {
     setStoredItem(STORAGE_KEYS.EXPENSE_CATEGORIES, categories);
     return newCategory;
   }
+
+  async getById(id: string): Promise<Expense | null> {
+    await delay();
+    const expenses = getStoredItem<Expense>(STORAGE_KEYS.EXPENSES, []);
+    return expenses.find((e) => e.id === id) || null;
+  }
+
+  async updateCategory(id: string, data: Partial<ExpenseCategory>): Promise<ExpenseCategory> {
+    await delay();
+    const categories = getStoredItem<ExpenseCategory>(STORAGE_KEYS.EXPENSE_CATEGORIES, []);
+    const idx = categories.findIndex((c) => c.id === id);
+    if (idx !== -1) {
+      categories[idx] = { ...categories[idx], ...data };
+      setStoredItem(STORAGE_KEYS.EXPENSE_CATEGORIES, categories);
+      return categories[idx];
+    }
+    throw new Error('Category not found');
+  }
+
+  async update(id: string, updates: Partial<Expense>): Promise<Expense> {
+    await delay();
+    const expenses = getStoredItem<Expense>(STORAGE_KEYS.EXPENSES, []);
+    const idx = expenses.findIndex((e) => e.id === id);
+    if (idx !== -1) {
+      expenses[idx] = { ...expenses[idx], ...updates };
+      setStoredItem(STORAGE_KEYS.EXPENSES, expenses);
+      return expenses[idx];
+    }
+    throw new Error('Expense not found');
+  }
+
+  async delete(id: string): Promise<void> {
+    await delay();
+    const expenses = getStoredItem<Expense>(STORAGE_KEYS.EXPENSES, []);
+    const filtered = expenses.filter((e) => e.id !== id);
+    setStoredItem(STORAGE_KEYS.EXPENSES, filtered);
+  }
+
+  async requestChange(id: string, data: { action: 'EDIT' | 'DELETE'; reason: string; [key: string]: any }): Promise<any> {
+    await delay();
+    return { id: `cr_${Date.now()}`, expenseId: id, status: 'PENDING', ...data };
+  }
+
+  async getChangeRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<any[]> {
+    await delay();
+    return [];
+  }
+
+  async reviewChangeRequest(id: string, decision: 'APPROVED' | 'REJECTED', rejectionReason?: string): Promise<any> {
+    await delay();
+    return { id, status: decision, rejectionReason };
+  }
 }
 
 export class MockEmailNotificationRepository implements IEmailNotificationRepository {
@@ -1024,13 +1076,30 @@ export class MockPettyCashRepository implements IPettyCashRepository {
     return wallet;
   }
 
-  async getTransactions(): Promise<PettyCashTransaction[]> {
+  async getTransactions(teamId?: string): Promise<PettyCashTransaction[]> {
     await delay();
     const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
-    return txs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const filtered = teamId ? txs.filter((t) => {
+      const wallets = getStoredItem<PettyCashWallet>(STORAGE_KEYS.PETTY_CASH_WALLET, []);
+      const wallet = wallets.find(w => w.teamId === teamId);
+      return wallet && t.remainingBalance !== undefined; // Simplistic link check
+    }) : txs;
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  async allocate(amount: number, user: User, reason = 'Petty Cash Allocation'): Promise<PettyCashWallet> {
+  async getAllocations(teamId?: string): Promise<any[]> {
+    await delay();
+    const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
+    return txs.filter(t => t.transactionType === 'ALLOCATION' && (!teamId || t.teamId === teamId));
+  }
+
+  async getAllocationById(id: string): Promise<any> {
+    await delay();
+    const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
+    return txs.find(t => t.id === id && t.transactionType === 'ALLOCATION') || null;
+  }
+
+  async allocate(amount: number, user: User, reason = 'Petty Cash Allocation'): Promise<any> {
     await delay();
     const wallet = await this.getWallet(user.teamId || undefined);
     const wallets = getStoredItem<PettyCashWallet>(STORAGE_KEYS.PETTY_CASH_WALLET, []);
@@ -1053,7 +1122,7 @@ export class MockPettyCashRepository implements IPettyCashRepository {
 
     // Record transaction
     const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
-    txs.push({
+    txs.unshift({
       id: `pct_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       transactionType: 'ALLOCATION',
       reason,
@@ -1065,6 +1134,7 @@ export class MockPettyCashRepository implements IPettyCashRepository {
       userName: user.fullName,
       remainingBalance: newRemaining,
       createdAt: new Date().toISOString(),
+      teamId: user.teamId
     });
     setStoredItem(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, txs);
 
@@ -1072,7 +1142,7 @@ export class MockPettyCashRepository implements IPettyCashRepository {
   }
 
   async recordExpense(
-    data: { amount: number; reason: string; category: string; description: string; date: string },
+    data: { amount: number; reason: string; category: string; description: string; date: string; allocationId?: string },
     user: User
   ): Promise<PettyCashTransaction> {
     await delay();

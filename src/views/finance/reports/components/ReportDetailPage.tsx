@@ -1,0 +1,149 @@
+import React, { useState, useMemo } from 'react';
+import { ReportDefinition, ActiveFilters } from '../types';
+import { MOCK_FINANCE_DATABASE } from '../mockData';
+import { ReportFilters } from './ReportFilters';
+import { ReportSummaryCards } from './ReportSummaryCards';
+import { ReportChart } from './ReportChart';
+import { ReportTable } from './ReportTable';
+import { ExportActions } from './ExportActions';
+import { Button } from '../../../../components/ui/Button';
+import { 
+  ArrowLeft, 
+  Calendar, 
+  ShieldCheck, 
+  Clock, 
+  Sparkles,
+  Printer
+} from 'lucide-react';
+import { format } from 'date-fns';
+
+interface ReportDetailPageProps {
+  report: ReportDefinition;
+  onBack: () => void;
+}
+
+export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
+  report,
+  onBack,
+}) => {
+  // Report-specific active filters state
+  const [filters, setFilters] = useState<ActiveFilters>({
+    dateRange: {
+      preset: 'ALL',
+      startDate: '',
+      endDate: '',
+    },
+    teamId: 'ALL',
+    category: 'ALL',
+    paymentMethod: 'ALL',
+    search: '',
+  });
+
+  // Query raw filtered report dataset
+  const rawReportData = useMemo(() => {
+    return report.getData(MOCK_FINANCE_DATABASE, filters);
+  }, [report, filters]);
+
+  // Extract tabular array rows (some reports like P&L or Income-vs-Expense return an object with rows array)
+  const tabularData = useMemo(() => {
+    const raw: any = rawReportData;
+    if (Array.isArray(raw)) {
+      return raw;
+    }
+    if (raw && Array.isArray(raw.rows)) {
+      return raw.rows;
+    }
+    return [];
+  }, [rawReportData]);
+
+  const IconComponent = report.icon;
+  const lastGeneratedTime = useMemo(() => format(new Date(), 'dd MMM yyyy, HH:mm'), []);
+
+  return (
+    <div className="space-y-6">
+      {/* Top Navigation & Executive Header */}
+      {/* Top Navigation & Executive Header */}
+      <div className="pb-3 border-b border-slate-200 space-y-2">
+        {/* Back button */}
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors cursor-pointer group"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
+          <span>Back to Finance Reports Directory</span>
+        </button>
+
+        {/* Title and Badge */}
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+            <IconComponent className="w-4.5 h-4.5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">
+                {report.name}
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                {report.badgeText}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5 max-w-2xl leading-relaxed">
+              {report.description}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Report-Aware Compact Filter Toolbar with Right-aligned Export Actions */}
+      <ReportFilters
+        supportedFilters={report.supportedFilters}
+        filters={filters}
+        onChange={setFilters}
+        rightActions={
+          <ExportActions
+            report={report}
+            filters={filters}
+            filteredData={tabularData}
+            rawReportData={rawReportData}
+          />
+        }
+      />
+
+      {/* KPI Metrics Summary Section */}
+      <ReportSummaryCards
+        kpis={report.kpis}
+        data={rawReportData}
+        filters={filters}
+      />
+
+      {/* Meaningful Financial Visualization */}
+      <ReportChart
+        config={report.chartConfig}
+        data={rawReportData}
+        filters={filters}
+        reportName={report.name}
+      />
+
+      {/* Detailed Financial Data Table */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <span>Statement Data & Transaction Ledger</span>
+            <span className="text-xs font-mono font-normal text-slate-400">
+              ({tabularData.length} records)
+            </span>
+          </h3>
+
+          <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+            Click column headers to sort • Interactive ledger
+          </span>
+        </div>
+
+        <ReportTable
+          columns={report.columns}
+          data={tabularData}
+        />
+      </div>
+    </div>
+  );
+};

@@ -111,10 +111,17 @@ export interface IActivityLogRepository {
 }
 
 export interface IExpenseRepository {
-  getAll(): Promise<Expense[]>;
+  getAll(params?: { dateStart?: string; dateEnd?: string; categoryId?: string }): Promise<Expense[]>;
+  getById(id: string): Promise<Expense | null>;
   getCategories(): Promise<ExpenseCategory[]>;
   create(expense: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense>;
   createCategory(category: Omit<ExpenseCategory, 'id'>): Promise<ExpenseCategory>;
+  updateCategory(id: string, data: Partial<ExpenseCategory>): Promise<ExpenseCategory>;
+  update(id: string, updates: Partial<Expense>): Promise<Expense>;
+  delete(id: string): Promise<void>;
+  requestChange(id: string, data: { action: 'EDIT' | 'DELETE'; reason: string; [key: string]: any }): Promise<any>;
+  getChangeRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<any[]>;
+  reviewChangeRequest(id: string, decision: 'APPROVED' | 'REJECTED', rejectionReason?: string): Promise<any>;
 }
 
 export interface IEmailNotificationRepository {
@@ -153,9 +160,22 @@ export interface IApprovalRequestRepository {
 
 export interface IPettyCashRepository {
   getWallet(teamId?: string): Promise<PettyCashWallet>;
-  getTransactions(): Promise<PettyCashTransaction[]>;
-  allocate(amount: number, user: User, reason?: string): Promise<PettyCashWallet>;
-  recordExpense(data: { amount: number; reason: string; category: string; description: string; date: string }, user: User): Promise<PettyCashTransaction>;
+  getTransactions(teamId?: string): Promise<PettyCashTransaction[]>;
+  getAllocations(teamId?: string): Promise<any[]>;
+  getAllocationById(id: string): Promise<any>;
+  allocate(amount: number, user: User, reason?: string): Promise<any>;
+  recordExpense(data: { amount: number; reason: string; category: string; description: string; date: string; allocationId?: string }, user: User): Promise<PettyCashTransaction>;
+}
+
+export interface IFinanceRepository {
+  getDashboard(startDate?: string, endDate?: string): Promise<any>;
+  getIncomeStatement(startDate?: string, endDate?: string): Promise<any>;
+  getCashFlow(startDate?: string, endDate?: string): Promise<any>;
+  getFSR(startDate?: string, endDate?: string): Promise<any>;
+  getExpenseReport(startDate?: string, endDate?: string): Promise<any>;
+  getInventoryReport(): Promise<any[]>;
+  getSalesReport(period: 'daily' | 'weekly' | 'monthly', startDate?: string, endDate?: string): Promise<any>;
+  getCityDeliveryReport(startDate?: string, endDate?: string): Promise<any>;
 }
 
 export interface ISalesTargetRepository {

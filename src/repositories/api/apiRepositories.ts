@@ -209,50 +209,10 @@ export class ApiContactRepository implements IContactRepository {
     }
   }
   async create(contact: Omit<Contact, 'id' | 'updatedAt'>): Promise<Contact> {
-    const payload = {
-      phone: contact.phone,
-      status: contact.status,
-      teamId: contact.teamId,
-      importedById: (contact as any).importedById || contact.importedBy,
-      addedById: (contact as any).addedById || contact.addedBy,
-      importBatchId: contact.importBatchId,
-      isAllocated: contact.isAllocated,
-      allocatedToId: contact.allocatedToId,
-      allocatedAt: contact.allocatedAt,
-      allocationBatchId: contact.allocationBatchId,
-      allocationSource: contact.allocationSource,
-      isSelfAdded: contact.isSelfAdded,
-      city: contact.city,
-      code: contact.code,
-      secondaryMobile: contact.secondaryMobile,
-      attemptCount: contact.attemptCount,
-      lastCalledAt: contact.lastCalledAt,
-      isFollowUp: contact.isFollowUp,
-    };
-    return unwrap(await apiClient.post<{ data: Contact }>('/contacts', payload));
+    return unwrap(await apiClient.post<{ data: Contact }>('/contacts', contact));
   }
   async createMany(contacts: Array<Omit<Contact, 'id' | 'updatedAt'>>): Promise<Contact[]> {
-    const cleaned = contacts.map((c) => ({
-      code: c.code,
-      phone: c.phone,
-      status: c.status,
-      teamId: c.teamId,
-      importedById: (c as any).importedById || c.importedBy,
-      addedById: (c as any).addedById || c.addedBy,
-      importBatchId: c.importBatchId,
-      isAllocated: c.isAllocated,
-      allocatedToId: c.allocatedToId,
-      allocatedAt: c.allocatedAt,
-      allocationBatchId: c.allocationBatchId,
-      allocationSource: c.allocationSource,
-      isSelfAdded: c.isSelfAdded,
-      city: c.city,
-      secondaryMobile: c.secondaryMobile,
-      attemptCount: c.attemptCount,
-      lastCalledAt: c.lastCalledAt,
-      isFollowUp: c.isFollowUp,
-    }));
-    return unwrap(await apiClient.post<{ data: Contact[] }>('/contacts/bulk', { contacts: cleaned }));
+    return unwrap(await apiClient.post<{ data: Contact[] }>('/contacts/bulk', { contacts }));
   }
   async addPersonalNumber(data: {
     phone: string;
@@ -268,10 +228,13 @@ export class ApiContactRepository implements IContactRepository {
     return unwrap(await apiClient.post<{ data: DuplicatePhoneCheckResult }>('/contacts/check-duplicate', data));
   }
   async update(id: string, updates: Partial<Contact>): Promise<Contact> {
-    return unwrap(await apiClient.patch<{ data: Contact }>(`/contacts/${id}`, updates));
+    const payload: any = { ...updates };
+    delete payload.id;
+    delete payload.updatedAt;
+    return unwrap(await apiClient.patch<{ data: Contact }>(`/contacts/${id}`, payload));
   }
   async updateManyStatus(ids: string[], status: ContactStatus): Promise<void> {
-    await apiClient.patch('/contacts/bulk/status', { ids, status });
+    await apiClient.patch('/contacts/batch-status', { ids, status });
   }
 }
 
@@ -283,21 +246,15 @@ export class ApiAllocationRepository implements IAllocationRepository {
     return unwrap(await apiClient.get<{ data: ContactAllocation[] }>('/allocations'));
   }
   async getByBatchId(batchId: string): Promise<ContactAllocation[]> {
-    return unwrap(
-      await apiClient.get<{ data: ContactAllocation[] }>(`/allocations/batch/${batchId}`)
-    );
+    return unwrap(await apiClient.get<{ data: ContactAllocation[] }>(`/allocations?batchId=${batchId}`));
   }
   async getByMemberId(memberId: string): Promise<ContactAllocation[]> {
-    return unwrap(
-      await apiClient.get<{ data: ContactAllocation[] }>(`/allocations?memberId=${memberId}`)
-    );
+    return unwrap(await apiClient.get<{ data: ContactAllocation[] }>(`/allocations?memberId=${memberId}`));
   }
   async createMany(
     allocations: Array<Omit<ContactAllocation, 'id'>>
   ): Promise<ContactAllocation[]> {
-    return unwrap(
-      await apiClient.post<{ data: ContactAllocation[] }>('/allocations/bulk', { allocations })
-    );
+    return unwrap(await apiClient.post<{ data: ContactAllocation[] }>('/allocations/bulk', { allocations }));
   }
 }
 
@@ -309,25 +266,21 @@ export class ApiCallLogRepository implements ICallLogRepository {
     return unwrap(await apiClient.get<{ data: CallLog[] }>('/call-logs'));
   }
   async getByContactId(contactId: string): Promise<CallLog[]> {
-    return unwrap(
-      await apiClient.get<{ data: CallLog[] }>(`/call-logs?contactId=${contactId}`)
-    );
+    return unwrap(await apiClient.get<{ data: CallLog[] }>(`/call-logs?contactId=${contactId}`));
   }
   async getByMemberId(memberId: string): Promise<CallLog[]> {
-    return unwrap(
-      await apiClient.get<{ data: CallLog[] }>(`/call-logs?memberId=${memberId}`)
-    );
+    return unwrap(await apiClient.get<{ data: CallLog[] }>(`/call-logs?memberId=${memberId}`));
   }
   async getByTeamId(teamId: string): Promise<CallLog[]> {
-    return unwrap(
-      await apiClient.get<{ data: CallLog[] }>(`/call-logs?teamId=${teamId}`)
-    );
+    return unwrap(await apiClient.get<{ data: CallLog[] }>(`/call-logs?teamId=${teamId}`));
   }
   async create(log: Omit<CallLog, 'id'>): Promise<CallLog> {
     return unwrap(await apiClient.post<{ data: CallLog }>('/call-logs', log));
   }
   async update(id: string, updates: Partial<CallLog>): Promise<CallLog> {
-    return unwrap(await apiClient.patch<{ data: CallLog }>(`/call-logs/${id}`, updates));
+    const payload: any = { ...updates };
+    delete payload.id;
+    return unwrap(await apiClient.patch<{ data: CallLog }>(`/call-logs/${id}`, payload));
   }
 }
 
@@ -347,9 +300,7 @@ export class ApiCustomerRepository implements ICustomerRepository {
   }
   async getByContactId(contactId: string): Promise<Customer | null> {
     try {
-      return unwrap(
-        await apiClient.get<{ data: Customer }>(`/customers/contact/${contactId}`)
-      );
+      return unwrap(await apiClient.get<{ data: Customer }>(`/customers?contactId=${contactId}`));
     } catch {
       return null;
     }
@@ -358,20 +309,20 @@ export class ApiCustomerRepository implements ICustomerRepository {
     return unwrap(await apiClient.get<{ data: Customer[] }>(`/customers?teamId=${teamId}`));
   }
   async getBySupervisorId(supervisorId: string): Promise<Customer[]> {
-    return unwrap(
-      await apiClient.get<{ data: Customer[] }>(`/customers?supervisorId=${supervisorId}`)
-    );
+    return unwrap(await apiClient.get<{ data: Customer[] }>(`/customers?supervisorId=${supervisorId}`));
   }
   async getByMemberId(memberId: string): Promise<Customer[]> {
-    return unwrap(
-      await apiClient.get<{ data: Customer[] }>(`/customers?memberId=${memberId}`)
-    );
+    return unwrap(await apiClient.get<{ data: Customer[] }>(`/customers?memberId=${memberId}`));
   }
   async create(customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
     return unwrap(await apiClient.post<{ data: Customer }>('/customers', customer));
   }
   async update(id: string, updates: Partial<Customer>): Promise<Customer> {
-    return unwrap(await apiClient.patch<{ data: Customer }>(`/customers/${id}`, updates));
+    const payload: any = { ...updates };
+    delete payload.id;
+    delete payload.createdAt;
+    delete payload.updatedAt;
+    return unwrap(await apiClient.patch<{ data: Customer }>(`/customers/${id}`, payload));
   }
 }
 
@@ -390,28 +341,24 @@ export class ApiOrderRepository implements IOrderRepository {
     }
   }
   async getByCustomerId(customerId: string): Promise<Order[]> {
-    return unwrap(
-      await apiClient.get<{ data: Order[] }>(`/orders?customerId=${customerId}`)
-    );
+    return unwrap(await apiClient.get<{ data: Order[] }>(`/orders?customerId=${customerId}`));
   }
   async getByTeamId(teamId: string): Promise<Order[]> {
     return unwrap(await apiClient.get<{ data: Order[] }>(`/orders?teamId=${teamId}`));
   }
   async getBySupervisorId(supervisorId: string): Promise<Order[]> {
-    return unwrap(
-      await apiClient.get<{ data: Order[] }>(`/orders?supervisorId=${supervisorId}`)
-    );
+    return unwrap(await apiClient.get<{ data: Order[] }>(`/orders?supervisorId=${supervisorId}`));
   }
   async getByMemberId(memberId: string): Promise<Order[]> {
     return unwrap(await apiClient.get<{ data: Order[] }>(`/orders?memberId=${memberId}`));
   }
-  async create(order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order> {
+  async create(
+    order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }
+  ): Promise<Order> {
     return unwrap(await apiClient.post<{ data: Order }>('/orders', order));
   }
   async updateStatus(id: string, status: any, remarks?: string): Promise<Order> {
-    return unwrap(
-      await apiClient.patch<{ data: Order }>(`/orders/${id}/status`, { status, remarks })
-    );
+    return unwrap(await apiClient.patch<{ data: Order }>(`/orders/${id}/status`, { status, remarks }));
   }
 }
 
@@ -420,12 +367,14 @@ export class ApiOrderRepository implements IOrderRepository {
 // ─────────────────────────────────────────────────────────────────────────────
 export class ApiDeliveryStatusHistoryRepository implements IDeliveryStatusHistoryRepository {
   async getAll(): Promise<DeliveryStatusHistory[]> {
-    return [];
+    return unwrap(
+      await apiClient.get<{ data: DeliveryStatusHistory[] }>('/delivery-status-histories')
+    );
   }
   async getByOrderId(orderId: string): Promise<DeliveryStatusHistory[]> {
     return unwrap(
       await apiClient.get<{ data: DeliveryStatusHistory[] }>(
-        `/delivery-status-history/order/${orderId}`
+        `/delivery-status-histories?orderId=${orderId}`
       )
     );
   }
@@ -475,8 +424,15 @@ export class ApiActivityLogRepository implements IActivityLogRepository {
 // Expense
 // ─────────────────────────────────────────────────────────────────────────────
 export class ApiExpenseRepository implements IExpenseRepository {
-  async getAll(): Promise<Expense[]> {
-    return unwrap(await apiClient.get<{ data: Expense[] }>('/expenses'));
+  async getAll(params?: { dateStart?: string; dateEnd?: string; categoryId?: string }): Promise<Expense[]> {
+    return unwrap(await apiClient.get<{ data: Expense[] }>('/expenses', { params }));
+  }
+  async getById(id: string): Promise<Expense | null> {
+    try {
+      return unwrap(await apiClient.get<{ data: Expense }>(`/expenses/${id}`));
+    } catch {
+      return null;
+    }
   }
   async getCategories(): Promise<ExpenseCategory[]> {
     return unwrap(await apiClient.get<{ data: ExpenseCategory[] }>('/expenses/categories'));
@@ -489,6 +445,35 @@ export class ApiExpenseRepository implements IExpenseRepository {
   ): Promise<ExpenseCategory> {
     return unwrap(
       await apiClient.post<{ data: ExpenseCategory }>('/expenses/categories', category)
+    );
+  }
+  async updateCategory(id: string, data: Partial<ExpenseCategory>): Promise<ExpenseCategory> {
+    return unwrap(
+      await apiClient.patch<{ data: ExpenseCategory }>(`/expenses/categories/${id}`, data)
+    );
+  }
+  async update(id: string, updates: Partial<Expense>): Promise<Expense> {
+    return unwrap(await apiClient.patch<{ data: Expense }>(`/expenses/${id}`, updates));
+  }
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/expenses/${id}`);
+  }
+  async requestChange(id: string, data: { action: 'EDIT' | 'DELETE'; reason: string; [key: string]: any }): Promise<any> {
+    return unwrap(await apiClient.post<{ data: any }>(`/expenses/${id}/change-request`, data));
+  }
+  async getChangeRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<any[]> {
+    return unwrap(
+      await apiClient.get<{ data: any[] }>('/expenses/change-requests', {
+        params: status ? { status } : undefined,
+      })
+    );
+  }
+  async reviewChangeRequest(id: string, decision: 'APPROVED' | 'REJECTED', rejectionReason?: string): Promise<any> {
+    return unwrap(
+      await apiClient.patch<{ data: any }>(`/expenses/change-requests/${id}/review`, {
+        decision,
+        rejectionReason,
+      })
     );
   }
 }
@@ -650,24 +635,36 @@ export class ApiPettyCashRepository implements IPettyCashRepository {
     const url = teamId ? `/petty-cash/wallet?teamId=${teamId}` : '/petty-cash/wallet';
     return unwrap(await apiClient.get<{ data: PettyCashWallet }>(url));
   }
-  async getTransactions(): Promise<PettyCashTransaction[]> {
+  async getTransactions(teamId?: string): Promise<PettyCashTransaction[]> {
+    const url = teamId
+      ? `/petty-cash/transactions?teamId=${teamId}`
+      : '/petty-cash/transactions';
     return unwrap(
-      await apiClient.get<{ data: PettyCashTransaction[] }>('/petty-cash/transactions')
+      await apiClient.get<{ data: PettyCashTransaction[] }>(url)
     );
   }
-  async allocate(amount: number, user: User, reason?: string): Promise<PettyCashWallet> {
+  async getAllocations(teamId?: string): Promise<any[]> {
+    const url = teamId
+      ? `/petty-cash/allocations?teamId=${teamId}`
+      : '/petty-cash/allocations';
+    return unwrap(await apiClient.get<{ data: any[] }>(url));
+  }
+  async getAllocationById(id: string): Promise<any> {
+    return unwrap(await apiClient.get<{ data: any }>(`/petty-cash/allocations/${id}`));
+  }
+  async allocate(amount: number, user: User, reason?: string): Promise<any> {
     return unwrap(
-      await apiClient.post<{ data: PettyCashWallet }>('/petty-cash/allocate', {
+      await apiClient.post<{ data: any }>('/petty-cash/allocate', {
         amount,
         userId: user.id,
         userName: user.fullName,
-        reason,
+        reason: reason || 'Float Allocation',
         teamId: user.teamId,
       })
     );
   }
   async recordExpense(
-    data: { amount: number; reason: string; category: string; description: string; date: string },
+    data: { amount: number; reason: string; category: string; description: string; date: string; allocationId?: string },
     user: User
   ): Promise<PettyCashTransaction> {
     return unwrap(
@@ -726,3 +723,94 @@ export class ApiSalesTargetRepository implements ISalesTargetRepository {
     await apiClient.delete(`/sales-targets/${id}`);
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Finance Analytics
+// ─────────────────────────────────────────────────────────────────────────────
+import type {
+  FinanceDashboardStats,
+  IncomeStatementData,
+  CashFlowData,
+  FinanceFSRData,
+  InventoryReportItem,
+  ExpenseReportData,
+  PettyCashAllocation,
+  ExpenseChangeRequest,
+} from '../../models/domain';
+
+export class ApiFinanceRepository {
+  private buildParams(startDate?: string, endDate?: string, extra?: Record<string, string>) {
+    const params: Record<string, string> = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (extra) Object.assign(params, extra);
+    return params;
+  }
+
+  async getDashboard(startDate?: string, endDate?: string): Promise<FinanceDashboardStats> {
+    return unwrap(
+      await apiClient.get<{ data: FinanceDashboardStats }>('/finance/dashboard', {
+        params: this.buildParams(startDate, endDate),
+      })
+    );
+  }
+
+  async getIncomeStatement(startDate?: string, endDate?: string): Promise<IncomeStatementData> {
+    return unwrap(
+      await apiClient.get<{ data: IncomeStatementData }>('/finance/income-statement', {
+        params: this.buildParams(startDate, endDate),
+      })
+    );
+  }
+
+  async getCashFlow(startDate?: string, endDate?: string): Promise<CashFlowData> {
+    return unwrap(
+      await apiClient.get<{ data: CashFlowData }>('/finance/cash-flow', {
+        params: this.buildParams(startDate, endDate),
+      })
+    );
+  }
+
+  async getFSR(startDate?: string, endDate?: string): Promise<FinanceFSRData> {
+    return unwrap(
+      await apiClient.get<{ data: FinanceFSRData }>('/finance/fsr', {
+        params: this.buildParams(startDate, endDate),
+      })
+    );
+  }
+
+  async getExpenseReport(startDate?: string, endDate?: string): Promise<ExpenseReportData> {
+    return unwrap(
+      await apiClient.get<{ data: ExpenseReportData }>('/finance/expense-report', {
+        params: this.buildParams(startDate, endDate),
+      })
+    );
+  }
+
+  async getInventoryReport(): Promise<InventoryReportItem[]> {
+    return unwrap(
+      await apiClient.get<{ data: InventoryReportItem[] }>('/finance/inventory-report')
+    );
+  }
+
+  async getSalesReport(
+    period: 'daily' | 'weekly' | 'monthly',
+    startDate?: string,
+    endDate?: string
+  ): Promise<any> {
+    return unwrap(
+      await apiClient.get<{ data: any }>('/finance/sales-report', {
+        params: this.buildParams(startDate, endDate, { period }),
+      })
+    );
+  }
+
+  async getCityDeliveryReport(startDate?: string, endDate?: string): Promise<any> {
+    return unwrap(
+      await apiClient.get<{ data: any }>('/finance/delivery-report', {
+        params: this.buildParams(startDate, endDate),
+      })
+    );
+  }
+}
+

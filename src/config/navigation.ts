@@ -94,10 +94,14 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
       icon: DollarSign,
       group: 'Finance',
       children: [
+        { label: 'Overview', path: '/admin/finance/dashboard', icon: Home },
         { label: 'Sales Analysis', path: '/admin/finance/sales-analysis', icon: TrendingUp },
+        { label: 'Expenses Ledger', path: '/admin/finance/expenses', icon: DollarSign },
+        { label: 'New Expense', path: '/admin/finance/expenses/new', icon: DollarSign },
         { label: 'Petty Cash', path: '/admin/finance/petty-cash', icon: Wallet },
-        { label: 'Expenses', path: '/admin/finance/expenses', icon: DollarSign },
-        { label: 'Add Expense', path: '/admin/finance/expenses/new', icon: DollarSign },
+        { label: 'Inventory Valuation', path: '/admin/finance/inventory', icon: Boxes },
+        { label: 'Expense Authorizations', path: '/admin/finance/approvals', icon: FileCheck },
+        { label: 'Financial Reports', path: '/admin/finance/reports', icon: PieChart },
       ],
     },
 
@@ -106,10 +110,13 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   FINANCE: [
     { label: 'Overview', path: '/finance/dashboard', icon: Home, isBottomNav: true },
     { label: 'Sales Analysis', path: '/finance/sales-analysis', icon: TrendingUp, isBottomNav: true },
-    { label: 'Petty Cash', path: '/finance/petty-cash', icon: Wallet, isBottomNav: true },
     { label: 'Expenses', path: '/finance/expenses', icon: DollarSign, isBottomNav: true },
+    { label: 'Record Expense', path: '/finance/expenses/new', icon: DollarSign, isBottomNav: false },
+    { label: 'Petty Cash', path: '/finance/petty-cash', icon: Wallet, isBottomNav: true },
+    { label: 'Inventory Valuation', path: '/finance/inventory', icon: Boxes, isBottomNav: false },
+    { label: 'Categories', path: '/finance/categories', icon: Layers, isBottomNav: false },
+    { label: 'Expense Authorizations', path: '/finance/approvals', icon: FileCheck, isBottomNav: false },
     { label: 'Reports', path: '/finance/reports', icon: PieChart, isBottomNav: true },
-    { label: 'Add Expense', path: '/finance/expenses/new', icon: DollarSign, isBottomNav: false },
-    { label: 'Profile', path: '/finance/profile', icon: User, isBottomNav: true },
+    { label: 'Profile', path: '/finance/profile', icon: User, isBottomNav: false },
   ],
 };

@@ -9,6 +9,9 @@ export interface CreateExpenseInput {
   amount: number;
   expenseDate: string;
   remarks: string;
+  paymentMethod?: 'CASH' | 'BANK_TRANSFER' | 'PETTY_CASH';
+  notes?: string;
+  pettyCashRef?: string;
 }
 
 export class ExpenseService {
@@ -38,6 +41,9 @@ export class ExpenseService {
       amount: input.amount,
       expenseDate: input.expenseDate,
       remarks: input.remarks,
+      paymentMethod: input.paymentMethod || 'CASH',
+      notes: input.notes,
+      pettyCashRef: input.pettyCashRef,
       createdBy: actor.id,
       createdByName: actor.fullName,
     });
