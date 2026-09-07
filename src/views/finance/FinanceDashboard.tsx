@@ -206,7 +206,7 @@ export const FinanceDashboard: React.FC = () => {
             <Button
               variant="primary"
               leftIcon={<Plus className="w-4 h-4" />}
-              onClick={() => navigate('/finance/expenses/new')}
+              onClick={() => navigate('/finance/expenses?recordExpense=1')}
             >
               Record Expense
             </Button>

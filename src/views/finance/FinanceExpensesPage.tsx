@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { expenseRepository } from '../../repositories';
-import { Expense, ExpenseCategory } from '../../models/domain';
+import React, { useState, useEffect, useCallback } from 'react';
+import { expenseRepository, pettyCashRepository } from '../../repositories';
+import { Expense, ExpenseCategory, PettyCashWallet } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SearchInput } from '../../components/shared/SearchInput';
 import { Select } from '../../components/ui/Select';
@@ -9,8 +9,10 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { LoadingState } from '../../components/shared/LoadingState';
+import { ExpenseService } from '../../services/expenseService';
 import { 
   Plus, 
+  DollarSign,
   Calendar, 
   Filter, 
   X, 
@@ -21,9 +23,10 @@ import {
   ShieldAlert,
   CreditCard,
   Building2,
-  Wallet
+  Wallet,
+  Tag
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { format, differenceInHours } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
 import { useAuth } from '../../hooks/useAuth';
@@ -31,14 +34,29 @@ import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
 export const FinanceExpensesPage: React.FC = () => {
-  const { role } = useAuth();
-  const navigate = useNavigate();
+  const { user, role } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
+  const [allocations, setAllocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('ALL');
+
+  // Create Expense Dialog
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedCategoryName, setSelectedCategoryName] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
+  const [amount, setAmount] = useState('');
+  const [expenseDate, setExpenseDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'PETTY_CASH'>('CASH');
+  const [remarks, setRemarks] = useState('');
+  const [notes, setNotes] = useState('');
+  const [selectedAllocationId, setSelectedAllocationId] = useState('');
+  const [createError, setCreateError] = useState('');
+  const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
 
   // Date Range Filter States
   const [datePreset, setDatePreset] = useState<string>('ALL');
@@ -72,9 +90,11 @@ export const FinanceExpensesPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [expData, catData] = await Promise.all([
+      const [expData, catData, walletData, allocationData] = await Promise.all([
         expenseRepository.getAll(),
         expenseRepository.getCategories().catch(() => []),
+        pettyCashRepository.getWallet().catch(() => null),
+        pettyCashRepository.getAllocations().catch(() => []),
       ]);
       setExpenses(
         (expData || []).sort(
@@ -82,6 +102,9 @@ export const FinanceExpensesPage: React.FC = () => {
         )
       );
       setCategories(catData || []);
+      setSelectedCategoryName((current) => current || catData?.[0]?.name || '');
+      setWallet(walletData);
+      setAllocations(allocationData || []);
     } catch {
       toast.error('Failed to load expense records.');
     } finally {
@@ -134,6 +157,116 @@ export const FinanceExpensesPage: React.FC = () => {
   const isWithin24Hours = (createdAt: string) => {
     const diff = differenceInHours(new Date(), new Date(createdAt));
     return diff < 24;
+  };
+
+  const resetCreateForm = useCallback(() => {
+    setSelectedCategoryName(categories[0]?.name || '');
+    setCustomCategory('');
+    setAmount('');
+    setExpenseDate(format(new Date(), 'yyyy-MM-dd'));
+    setPaymentMethod('CASH');
+    setRemarks('');
+    setNotes('');
+    setSelectedAllocationId('');
+    setCreateError('');
+  }, [categories]);
+
+  const handleOpenCreate = useCallback(() => {
+    resetCreateForm();
+    setIsCreateModalOpen(true);
+  }, [resetCreateForm]);
+
+  useEffect(() => {
+    if (!loading && searchParams.get('recordExpense') === '1') {
+      handleOpenCreate();
+      setSearchParams({}, { replace: true });
+    }
+  }, [loading, searchParams, setSearchParams, handleOpenCreate]);
+
+  const handleCloseCreate = () => {
+    if (isSubmittingCreate) return;
+    setIsCreateModalOpen(false);
+  };
+
+  const parsedCreateAmount = parseFloat(amount) || 0;
+  const isCreatePettyCash = selectedCategoryName === 'Petty Cash' || paymentMethod === 'PETTY_CASH';
+  const isCreateOverPettyCashBalance =
+    isCreatePettyCash && wallet && parsedCreateAmount > wallet.remainingBalance;
+
+  const handleCreateExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateError('');
+
+    if (isNaN(parsedCreateAmount) || parsedCreateAmount <= 0) {
+      setCreateError('Please enter a valid positive amount.');
+      return;
+    }
+
+    if (selectedCategoryName === 'Other' && !customCategory.trim()) {
+      setCreateError('Please specify the custom category name.');
+      return;
+    }
+
+    const selectedCatObj = categories.find((c) => c.name === selectedCategoryName);
+    if (selectedCategoryName !== 'Other' && !selectedCatObj) {
+      setCreateError('Please select a valid database expense category.');
+      return;
+    }
+
+    if (!remarks.trim()) {
+      setCreateError('Please enter voucher remarks or purpose.');
+      return;
+    }
+
+    if (isCreateOverPettyCashBalance && wallet) {
+      setCreateError(
+        `Expense amount (${formatCurrency(parsedCreateAmount)}) exceeds available Petty Cash balance (${formatCurrency(wallet.remainingBalance)}).`
+      );
+      return;
+    }
+
+    if (!user) {
+      setCreateError('You must be signed in to record an expense.');
+      return;
+    }
+
+    setIsSubmittingCreate(true);
+    try {
+      if (isCreatePettyCash) {
+        await pettyCashRepository.recordExpense({
+          reason: remarks.trim(),
+          category: selectedCategoryName === 'Other' ? customCategory.trim() : selectedCategoryName,
+          amount: parsedCreateAmount,
+          date: expenseDate,
+          description: notes.trim() || remarks.trim(),
+          allocationId: selectedAllocationId || undefined,
+        });
+      }
+
+      await ExpenseService.createExpense(
+        {
+          categoryId: selectedCatObj?.id || '',
+          categoryName: selectedCategoryName,
+          customCategoryName: customCategory,
+          amount: parsedCreateAmount,
+          expenseDate,
+          remarks: remarks.trim(),
+          paymentMethod,
+          notes: notes.trim() || undefined,
+          pettyCashRef: selectedAllocationId || undefined,
+        },
+        user
+      );
+
+      toast.success(`Expense voucher of ${formatCurrency(parsedCreateAmount)} registered successfully!`);
+      resetCreateForm();
+      setIsCreateModalOpen(false);
+      await loadData();
+    } catch (err: any) {
+      setCreateError(err.response?.data?.message || err.message || 'Failed to record expense.');
+    } finally {
+      setIsSubmittingCreate(false);
+    }
   };
 
   // Open Edit Handler
@@ -327,9 +460,9 @@ export const FinanceExpensesPage: React.FC = () => {
             <Button
               variant="primary"
               leftIcon={<Plus className="w-4 h-4" />}
-              onClick={() => navigate(role === 'ADMIN' ? '/admin/finance/expenses/new' : '/finance/expenses/new')}
+              onClick={handleOpenCreate}
             >
-              Record New Expense
+              Record Expense
             </Button>
           </div>
         }
@@ -552,6 +685,226 @@ export const FinanceExpensesPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Create Expense Modal */}
+      <Dialog
+        isOpen={isCreateModalOpen}
+        onClose={handleCloseCreate}
+        title="Record Expense Voucher"
+        description="Capture an operational expense without leaving the ledger."
+        maxWidth="3xl"
+      >
+        <form onSubmit={handleCreateExpense} className="space-y-4">
+          {createError && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-700">
+              {createError}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-blue-600" />
+                <span>Expense Category <span className="text-red-500">*</span></span>
+              </label>
+              <Select
+                value={selectedCategoryName}
+                onChange={(e) => {
+                  setSelectedCategoryName(e.target.value);
+                  setCreateError('');
+                }}
+                options={[
+                  ...categories.map((c) => ({ value: c.name, label: c.name })),
+                  { value: 'Other', label: '+ Other (Specify Custom Category)' },
+                ]}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Voucher Amount (LKR) <span className="text-red-500">*</span></span>
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={amount}
+                onChange={(e) => {
+                  setAmount(e.target.value);
+                  setCreateError('');
+                }}
+                placeholder="0.00"
+                required
+              />
+            </div>
+          </div>
+
+          {selectedCategoryName === 'Other' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Custom Category Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={customCategory}
+                onChange={(e) => {
+                  setCustomCategory(e.target.value);
+                  setCreateError('');
+                }}
+                placeholder="e.g. Office Renovation, Software Licenses"
+              />
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Disbursement / Funding Method</span>
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('CASH')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    paymentMethod === 'CASH'
+                      ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-2xs'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4 text-slate-600 mb-1" />
+                  <div className="text-xs font-bold">Cash</div>
+                  <div className="text-[10px] text-slate-500">Direct register</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('BANK_TRANSFER')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    paymentMethod === 'BANK_TRANSFER'
+                      ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 font-bold shadow-2xs'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4 text-indigo-600 mb-1" />
+                  <div className="text-xs font-bold">Bank Transfer</div>
+                  <div className="text-[10px] text-slate-500">Corporate bank</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('PETTY_CASH')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    paymentMethod === 'PETTY_CASH'
+                      ? 'border-amber-600 bg-amber-50/70 text-amber-900 font-bold shadow-2xs'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <Wallet className="w-4 h-4 text-amber-600 mb-1" />
+                  <div className="text-xs font-bold">Petty Cash</div>
+                  <div className="text-[10px] text-slate-500">Float wallet</div>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                <span>Disbursement Date <span className="text-red-500">*</span></span>
+              </label>
+              <input
+                type="date"
+                value={expenseDate}
+                onChange={(e) => {
+                  setExpenseDate(e.target.value);
+                  setCreateError('');
+                }}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                required
+              />
+            </div>
+          </div>
+
+          {isCreatePettyCash && allocations.length > 0 && (
+            <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
+              <label className="block text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <Wallet className="w-3.5 h-3.5 text-amber-600" />
+                <span>Link to Specific Petty Cash Allocation (Optional)</span>
+              </label>
+              <Select
+                value={selectedAllocationId}
+                onChange={(e) => setSelectedAllocationId(e.target.value)}
+                options={[
+                  { value: '', label: 'General Petty Cash Wallet Float' },
+                  ...allocations.map((a) => ({
+                    value: a.id,
+                    label: `${a.allocationCode} - ${a.reason} (Bal: ${formatCurrency(a.remainingAmount)})`,
+                  })),
+                ]}
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Voucher Remarks / Purpose <span className="text-red-500">*</span>
+            </label>
+            <Input
+              value={remarks}
+              onChange={(e) => {
+                setRemarks(e.target.value);
+                setCreateError('');
+              }}
+              placeholder="e.g. Courier charges for Batticaloa delivery dispatch"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Internal Reconciliation Notes (Optional)
+            </label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Receipt number, invoice reference, or audit annotations..."
+              className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+            />
+          </div>
+
+          {isCreateOverPettyCashBalance && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
+              <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span>
+                The requested voucher amount of <strong>{formatCurrency(parsedCreateAmount)}</strong> exceeds your
+                available Petty Cash float balance of <strong>{formatCurrency(wallet?.remainingBalance)}</strong>.
+              </span>
+            </div>
+          )}
+
+          <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCloseCreate}
+              disabled={isSubmittingCreate}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isSubmittingCreate || Boolean(isCreateOverPettyCashBalance)}
+              isLoading={isSubmittingCreate}
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+            >
+              {isSubmittingCreate ? 'Registering...' : 'Register Expense Voucher'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
 
       {/* Direct Edit Modal (Within 24 Hours) */}
       <Dialog
