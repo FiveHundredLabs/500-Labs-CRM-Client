@@ -83,13 +83,36 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
         setIsLoadingLive(true);
         try {
           const items = await financeRepository.getInventoryReport(
-            filters.teamId !== 'ALL' ? filters.teamId : undefined
+            filters.teamId !== 'ALL' ? filters.teamId : undefined,
+            filters.dateRange.startDate || undefined,
+            filters.dateRange.endDate || undefined
           );
           if (active) {
             setLiveReportData(items);
           }
         } catch (err) {
           console.error('Failed to fetch live inventory report from backend:', err);
+          if (active) {
+            setLiveReportData(null);
+          }
+        } finally {
+          if (active) {
+            setIsLoadingLive(false);
+          }
+        }
+      } else if (report.id === 'income-summary') {
+        setIsLoadingLive(true);
+        try {
+          const orders = await financeRepository.getRealizedSalesReport(
+            filters.dateRange.startDate || undefined,
+            filters.dateRange.endDate || undefined,
+            filters.teamId !== 'ALL' ? filters.teamId : undefined
+          );
+          if (active) {
+            setLiveReportData(orders);
+          }
+        } catch (err) {
+          console.error('Failed to fetch live realized sales report from backend:', err);
           if (active) {
             setLiveReportData(null);
           }
@@ -108,11 +131,11 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
     return () => {
       active = false;
     };
-  }, [report.id, filters.teamId]);
+  }, [report.id, filters.teamId, filters.dateRange.startDate, filters.dateRange.endDate, filters.dateRange.preset]);
 
   // Query raw filtered report dataset (prefer live backend data when available)
   const rawReportData = useMemo(() => {
-    if (report.id === 'product-cost' && liveReportData !== null) {
+    if ((report.id === 'product-cost' || report.id === 'income-summary') && liveReportData !== null) {
       return report.getData(liveReportData, filters);
     }
     return report.getData(MOCK_FINANCE_DATABASE, filters);
@@ -160,7 +183,7 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
                 {report.badgeText}
               </span>
-              {report.id === 'product-cost' && liveReportData !== null && (
+              {(report.id === 'product-cost' || report.id === 'income-summary') && liveReportData !== null && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   Live Database

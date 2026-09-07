@@ -55,6 +55,9 @@ export interface DeliveredOrderRecord {
   itemCount: number;
   cogs: number;
   grossProfit: number;
+  teamId?: string;
+  teamName?: string;
+  teamMember?: string;
 }
 
 // Matches Prisma: model Product & StockBatch

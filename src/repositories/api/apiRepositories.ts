@@ -803,12 +803,27 @@ export class ApiFinanceRepository {
     );
   }
 
-  async getInventoryReport(teamId?: string, category?: string): Promise<InventoryReportItem[]> {
+  async getInventoryReport(teamId?: string, startDate?: string, endDate?: string): Promise<InventoryReportItem[]> {
     const params: Record<string, string> = {};
     if (teamId && teamId !== 'ALL') params.teamId = teamId;
-    if (category && category !== 'ALL') params.category = category;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
     return unwrap(
       await apiClient.get<{ data: InventoryReportItem[] }>('/finance/inventory-report', { params })
+    );
+  }
+
+  async getRealizedSalesReport(
+    startDate?: string,
+    endDate?: string,
+    teamId?: string,
+  ): Promise<any[]> {
+    const params: Record<string, string> = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (teamId && teamId !== 'ALL') params.teamId = teamId;
+    return unwrap(
+      await apiClient.get<{ data: any[] }>('/finance/realized-sales', { params })
     );
   }
 
