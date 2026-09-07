@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ReportDefinition, ActiveFilters } from '../types';
-import { MOCK_FINANCE_DATABASE } from '../mockData';
-import { financeRepository } from '../../../../repositories';
+import { MOCK_FINANCE_DATABASE, TeamItem } from '../mockData';
+import { financeRepository, teamRepository } from '../../../../repositories';
 import { ReportFilters } from './ReportFilters';
 import { ReportSummaryCards } from './ReportSummaryCards';
 import { ReportChart } from './ReportChart';
@@ -43,6 +43,37 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
   // Live backend dataset state
   const [liveReportData, setLiveReportData] = useState<any>(null);
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
+  const [loadedTeams, setLoadedTeams] = useState<TeamItem[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    teamRepository.getAll()
+      .then((teams) => {
+        if (active && teams && teams.length > 0) {
+          setLoadedTeams(teams.map((t) => ({ id: t.id, name: t.name })));
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load teams from API:', err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Compute combined actual teams from API and any live records
+  const availableTeams = useMemo(() => {
+    const map = new Map<string, string>();
+    loadedTeams.forEach((t) => map.set(t.id, t.name));
+    if (Array.isArray(liveReportData)) {
+      liveReportData.forEach((p: any) => {
+        if (p.teamId && p.teamName) {
+          map.set(p.teamId, p.teamName);
+        }
+      });
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [loadedTeams, liveReportData]);
 
   useEffect(() => {
     let active = true;
@@ -52,8 +83,7 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
         setIsLoadingLive(true);
         try {
           const items = await financeRepository.getInventoryReport(
-            filters.teamId !== 'ALL' ? filters.teamId : undefined,
-            filters.category !== 'ALL' ? filters.category : undefined
+            filters.teamId !== 'ALL' ? filters.teamId : undefined
           );
           if (active) {
             setLiveReportData(items);
@@ -78,7 +108,7 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
     return () => {
       active = false;
     };
-  }, [report.id, filters.teamId, filters.category]);
+  }, [report.id, filters.teamId]);
 
   // Query raw filtered report dataset (prefer live backend data when available)
   const rawReportData = useMemo(() => {
@@ -149,6 +179,7 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
         supportedFilters={report.supportedFilters}
         filters={filters}
         onChange={setFilters}
+        teams={availableTeams.length > 0 ? availableTeams : undefined}
         rightActions={
           <ExportActions
             report={report}

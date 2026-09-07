@@ -407,7 +407,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
     badgeText: 'Asset Valuation',
     badgeType: 'standard',
     icon: Boxes,
-    supportedFilters: ['category'],
+    supportedFilters: ['team'],
     kpis: [
       {
         id: 'total-asset-val',
@@ -465,7 +465,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
     columns: [
       { id: 'code', header: 'Product Code', accessorKey: 'code', align: 'left', format: 'badge' },
       { id: 'name', header: 'Merchandise Title', accessorKey: 'name', align: 'left' },
-      { id: 'category', header: 'Category', accessorKey: 'category', align: 'center', format: 'badge' },
+      { id: 'team', header: 'Team', accessorKey: 'teamName', align: 'left', format: 'badge' },
       { id: 'costPrice', header: 'Unit Cost (LKR)', accessorKey: 'costPrice', align: 'right', format: 'currency' },
       { id: 'sellingPrice', header: 'Selling Price (LKR)', accessorKey: 'sellingPrice', align: 'right', format: 'currency' },
       { id: 'currentStock', header: 'In Stock', accessorKey: 'currentStock', align: 'center' },
@@ -475,12 +475,13 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
     pdfConfig: {
       orientation: 'portrait',
       columns: [
-        { header: 'Product Code', accessorKey: 'code', align: 'left', widthMm: 28 },
-        { header: 'Merchandise Title', accessorKey: 'name', align: 'left', widthMm: 52 },
-        { header: 'Unit Cost', accessorKey: 'costPrice', align: 'right', format: 'currency', widthMm: 24 },
-        { header: 'Selling Price', accessorKey: 'sellingPrice', align: 'right', format: 'currency', widthMm: 24 },
-        { header: 'In Stock', accessorKey: 'currentStock', align: 'center', format: 'number', widthMm: 22 },
-        { header: 'Total Value (Cost)', accessorKey: 'stockValue', align: 'right', format: 'currency', widthMm: 32 },
+        { header: 'Product Code', accessorKey: 'code', align: 'left', widthMm: 26 },
+        { header: 'Merchandise Title', accessorKey: 'name', align: 'left', widthMm: 46 },
+        { header: 'Team', accessorKey: 'teamName', align: 'left', widthMm: 26 },
+        { header: 'Unit Cost', accessorKey: 'costPrice', align: 'right', format: 'currency', widthMm: 22 },
+        { header: 'Selling Price', accessorKey: 'sellingPrice', align: 'right', format: 'currency', widthMm: 22 },
+        { header: 'In Stock', accessorKey: 'currentStock', align: 'center', format: 'number', widthMm: 16 },
+        { header: 'Total Value (Cost)', accessorKey: 'stockValue', align: 'right', format: 'currency', widthMm: 26 },
       ],
       summaryLines: (data) => {
         const totalUnits = data.reduce((acc: number, curr: any) => acc + (Number(curr.currentStock) || 0), 0);
@@ -500,7 +501,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
     getData: (db, filters) => {
       const items: ProductCostRecord[] = Array.isArray(db) ? db : (db.products || []);
       return items.filter((p: ProductCostRecord) => {
-        if (filters.category && filters.category !== 'ALL' && p.category !== filters.category) return false;
+        if (filters.teamId && filters.teamId !== 'ALL' && p.teamId !== filters.teamId) return false;
         if (filters.search && filters.search.trim()) {
           const q = filters.search.toLowerCase();
           return (p.name || '').toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q);

@@ -7,11 +7,10 @@ export interface TeamItem {
 }
 
 export const TEAMS: TeamItem[] = [
-  { id: 'team_sales', name: 'Direct Sales & Telesales' },
-  { id: 'team_ops', name: 'Operations & Logistics' },
-  { id: 'team_admin', name: 'Administration & HR' },
-  { id: 'team_fin', name: 'Finance & Compliance' },
-  { id: 'team_mkt', name: 'Marketing & Growth' },
+  { id: '23f9e3f9-d4e9-4b45-bb27-61a1b313cd9f', name: 'Brand Alpha' },
+  { id: '3c24ffa1-bd7d-477d-a3ac-a608d97fcb50', name: 'Brand Beta' },
+  { id: 'e52978a9-28ff-438d-87b1-03bee3e5379a', name: 'Easy Method English' },
+  { id: 'db4557fc-0559-4864-a87c-273cc63d3628', name: 'Grow Mart' },
 ];
 
 export const EXPENSE_CATEGORIES = [
@@ -63,7 +62,9 @@ export interface ProductCostRecord {
   id: string;
   code: string;
   name: string;
-  category: string;
+  teamId?: string;
+  teamName?: string;
+  category?: string;
   currentStock: number;
   soldStock: number;
   damagedStock: number;
@@ -578,6 +579,8 @@ const generateMockFinancialData = () => {
       id: 'prod-001',
       code: 'PRD-HC-001',
       name: 'Ayurvedic Herbal Immunity Booster 500ml',
+      teamId: 'e52978a9-28ff-438d-87b1-03bee3e5379a',
+      teamName: 'Easy Method English',
       category: 'Healthcare',
       currentStock: 450,
       soldStock: 1280,
@@ -594,6 +597,8 @@ const generateMockFinancialData = () => {
       id: 'prod-002',
       code: 'PRD-SC-002',
       name: 'Organic Virgin Coconut Oil Balm 100g',
+      teamId: 'e52978a9-28ff-438d-87b1-03bee3e5379a',
+      teamName: 'Easy Method English',
       category: 'Personal Care',
       currentStock: 620,
       soldStock: 940,
@@ -610,6 +615,8 @@ const generateMockFinancialData = () => {
       id: 'prod-003',
       code: 'PRD-WC-003',
       name: 'Herbal Slimming Infusion Tea 30 Bags',
+      teamId: 'db4557fc-0559-4864-a87c-273cc63d3628',
+      teamName: 'Grow Mart',
       category: 'Wellness',
       currentStock: 890,
       soldStock: 1850,
@@ -626,6 +633,8 @@ const generateMockFinancialData = () => {
       id: 'prod-004',
       code: 'PRD-HC-004',
       name: 'Natural Joint Relief Herbal Oil 120ml',
+      teamId: '23f9e3f9-d4e9-4b45-bb27-61a1b313cd9f',
+      teamName: 'Brand Alpha',
       category: 'Healthcare',
       currentStock: 310,
       soldStock: 780,
@@ -642,6 +651,8 @@ const generateMockFinancialData = () => {
       id: 'prod-005',
       code: 'PRD-SC-005',
       name: 'Aloe Vera & Cucumber Soothing Face Gel',
+      teamId: '3c24ffa1-bd7d-477d-a3ac-a608d97fcb50',
+      teamName: 'Brand Beta',
       category: 'Personal Care',
       currentStock: 540,
       soldStock: 890,
@@ -658,6 +669,8 @@ const generateMockFinancialData = () => {
       id: 'prod-006',
       code: 'PRD-WC-006',
       name: 'Pure Morinda Citrifolia Noni Extract 500ml',
+      teamId: 'db4557fc-0559-4864-a87c-273cc63d3628',
+      teamName: 'Grow Mart',
       category: 'Wellness',
       currentStock: 180,
       soldStock: 460,
