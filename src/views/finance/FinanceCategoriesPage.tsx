@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { expenseRepository } from '../../repositories';
 import { ExpenseCategory } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
+import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Dialog } from '../../components/ui/Dialog';
@@ -13,12 +13,7 @@ import toast from 'react-hot-toast';
 import { 
   Tag, 
   Plus, 
-  Layers, 
   Edit3, 
-  FolderPlus, 
-  FileText, 
-  ShieldCheck,
-  CheckCircle2
 } from 'lucide-react';
 
 export const FinanceCategoriesPage: React.FC = () => {

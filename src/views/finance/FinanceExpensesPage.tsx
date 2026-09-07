@@ -14,11 +14,9 @@ import {
   Calendar, 
   Filter, 
   X, 
-  FileText, 
   Edit3, 
   Trash2, 
   Clock, 
-  AlertCircle, 
   FileSpreadsheet, 
   ShieldAlert,
   CreditCard,
@@ -33,7 +31,7 @@ import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
 export const FinanceExpensesPage: React.FC = () => {
-  const { role, user } = useAuth();
+  const { role } = useAuth();
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -318,7 +316,7 @@ export const FinanceExpensesPage: React.FC = () => {
         title="Operational Expenditure Ledger"
         description="Full audit record of verified vouchers, payment methods, and 24-hour authorization controls."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
               leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}

@@ -3,7 +3,7 @@ import { productRepository, financeRepository } from '../../repositories';
 import { Product } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
+import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { SearchInput } from '../../components/shared/SearchInput';
 import { Select } from '../../components/ui/Select';
@@ -16,12 +16,9 @@ import {
   TrendingUp, 
   DollarSign, 
   AlertTriangle, 
-  CheckCircle2, 
   FileSpreadsheet, 
   Printer, 
   Tag, 
-  Layers, 
-  Info,
   ArrowUpRight,
   ShieldCheck
 } from 'lucide-react';
@@ -178,7 +175,7 @@ export const FinanceInventoryPage: React.FC = () => {
         title="Inventory & Asset Valuation Ledger"
         description="Comprehensive real-time stock asset audit, unit cost acquisition tracking, COGS allocation, and realized profit margins."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
               leftIcon={<Printer className="w-4 h-4 text-slate-600" />}

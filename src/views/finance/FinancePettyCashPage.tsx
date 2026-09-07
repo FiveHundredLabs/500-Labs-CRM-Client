@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { PettyCashWallet, PettyCashTransaction, PettyCashAllocation } from '../../models/domain';
-import { pettyCashRepository } from '../../repositories';
+import { ExpenseCategory, PettyCashWallet, PettyCashTransaction, PettyCashAllocation } from '../../models/domain';
+import { expenseRepository, pettyCashRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
+import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
@@ -21,13 +21,6 @@ import {
   ArrowDownRight, 
   Plus, 
   AlertTriangle, 
-  CheckCircle2, 
-  Clock, 
-  DollarSign, 
-  FileText, 
-  ShieldAlert, 
-  Tag, 
-  User,
   Layers,
   ChevronDown,
   ChevronRight,
@@ -43,7 +36,9 @@ export const FinancePettyCashPage: React.FC = () => {
   const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
   const [transactions, setTransactions] = useState<PettyCashTransaction[]>([]);
   const [allocations, setAllocations] = useState<PettyCashAllocation[]>([]);
+  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [activeView, setActiveView] = useState<'TRANSACTIONS' | 'ALLOCATIONS'>('TRANSACTIONS');
 
   // Expanded allocation ID for drilldown
@@ -56,7 +51,7 @@ export const FinancePettyCashPage: React.FC = () => {
   // New Expense Dialog State
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [reason, setReason] = useState('');
-  const [category, setCategory] = useState('Transport');
+  const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [description, setDescription] = useState('');
@@ -70,21 +65,29 @@ export const FinancePettyCashPage: React.FC = () => {
   const [allocateRemarks, setAllocateRemarks] = useState('');
   const [isSubmittingAllocation, setIsSubmittingAllocation] = useState(false);
 
+  const targetTeamId = role === 'SUPERVISOR' ? user?.teamId ?? undefined : undefined;
+
   const loadData = async () => {
     setLoading(true);
+    setLoadError('');
     try {
-      const [walletData, txData, allocData] = await Promise.all([
-        pettyCashRepository.getWallet(user?.teamId || undefined),
-        pettyCashRepository.getTransactions(user?.teamId || undefined),
-        pettyCashRepository.getAllocations(user?.teamId || undefined).catch(() => []),
+      const [walletData, txData, allocData, categoryData] = await Promise.all([
+        pettyCashRepository.getWallet(targetTeamId),
+        pettyCashRepository.getTransactions(targetTeamId),
+        pettyCashRepository.getAllocations(targetTeamId).catch(() => []),
+        expenseRepository.getCategories().catch(() => []),
       ]);
       setWallet(walletData);
       setTransactions(
         (txData || []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       );
       setAllocations(allocData || []);
-    } catch {
-      toast.error('Failed to load petty cash wallet data.');
+      setCategories(categoryData || []);
+      setCategory((current) => current || categoryData?.[0]?.name || '');
+    } catch (err: any) {
+      const message = err.response?.data?.message || err.message || 'Failed to load petty cash wallet data.';
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -92,9 +95,18 @@ export const FinancePettyCashPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, [targetTeamId]);
 
-  if (loading || !wallet) return <LoadingState rows={8} />;
+  if (loading) return <LoadingState rows={8} />;
+
+  if (loadError || !wallet) {
+    return (
+      <EmptyState
+        title="Petty cash data unavailable"
+        description={loadError || 'The wallet endpoint did not return a usable wallet.'}
+      />
+    );
+  }
 
   const parsedAmount = parseFloat(amount) || 0;
   const isOverBalance = parsedAmount > wallet.remainingBalance;
@@ -102,8 +114,6 @@ export const FinancePettyCashPage: React.FC = () => {
   // Handle Record Expense
   const handleRecordExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
     if (!reason.trim()) {
       toast.error('Please enter a voucher title.');
       return;
@@ -111,6 +121,11 @@ export const FinancePettyCashPage: React.FC = () => {
 
     if (parsedAmount <= 0) {
       toast.error('Please enter a valid expense amount greater than 0.');
+      return;
+    }
+
+    if (!category) {
+      toast.error('Please select a database expense category.');
       return;
     }
 
@@ -123,17 +138,15 @@ export const FinancePettyCashPage: React.FC = () => {
 
     setIsSubmittingExpense(true);
     try {
-      await pettyCashRepository.recordExpense(
-        {
-          reason: reason.trim(),
-          category,
-          amount: parsedAmount,
-          date,
-          description: description.trim() || reason.trim(),
-          allocationId: selectedAllocId || undefined,
-        },
-        user
-      );
+      await pettyCashRepository.recordExpense({
+        reason: reason.trim(),
+        category,
+        amount: parsedAmount,
+        date,
+        description: description.trim() || reason.trim(),
+        allocationId: selectedAllocId || undefined,
+        teamId: targetTeamId,
+      });
 
       toast.success(`Petty cash voucher of ${formatCurrency(parsedAmount)} recorded!`);
       setReason('');
@@ -152,8 +165,6 @@ export const FinancePettyCashPage: React.FC = () => {
   // Handle Allocate Funds
   const handleAllocateFunds = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
     const parsedAlloc = parseFloat(allocateAmount);
     if (isNaN(parsedAlloc) || parsedAlloc <= 0) {
       toast.error('Please enter a valid allocation amount greater than 0.');
@@ -167,7 +178,7 @@ export const FinancePettyCashPage: React.FC = () => {
 
     setIsSubmittingAllocation(true);
     try {
-      await pettyCashRepository.allocate(parsedAlloc, user, allocateReason.trim());
+      await pettyCashRepository.allocate(parsedAlloc, allocateReason.trim(), targetTeamId, allocateRemarks.trim() || undefined);
       toast.success(`Allocated ${formatCurrency(parsedAlloc)} to Petty Cash wallet!`);
       setAllocateAmount('');
       setAllocateReason('');
@@ -226,7 +237,7 @@ export const FinancePettyCashPage: React.FC = () => {
         title="Petty Cash & Allocation Governance"
         description="Monitor working float balances, record operational vouchers, and drill down into allocation funding history."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
               leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
@@ -595,12 +606,7 @@ export const FinancePettyCashPage: React.FC = () => {
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 options={[
-                  { value: 'Transport', label: 'Transport' },
-                  { value: 'Postal Charges', label: 'Postal Charges' },
-                  { value: 'Refreshments', label: 'Refreshments' },
-                  { value: 'Stationery', label: 'Stationery' },
-                  { value: 'Maintenance', label: 'Maintenance' },
-                  { value: 'Other', label: 'Other' },
+                  ...categories.map((cat) => ({ value: cat.name, label: cat.name })),
                 ]}
               />
             </div>

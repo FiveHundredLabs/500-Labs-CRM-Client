@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { expenseRepository } from '../../repositories';
 import { ExpenseChangeRequest } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
+import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { LoadingState } from '../../components/shared/LoadingState';
@@ -11,14 +11,9 @@ import { formatCurrency } from '../../utils/currency';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import {
-  FileCheck,
   CheckCircle2,
   XCircle,
   Clock,
-  AlertTriangle,
-  ArrowRight,
-  ShieldCheck,
-  DollarSign,
   Calendar,
   MessageSquare,
   User,
@@ -26,8 +21,10 @@ import {
   Trash2,
   Edit3
 } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 
 export const FinanceExpenseApprovalsPage: React.FC = () => {
+  const { role } = useAuth();
   const [requests, setRequests] = useState<ExpenseChangeRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -40,6 +37,11 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadData = async () => {
+    if (role !== 'ADMIN') {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await expenseRepository.getChangeRequests();
@@ -53,7 +55,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [role]);
 
   const filteredRequests = requests.filter((r) => r.status === activeTab);
 
@@ -96,6 +98,21 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
   };
 
   if (loading) return <LoadingState rows={8} />;
+
+  if (role !== 'ADMIN') {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Expense Audit & Change Request Authorizations"
+          description="Formal review queue for modifying or voiding operational expenses recorded over 24 hours ago."
+        />
+        <EmptyState
+          title="Admin authorization required"
+          description="Expense change requests can only be reviewed by an Admin account."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

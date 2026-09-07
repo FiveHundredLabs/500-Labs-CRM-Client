@@ -17,6 +17,11 @@ import {
   IPettyCashRepository,
   ISalesTargetRepository,
   ISupervisorTargetRepository,
+  ExpenseWritePayload,
+  ExpenseUpdatePayload,
+  PettyCashExpensePayload,
+  ApprovalRequestCreatePayload,
+  ActivityLogWritePayload,
 } from '../interfaces';
 import {
   Team,
@@ -418,7 +423,7 @@ export class ApiActivityLogRepository implements IActivityLogRepository {
     const all = await this.getAll();
     return all.filter((l) => l.entityType === entityType && l.entityId === entityId);
   }
-  async create(log: Omit<ActivityLog, 'id' | 'createdAt'>): Promise<ActivityLog> {
+  async create(log: ActivityLogWritePayload): Promise<ActivityLog> {
     return unwrap(await apiClient.post<{ data: ActivityLog }>('/activity-logs', log));
   }
 }
@@ -440,8 +445,18 @@ export class ApiExpenseRepository implements IExpenseRepository {
   async getCategories(): Promise<ExpenseCategory[]> {
     return unwrap(await apiClient.get<{ data: ExpenseCategory[] }>('/expenses/categories'));
   }
-  async create(expense: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense> {
-    return unwrap(await apiClient.post<{ data: Expense }>('/expenses', expense));
+  async create(expense: ExpenseWritePayload): Promise<Expense> {
+    const payload: ExpenseWritePayload = {
+      categoryId: expense.categoryId,
+      categoryName: expense.categoryName,
+      amount: expense.amount,
+      expenseDate: expense.expenseDate,
+      remarks: expense.remarks,
+      paymentMethod: expense.paymentMethod,
+      notes: expense.notes,
+      pettyCashRef: expense.pettyCashRef,
+    };
+    return unwrap(await apiClient.post<{ data: Expense }>('/expenses', payload));
   }
   async createCategory(
     category: Omit<ExpenseCategory, 'id'>
@@ -455,8 +470,17 @@ export class ApiExpenseRepository implements IExpenseRepository {
       await apiClient.patch<{ data: ExpenseCategory }>(`/expenses/categories/${id}`, data)
     );
   }
-  async update(id: string, updates: Partial<Expense>): Promise<Expense> {
-    return unwrap(await apiClient.patch<{ data: Expense }>(`/expenses/${id}`, updates));
+  async update(id: string, updates: ExpenseUpdatePayload): Promise<Expense> {
+    const payload: ExpenseUpdatePayload = {};
+    if (updates.categoryId !== undefined) payload.categoryId = updates.categoryId;
+    if (updates.categoryName !== undefined) payload.categoryName = updates.categoryName;
+    if (updates.amount !== undefined) payload.amount = updates.amount;
+    if (updates.expenseDate !== undefined) payload.expenseDate = updates.expenseDate;
+    if (updates.remarks !== undefined) payload.remarks = updates.remarks;
+    if (updates.paymentMethod !== undefined) payload.paymentMethod = updates.paymentMethod;
+    if (updates.notes !== undefined) payload.notes = updates.notes;
+    if (updates.pettyCashRef !== undefined) payload.pettyCashRef = updates.pettyCashRef;
+    return unwrap(await apiClient.patch<{ data: Expense }>(`/expenses/${id}`, payload));
   }
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/expenses/${id}`);
@@ -606,24 +630,21 @@ export class ApiApprovalRequestRepository implements IApprovalRequestRepository 
       await apiClient.get<{ data: ApprovalRequest[] }>(`/approval-requests?teamId=${teamId}`)
     );
   }
-  async create(
-    request: Omit<ApprovalRequest, 'id' | 'createdAt' | 'status'>
-  ): Promise<ApprovalRequest> {
+  async create(request: ApprovalRequestCreatePayload): Promise<ApprovalRequest> {
+    const { requestedById: _requestedById, requestedByName: _requestedByName, ...payload } = request;
     return unwrap(
-      await apiClient.post<{ data: ApprovalRequest }>('/approval-requests', request)
+      await apiClient.post<{ data: ApprovalRequest }>('/approval-requests', payload)
     );
   }
   async review(
     id: string,
     status: 'APPROVED' | 'REJECTED',
-    reviewedBy: User,
+    _reviewedBy: User,
     rejectionReason?: string
   ): Promise<ApprovalRequest> {
     return unwrap(
       await apiClient.patch<{ data: ApprovalRequest }>(`/approval-requests/${id}/review`, {
         status,
-        reviewedById: reviewedBy.id,
-        reviewedByName: reviewedBy.fullName,
         rejectionReason,
       })
     );
@@ -655,27 +676,20 @@ export class ApiPettyCashRepository implements IPettyCashRepository {
   async getAllocationById(id: string): Promise<any> {
     return unwrap(await apiClient.get<{ data: any }>(`/petty-cash/allocations/${id}`));
   }
-  async allocate(amount: number, user: User, reason?: string): Promise<any> {
+  async allocate(amount: number, reason: string, teamId?: string, remarks?: string): Promise<any> {
     return unwrap(
       await apiClient.post<{ data: any }>('/petty-cash/allocate', {
         amount,
-        userId: user.id,
-        userName: user.fullName,
-        reason: reason || 'Float Allocation',
-        teamId: user.teamId,
+        reason,
+        remarks,
+        teamId,
       })
     );
   }
-  async recordExpense(
-    data: { amount: number; reason: string; category: string; description: string; date: string; allocationId?: string },
-    user: User
-  ): Promise<PettyCashTransaction> {
+  async recordExpense(data: PettyCashExpensePayload): Promise<PettyCashTransaction> {
     return unwrap(
       await apiClient.post<{ data: PettyCashTransaction }>('/petty-cash/expense', {
         ...data,
-        userId: user.id,
-        userName: user.fullName,
-        teamId: user.teamId,
       })
     );
   }

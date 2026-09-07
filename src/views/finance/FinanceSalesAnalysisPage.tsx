@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { orderRepository, teamRepository, userRepository } from '../../repositories';
-import { Order, Team, User, OrderStatus } from '../../models/domain';
+import { Order, Team, User } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -28,17 +28,13 @@ import {
 import {
   TrendingUp,
   DollarSign,
-  Package,
   CheckCircle2,
   Truck,
   Filter,
   Download,
-  Calendar,
-  Layers,
-  ArrowUpRight,
   ShoppingBag,
 } from 'lucide-react';
-import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
 import toast from 'react-hot-toast';
 
@@ -386,13 +382,15 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
         title="Sales Financial Analysis & Intelligence"
         description="Executive multi-parameter revenue tracking, team performance comparison, and fulfillment ledger."
         actions={
-          <Button
-            variant="outline"
-            leftIcon={<Download className="w-4 h-4 text-blue-600" />}
-            onClick={handleExportCSV}
-          >
-            Export Sales Ledger (CSV)
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              leftIcon={<Download className="w-4 h-4 text-blue-600" />}
+              onClick={handleExportCSV}
+            >
+              Export Sales Ledger (CSV)
+            </Button>
+          </div>
         }
       />
 
