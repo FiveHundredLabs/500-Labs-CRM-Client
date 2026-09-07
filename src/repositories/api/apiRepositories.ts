@@ -16,6 +16,7 @@ import {
   IApprovalRequestRepository,
   IPettyCashRepository,
   ISalesTargetRepository,
+  ISupervisorTargetRepository,
 } from '../interfaces';
 import {
   Team,
@@ -41,6 +42,8 @@ import {
   TeamSalesTarget,
   TeamTargetTier,
   DuplicatePhoneCheckResult,
+  SupervisorSalesTarget,
+  SupervisorTargetTier,
 } from '../../models/domain';
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -814,3 +817,48 @@ export class ApiFinanceRepository {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Supervisor Team Goals & Incentives
+// ─────────────────────────────────────────────────────────────────────────────
+export class ApiSupervisorTargetRepository implements ISupervisorTargetRepository {
+  async getAll(month?: string, supervisorId?: string): Promise<SupervisorSalesTarget[]> {
+    const params: Record<string, string> = {};
+    if (month) params.month = month;
+    if (supervisorId) params.supervisorId = supervisorId;
+    return unwrap(
+      await apiClient.get<{ data: SupervisorSalesTarget[] }>('/supervisor-targets', { params })
+    );
+  }
+
+  async getById(id: string): Promise<SupervisorSalesTarget | null> {
+    try {
+      return unwrap(
+        await apiClient.get<{ data: SupervisorSalesTarget }>(`/supervisor-targets/${id}`)
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  async upsert(target: {
+    supervisorId: string;
+    month: string;
+    targetAmount: number;
+    notes?: string;
+    tiers: SupervisorTargetTier[];
+  }): Promise<SupervisorSalesTarget> {
+    return unwrap(
+      await apiClient.post<{ data: SupervisorSalesTarget }>('/supervisor-targets', target)
+    );
+  }
+
+  async update(id: string, updates: Partial<SupervisorSalesTarget>): Promise<SupervisorSalesTarget> {
+    return unwrap(
+      await apiClient.patch<{ data: SupervisorSalesTarget }>(`/supervisor-targets/${id}`, updates)
+    );
+  }
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/supervisor-targets/${id}`);
+  }
+}

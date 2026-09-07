@@ -16,6 +16,7 @@ import {
   ApiPettyCashRepository,
   ApiSalesTargetRepository,
   ApiFinanceRepository,
+  ApiSupervisorTargetRepository,
 } from './api/apiRepositories';
 
 // All repositories now point to the real NestJS backend API.
@@ -38,3 +39,4 @@ export const approvalRequestRepository = new ApiApprovalRequestRepository();
 export const pettyCashRepository = new ApiPettyCashRepository();
 export const salesTargetRepository = new ApiSalesTargetRepository();
 export const financeRepository = new ApiFinanceRepository();
+export const supervisorTargetRepository = new ApiSupervisorTargetRepository();

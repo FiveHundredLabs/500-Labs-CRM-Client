@@ -22,6 +22,8 @@ import {
   TeamSalesTarget,
   TeamTargetTier,
   DuplicatePhoneCheckResult,
+  SupervisorSalesTarget,
+  SupervisorTargetTier,
 } from '../../models/domain';
 
 export interface ITeamRepository {
@@ -192,3 +194,16 @@ export interface ISalesTargetRepository {
   delete(id: string): Promise<void>;
 }
 
+export interface ISupervisorTargetRepository {
+  getAll(month?: string, supervisorId?: string): Promise<SupervisorSalesTarget[]>;
+  getById(id: string): Promise<SupervisorSalesTarget | null>;
+  upsert(target: {
+    supervisorId: string;
+    month: string;
+    targetAmount: number;
+    notes?: string;
+    tiers: SupervisorTargetTier[];
+  }): Promise<SupervisorSalesTarget>;
+  update(id: string, updates: Partial<SupervisorSalesTarget>): Promise<SupervisorSalesTarget>;
+  delete(id: string): Promise<void>;
+}

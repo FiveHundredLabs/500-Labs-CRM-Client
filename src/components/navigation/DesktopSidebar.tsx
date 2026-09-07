@@ -45,7 +45,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onT
   return (
     <aside
       className={`hidden md:flex flex-col h-full bg-white/80 backdrop-blur-md border-r border-slate-200/80 transition-all duration-200 relative shrink-0 z-20 ${
-        isCollapsed ? 'w-[72px]' : 'w-[250px]'
+        isCollapsed ? 'w-[64px]' : 'w-[220px]'
       }`}
     >
       {/* Toggle button */}
