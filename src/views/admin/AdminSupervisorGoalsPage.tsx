@@ -203,7 +203,7 @@ export const AdminSupervisorGoalsPage: React.FC = () => {
   if (loading && targets.length === 0) return <LoadingState rows={6} />;
 
   return (
-    <div className="space-y-4 sm:space-y-5 pb-10 overflow-hidden max-w-screen-xl">
+    <div className="space-y-4 sm:space-y-5 pb-10 overflow-hidden">
       <PageHeader
         title="Supervisor Team Goals & Incentives"
         description="Set collective team sales targets for each supervisor. Performance is auto-calculated from the combined delivered sales of all assigned team members."
@@ -311,7 +311,7 @@ export const AdminSupervisorGoalsPage: React.FC = () => {
                       <div className="text-[11px] text-slate-400 font-mono">
                         @{target.supervisor?.username} • Month: {target.evaluatedMonth || target.month}
                         {target.isInheritedStandingTarget && (
-                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]">
                             Standing from {target.effectiveFromMonth}
                           </span>
                         )}
@@ -330,7 +330,7 @@ export const AdminSupervisorGoalsPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => openEditModal(target)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-[#01A8F3] hover:bg-[#E8F7FE] transition-colors cursor-pointer"
                       title="Edit goal"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
@@ -355,9 +355,9 @@ export const AdminSupervisorGoalsPage: React.FC = () => {
                     <div className="text-[10px] text-emerald-700 font-semibold uppercase tracking-wider mb-1">Team Sales</div>
                     <div className="font-bold font-mono text-emerald-800 text-sm">{formatCurrency(target.totalTeamSales || 0)}</div>
                   </div>
-                  <div className={`text-center p-2.5 rounded-lg ${isAchieved ? 'bg-emerald-50' : isNear ? 'bg-amber-50' : 'bg-blue-50'}`}>
-                    <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${isAchieved ? 'text-emerald-700' : isNear ? 'text-amber-700' : 'text-blue-700'}`}>Achievement</div>
-                    <div className={`font-bold font-mono text-sm ${isAchieved ? 'text-emerald-800' : isNear ? 'text-amber-800' : 'text-blue-800'}`}>
+                  <div className={`text-center p-2.5 rounded-lg ${isAchieved ? 'bg-emerald-50' : isNear ? 'bg-amber-50' : 'bg-[#E8F7FE]'}`}>
+                    <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${isAchieved ? 'text-emerald-700' : isNear ? 'text-amber-700' : 'text-[#0188C7]'}`}>Achievement</div>
+                    <div className={`font-bold font-mono text-sm ${isAchieved ? 'text-emerald-800' : isNear ? 'text-amber-800' : 'text-[#0188C7]'}`}>
                       {pct.toFixed(1)}%
                       {isAchieved && ' 🏆'}
                     </div>
@@ -520,7 +520,7 @@ export const AdminSupervisorGoalsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleAddTier}
-                  className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer border border-blue-200"
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#0188C7] bg-[#E8F7FE] hover:bg-[#D4F1FD] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer border border-[#B9E7FC]"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add Tier

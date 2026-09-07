@@ -30,8 +30,8 @@ interface ReportChartProps {
 }
 
 const DONUT_COLORS = [
-  '#2563EB', // Blue
-  '#10B981', // Emerald
+  '#01A8F3', // Primary Blue
+  '#80BD2B', // Primary Green
   '#F59E0B', // Amber
   '#8B5CF6', // Purple
   '#EC4899', // Pink
@@ -212,7 +212,7 @@ export const ReportChart: React.FC<ReportChartProps> = ({
     <Card className="border border-slate-200/90 shadow-2xs">
       <CardHeader className="pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
         <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-blue-600" />
+          <BarChart3 className="w-4 h-4 text-[#01A8F3]" />
           <span>{reportName} — Financial Visualization</span>
         </CardTitle>
         <span className="text-[11px] font-medium text-slate-400">

@@ -312,14 +312,14 @@ export const MemberImportPage: React.FC = () => {
       {/* Auto-Allocation Notice Banner */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs text-blue-900 shadow-2xs">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-[#01A8F3] text-white flex items-center justify-center shrink-0">
             <UserCheck className="w-4 h-4" />
           </div>
           <div>
             <span className="font-bold">Personal Number Claim &amp; Allocation:</span> Numbers added or claimed will be immediately assigned to you (<span className="font-semibold">{user?.fullName}</span>) and visible in your personal calling queue.
           </div>
         </div>
-        <div className="hidden sm:flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-white/80 px-2 py-0.5 rounded-full border border-blue-200">
+        <div className="hidden sm:flex items-center gap-1 text-[11px] font-semibold text-[#0188C7] bg-white/80 px-2 py-0.5 rounded-full border border-[#B9E7FC]">
           <Sparkles className="w-3 h-3 text-amber-500" />
           <span>Intelligent Duplicate Detection</span>
         </div>
@@ -332,10 +332,10 @@ export const MemberImportPage: React.FC = () => {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
-                <MessageSquareCode className="w-4 h-4 text-blue-600" />
+                <MessageSquareCode className="w-4 h-4 text-[#01A8F3]" />
                 <span>Bulk Text / Numbers Entry</span>
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-[#E8F7FE] text-[#0188C7] rounded-full">
                 No Excel Needed
               </span>
             </CardTitle>
@@ -657,10 +657,10 @@ export const MemberImportPage: React.FC = () => {
                                     setClaimModalOpen(true);
                                   }
                                 }}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 cursor-pointer"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-[#0188C7] bg-[#E8F7FE] hover:bg-[#D4F1FD] border border-[#B9E7FC] cursor-pointer"
                                 title="Inspect previous call & order history"
                               >
-                                <Eye className="w-3 h-3 text-blue-600" />
+                                <Eye className="w-3 h-3 text-[#01A8F3]" />
                                 <span>Inspect Activity</span>
                               </button>
                             </div>

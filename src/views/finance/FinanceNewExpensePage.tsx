@@ -9,6 +9,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { LoadingState } from '../../components/shared/LoadingState';
+import { EmptyState } from '../../components/shared/EmptyState';
 import toast from 'react-hot-toast';
 import { 
   DollarSign, 
@@ -17,9 +19,7 @@ import {
   ShieldAlert, 
   CreditCard, 
   Building2, 
-  FileText, 
   Receipt,
-  CheckCircle2,
   Calendar,
   Tag
 } from 'lucide-react';
@@ -31,7 +31,7 @@ export const FinanceNewExpensePage: React.FC = () => {
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
-  const [selectedCategoryName, setSelectedCategoryName] = useState<string>('Postal Charges');
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string>('');
   const [customCategory, setCustomCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [expenseDate, setExpenseDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -41,12 +41,30 @@ export const FinanceNewExpensePage: React.FC = () => {
   const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
   const [allocations, setAllocations] = useState<any[]>([]);
   const [selectedAllocationId, setSelectedAllocationId] = useState<string>('');
+  const [isLoadingReferenceData, setIsLoadingReferenceData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    expenseRepository.getCategories().then(setCategories);
-    pettyCashRepository.getWallet().then(setWallet);
-    pettyCashRepository.getAllocations().then((data) => setAllocations(data || [])).catch(() => {});
+    const loadReferenceData = async () => {
+      setIsLoadingReferenceData(true);
+      try {
+        const [categoryData, walletData, allocationData] = await Promise.all([
+          expenseRepository.getCategories(),
+          pettyCashRepository.getWallet().catch(() => null),
+          pettyCashRepository.getAllocations().catch(() => []),
+        ]);
+        setCategories(categoryData || []);
+        setSelectedCategoryName((current) => current || categoryData?.[0]?.name || '');
+        setWallet(walletData);
+        setAllocations(allocationData || []);
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || err.message || 'Failed to load finance reference data.');
+      } finally {
+        setIsLoadingReferenceData(false);
+      }
+    };
+
+    loadReferenceData();
   }, []);
 
   const parsedAmount = parseFloat(amount) || 0;
@@ -66,7 +84,17 @@ export const FinanceNewExpensePage: React.FC = () => {
       return;
     }
 
-    // Restriction: Expense amount cannot exceed available petty cash balance
+    const selectedCatObj = categories.find((c) => c.name === selectedCategoryName);
+    if (selectedCategoryName !== 'Other' && !selectedCatObj) {
+      toast.error('Please select a valid database expense category.');
+      return;
+    }
+
+    if (!remarks.trim()) {
+      toast.error('Please enter voucher remarks or purpose.');
+      return;
+    }
+
     if (isOverPettyCashBalance && wallet) {
       toast.error(
         `Expense amount (${formatCurrency(parsedAmount)}) exceeds available Petty Cash balance (${formatCurrency(wallet.remainingBalance)}).`
@@ -78,31 +106,25 @@ export const FinanceNewExpensePage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const selectedCatObj = categories.find((c) => c.name === selectedCategoryName);
-
-      // If payment is via Petty Cash, also record in petty cash wallet
       if (isPettyCash) {
-        await pettyCashRepository.recordExpense(
-          {
-            reason: remarks.trim() || 'Petty Cash Voucher',
-            category: selectedCategoryName,
-            amount: parsedAmount,
-            date: expenseDate,
-            description: notes.trim() || remarks.trim() || 'Petty cash disbursement',
-            allocationId: selectedAllocationId || undefined,
-          },
-          user
-        );
+        await pettyCashRepository.recordExpense({
+          reason: remarks.trim(),
+          category: selectedCategoryName === 'Other' ? customCategory.trim() : selectedCategoryName,
+          amount: parsedAmount,
+          date: expenseDate,
+          description: notes.trim() || remarks.trim(),
+          allocationId: selectedAllocationId || undefined,
+        });
       }
 
       await ExpenseService.createExpense(
         {
-          categoryId: selectedCatObj ? selectedCatObj.id : 'cat_005',
+          categoryId: selectedCatObj?.id || '',
           categoryName: selectedCategoryName,
           customCategoryName: customCategory,
           amount: parsedAmount,
           expenseDate,
-          remarks: remarks.trim() || 'No remarks provided',
+          remarks: remarks.trim(),
           paymentMethod,
           notes: notes.trim() || undefined,
           pettyCashRef: selectedAllocationId || undefined,
@@ -119,8 +141,10 @@ export const FinanceNewExpensePage: React.FC = () => {
     }
   };
 
+  if (isLoadingReferenceData) return <LoadingState rows={6} />;
+
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-3">
         <Button
           variant="outline"
@@ -144,7 +168,7 @@ export const FinanceNewExpensePage: React.FC = () => {
           <Card className="border border-slate-200/90 shadow-2xs">
             <CardHeader className="pb-3 border-b border-slate-100">
               <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Receipt className="w-4.5 h-4.5 text-blue-600" />
+                <Receipt className="w-4.5 h-4.5 text-[#01A8F3]" />
                 <span>Expense Voucher Details</span>
               </CardTitle>
             </CardHeader>
@@ -153,7 +177,7 @@ export const FinanceNewExpensePage: React.FC = () => {
                 {/* Category Selector */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-blue-600" />
+                    <Tag className="w-3.5 h-3.5 text-[#01A8F3]" />
                     <span>Expense Category <span className="text-red-500">*</span></span>
                   </label>
                   <Select
@@ -164,6 +188,14 @@ export const FinanceNewExpensePage: React.FC = () => {
                       { value: 'Other', label: '+ Other (Specify Custom Category)' },
                     ]}
                   />
+                  {categories.length === 0 && (
+                    <div className="mt-3">
+                      <EmptyState
+                        title="No database categories found"
+                        description="Create an expense category before recording production expenses."
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Custom Category input */}
@@ -184,7 +216,7 @@ export const FinanceNewExpensePage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                      <DollarSign className="w-3.5 h-3.5 text-[#547E1B]" />
                       <span>Voucher Amount (LKR) <span className="text-red-500">*</span></span>
                     </label>
                     <Input
@@ -200,14 +232,14 @@ export const FinanceNewExpensePage: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                      <Calendar className="w-3.5 h-3.5 text-[#01A8F3]" />
                       <span>Disbursement Date <span className="text-red-500">*</span></span>
                     </label>
                     <input
                       type="date"
                       value={expenseDate}
                       onChange={(e) => setExpenseDate(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 shadow-2xs"
                       required
                     />
                   </div>
@@ -216,16 +248,16 @@ export const FinanceNewExpensePage: React.FC = () => {
                 {/* Payment Method */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <CreditCard className="w-3.5 h-3.5 text-indigo-600" />
+                    <CreditCard className="w-3.5 h-3.5 text-[#01A8F3]" />
                     <span>Disbursement / Funding Method</span>
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('CASH')}
                       className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                         paymentMethod === 'CASH'
-                          ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-2xs'
+                          ? 'border-[#01A8F3] bg-[#E8F7FE] text-[#0188C7] font-bold shadow-2xs'
                           : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
                       }`}
                     >
@@ -239,11 +271,11 @@ export const FinanceNewExpensePage: React.FC = () => {
                       onClick={() => setPaymentMethod('BANK_TRANSFER')}
                       className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                         paymentMethod === 'BANK_TRANSFER'
-                          ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 font-bold shadow-2xs'
+                          ? 'border-[#01A8F3] bg-[#E8F7FE] text-[#0188C7] font-bold shadow-2xs'
                           : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
                       }`}
                     >
-                      <Building2 className="w-4 h-4 text-indigo-600 mb-1" />
+                      <Building2 className="w-4 h-4 text-[#0188C7] mb-1" />
                       <div className="text-xs font-bold">Bank Transfer</div>
                       <div className="text-[10px] text-slate-500">Corporate bank</div>
                     </button>
@@ -308,7 +340,7 @@ export const FinanceNewExpensePage: React.FC = () => {
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Receipt number, invoice reference, or audit annotations..."
-                    className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 shadow-2xs"
                   />
                 </div>
 
@@ -335,7 +367,6 @@ export const FinanceNewExpensePage: React.FC = () => {
                     type="submit"
                     variant="primary"
                     disabled={isSubmitting || Boolean(isOverPettyCashBalance)}
-                    className="bg-blue-600 hover:bg-blue-700"
                   >
                     {isSubmitting ? 'Registering...' : 'Register Expense Voucher'}
                   </Button>
@@ -347,56 +378,48 @@ export const FinanceNewExpensePage: React.FC = () => {
 
         {/* Live Voucher Preview Card */}
         <div className="space-y-4">
-          <Card className="border border-slate-200/90 shadow-2xs bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 w-full" />
+          <Card className="border border-slate-200/90 shadow-2xs bg-white overflow-hidden">
+            <div className="h-1 bg-[#01A8F3] w-full" />
             <CardContent className="p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
-                  Official Voucher Preview
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                  Voucher Preview
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]">
                   {paymentMethod}
                 </span>
               </div>
 
               <div>
-                <div className="text-2xl font-bold font-mono text-emerald-400">
+                <div className="text-2xl font-bold font-mono text-slate-900">
                   {formatCurrency(parsedAmount)}
                 </div>
-                <div className="text-xs text-slate-300 mt-1 font-semibold">
-                  {selectedCategoryName === 'Other' && customCategory ? customCategory : selectedCategoryName}
+                <div className="text-xs text-slate-500 mt-1 font-semibold">
+                  {selectedCategoryName === 'Other' && customCategory ? customCategory : selectedCategoryName || 'Select category'}
                 </div>
               </div>
 
-              <div className="space-y-2 pt-3 border-t border-slate-700/80 text-xs text-slate-300">
+              <div className="space-y-2 pt-3 border-t border-slate-100 text-xs text-slate-600">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Disbursement Date:</span>
-                  <span className="font-mono">{format(new Date(expenseDate || new Date()), 'MMM dd, yyyy')}</span>
+                  <span className="text-slate-500">Disbursement Date:</span>
+                  <span className="font-mono text-slate-900">{format(new Date(expenseDate || new Date()), 'MMM dd, yyyy')}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Authorized By:</span>
-                  <span>{user?.fullName || 'Current User'}</span>
+                  <span className="text-slate-500">Recorded By:</span>
+                  <span className="text-slate-900">{user?.fullName || 'Current User'}</span>
                 </div>
                 <div className="pt-1">
-                  <span className="text-slate-400 block text-[11px]">Purpose:</span>
-                  <span className="text-slate-200 italic line-clamp-2">{remarks || 'Pending specification...'}</span>
+                  <span className="text-slate-500 block text-[11px]">Purpose:</span>
+                  <span className="text-slate-700 italic line-clamp-2">{remarks || 'Pending purpose'}</span>
                 </div>
               </div>
 
               {wallet && (
-                <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300 space-y-1">
-                  <div className="flex justify-between text-[11px] text-slate-400">
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
+                  <div className="flex justify-between text-[11px] text-slate-500">
                     <span>Petty Cash Float:</span>
-                    <span className="font-mono text-white font-bold">{formatCurrency(wallet.remainingBalance)}</span>
+                    <span className="font-mono text-slate-900 font-bold">{formatCurrency(wallet.remainingBalance)}</span>
                   </div>
-                  {isPettyCash && (
-                    <div className="flex justify-between text-[11px]">
-                      <span>Post-Voucher Float:</span>
-                      <span className={`font-mono font-bold ${wallet.remainingBalance - parsedAmount < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                        {formatCurrency(wallet.remainingBalance - parsedAmount)}
-                      </span>
-                    </div>
-                  )}
                 </div>
               )}
             </CardContent>

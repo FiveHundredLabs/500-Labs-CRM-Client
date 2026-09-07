@@ -3,7 +3,7 @@ import { productRepository, financeRepository } from '../../repositories';
 import { Product } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
+import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { SearchInput } from '../../components/shared/SearchInput';
 import { Select } from '../../components/ui/Select';
@@ -16,12 +16,9 @@ import {
   TrendingUp, 
   DollarSign, 
   AlertTriangle, 
-  CheckCircle2, 
   FileSpreadsheet, 
   Printer, 
   Tag, 
-  Layers, 
-  Info,
   ArrowUpRight,
   ShieldCheck
 } from 'lucide-react';
@@ -178,7 +175,7 @@ export const FinanceInventoryPage: React.FC = () => {
         title="Inventory & Asset Valuation Ledger"
         description="Comprehensive real-time stock asset audit, unit cost acquisition tracking, COGS allocation, and realized profit margins."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
               leftIcon={<Printer className="w-4 h-4 text-slate-600" />}
@@ -190,7 +187,7 @@ export const FinanceInventoryPage: React.FC = () => {
               variant="primary"
               leftIcon={<FileSpreadsheet className="w-4 h-4" />}
               onClick={handleExportExcel}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-[#80BD2B] hover:bg-[#72A826] text-white border-none"
             >
               Export Excel
             </Button>
@@ -203,28 +200,28 @@ export const FinanceInventoryPage: React.FC = () => {
         <StatCard
           title="Stock Asset Valuation (Cost)"
           value={formatCurrency(summary.totalValuationCost)}
-          icon={<Boxes className="w-5 h-5 text-blue-600" />}
+          icon={<Boxes className="w-5 h-5 text-[#01A8F3]" />}
           subtitle={`${summary.totalUnitsOnHand.toLocaleString()} total units on hand`}
           accentColor="blue"
         />
         <StatCard
           title="Potential Catalog Revenue"
           value={formatCurrency(summary.totalPotentialSales)}
-          icon={<TrendingUp className="w-5 h-5 text-indigo-600" />}
+          icon={<TrendingUp className="w-5 h-5 text-[#0188C7]" />}
           subtitle="At active list selling price"
-          accentColor="purple"
+          accentColor="blue"
         />
         <StatCard
           title="Realized Sales Revenue"
           value={formatCurrency(summary.totalRealizedRevenue)}
-          icon={<DollarSign className="w-5 h-5 text-emerald-600" />}
+          icon={<DollarSign className="w-5 h-5 text-[#547E1B]" />}
           subtitle={`${summary.totalSoldUnits.toLocaleString()} units delivered`}
           accentColor="green"
         />
         <StatCard
           title="Overall Gross Margin"
           value={`${summary.avgMargin}%`}
-          icon={<ArrowUpRight className="w-5 h-5 text-purple-600" />}
+          icon={<ArrowUpRight className="w-5 h-5 text-[#547E1B]" />}
           subtitle={`Profit: ${formatCurrency(summary.totalGrossProfit)}`}
           accentColor="green"
         />
@@ -278,7 +275,7 @@ export const FinanceInventoryPage: React.FC = () => {
               Displaying <strong className="text-slate-900">{filtered.length}</strong> of {inventoryItems.length} registered SKUs
             </span>
             <span>
-              Filtered Stock Cost: <strong className="text-blue-700 font-mono font-semibold">{formatCurrency(filtered.reduce((a, i) => a + i.stockValuation, 0))}</strong>
+              Filtered Stock Cost: <strong className="text-[#0188C7] font-mono font-semibold">{formatCurrency(filtered.reduce((a, i) => a + i.stockValuation, 0))}</strong>
             </span>
           </div>
         </CardContent>
@@ -314,12 +311,12 @@ export const FinanceInventoryPage: React.FC = () => {
                   const isOut = item.currentStock === 0;
 
                   return (
-                    <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
+                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* Name & Code */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs shrink-0 border border-slate-200">
-                            <Package className="w-4 h-4 text-blue-600" />
+                            <Package className="w-4 h-4 text-[#01A8F3]" />
                           </div>
                           <div>
                             <div className="font-semibold text-slate-900 text-xs sm:text-sm">{item.name}</div>
@@ -345,7 +342,7 @@ export const FinanceInventoryPage: React.FC = () => {
                                 ? 'bg-red-50 text-red-700 border border-red-200'
                                 : isLow
                                 ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-[#F2F9E9] text-[#547E1B] border border-[#D4ECC6]'
                             }`}
                           >
                             {item.currentStock} in stock
@@ -369,7 +366,7 @@ export const FinanceInventoryPage: React.FC = () => {
                       </td>
 
                       {/* Stock Valuation */}
-                      <td className="py-3.5 px-4 text-right font-mono text-xs font-bold text-blue-700">
+                      <td className="py-3.5 px-4 text-right font-mono text-xs font-bold text-[#0188C7]">
                         {formatCurrency(item.stockValuation)}
                       </td>
 
@@ -381,7 +378,7 @@ export const FinanceInventoryPage: React.FC = () => {
                       </td>
 
                       {/* Realized Revenue */}
-                      <td className="py-3.5 px-4 text-right font-mono text-xs text-emerald-700 font-semibold">
+                      <td className="py-3.5 px-4 text-right font-mono text-xs text-[#547E1B] font-semibold">
                         {formatCurrency(item.realizedRevenue)}
                       </td>
 
@@ -395,9 +392,9 @@ export const FinanceInventoryPage: React.FC = () => {
                         <span
                           className={`text-xs font-mono font-extrabold px-2 py-0.5 rounded ${
                             Number(item.marginPct) >= 30
-                              ? 'bg-emerald-50 text-emerald-700'
+                              ? 'bg-[#F2F9E9] text-[#547E1B]'
                               : Number(item.marginPct) > 0
-                              ? 'bg-blue-50 text-blue-700'
+                              ? 'bg-[#E8F7FE] text-[#0188C7]'
                               : 'bg-slate-100 text-slate-500'
                           }`}
                         >
@@ -414,11 +411,11 @@ export const FinanceInventoryPage: React.FC = () => {
       )}
 
       {/* Regulatory & Audit Note */}
-      <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-100 flex items-start gap-3 text-xs text-blue-900">
-        <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+      <div className="p-4 rounded-xl bg-[#E8F7FE]/60 border border-[#B9E7FC] flex items-start gap-3 text-xs text-[#014D70]">
+        <ShieldCheck className="w-5 h-5 text-[#01A8F3] shrink-0 mt-0.5" />
         <div>
           <h5 className="font-bold">Accounting & Compliance Notice:</h5>
-          <p className="text-blue-800 leading-relaxed mt-0.5">
+          <p className="text-[#016DA0] leading-relaxed mt-0.5">
             Stock assets are valued on a real-time Weighted Moving Acquisition Standard. COGS and Gross Margins are computed solely against verified Delivered customer orders to maintain true realized revenue governance.
           </p>
         </div>

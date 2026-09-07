@@ -11,8 +11,6 @@ import {
   FileSpreadsheet,
   ArrowLeft,
   Clock,
-  CheckCircle2,
-  Lock,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -38,13 +36,13 @@ export const FinanceUnderDevelopmentPage: React.FC<Props> = ({ moduleName = 'Fin
 
   const upcomingFeatures = [
     {
-      icon: <TrendingUp className="w-5 h-5 text-emerald-600" />,
+      icon: <TrendingUp className="w-5 h-5 text-[#547E1B]" />,
       title: 'Automated COD Reconciliation',
       description: 'Direct courier API synchronization and automated delivery remittance verification.',
       badge: 'In Progress',
     },
     {
-      icon: <Wallet className="w-5 h-5 text-blue-600" />,
+      icon: <Wallet className="w-5 h-5 text-[#01A8F3]" />,
       title: 'Petty Cash & Voucher Governance',
       description: 'Multi-level approval workflows for operational reimbursements and digital receipts.',
       badge: 'Architecture',
@@ -68,15 +66,15 @@ export const FinanceUnderDevelopmentPage: React.FC<Props> = ({ moduleName = 'Fin
       <div className="w-full max-w-4xl space-y-8">
         {/* Main Hero Card */}
         <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xl overflow-hidden relative backdrop-blur-md">
-          {/* Subtle top accent gradient */}
-          <div className="h-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 w-full" />
+          {/* Top brand accent gradient */}
+          <div className="h-2.5 bg-gradient-to-r from-[#01A8F3] via-[#0188C7] to-[#80BD2B] w-full" />
 
           <div className="p-6 sm:p-10 lg:p-12 text-center space-y-6">
             {/* Animated Badge & Icon */}
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-blue-50 border-2 border-blue-200/60 flex items-center justify-center text-blue-600 shadow-inner">
-                  <Wrench className="w-10 h-10 sm:w-12 sm:h-12 animate-pulse text-blue-600" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-[#E8F7FE] border-2 border-[#B9E7FC] flex items-center justify-center text-[#01A8F3] shadow-inner">
+                  <Wrench className="w-10 h-10 sm:w-12 sm:h-12 animate-pulse text-[#01A8F3]" />
                 </div>
                 <div className="absolute -bottom-2 -right-2 bg-amber-500 text-white p-1.5 rounded-full border-2 border-white shadow-xs">
                   <Clock className="w-4 h-4" />
@@ -106,7 +104,6 @@ export const FinanceUnderDevelopmentPage: React.FC<Props> = ({ moduleName = 'Fin
                 variant="primary"
                 leftIcon={<ArrowLeft className="w-4 h-4 text-white" />}
                 onClick={handleReturnHome}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs px-6 py-2.5 rounded-xl text-xs sm:text-sm"
               >
                 Back to Dashboard
               </Button>
@@ -117,7 +114,7 @@ export const FinanceUnderDevelopmentPage: React.FC<Props> = ({ moduleName = 'Fin
           <div className="bg-slate-50/80 border-t border-slate-200/70 p-6 sm:p-8">
             <div className="text-center mb-6">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-blue-600" />
+                <Sparkles className="w-4 h-4 text-[#01A8F3]" />
                 <span>Upcoming Financial Capabilities</span>
               </h3>
             </div>
@@ -134,7 +131,7 @@ export const FinanceUnderDevelopmentPage: React.FC<Props> = ({ moduleName = 'Fin
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate">{feat.title}</h4>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC] shrink-0">
                         {feat.badge}
                       </span>
                     </div>
@@ -146,7 +143,7 @@ export const FinanceUnderDevelopmentPage: React.FC<Props> = ({ moduleName = 'Fin
 
             {/* Bottom Audit Notice */}
             <div className="mt-6 p-3.5 rounded-xl bg-white border border-slate-200/90 flex items-center justify-center gap-2 text-xs text-slate-500 text-center">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <ShieldCheck className="w-4 h-4 text-[#547E1B] shrink-0" />
               <span>
                 Enterprise Security: Financial ledger access will be strictly governed by role-based cryptographic tokens.
               </span>

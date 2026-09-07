@@ -7,14 +7,8 @@ import { ReportSummaryCards } from './ReportSummaryCards';
 import { ReportChart } from './ReportChart';
 import { ReportTable } from './ReportTable';
 import { ExportActions } from './ExportActions';
-import { Button } from '../../../../components/ui/Button';
 import { 
   ArrowLeft, 
-  Calendar, 
-  ShieldCheck, 
-  Clock, 
-  Sparkles,
-  Printer
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -154,17 +148,15 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
   }, [rawReportData]);
 
   const IconComponent = report.icon;
-  const lastGeneratedTime = useMemo(() => format(new Date(), 'dd MMM yyyy, HH:mm'), []);
 
   return (
     <div className="space-y-6">
-      {/* Top Navigation & Executive Header */}
       {/* Top Navigation & Executive Header */}
       <div className="pb-3 border-b border-slate-200 space-y-2">
         {/* Back button */}
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors cursor-pointer group"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0188C7] transition-colors cursor-pointer group"
         >
           <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
           <span>Back to Finance Reports Directory</span>
@@ -172,7 +164,7 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
 
         {/* Title and Badge */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC] flex items-center justify-center shrink-0">
             <IconComponent className="w-4.5 h-4.5" />
           </div>
           <div>
@@ -184,8 +176,8 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
                 {report.badgeText}
               </span>
               {(report.id === 'product-cost' || report.id === 'income-summary') && liveReportData !== null && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#F2F9E9] text-[#547E1B] border border-[#D4ECC6]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#80BD2B] animate-pulse" />
                   Live Database
                 </span>
               )}

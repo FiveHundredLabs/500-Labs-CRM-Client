@@ -5,7 +5,6 @@ import { teamRepository } from '../../../../repositories';
 import { Select } from '../../../../components/ui/Select';
 import { 
   Calendar, 
-  Filter, 
   Users, 
   Tag, 
   CreditCard, 
@@ -14,10 +13,9 @@ import {
 } from 'lucide-react';
 import { 
   format, 
-  subDays, 
+  subMonths, 
   startOfMonth, 
   endOfMonth, 
-  subMonths, 
   startOfWeek, 
   endOfWeek, 
   startOfYear, 
@@ -160,7 +158,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
           {/* Date Range Selector */}
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-semibold text-slate-600 flex items-center gap-1 shrink-0">
-              <Calendar className="w-3.5 h-3.5 text-blue-600" />
+              <Calendar className="w-3.5 h-3.5 text-[#01A8F3]" />
               <span className="hidden sm:inline">Range:</span>
             </span>
             <div className="w-44">
@@ -185,7 +183,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
           {supportsCategory && (
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-600 flex items-center gap-1 shrink-0">
-                <Tag className="w-3.5 h-3.5 text-blue-600" />
+                <Tag className="w-3.5 h-3.5 text-[#01A8F3]" />
                 <span className="hidden sm:inline">Category:</span>
               </span>
               <div className="w-40">
@@ -205,7 +203,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
           {supportsPaymentMethod && (
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-600 flex items-center gap-1 shrink-0">
-                <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+                <CreditCard className="w-3.5 h-3.5 text-[#01A8F3]" />
                 <span className="hidden sm:inline">Channel:</span>
               </span>
               <div className="w-36">
@@ -227,7 +225,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
           {supportsTeam && (
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-600 flex items-center gap-1 shrink-0">
-                <Users className="w-3.5 h-3.5 text-blue-600" />
+                <Users className="w-3.5 h-3.5 text-[#01A8F3]" />
                 <span className="hidden sm:inline">Team:</span>
               </span>
               <div className="w-48">
@@ -269,7 +267,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
       {(filters.dateRange.preset === 'CUSTOM' || (filters.dateRange.preset === 'ALL' && (filters.dateRange.startDate || filters.dateRange.endDate))) && (
         <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-3 text-xs bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
           <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-blue-600" />
+            <Clock className="w-3.5 h-3.5 text-[#01A8F3]" />
             <span>Active Range:</span>
           </span>
 
@@ -279,7 +277,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
               type="date"
               value={filters.dateRange.startDate}
               onChange={(e) => handleCustomDateChange(e.target.value, filters.dateRange.endDate)}
-              className="bg-white border border-slate-300 rounded-md px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="bg-white border border-slate-300 rounded-md px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
             />
           </div>
 
@@ -289,7 +287,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
               type="date"
               value={filters.dateRange.endDate}
               onChange={(e) => handleCustomDateChange(filters.dateRange.startDate, e.target.value)}
-              className="bg-white border border-slate-300 rounded-md px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="bg-white border border-slate-300 rounded-md px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
             />
           </div>
         </div>

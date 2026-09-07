@@ -272,9 +272,9 @@ export const MemberDashboard: React.FC = () => {
       <div className="p-3.5 bg-white border border-slate-200 rounded-2xl shadow-2xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2 font-bold text-xs text-slate-800 uppercase tracking-wider">
-            <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+            <Calendar className="w-4 h-4 text-[#01A8F3] shrink-0" />
             <span>Time Period Scope:</span>
-            <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-2.5 py-0.5 rounded-full capitalize tracking-normal border border-blue-100">
+            <span className="text-[10px] bg-[#E8F7FE] text-[#0188C7] font-bold px-2.5 py-0.5 rounded-full capitalize tracking-normal border border-[#B9E7FC]">
               {dateFilter === 'ALL'
                 ? 'All Time (Total)'
                 : dateFilter === 'THIS_MONTH'
@@ -307,7 +307,7 @@ export const MemberDashboard: React.FC = () => {
                 onClick={() => setDateFilter(item.key as DashboardDateFilter)}
                 className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   dateFilter === item.key
-                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    ? 'bg-[#01A8F3] text-white shadow-xs font-bold'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
@@ -379,7 +379,7 @@ export const MemberDashboard: React.FC = () => {
         {/* Top Header: Title & Month Switcher */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-2xs shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#01A8F3] text-white flex items-center justify-center shadow-2xs shrink-0">
               <Target className="w-4 h-4" />
             </div>
             <div>
@@ -399,7 +399,7 @@ export const MemberDashboard: React.FC = () => {
               onClick={() => setSelectedMonthPreset('THIS_MONTH')}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer text-[11px] sm:text-xs ${
                 selectedMonthPreset === 'THIS_MONTH'
-                  ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                  ? 'bg-white text-[#0188C7] shadow-2xs font-bold'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -410,7 +410,7 @@ export const MemberDashboard: React.FC = () => {
               onClick={() => setSelectedMonthPreset('LAST_MONTH')}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer text-[11px] sm:text-xs ${
                 selectedMonthPreset === 'LAST_MONTH'
-                  ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                  ? 'bg-white text-[#0188C7] shadow-2xs font-bold'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -444,7 +444,7 @@ export const MemberDashboard: React.FC = () => {
                   achievementPercentage >= 100
                     ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-2xs'
                     : achievementPercentage >= 80
-                    ? 'bg-blue-50 border-blue-300 text-blue-950 shadow-2xs'
+                    ? 'bg-[#E8F7FE] border-[#B9E7FC] text-[#0188C7] shadow-2xs'
                     : 'bg-white border-slate-200 text-slate-900'
                 }`}
               >
@@ -453,9 +453,9 @@ export const MemberDashboard: React.FC = () => {
                 </span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {achievementPercentage >= 100 ? (
-                    <Trophy className="w-4 h-4 text-emerald-600" />
+                    <Trophy className="w-4 h-4 text-[#80BD2B]" />
                   ) : achievementPercentage >= 80 ? (
-                    <Zap className="w-4 h-4 text-blue-600" />
+                    <Zap className="w-4 h-4 text-[#01A8F3]" />
                   ) : (
                     <TrendingUp className="w-4 h-4 text-slate-500" />
                   )}
@@ -551,15 +551,15 @@ export const MemberDashboard: React.FC = () => {
                       key={idx}
                       className={`px-2.5 py-1.5 rounded-lg text-xs font-mono flex items-center justify-between transition-all ${
                         isReached
-                          ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                          ? 'bg-[#80BD2B] text-white font-bold shadow-xs'
                           : isNextTarget
-                          ? 'bg-blue-50 text-blue-900 border-2 border-blue-400 font-bold'
+                          ? 'bg-[#E8F7FE] text-[#0188C7] border-2 border-[#01A8F3] font-bold'
                           : 'bg-white text-slate-600 border border-slate-200'
                       }`}
                     >
                       <span className="flex items-center gap-1 font-bold">
                         {isReached && <CheckCircle2 className="w-3 h-3 text-white" />}
-                        {isNextTarget && <Target className="w-3 h-3 text-blue-600" />}
+                        {isNextTarget && <Target className="w-3 h-3 text-[#01A8F3]" />}
                         <span>{tier.minPercentage}%</span>
                       </span>
 
