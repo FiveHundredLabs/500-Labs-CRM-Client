@@ -803,9 +803,12 @@ export class ApiFinanceRepository {
     );
   }
 
-  async getInventoryReport(): Promise<InventoryReportItem[]> {
+  async getInventoryReport(teamId?: string, category?: string): Promise<InventoryReportItem[]> {
+    const params: Record<string, string> = {};
+    if (teamId && teamId !== 'ALL') params.teamId = teamId;
+    if (category && category !== 'ALL') params.category = category;
     return unwrap(
-      await apiClient.get<{ data: InventoryReportItem[] }>('/finance/inventory-report')
+      await apiClient.get<{ data: InventoryReportItem[] }>('/finance/inventory-report', { params })
     );
   }
 

@@ -102,10 +102,16 @@ export const ReportChart: React.FC<ReportChartProps> = ({
       case 'BAR':
       case 'GROUPED_BAR':
         return (
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={340}>
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 25 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-              <XAxis dataKey={config.xAxisKey} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={{ stroke: '#E2E8F0' }} />
+              <XAxis
+                dataKey={config.xAxisKey}
+                tick={{ fontSize: 11, fill: '#64748B' }}
+                axisLine={{ stroke: '#E2E8F0' }}
+                interval={0}
+                tickFormatter={(v) => typeof v === 'string' && v.length > 22 ? `${v.slice(0, 20)}…` : String(v || '')}
+              />
               <YAxis
                 tick={{ fontSize: 11, fill: '#64748B' }}
                 axisLine={false}

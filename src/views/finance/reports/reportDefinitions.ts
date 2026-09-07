@@ -448,16 +448,17 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
     ],
     chartConfig: {
       type: 'GROUPED_BAR',
-      xAxisKey: 'code',
+      xAxisKey: 'name',
       series: [
         { key: 'costPrice', name: 'Unit Cost (LKR)', color: '#64748B' },
         { key: 'sellingPrice', name: 'Selling Price (LKR)', color: '#10B981' },
       ],
       getChartData: (filteredData) => {
-        return filteredData.map((d: ProductCostRecord) => ({
-          code: d.code.replace('PRD-', ''),
-          costPrice: d.costPrice,
-          sellingPrice: d.sellingPrice,
+        return (filteredData || []).map((d: ProductCostRecord) => ({
+          name: d.name || d.code,
+          code: d.code,
+          costPrice: Number(d.costPrice) || 0,
+          sellingPrice: Number(d.sellingPrice) || 0,
         }));
       },
     },
@@ -471,9 +472,39 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
       { id: 'stockValue', header: 'Holding Value (Cost)', accessorKey: 'stockValue', align: 'right', format: 'currency' },
       { id: 'margin', header: 'Gross Margin', accessorKey: 'margin', align: 'center', format: 'badge' },
     ],
+    pdfConfig: {
+      orientation: 'portrait',
+      columns: [
+        { header: 'Product Code', accessorKey: 'code', align: 'left', widthMm: 28 },
+        { header: 'Merchandise Title', accessorKey: 'name', align: 'left', widthMm: 52 },
+        { header: 'Unit Cost', accessorKey: 'costPrice', align: 'right', format: 'currency', widthMm: 24 },
+        { header: 'Selling Price', accessorKey: 'sellingPrice', align: 'right', format: 'currency', widthMm: 24 },
+        { header: 'In Stock', accessorKey: 'currentStock', align: 'center', format: 'number', widthMm: 22 },
+        { header: 'Total Value (Cost)', accessorKey: 'stockValue', align: 'right', format: 'currency', widthMm: 32 },
+      ],
+      summaryLines: (data) => {
+        const totalUnits = data.reduce((acc: number, curr: any) => acc + (Number(curr.currentStock) || 0), 0);
+        const totalCostVal = data.reduce((acc: number, curr: any) => acc + (Number(curr.stockValue) || 0), 0);
+        const totalRetailVal = data.reduce((acc: number, curr: any) => acc + ((Number(curr.currentStock) || 0) * (Number(curr.sellingPrice) || 0)), 0);
+        const potentialProfit = totalRetailVal - totalCostVal;
+        const potentialMargin = totalRetailVal > 0 ? ((potentialProfit / totalRetailVal) * 100).toFixed(1) : '0.0';
+
+        return [
+          { label: 'Total Physical Units in Warehouse:', value: `${totalUnits.toLocaleString()} units`, isBold: false },
+          { label: 'Total Inventory Asset Valuation (Cost):', value: formatCurrency(totalCostVal), isBold: true, isHighlight: true },
+          { label: 'Potential Gross Retail Sales Value:', value: formatCurrency(totalRetailVal), isBold: false },
+          { label: 'Potential Unrealized Catalog Margin:', value: `${potentialMargin}%`, isBold: true },
+        ];
+      },
+    },
     getData: (db, filters) => {
-      return db.products.filter((p: ProductCostRecord) => {
+      const items: ProductCostRecord[] = Array.isArray(db) ? db : (db.products || []);
+      return items.filter((p: ProductCostRecord) => {
         if (filters.category && filters.category !== 'ALL' && p.category !== filters.category) return false;
+        if (filters.search && filters.search.trim()) {
+          const q = filters.search.toLowerCase();
+          return (p.name || '').toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q);
+        }
         return true;
       });
     },
