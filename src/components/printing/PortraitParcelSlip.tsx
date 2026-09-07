@@ -217,11 +217,20 @@ export const PortraitParcelSlip: React.FC<
     (data as any)?.code ||
     '';
 
-  const senderAddress = formatAddress(data.team.address);
-
   const consigneeAddress = formatAddress(
     data.customer.address,
   );
+
+  const primaryPhone = data.customer?.phone?.trim() || '';
+  const secondaryPhone = (
+    data.customer?.secondaryMobile ||
+    (data.customer as any)?.secondaryPhone ||
+    ''
+  ).trim();
+
+  const customerPhones = [primaryPhone, secondaryPhone]
+    .filter((phone, idx, arr) => Boolean(phone) && arr.indexOf(phone) === idx)
+    .join(' / ');
 
   /*
    * Consignee density.
@@ -229,9 +238,9 @@ export const PortraitParcelSlip: React.FC<
   const addressLength = consigneeAddress.length;
 
   const consigneeAddressFontSize =
-    addressLength > 95
+    addressLength > 90
       ? '7pt'
-      : addressLength > 65
+      : addressLength > 60
         ? '7.5pt'
         : '8pt';
 
