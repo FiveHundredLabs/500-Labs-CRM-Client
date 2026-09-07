@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { PettyCashWallet, PettyCashTransaction, PettyCashAllocation } from '../../models/domain';
-import { pettyCashRepository } from '../../repositories';
+import { ExpenseCategory, PettyCashWallet, PettyCashTransaction, PettyCashAllocation } from '../../models/domain';
+import { expenseRepository, pettyCashRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
+import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
@@ -21,13 +21,6 @@ import {
   ArrowDownRight, 
   Plus, 
   AlertTriangle, 
-  CheckCircle2, 
-  Clock, 
-  DollarSign, 
-  FileText, 
-  ShieldAlert, 
-  Tag, 
-  User,
   Layers,
   ChevronDown,
   ChevronRight,
@@ -43,7 +36,9 @@ export const FinancePettyCashPage: React.FC = () => {
   const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
   const [transactions, setTransactions] = useState<PettyCashTransaction[]>([]);
   const [allocations, setAllocations] = useState<PettyCashAllocation[]>([]);
+  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [activeView, setActiveView] = useState<'TRANSACTIONS' | 'ALLOCATIONS'>('TRANSACTIONS');
 
   // Expanded allocation ID for drilldown
@@ -56,7 +51,7 @@ export const FinancePettyCashPage: React.FC = () => {
   // New Expense Dialog State
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [reason, setReason] = useState('');
-  const [category, setCategory] = useState('Transport');
+  const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [description, setDescription] = useState('');
@@ -70,21 +65,29 @@ export const FinancePettyCashPage: React.FC = () => {
   const [allocateRemarks, setAllocateRemarks] = useState('');
   const [isSubmittingAllocation, setIsSubmittingAllocation] = useState(false);
 
+  const targetTeamId = role === 'SUPERVISOR' ? user?.teamId ?? undefined : undefined;
+
   const loadData = async () => {
     setLoading(true);
+    setLoadError('');
     try {
-      const [walletData, txData, allocData] = await Promise.all([
-        pettyCashRepository.getWallet(user?.teamId || undefined),
-        pettyCashRepository.getTransactions(user?.teamId || undefined),
-        pettyCashRepository.getAllocations(user?.teamId || undefined).catch(() => []),
+      const [walletData, txData, allocData, categoryData] = await Promise.all([
+        pettyCashRepository.getWallet(targetTeamId),
+        pettyCashRepository.getTransactions(targetTeamId),
+        pettyCashRepository.getAllocations(targetTeamId).catch(() => []),
+        expenseRepository.getCategories().catch(() => []),
       ]);
       setWallet(walletData);
       setTransactions(
         (txData || []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       );
       setAllocations(allocData || []);
-    } catch {
-      toast.error('Failed to load petty cash wallet data.');
+      setCategories(categoryData || []);
+      setCategory((current) => current || categoryData?.[0]?.name || '');
+    } catch (err: any) {
+      const message = err.response?.data?.message || err.message || 'Failed to load petty cash wallet data.';
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -92,9 +95,18 @@ export const FinancePettyCashPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, [targetTeamId]);
 
-  if (loading || !wallet) return <LoadingState rows={8} />;
+  if (loading) return <LoadingState rows={8} />;
+
+  if (loadError || !wallet) {
+    return (
+      <EmptyState
+        title="Petty cash data unavailable"
+        description={loadError || 'The wallet endpoint did not return a usable wallet.'}
+      />
+    );
+  }
 
   const parsedAmount = parseFloat(amount) || 0;
   const isOverBalance = parsedAmount > wallet.remainingBalance;
@@ -102,8 +114,6 @@ export const FinancePettyCashPage: React.FC = () => {
   // Handle Record Expense
   const handleRecordExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
     if (!reason.trim()) {
       toast.error('Please enter a voucher title.');
       return;
@@ -111,6 +121,11 @@ export const FinancePettyCashPage: React.FC = () => {
 
     if (parsedAmount <= 0) {
       toast.error('Please enter a valid expense amount greater than 0.');
+      return;
+    }
+
+    if (!category) {
+      toast.error('Please select a database expense category.');
       return;
     }
 
@@ -123,17 +138,15 @@ export const FinancePettyCashPage: React.FC = () => {
 
     setIsSubmittingExpense(true);
     try {
-      await pettyCashRepository.recordExpense(
-        {
-          reason: reason.trim(),
-          category,
-          amount: parsedAmount,
-          date,
-          description: description.trim() || reason.trim(),
-          allocationId: selectedAllocId || undefined,
-        },
-        user
-      );
+      await pettyCashRepository.recordExpense({
+        reason: reason.trim(),
+        category,
+        amount: parsedAmount,
+        date,
+        description: description.trim() || reason.trim(),
+        allocationId: selectedAllocId || undefined,
+        teamId: targetTeamId,
+      });
 
       toast.success(`Petty cash voucher of ${formatCurrency(parsedAmount)} recorded!`);
       setReason('');
@@ -152,8 +165,6 @@ export const FinancePettyCashPage: React.FC = () => {
   // Handle Allocate Funds
   const handleAllocateFunds = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
     const parsedAlloc = parseFloat(allocateAmount);
     if (isNaN(parsedAlloc) || parsedAlloc <= 0) {
       toast.error('Please enter a valid allocation amount greater than 0.');
@@ -167,7 +178,7 @@ export const FinancePettyCashPage: React.FC = () => {
 
     setIsSubmittingAllocation(true);
     try {
-      await pettyCashRepository.allocate(parsedAlloc, user, allocateReason.trim());
+      await pettyCashRepository.allocate(parsedAlloc, allocateReason.trim(), targetTeamId, allocateRemarks.trim() || undefined);
       toast.success(`Allocated ${formatCurrency(parsedAlloc)} to Petty Cash wallet!`);
       setAllocateAmount('');
       setAllocateReason('');
@@ -226,10 +237,10 @@ export const FinancePettyCashPage: React.FC = () => {
         title="Petty Cash & Allocation Governance"
         description="Monitor working float balances, record operational vouchers, and drill down into allocation funding history."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
-              leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+              leftIcon={<FileSpreadsheet className="w-4 h-4 text-[#547E1B]" />}
               onClick={handleExportExcel}
             >
               Export Ledger
@@ -237,7 +248,7 @@ export const FinancePettyCashPage: React.FC = () => {
             {(role === 'ADMIN' || role === 'FINANCE') && (
               <Button
                 variant="outline"
-                leftIcon={<PiggyBank className="w-4 h-4 text-blue-600" />}
+                leftIcon={<PiggyBank className="w-4 h-4 text-[#01A8F3]" />}
                 onClick={() => setIsAllocateModalOpen(true)}
               >
                 Allocate Funds
@@ -260,7 +271,7 @@ export const FinancePettyCashPage: React.FC = () => {
         <StatCard
           title="Available Petty Cash Balance"
           value={formatCurrency(wallet.remainingBalance)}
-          icon={<Wallet className="w-5 h-5 text-emerald-600" />}
+          icon={<Wallet className="w-5 h-5 text-[#547E1B]" />}
           subtitle={`${100 - utilizationPercentage}% float remaining`}
           accentColor="green"
         />
@@ -269,7 +280,7 @@ export const FinancePettyCashPage: React.FC = () => {
         <StatCard
           title="Cumulative Float Allocated"
           value={formatCurrency(wallet.allocatedAmount)}
-          icon={<ArrowUpRight className="w-5 h-5 text-blue-600" />}
+          icon={<ArrowUpRight className="w-5 h-5 text-[#01A8F3]" />}
           subtitle={`${allocations.length} total funding allocations`}
           accentColor="blue"
         />
@@ -294,7 +305,7 @@ export const FinancePettyCashPage: React.FC = () => {
           <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
             <div
               className={`h-full transition-all duration-500 rounded-full ${
-                utilizationPercentage > 85 ? 'bg-red-500' : utilizationPercentage > 60 ? 'bg-amber-500' : 'bg-emerald-500'
+                utilizationPercentage > 85 ? 'bg-red-500' : utilizationPercentage > 60 ? 'bg-amber-500' : 'bg-[#80BD2B]'
               }`}
               style={{ width: `${utilizationPercentage}%` }}
             />
@@ -312,7 +323,7 @@ export const FinancePettyCashPage: React.FC = () => {
           onClick={() => setActiveView('TRANSACTIONS')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
             activeView === 'TRANSACTIONS'
-              ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+              ? 'border-[#01A8F3] text-[#0188C7] bg-[#E8F7FE]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -324,7 +335,7 @@ export const FinancePettyCashPage: React.FC = () => {
           onClick={() => setActiveView('ALLOCATIONS')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
             activeView === 'ALLOCATIONS'
-              ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+              ? 'border-[#01A8F3] text-[#0188C7] bg-[#E8F7FE]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -388,7 +399,7 @@ export const FinancePettyCashPage: React.FC = () => {
                             <span
                               className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                                 isAlloc
-                                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                  ? 'bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]'
                                   : 'bg-amber-50 text-amber-800 border border-amber-200'
                               }`}
                             >
@@ -416,7 +427,7 @@ export const FinancePettyCashPage: React.FC = () => {
                             {tx.date ? format(new Date(tx.date), 'MMM dd, yyyy') : 'N/A'}
                           </td>
 
-                          <td className={`py-3.5 px-4 text-right font-mono font-bold text-xs ${isAlloc ? 'text-blue-600' : 'text-slate-900'}`}>
+                          <td className={`py-3.5 px-4 text-right font-mono font-bold text-xs ${isAlloc ? 'text-[#0188C7]' : 'text-slate-900'}`}>
                             {isAlloc ? `+${formatCurrency(tx.amount)}` : `-${formatCurrency(tx.amount)}`}
                           </td>
 
@@ -459,10 +470,10 @@ export const FinancePettyCashPage: React.FC = () => {
                     >
                       <div className="flex items-center gap-3">
                         <button className="p-1 rounded text-slate-400 hover:text-slate-700">
-                          {isExpanded ? <ChevronDown className="w-5 h-5 text-blue-600" /> : <ChevronRight className="w-5 h-5" />}
+                          {isExpanded ? <ChevronDown className="w-5 h-5 text-[#01A8F3]" /> : <ChevronRight className="w-5 h-5" />}
                         </button>
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs font-mono shrink-0">
-                          {alloc.allocationCode}
+                        <div className="w-10 h-10 rounded-xl bg-[#E8F7FE] border border-[#B9E7FC] flex items-center justify-center text-[#0188C7] font-bold text-xs font-mono shrink-0">
+                          {alloc.allocationCode.slice(-4)}
                         </div>
                         <div>
                           <div className="font-bold text-slate-900 text-sm">{alloc.reason}</div>
@@ -483,7 +494,7 @@ export const FinancePettyCashPage: React.FC = () => {
 
                         <div>
                           <div className="text-xs text-slate-400">Spent / Remaining</div>
-                          <div className="font-bold font-mono text-xs text-emerald-600">
+                          <div className="font-bold font-mono text-xs text-[#547E1B]">
                             {formatCurrency(alloc.remainingAmount)} left
                           </div>
                         </div>
@@ -491,7 +502,7 @@ export const FinancePettyCashPage: React.FC = () => {
                         <div className="w-24 hidden sm:block">
                           <div className="text-[10px] text-slate-400 text-left mb-1">{allocUsagePct}% spent</div>
                           <div className="w-full bg-slate-100 rounded-full h-1.5">
-                            <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${allocUsagePct}%` }} />
+                            <div className="bg-[#01A8F3] h-1.5 rounded-full" style={{ width: `${allocUsagePct}%` }} />
                           </div>
                         </div>
                       </div>
@@ -502,7 +513,7 @@ export const FinancePettyCashPage: React.FC = () => {
                       <div className="bg-slate-50/80 border-t border-slate-200/80 p-4 sm:p-5 space-y-3">
                         <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
                           <span className="flex items-center gap-1.5">
-                            <Receipt className="w-4 h-4 text-blue-600" />
+                            <Receipt className="w-4 h-4 text-[#01A8F3]" />
                             <span>Vouchers Drawn from {alloc.allocationCode}</span>
                           </span>
                           <span className="text-slate-500">
@@ -588,19 +599,13 @@ export const FinancePettyCashPage: React.FC = () => {
                 required
               />
             </div>
-
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
               <Select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 options={[
-                  { value: 'Transport', label: 'Transport' },
-                  { value: 'Postal Charges', label: 'Postal Charges' },
-                  { value: 'Refreshments', label: 'Refreshments' },
-                  { value: 'Stationery', label: 'Stationery' },
-                  { value: 'Maintenance', label: 'Maintenance' },
-                  { value: 'Other', label: 'Other' },
+                  ...categories.map((cat) => ({ value: cat.name, label: cat.name })),
                 ]}
               />
             </div>
@@ -613,7 +618,7 @@ export const FinancePettyCashPage: React.FC = () => {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
                 required
               />
             </div>
@@ -643,7 +648,7 @@ export const FinancePettyCashPage: React.FC = () => {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Detailed recipient or receipt note..."
-              className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+              className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 shadow-2xs"
             />
           </div>
 
@@ -664,7 +669,6 @@ export const FinancePettyCashPage: React.FC = () => {
               type="submit"
               variant="primary"
               disabled={isSubmittingExpense || isOverBalance}
-              className="bg-blue-600 hover:bg-blue-700"
             >
               {isSubmittingExpense ? 'Recording...' : 'Record Voucher'}
             </Button>
@@ -679,8 +683,8 @@ export const FinancePettyCashPage: React.FC = () => {
         title="Deposit Allocation Float to Petty Cash"
       >
         <form onSubmit={handleAllocateFunds} className="space-y-4">
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-center gap-2">
-            <PiggyBank className="w-4 h-4 text-blue-600 shrink-0" />
+          <div className="p-3 bg-[#E8F7FE] border border-[#B9E7FC] rounded-xl text-xs text-[#0188C7] flex items-center gap-2">
+            <PiggyBank className="w-4 h-4 text-[#01A8F3] shrink-0" />
             <span>This will deposit operational cash float and create an audit-tracked allocation code (e.g. PC-0001).</span>
           </div>
 
@@ -730,7 +734,7 @@ export const FinancePettyCashPage: React.FC = () => {
               type="submit"
               variant="primary"
               disabled={isSubmittingAllocation}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-[#80BD2B] hover:bg-[#71A924]"
             >
               {isSubmittingAllocation ? 'Depositing...' : 'Confirm Allocation'}
             </Button>

@@ -376,20 +376,20 @@ export const MemberSalesPage: React.FC = () => {
                     ? isInterested
                       ? 'bg-purple-100/90 text-purple-900 font-bold border border-purple-300 shadow-2xs'
                       : isDispatched
-                      ? 'bg-blue-100 text-blue-900 font-bold border border-blue-300 shadow-2xs'
+                      ? 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs'
                       : isDelivered
-                      ? 'bg-emerald-50 text-emerald-800 font-bold border border-emerald-300 shadow-2xs'
+                      ? 'bg-[#F2F9E9] text-[#547E1B] font-bold border border-[#D4ECC6] shadow-2xs'
                       : isRejected
                       ? 'bg-rose-50 text-rose-800 font-bold border border-rose-300 shadow-2xs'
                       : isCancelled
                       ? 'bg-slate-200 text-slate-900 font-bold border border-slate-400 shadow-2xs'
-                      : 'bg-blue-50 text-blue-700 font-bold border border-blue-200 shadow-2xs'
+                      : 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs'
                     : isInterested
                     ? 'bg-purple-50/70 hover:bg-purple-100/80 text-purple-800 border border-purple-200/80 font-medium'
                     : isDispatched
-                    ? 'bg-blue-50/50 hover:bg-blue-100/70 text-blue-700 border border-blue-200/60 font-medium'
+                    ? 'bg-[#E8F7FE]/60 hover:bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]/80 font-medium'
                     : isDelivered
-                    ? 'bg-emerald-50/50 hover:bg-emerald-100/70 text-emerald-700 border border-emerald-200/60 font-medium'
+                    ? 'bg-[#F2F9E9]/60 hover:bg-[#F2F9E9] text-[#547E1B] border border-[#D4ECC6]/80 font-medium'
                     : isRejected
                     ? 'bg-rose-50/50 hover:bg-rose-100/70 text-rose-700 border border-rose-200/60 font-medium'
                     : isCancelled
@@ -407,20 +407,20 @@ export const MemberSalesPage: React.FC = () => {
                       ? isInterested
                         ? 'bg-purple-600 text-white font-bold'
                         : isDispatched
-                        ? 'bg-blue-600 text-white font-bold'
+                        ? 'bg-[#01A8F3] text-white font-bold'
                         : isDelivered
-                        ? 'bg-emerald-600 text-white font-bold'
+                        ? 'bg-[#80BD2B] text-white font-bold'
                         : isRejected
                         ? 'bg-rose-600 text-white font-bold'
                         : isCancelled
                         ? 'bg-slate-700 text-white font-bold'
-                        : 'bg-blue-600 text-white font-bold'
+                        : 'bg-[#01A8F3] text-white font-bold'
                       : isInterested
                       ? 'bg-purple-200 text-purple-900 font-bold'
                       : isDispatched
-                      ? 'bg-blue-100 text-blue-800'
+                      ? 'bg-[#E8F7FE] text-[#0188C7]'
                       : isDelivered
-                      ? 'bg-emerald-100 text-emerald-800'
+                      ? 'bg-[#F2F9E9] text-[#547E1B]'
                       : isRejected
                       ? 'bg-rose-100 text-rose-800'
                       : isCancelled
@@ -575,7 +575,7 @@ export const MemberSalesPage: React.FC = () => {
                         </span>
                       )}
                       {order.status === 'DISPATCHED' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]">
                           <Truck className="w-3 h-3" />
                           <span>Dispatched</span>
                         </span>
@@ -754,7 +754,7 @@ export const MemberSalesPage: React.FC = () => {
                             </span>
                           )}
                           {order.status === 'DISPATCHED' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]">
                               <Truck className="w-3.5 h-3.5" />
                               <span>Dispatched</span>
                             </span>
@@ -859,7 +859,7 @@ export const MemberSalesPage: React.FC = () => {
                   </div>
                   <a
                     href={`tel:${customerMap[selectedOrder.customerId]?.phone || (selectedOrder as any).customer?.phone}`}
-                    className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-bold"
+                    className="p-1.5 rounded-lg bg-[#E8F7FE] text-[#0188C7] hover:bg-[#D4F1FD] flex items-center gap-1 text-[11px] font-bold"
                   >
                     <PhoneForwarded className="w-3.5 h-3.5" />
                     <span>Call</span>

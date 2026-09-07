@@ -189,7 +189,7 @@ export const AdminDashboard: React.FC = () => {
   if (loading) return <LoadingState rows={8} />;
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto pb-24 overflow-hidden">
+    <div className="space-y-4 sm:space-y-6 pb-24 overflow-hidden">
       <PageHeader
         title="Executive Overview"
         description="System-wide performance metrics, multi-brand sales trends, and cross-team audit"
@@ -250,9 +250,9 @@ export const AdminDashboard: React.FC = () => {
       <div className="p-3 sm:p-4 bg-white border border-slate-200 rounded-2xl shadow-2xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2 font-bold text-xs text-slate-800 uppercase tracking-wider">
-            <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+            <Calendar className="w-4 h-4 text-[#01A8F3] shrink-0" />
             <span>Time Period Scope:</span>
-            <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-2.5 py-0.5 rounded-full capitalize tracking-normal border border-blue-100">
+            <span className="text-[10px] bg-[#E8F7FE] text-[#0188C7] font-bold px-2.5 py-0.5 rounded-full capitalize tracking-normal border border-[#B9E7FC]">
               {dateFilter === 'ALL'
                 ? 'All Time (Total)'
                 : dateFilter === 'THIS_MONTH'
@@ -283,7 +283,7 @@ export const AdminDashboard: React.FC = () => {
                 onClick={() => setDateFilter(item.key as AdminDashboardDateFilter)}
                 className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   dateFilter === item.key
-                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    ? 'bg-[#01A8F3] text-white shadow-xs font-bold'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >

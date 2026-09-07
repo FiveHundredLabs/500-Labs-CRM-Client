@@ -33,6 +33,14 @@ export const toParcelSlipData = (item: LeadPrintItem, index = 0): ParcelSlipData
     (customer as any)?.contact?.code ||
     null;
 
+  const secondaryMobile =
+    customer.secondaryMobile ||
+    (customer as any)?.secondaryPhone ||
+    (order as any)?.customer?.secondaryMobile ||
+    (order as any)?.customer?.secondaryPhone ||
+    (customer as any)?.contact?.secondaryMobile ||
+    null;
+
   return {
     publicSlipToken: order.publicSlipToken,
     orderNumber: order.orderNumber,
@@ -46,6 +54,7 @@ export const toParcelSlipData = (item: LeadPrintItem, index = 0): ParcelSlipData
     customer: {
       fullName: customer.fullName,
       phone: customer.phone,
+      secondaryMobile: secondaryMobile || null,
       address: customer.address,
       contactCode: contactCode || null,
       code: (customer as any)?.code || null,

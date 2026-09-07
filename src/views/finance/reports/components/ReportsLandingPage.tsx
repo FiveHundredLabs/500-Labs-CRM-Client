@@ -61,11 +61,11 @@ export const ReportsLandingPage: React.FC<ReportsLandingPageProps> = ({ onSelect
       )}
 
       {/* Financial Scope Governance Notice */}
-      <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-start gap-3 text-xs text-blue-900">
-        <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+      <div className="p-4 rounded-2xl bg-[#E8F7FE]/60 border border-[#B9E7FC] flex items-start gap-3 text-xs text-[#014D70]">
+        <ShieldCheck className="w-5 h-5 text-[#01A8F3] shrink-0 mt-0.5" />
         <div>
           <h5 className="font-bold">Financial Accounting Governance:</h5>
-          <p className="text-blue-800 leading-relaxed mt-0.5">
+          <p className="text-[#016DA0] leading-relaxed mt-0.5">
             This module contains solely verified finance-specific reports (Income, Expenditures, COGS allocations, Treasury Cash Flows, and Petty Cash Balances). Operational inventory tracking and sales specialist quotas are governed under their respective departmental modules.
           </p>
         </div>

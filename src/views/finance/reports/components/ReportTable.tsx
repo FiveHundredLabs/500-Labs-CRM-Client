@@ -9,7 +9,6 @@ import {
   ChevronsLeft, 
   ChevronsRight, 
   ArrowUpDown,
-  FileText
 } from 'lucide-react';
 
 interface ReportTableProps {
@@ -110,11 +109,11 @@ export const ReportTable: React.FC<ReportTableProps> = ({
       const str = String(value);
       let badgeStyle = 'bg-slate-100 text-slate-700 border-slate-200';
       if (['Approved', 'Settled', 'Cleared', 'INFLOW'].includes(str)) {
-        badgeStyle = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        badgeStyle = 'bg-[#F2F9E9] text-[#547E1B] border-[#D4ECC6]';
       } else if (['Pending', 'OUTFLOW'].includes(str)) {
         badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
       } else if (['CASH', 'BANK_TRANSFER', 'REVENUE'].includes(str)) {
-        badgeStyle = 'bg-blue-50 text-blue-700 border-blue-200';
+        badgeStyle = 'bg-[#E8F7FE] text-[#0188C7] border-[#B9E7FC]';
       } else if (str.startsWith('SKU-') || str.startsWith('EXP-') || str.startsWith('REC-') || str.startsWith('PC-')) {
         badgeStyle = 'bg-slate-100 text-slate-800 font-mono border-slate-200 font-bold';
       }
@@ -178,7 +177,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
             {paginatedData.map((row, rowIdx) => (
               <tr
                 key={row.id || rowIdx}
-                className="hover:bg-blue-50/30 transition-colors"
+                className="hover:bg-slate-50/80 transition-colors"
               >
                 {columns.map((col) => (
                   <td
@@ -206,7 +205,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
               setPageSize(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
           >
             <option value={10}>10</option>
             <option value={25}>25</option>

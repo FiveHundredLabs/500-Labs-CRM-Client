@@ -17,8 +17,7 @@ import {
   Wallet,
   Boxes,
   Target,
-  TrendingUp,
-  Building2
+  TrendingUp
 } from 'lucide-react';
 
 export interface NavItem {
@@ -98,7 +97,6 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
         { label: 'Overview', path: '/admin/finance/dashboard', icon: Home },
         { label: 'Sales Analysis', path: '/admin/finance/sales-analysis', icon: TrendingUp },
         { label: 'Expenses Ledger', path: '/admin/finance/expenses', icon: DollarSign },
-        { label: 'New Expense', path: '/admin/finance/expenses/new', icon: DollarSign },
         { label: 'Petty Cash', path: '/admin/finance/petty-cash', icon: Wallet },
         { label: 'Inventory Valuation', path: '/admin/finance/inventory', icon: Boxes },
         { label: 'Expense Authorizations', path: '/admin/finance/approvals', icon: FileCheck },
@@ -112,7 +110,6 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Overview', path: '/finance/dashboard', icon: Home, isBottomNav: true },
     { label: 'Sales Analysis', path: '/finance/sales-analysis', icon: TrendingUp, isBottomNav: true },
     { label: 'Expenses', path: '/finance/expenses', icon: DollarSign, isBottomNav: true },
-    { label: 'Record Expense', path: '/finance/expenses/new', icon: DollarSign, isBottomNav: false },
     { label: 'Petty Cash', path: '/finance/petty-cash', icon: Wallet, isBottomNav: true },
     { label: 'Inventory Valuation', path: '/finance/inventory', icon: Boxes, isBottomNav: false },
     { label: 'Categories', path: '/finance/categories', icon: Layers, isBottomNav: false },
