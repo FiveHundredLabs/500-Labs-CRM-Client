@@ -13,6 +13,7 @@ export interface ReportPdfPayload {
   summaryLines?: { label: string; value: string; isBold?: boolean; isHighlight?: boolean }[];
   columnAlignments?: ('left' | 'center' | 'right')[];
   columnWidths?: number[]; // Percentage or absolute mm
+  orientation?: 'portrait' | 'landscape';
 }
 
 const COLOR_MAP: Record<string, number[]> = {
@@ -42,22 +43,23 @@ const COLOR_MAP: Record<string, number[]> = {
 };
 
 export const generateExecutiveA4Pdf = (payload: ReportPdfPayload): jsPDF => {
+  const orientation = payload.orientation || 'portrait';
   const doc = new jsPDF({
-    orientation: 'portrait',
+    orientation,
     unit: 'mm',
     format: 'a4',
     compress: true,
   });
 
-  const pageWidth = 210;
-  const pageHeight = 297;
+  const pageWidth = orientation === 'landscape' ? 297 : 210;
+  const pageHeight = orientation === 'landscape' ? 210 : 297;
   const margin = 14;
   const contentWidth = pageWidth - margin * 2;
   let currentY = margin;
 
   const checkPageBreak = (neededHeight: number) => {
     if (currentY + neededHeight > pageHeight - margin - 15) {
-      doc.addPage('a4', 'portrait');
+      doc.addPage('a4', orientation);
       currentY = margin;
       drawHeaderBanner(true);
     }
@@ -201,26 +203,49 @@ export const generateExecutiveA4Pdf = (payload: ReportPdfPayload): jsPDF => {
     let colWidths: number[] = [];
 
     if (payload.columnWidths && payload.columnWidths.length === numCols) {
-      colWidths = payload.columnWidths;
+      const sum = payload.columnWidths.reduce((a, b) => a + b, 0);
+      if (Math.abs(sum - contentWidth) > 1) {
+        colWidths = payload.columnWidths.map((w) => (w / sum) * contentWidth);
+      } else {
+        colWidths = payload.columnWidths;
+      }
     } else {
-      // Default: First column gets 40%, remaining share evenly
-      const remainingWidth = contentWidth * 0.6;
-      const otherColWidth = remainingWidth / (numCols - 1);
-      colWidths = [contentWidth * 0.4, ...Array(numCols - 1).fill(otherColWidth)];
+      if (numCols <= 3) {
+        colWidths = Array(numCols).fill(contentWidth / numCols);
+      } else {
+        const col0 = contentWidth * 0.20;
+        const col1 = contentWidth * 0.30;
+        const remaining = contentWidth - (col0 + col1);
+        const restColWidth = remaining / (numCols - 2);
+        colWidths = [col0, col1, ...Array(numCols - 2).fill(restColWidth)];
+      }
     }
+
+    // Safe text fitting function: prevents cell text from overflowing column width
+    const fitText = (text: string, maxWidth: number): string => {
+      if (!text) return '';
+      const str = String(text);
+      if (doc.getTextWidth(str) <= maxWidth) return str;
+      let truncated = str;
+      while (truncated.length > 2 && doc.getTextWidth(truncated + '…') > maxWidth) {
+        truncated = truncated.slice(0, -1);
+      }
+      return truncated + '…';
+    };
 
     // Table Header Row
     doc.setFillColor(30, 41, 59);
     doc.rect(margin, currentY, contentWidth, 7, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setTextColor(255, 255, 255);
 
     let curColX = margin;
     payload.tableHeaders.forEach((header, i) => {
       const align = payload.columnAlignments?.[i] || (i === 0 ? 'left' : i === numCols - 1 ? 'right' : 'left');
       const textX = align === 'right' ? curColX + colWidths[i] - 3 : align === 'center' ? curColX + colWidths[i] / 2 : curColX + 3;
-      doc.text(header.toUpperCase(), textX, currentY + 4.8, { align });
+      const safeHeader = fitText(header.toUpperCase(), colWidths[i] - 5);
+      doc.text(safeHeader, textX, currentY + 4.8, { align });
       curColX += colWidths[i];
     });
 
@@ -238,10 +263,6 @@ export const generateExecutiveA4Pdf = (payload: ReportPdfPayload): jsPDF => {
       doc.setDrawColor(241, 245, 249);
       doc.line(margin, currentY + 6.5, margin + contentWidth, currentY + 6.5);
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.setTextColor(51, 65, 85);
-
       curColX = margin;
       row.forEach((cell, cellIdx) => {
         const align = payload.columnAlignments?.[cellIdx] || (cellIdx === 0 ? 'left' : cellIdx === numCols - 1 ? 'right' : 'left');
@@ -255,8 +276,10 @@ export const generateExecutiveA4Pdf = (payload: ReportPdfPayload): jsPDF => {
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(51, 65, 85);
         }
+        doc.setFontSize(6.8);
 
-        doc.text(String(cell), textX, currentY + 4.5, { align });
+        const safeCellText = fitText(String(cell ?? '-'), colWidths[cellIdx] - 5);
+        doc.text(safeCellText, textX, currentY + 4.5, { align });
         curColX += colWidths[cellIdx];
       });
 

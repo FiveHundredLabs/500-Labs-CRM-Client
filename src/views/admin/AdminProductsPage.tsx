@@ -99,7 +99,7 @@ export const AdminProductsPage: React.FC = () => {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [formTeamId, setFormTeamId] = useState('');
-  const [category, setCategory] = useState('Supplements');
+  const [category, setCategory] = useState('');
   const [costPrice, setCostPrice] = useState<number | string>(2500);
   const [sellingPrice, setSellingPrice] = useState<number | string>(5000);
   const [minStockThreshold, setMinStockThreshold] = useState<number | string>(10);
@@ -138,7 +138,7 @@ export const AdminProductsPage: React.FC = () => {
     setName('');
     setCode(`PROD-${Math.floor(100 + Math.random() * 900)}`);
     setFormTeamId(selectedTeamId !== 'ALL' ? selectedTeamId : teams[0]?.id || '');
-    setCategory('Supplements');
+    setCategory('');
     setCostPrice(2500);
     setSellingPrice(5000);
     setMinStockThreshold(10);
@@ -151,7 +151,7 @@ export const AdminProductsPage: React.FC = () => {
     setName(p.name);
     setCode(p.code);
     setFormTeamId(p.teamId);
-    setCategory(p.category || 'General');
+    setCategory(p.category || '');
     setCostPrice(p.costPrice);
     setSellingPrice(p.sellingPrice);
     setMinStockThreshold(p.minStockThreshold);
@@ -271,7 +271,7 @@ export const AdminProductsPage: React.FC = () => {
           name: name.trim(),
           code: code.trim(),
           teamId: formTeamId,
-          category: category.trim(),
+          category: category.trim() || undefined,
           costPrice: parsedCost,
           sellingPrice: parsedSelling,
           minStockThreshold: parsedThreshold,
@@ -282,7 +282,7 @@ export const AdminProductsPage: React.FC = () => {
           name: name.trim(),
           code: code.trim(),
           teamId: formTeamId,
-          category: category.trim() || 'General',
+          category: category.trim() || undefined,
           currentStock: initQty,
           minStockThreshold: parsedThreshold,
           costPrice: parsedCost,
@@ -357,6 +357,16 @@ export const AdminProductsPage: React.FC = () => {
   const teamScopedProducts = useMemo(() => {
     return products.filter((p) => selectedTeamId === 'ALL' || p.teamId === selectedTeamId);
   }, [products, selectedTeamId]);
+
+  const existingCategories = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p) => {
+      if (p.category && p.category.trim()) {
+        set.add(p.category.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [products]);
 
   const totalProductsCount = teamScopedProducts.length;
   const lowStockCount = teamScopedProducts.filter((p) => p.currentStock > 0 && p.currentStock <= p.minStockThreshold).length;
@@ -783,12 +793,23 @@ export const AdminProductsPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              label="Category"
-              placeholder="e.g. Supplements, Herbal, Cosmetics"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            />
+            <div>
+              <Input
+                label="Category"
+                list="category-suggestions"
+                placeholder="e.g. Boom Box"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                onClear={() => setCategory('')}
+              />
+              {existingCategories.length > 0 && (
+                <datalist id="category-suggestions">
+                  {existingCategories.map((cat) => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
+              )}
+            </div>
             <Input
               label="Min Stock Alert Threshold *"
               type="number"

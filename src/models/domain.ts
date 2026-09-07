@@ -675,6 +675,8 @@ export interface InventoryReportItem {
   id: string;
   name: string;
   code: string;
+  teamId?: string;
+  teamName?: string;
   category?: string;
   currentStock: number;
   soldStock: number;

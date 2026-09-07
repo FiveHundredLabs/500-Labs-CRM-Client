@@ -210,7 +210,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
     badgeText: 'Revenue',
     badgeType: 'standard',
     icon: TrendingUp,
-    supportedFilters: ['dateRange'],
+    supportedFilters: ['dateRange', 'team'],
     kpis: [
       {
         id: 'total-income',
@@ -262,15 +262,23 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
       getChartData: (filteredData) => {
         const monthMap: Record<string, number> = {};
         filteredData.forEach((d: DeliveredOrderRecord) => {
-          const m = d.deliveredAt.substring(0, 7);
-          monthMap[m] = (monthMap[m] || 0) + d.totalAmount;
+          const m = d.deliveredAt ? d.deliveredAt.substring(0, 7) : '';
+          if (m) {
+            monthMap[m] = (monthMap[m] || 0) + d.totalAmount;
+          }
         });
         return Object.entries(monthMap)
           .sort(([a], [b]) => a.localeCompare(b))
-          .map(([period, amount]) => ({
-            period: format(parseISO(`${period}-01`), 'MMM yyyy'),
-            amount,
-          }));
+          .map(([period, amount]) => {
+            try {
+              return {
+                period: format(parseISO(`${period}-01`), 'MMM yyyy'),
+                amount,
+              };
+            } catch {
+              return { period, amount };
+            }
+          });
       },
     },
     columns: [
@@ -278,12 +286,49 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
       { id: 'orderNumber', header: 'Order #', accessorKey: 'orderNumber', align: 'left', format: 'badge' },
       { id: 'customerName', header: 'Customer Party', accessorKey: 'customerName', align: 'left' },
       { id: 'city', header: 'Destination City', accessorKey: 'city', align: 'left', format: 'badge' },
-      { id: 'status', header: 'Delivery Status', accessorKey: 'status', align: 'center', format: 'badge' },
+      { id: 'team', header: 'Team', accessorKey: 'teamName', align: 'left', format: 'badge' },
+      { id: 'cogs', header: 'COGS (LKR)', accessorKey: 'cogs', align: 'right', format: 'currency' },
+      { id: 'grossProfit', header: 'Gross Margin (LKR)', accessorKey: 'grossProfit', align: 'right', format: 'currency' },
       { id: 'totalAmount', header: 'Revenue (LKR)', accessorKey: 'totalAmount', align: 'right', format: 'currency' },
     ],
+    pdfConfig: {
+      orientation: 'portrait',
+      columns: [
+        { header: 'Delivered Date', accessorKey: 'deliveredAt', align: 'left', format: 'date', widthMm: 24 },
+        { header: 'Order #', accessorKey: 'orderNumber', align: 'left', widthMm: 26 },
+        { header: 'Customer Party', accessorKey: 'customerName', align: 'left', widthMm: 38 },
+        { header: 'Destination City', accessorKey: 'city', align: 'left', widthMm: 24 },
+        { header: 'Team', accessorKey: 'teamName', align: 'left', widthMm: 24 },
+        { header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency', widthMm: 22 },
+        { header: 'Net Revenue', accessorKey: 'totalAmount', align: 'right', format: 'currency', widthMm: 26 },
+      ],
+      summaryLines: (data) => {
+        const totalConsignments = data.length;
+        const totalRevenue = data.reduce((acc: number, curr: any) => acc + (Number(curr.totalAmount) || 0), 0);
+        const totalCogs = data.reduce((acc: number, curr: any) => acc + (Number(curr.cogs) || 0), 0);
+        const totalProfit = totalRevenue - totalCogs;
+        const margin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0.0';
+
+        return [
+          { label: 'Total Verified Consignments Delivered:', value: `${totalConsignments.toLocaleString()} shipments`, isBold: false },
+          { label: 'Gross Realized Collections (Revenue):', value: formatCurrency(totalRevenue), isBold: true, isHighlight: true },
+          { label: 'Total Product Acquisition Cost (COGS):', value: formatCurrency(totalCogs), isBold: false },
+          { label: 'Realized Gross Trading Margin:', value: `${formatCurrency(totalProfit)} (${margin}%)`, isBold: true },
+        ];
+      },
+    },
     getData: (db, filters) => {
-      return db.deliveredOrders.filter((o: DeliveredOrderRecord) => {
+      const items: DeliveredOrderRecord[] = Array.isArray(db) ? db : (db.deliveredOrders || []);
+      return items.filter((o: DeliveredOrderRecord) => {
         if (!isDateInRange(o.deliveredAt, filters.dateRange.startDate, filters.dateRange.endDate)) return false;
+        if (filters.teamId && filters.teamId !== 'ALL' && o.teamId && o.teamId !== filters.teamId) return false;
+        if (filters.search && filters.search.trim()) {
+          const q = filters.search.toLowerCase().trim();
+          const matchOrder = (o.orderNumber || '').toLowerCase().includes(q);
+          const matchCust = (o.customerName || '').toLowerCase().includes(q);
+          const matchCity = (o.city || '').toLowerCase().includes(q);
+          return matchOrder || matchCust || matchCity;
+        }
         return true;
       });
     },
@@ -407,7 +452,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
     badgeText: 'Asset Valuation',
     badgeType: 'standard',
     icon: Boxes,
-    supportedFilters: ['category'],
+    supportedFilters: ['dateRange', 'team'],
     kpis: [
       {
         id: 'total-asset-val',
@@ -448,32 +493,64 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
     ],
     chartConfig: {
       type: 'GROUPED_BAR',
-      xAxisKey: 'code',
+      xAxisKey: 'name',
       series: [
         { key: 'costPrice', name: 'Unit Cost (LKR)', color: '#64748B' },
         { key: 'sellingPrice', name: 'Selling Price (LKR)', color: '#10B981' },
       ],
       getChartData: (filteredData) => {
-        return filteredData.map((d: ProductCostRecord) => ({
-          code: d.code.replace('PRD-', ''),
-          costPrice: d.costPrice,
-          sellingPrice: d.sellingPrice,
+        return (filteredData || []).map((d: ProductCostRecord) => ({
+          name: d.name || d.code,
+          code: d.code,
+          costPrice: Number(d.costPrice) || 0,
+          sellingPrice: Number(d.sellingPrice) || 0,
         }));
       },
     },
     columns: [
       { id: 'code', header: 'Product Code', accessorKey: 'code', align: 'left', format: 'badge' },
       { id: 'name', header: 'Merchandise Title', accessorKey: 'name', align: 'left' },
-      { id: 'category', header: 'Category', accessorKey: 'category', align: 'center', format: 'badge' },
+      { id: 'team', header: 'Team', accessorKey: 'teamName', align: 'left', format: 'badge' },
       { id: 'costPrice', header: 'Unit Cost (LKR)', accessorKey: 'costPrice', align: 'right', format: 'currency' },
       { id: 'sellingPrice', header: 'Selling Price (LKR)', accessorKey: 'sellingPrice', align: 'right', format: 'currency' },
       { id: 'currentStock', header: 'In Stock', accessorKey: 'currentStock', align: 'center' },
       { id: 'stockValue', header: 'Holding Value (Cost)', accessorKey: 'stockValue', align: 'right', format: 'currency' },
       { id: 'margin', header: 'Gross Margin', accessorKey: 'margin', align: 'center', format: 'badge' },
     ],
+    pdfConfig: {
+      orientation: 'portrait',
+      columns: [
+        { header: 'Product Code', accessorKey: 'code', align: 'left', widthMm: 26 },
+        { header: 'Merchandise Title', accessorKey: 'name', align: 'left', widthMm: 46 },
+        { header: 'Team', accessorKey: 'teamName', align: 'left', widthMm: 26 },
+        { header: 'Unit Cost', accessorKey: 'costPrice', align: 'right', format: 'currency', widthMm: 22 },
+        { header: 'Selling Price', accessorKey: 'sellingPrice', align: 'right', format: 'currency', widthMm: 22 },
+        { header: 'In Stock', accessorKey: 'currentStock', align: 'center', format: 'number', widthMm: 16 },
+        { header: 'Total Value (Cost)', accessorKey: 'stockValue', align: 'right', format: 'currency', widthMm: 26 },
+      ],
+      summaryLines: (data) => {
+        const totalUnits = data.reduce((acc: number, curr: any) => acc + (Number(curr.currentStock) || 0), 0);
+        const totalCostVal = data.reduce((acc: number, curr: any) => acc + (Number(curr.stockValue) || 0), 0);
+        const totalRetailVal = data.reduce((acc: number, curr: any) => acc + ((Number(curr.currentStock) || 0) * (Number(curr.sellingPrice) || 0)), 0);
+        const potentialProfit = totalRetailVal - totalCostVal;
+        const potentialMargin = totalRetailVal > 0 ? ((potentialProfit / totalRetailVal) * 100).toFixed(1) : '0.0';
+
+        return [
+          { label: 'Total Physical Units in Warehouse:', value: `${totalUnits.toLocaleString()} units`, isBold: false },
+          { label: 'Total Inventory Asset Valuation (Cost):', value: formatCurrency(totalCostVal), isBold: true, isHighlight: true },
+          { label: 'Potential Gross Retail Sales Value:', value: formatCurrency(totalRetailVal), isBold: false },
+          { label: 'Potential Unrealized Catalog Margin:', value: `${potentialMargin}%`, isBold: true },
+        ];
+      },
+    },
     getData: (db, filters) => {
-      return db.products.filter((p: ProductCostRecord) => {
-        if (filters.category && filters.category !== 'ALL' && p.category !== filters.category) return false;
+      const items: ProductCostRecord[] = Array.isArray(db) ? db : (db.products || []);
+      return items.filter((p: ProductCostRecord) => {
+        if (filters.teamId && filters.teamId !== 'ALL' && p.teamId !== filters.teamId) return false;
+        if (filters.search && filters.search.trim()) {
+          const q = filters.search.toLowerCase();
+          return (p.name || '').toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q);
+        }
         return true;
       });
     },

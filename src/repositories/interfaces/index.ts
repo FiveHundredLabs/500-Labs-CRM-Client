@@ -213,7 +213,8 @@ export interface IFinanceRepository {
   getCashFlow(startDate?: string, endDate?: string): Promise<any>;
   getFSR(startDate?: string, endDate?: string): Promise<any>;
   getExpenseReport(startDate?: string, endDate?: string): Promise<any>;
-  getInventoryReport(): Promise<any[]>;
+  getInventoryReport(teamId?: string, startDate?: string, endDate?: string): Promise<any[]>;
+  getRealizedSalesReport(startDate?: string, endDate?: string, teamId?: string): Promise<any[]>;
   getSalesReport(period: 'daily' | 'weekly' | 'monthly', startDate?: string, endDate?: string): Promise<any>;
   getCityDeliveryReport(startDate?: string, endDate?: string): Promise<any>;
 }
