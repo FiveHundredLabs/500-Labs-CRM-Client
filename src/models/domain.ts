@@ -278,6 +278,8 @@ export interface ParcelSlipTeam {
 export interface ParcelSlipCustomer {
   fullName: string;
   phone: string;
+  secondaryMobile?: string | null;
+  secondaryPhone?: string | null;
   address: string;
   code?: string | null;
   contactCode?: string | null;
