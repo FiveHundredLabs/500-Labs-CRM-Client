@@ -773,3 +773,51 @@ export interface TeamSalesTarget {
   updatedAt?: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPERVISOR TEAM GOAL & INCENTIVE SYSTEM
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SupervisorTargetTier {
+  id?: string;
+  targetId?: string;
+  minPercentage: number;
+  allowanceAmount: number;
+  title?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SupervisorMemberBreakdown {
+  id: string;
+  fullName: string;
+  username: string;
+  actualSales: number;
+  ordersCount: number;
+}
+
+export interface SupervisorSalesTarget {
+  id: string;
+  supervisorId: string;
+  month: string; // YYYY-MM
+  targetAmount: number; // Collective team goal in LKR
+  notes?: string;
+  evaluatedMonth?: string;
+  isInheritedStandingTarget?: boolean;
+  effectiveFromMonth?: string;
+  supervisor?: {
+    id: string;
+    fullName: string;
+    username: string;
+    teamId?: string | null;
+    team?: { id: string; name: string; code: string; brandColor?: string } | null;
+  };
+  tiers: SupervisorTargetTier[];
+  totalTeamSales?: number;
+  achievementPercentage?: number;
+  unlockedAllowance?: number;
+  highestUnlockedTier?: SupervisorTargetTier | null;
+  membersCount?: number;
+  memberBreakdowns?: SupervisorMemberBreakdown[];
+  createdAt?: string;
+  updatedAt?: string;
+}
