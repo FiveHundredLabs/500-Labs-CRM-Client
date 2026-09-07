@@ -213,7 +213,7 @@ export const SupervisorDashboard: React.FC = () => {
   const unallocatedContacts = contacts.filter((c) => !c.isAllocated && c.status === 'NEW').length;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 pb-16">
       <PageHeader
         title="Supervisor Overview"
         description="Operational & Sales Control Center for Team Performance and Fulfillment"
@@ -259,9 +259,9 @@ export const SupervisorDashboard: React.FC = () => {
       <div className="p-3.5 bg-white border border-slate-200 rounded-2xl shadow-2xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2 font-bold text-xs text-slate-800 uppercase tracking-wider">
-            <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+            <Calendar className="w-4 h-4 text-[#01A8F3] shrink-0" />
             <span>Time Period Scope:</span>
-            <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-2.5 py-0.5 rounded-full capitalize tracking-normal border border-blue-100">
+            <span className="text-[10px] bg-[#E8F7FE] text-[#0188C7] font-bold px-2.5 py-0.5 rounded-full capitalize tracking-normal border border-[#B9E7FC]">
               {dateFilter === 'ALL'
                 ? 'All Time (Total)'
                 : dateFilter === 'THIS_MONTH'
@@ -294,7 +294,7 @@ export const SupervisorDashboard: React.FC = () => {
                 onClick={() => setDateFilter(item.key as DashboardDateFilter)}
                 className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   dateFilter === item.key
-                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    ? 'bg-[#01A8F3] text-white shadow-xs font-bold'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
@@ -312,7 +312,7 @@ export const SupervisorDashboard: React.FC = () => {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
               />
             </div>
             <div className="flex items-center gap-2 text-xs">
@@ -321,7 +321,7 @@ export const SupervisorDashboard: React.FC = () => {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
               />
             </div>
           </div>

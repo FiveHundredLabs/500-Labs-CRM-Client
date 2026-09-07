@@ -127,7 +127,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
           onClick={() => setActiveTab('PENDING')}
           className={`flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
             activeTab === 'PENDING'
-              ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+              ? 'border-[#01A8F3] text-[#0188C7] bg-[#E8F7FE]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -142,7 +142,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
           onClick={() => setActiveTab('APPROVED')}
           className={`flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
             activeTab === 'APPROVED'
-              ? 'border-emerald-600 text-emerald-600 bg-emerald-50/50'
+              ? 'border-[#80BD2B] text-[#547E1B] bg-[#F2F9E9]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -194,7 +194,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <div
                         className={`p-2 rounded-xl text-white font-bold ${
-                          isDelete ? 'bg-red-600' : 'bg-blue-600'
+                          isDelete ? 'bg-red-600' : 'bg-[#01A8F3]'
                         }`}
                       >
                         {isDelete ? <Trash2 className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
@@ -247,7 +247,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
                           size="sm"
                           leftIcon={<CheckCircle2 className="w-4 h-4 text-white" />}
                           onClick={() => openReview(req, 'APPROVED')}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-xs shadow-xs"
+                          className="bg-[#80BD2B] hover:bg-[#71A924] text-xs shadow-xs"
                         >
                           Authorize & Apply
                         </Button>
@@ -257,7 +257,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
 
                   {/* Justification Box */}
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 flex items-start gap-2.5">
-                    <MessageSquare className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <MessageSquare className="w-4 h-4 text-[#01A8F3] shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-slate-900">Requester Justification:</strong>
                       <p className="mt-0.5 text-slate-600 leading-relaxed italic">"{req.reason}"</p>
@@ -293,7 +293,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
                     </div>
 
                     {/* Requested Changes */}
-                    <div className={`p-3.5 rounded-xl border ${isDelete ? 'border-red-200 bg-red-50/40' : 'border-blue-200 bg-blue-50/40'} space-y-2`}>
+                    <div className={`p-3.5 rounded-xl border ${isDelete ? 'border-red-200 bg-red-50/40' : 'border-[#B9E7FC] bg-[#E8F7FE]/40'} space-y-2`}>
                       <div className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 text-slate-700">
                         {isDelete ? (
                           <>
@@ -302,8 +302,8 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
                           </>
                         ) : (
                           <>
-                            <Edit3 className="w-3.5 h-3.5 text-blue-600" />
-                            <span className="text-blue-700 font-bold">Requested Modified Values</span>
+                            <Edit3 className="w-3.5 h-3.5 text-[#01A8F3]" />
+                            <span className="text-[#0188C7] font-bold">Requested Modified Values</span>
                           </>
                         )}
                       </div>
@@ -316,19 +316,19 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
                         <div className="space-y-1.5 text-xs text-slate-700">
                           <div className="flex justify-between py-1 border-b border-blue-100/70">
                             <span className="text-slate-500">Category:</span>
-                            <span className={`font-semibold ${requested.categoryName !== original.categoryName ? 'text-blue-700 font-bold bg-blue-100/80 px-1 rounded' : ''}`}>
+                            <span className={`font-semibold ${requested.categoryName !== original.categoryName ? 'text-[#0188C7] font-bold bg-[#E8F7FE] px-1 rounded' : ''}`}>
                               {requested.categoryName || original.categoryName}
                             </span>
                           </div>
                           <div className="flex justify-between py-1 border-b border-blue-100/70">
                             <span className="text-slate-500">Voucher Amount:</span>
-                            <span className={`font-bold font-mono ${requested.amount !== original.amount ? 'text-emerald-700 bg-emerald-100/80 px-1 rounded' : 'text-slate-900'}`}>
+                            <span className={`font-bold font-mono ${requested.amount !== original.amount ? 'text-[#547E1B] bg-[#F2F9E9] px-1 rounded' : 'text-slate-900'}`}>
                               {formatCurrency(requested.amount !== undefined ? requested.amount : original.amount)}
                             </span>
                           </div>
                           <div className="flex justify-between py-1 border-b border-blue-100/70">
                             <span className="text-slate-500">Expense Date:</span>
-                            <span className={`font-mono ${requested.expenseDate !== original.expenseDate ? 'text-blue-700 font-bold bg-blue-100/80 px-1 rounded' : ''}`}>
+                            <span className={`font-mono ${requested.expenseDate !== original.expenseDate ? 'text-[#0188C7] font-bold bg-[#E8F7FE] px-1 rounded' : ''}`}>
                               {requested.expenseDate ? format(new Date(requested.expenseDate), 'MMM dd, yyyy') : 'Unchanged'}
                             </span>
                           </div>
@@ -406,7 +406,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
               variant="primary"
               onClick={handleConfirmReview}
               disabled={isSubmitting}
-              className={reviewDecision === 'APPROVED' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}
+              className={reviewDecision === 'APPROVED' ? 'bg-[#80BD2B] hover:bg-[#71A924]' : 'bg-red-600 hover:bg-red-700'}
             >
               {isSubmitting ? 'Processing...' : reviewDecision === 'APPROVED' ? 'Confirm & Authorize' : 'Confirm Rejection'}
             </Button>

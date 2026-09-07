@@ -168,7 +168,7 @@ export const FinanceNewExpensePage: React.FC = () => {
           <Card className="border border-slate-200/90 shadow-2xs">
             <CardHeader className="pb-3 border-b border-slate-100">
               <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Receipt className="w-4.5 h-4.5 text-blue-600" />
+                <Receipt className="w-4.5 h-4.5 text-[#01A8F3]" />
                 <span>Expense Voucher Details</span>
               </CardTitle>
             </CardHeader>
@@ -177,7 +177,7 @@ export const FinanceNewExpensePage: React.FC = () => {
                 {/* Category Selector */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-blue-600" />
+                    <Tag className="w-3.5 h-3.5 text-[#01A8F3]" />
                     <span>Expense Category <span className="text-red-500">*</span></span>
                   </label>
                   <Select
@@ -216,7 +216,7 @@ export const FinanceNewExpensePage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                      <DollarSign className="w-3.5 h-3.5 text-[#547E1B]" />
                       <span>Voucher Amount (LKR) <span className="text-red-500">*</span></span>
                     </label>
                     <Input
@@ -232,14 +232,14 @@ export const FinanceNewExpensePage: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                      <Calendar className="w-3.5 h-3.5 text-[#01A8F3]" />
                       <span>Disbursement Date <span className="text-red-500">*</span></span>
                     </label>
                     <input
                       type="date"
                       value={expenseDate}
                       onChange={(e) => setExpenseDate(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 shadow-2xs"
                       required
                     />
                   </div>
@@ -248,7 +248,7 @@ export const FinanceNewExpensePage: React.FC = () => {
                 {/* Payment Method */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <CreditCard className="w-3.5 h-3.5 text-indigo-600" />
+                    <CreditCard className="w-3.5 h-3.5 text-[#01A8F3]" />
                     <span>Disbursement / Funding Method</span>
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -257,7 +257,7 @@ export const FinanceNewExpensePage: React.FC = () => {
                       onClick={() => setPaymentMethod('CASH')}
                       className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                         paymentMethod === 'CASH'
-                          ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-2xs'
+                          ? 'border-[#01A8F3] bg-[#E8F7FE] text-[#0188C7] font-bold shadow-2xs'
                           : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
                       }`}
                     >
@@ -271,11 +271,11 @@ export const FinanceNewExpensePage: React.FC = () => {
                       onClick={() => setPaymentMethod('BANK_TRANSFER')}
                       className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                         paymentMethod === 'BANK_TRANSFER'
-                          ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 font-bold shadow-2xs'
+                          ? 'border-[#01A8F3] bg-[#E8F7FE] text-[#0188C7] font-bold shadow-2xs'
                           : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
                       }`}
                     >
-                      <Building2 className="w-4 h-4 text-indigo-600 mb-1" />
+                      <Building2 className="w-4 h-4 text-[#0188C7] mb-1" />
                       <div className="text-xs font-bold">Bank Transfer</div>
                       <div className="text-[10px] text-slate-500">Corporate bank</div>
                     </button>
@@ -340,7 +340,7 @@ export const FinanceNewExpensePage: React.FC = () => {
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Receipt number, invoice reference, or audit annotations..."
-                    className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 shadow-2xs"
                   />
                 </div>
 
@@ -367,7 +367,6 @@ export const FinanceNewExpensePage: React.FC = () => {
                     type="submit"
                     variant="primary"
                     disabled={isSubmitting || Boolean(isOverPettyCashBalance)}
-                    className="bg-blue-600 hover:bg-blue-700"
                   >
                     {isSubmitting ? 'Registering...' : 'Register Expense Voucher'}
                   </Button>
@@ -380,13 +379,13 @@ export const FinanceNewExpensePage: React.FC = () => {
         {/* Live Voucher Preview Card */}
         <div className="space-y-4">
           <Card className="border border-slate-200/90 shadow-2xs bg-white overflow-hidden">
-            <div className="h-1 bg-blue-600 w-full" />
+            <div className="h-1 bg-[#01A8F3] w-full" />
             <CardContent className="p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                   Voucher Preview
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]">
                   {paymentMethod}
                 </span>
               </div>

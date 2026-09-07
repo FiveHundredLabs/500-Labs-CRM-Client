@@ -332,7 +332,7 @@ export const SupervisorStockPage: React.FC = () => {
             size="sm"
             leftIcon={<PlusCircle className="w-4 h-4" />}
             onClick={openBulkModal}
-            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 font-bold shadow-xs justify-center"
+            className="w-full sm:w-auto font-bold justify-center"
           >
             Bulk Add Stock Request
           </Button>
@@ -387,9 +387,9 @@ export const SupervisorStockPage: React.FC = () => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors shrink-0 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
                 activeTab === tab
-                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                  ? 'bg-[#01A8F3] text-white border border-[#01A8F3] shadow-xs'
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
               }`}
             >

@@ -65,7 +65,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
     <div className="relative w-full" ref={dropdownRef}>
       <button
         onClick={() => setIsDropdownOpen((current) => !current)}
-        className={`w-full rounded-lg hover:bg-slate-100 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+        className={`w-full rounded-lg hover:bg-slate-100 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 ${
           isCollapsed
             ? 'flex items-center justify-center p-1'
             : 'flex items-center gap-2.5 p-2 text-left'
@@ -77,7 +77,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
         {!isCollapsed && (
           <div className="min-w-0 flex-1">
             <div className="truncate text-xs font-semibold leading-tight text-slate-900">{user.fullName}</div>
-            <div className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wider text-blue-600">
+            <div className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wider text-[#0188C7]">
               {roleLabel}
             </div>
           </div>
@@ -101,7 +101,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
           <div className="border-b border-slate-100 px-4 py-2.5">
             <p className="truncate text-xs font-bold text-slate-900">{user.fullName}</p>
             <p className="truncate text-[11px] text-slate-500">{user.email}</p>
-            <span className="mt-1 inline-block rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-600">
+            <span className="mt-1 inline-block rounded-full border border-[#B9E7FC] bg-[#E8F7FE] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#0188C7]">
               {roleLabel}
             </span>
           </div>

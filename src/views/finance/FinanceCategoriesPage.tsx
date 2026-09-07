@@ -139,7 +139,7 @@ export const FinanceCategoriesPage: React.FC = () => {
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                    <div className="w-9 h-9 rounded-xl bg-[#E8F7FE] border border-[#B9E7FC] flex items-center justify-center text-[#0188C7]">
                       <Tag className="w-4.5 h-4.5" />
                     </div>
                     <span
@@ -165,7 +165,7 @@ export const FinanceCategoriesPage: React.FC = () => {
                   <span className="font-mono text-[11px] truncate max-w-[150px]">{cat.id}</span>
                   <button
                     onClick={() => openEdit(cat)}
-                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-semibold cursor-pointer text-xs"
+                    className="inline-flex items-center gap-1 text-[#0188C7] hover:text-[#016DA0] font-semibold cursor-pointer text-xs transition-colors"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>Edit</span>
@@ -205,7 +205,7 @@ export const FinanceCategoriesPage: React.FC = () => {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Guidelines on what vouchers qualify under this category..."
-              className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+              className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 focus:border-[#01A8F3] shadow-2xs"
             />
           </div>
 

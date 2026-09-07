@@ -452,7 +452,7 @@ export const FinanceExpensesPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
-              leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+              leftIcon={<FileSpreadsheet className="w-4 h-4 text-[#547E1B]" />}
               onClick={handleExportExcel}
             >
               Export Excel
@@ -470,11 +470,11 @@ export const FinanceExpensesPage: React.FC = () => {
 
       {/* Filter Control Bar */}
       <div className="p-4 bg-white border border-slate-200/90 rounded-2xl space-y-3.5 shadow-2xs">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Search Input */}
-          <div className="lg:col-span-2">
+          <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Search Vouchers</label>
-            <SearchInput value={search} onChange={setSearch} placeholder="Search remarks, notes, category, recorder..." />
+            <SearchInput value={search} onChange={setSearch} placeholder="Search remarks, notes, category..." />
           </div>
 
           {/* Category Filter */}
@@ -507,10 +507,7 @@ export const FinanceExpensesPage: React.FC = () => {
 
           {/* Date Preset Selector */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-blue-600" />
-              <span>Date Range</span>
-            </label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Date Window</label>
             <Select
               value={datePreset}
               onChange={(e) => handlePresetChange(e.target.value)}
@@ -529,7 +526,7 @@ export const FinanceExpensesPage: React.FC = () => {
         {(datePreset === 'CUSTOM' || startDate || endDate) && (
           <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
             <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5 text-blue-600" />
+              <Filter className="w-3.5 h-3.5 text-[#01A8F3]" />
               <span>Custom Date Filter:</span>
             </span>
 
@@ -542,7 +539,7 @@ export const FinanceExpensesPage: React.FC = () => {
                   setDatePreset('CUSTOM');
                   setStartDate(e.target.value);
                 }}
-                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
               />
             </div>
 
@@ -555,7 +552,7 @@ export const FinanceExpensesPage: React.FC = () => {
                   setDatePreset('CUSTOM');
                   setEndDate(e.target.value);
                 }}
-                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
               />
             </div>
 
@@ -572,9 +569,9 @@ export const FinanceExpensesPage: React.FC = () => {
         )}
 
         {/* Filter Summary Stats */}
-        <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+        <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
           <span>Showing <strong className="text-slate-900">{filtered.length}</strong> of {expenses.length} vouchers</span>
-          <span>Cumulative Filtered Expense: <strong className="text-emerald-700 font-mono text-sm">{formatCurrency(totalFilteredAmount)}</strong></span>
+          <span>Cumulative Filtered Expense: <strong className="text-[#547E1B] font-mono text-sm">{formatCurrency(totalFilteredAmount)}</strong></span>
         </div>
       </div>
 
@@ -604,7 +601,7 @@ export const FinanceExpensesPage: React.FC = () => {
                   return (
                     <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3.5 px-4">
-                        <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                        <span className="text-xs font-semibold text-[#0188C7] bg-[#E8F7FE] border border-[#B9E7FC] px-2.5 py-0.5 rounded-full">
                           {exp.categoryName}
                         </span>
                       </td>
@@ -613,7 +610,7 @@ export const FinanceExpensesPage: React.FC = () => {
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600">
                           {exp.paymentMethod === 'BANK_TRANSFER' ? (
                             <>
-                              <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                              <Building2 className="w-3.5 h-3.5 text-[#0188C7]" />
                               <span>Bank Transfer</span>
                             </>
                           ) : exp.paymentMethod === 'PETTY_CASH' ? (
@@ -647,7 +644,7 @@ export const FinanceExpensesPage: React.FC = () => {
 
                       <td className="py-3.5 px-4 text-center">
                         {recent ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full" title="Created within 24 hours — can be edited or deleted directly">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#547E1B] bg-[#F2F9E9] border border-[#D4ECC6] px-2 py-0.5 rounded-full" title="Created within 24 hours — can be edited or deleted directly">
                             <Clock className="w-3 h-3" />
                             <span>&lt; 24h Window</span>
                           </span>
@@ -663,7 +660,7 @@ export const FinanceExpensesPage: React.FC = () => {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => handleOpenEdit(exp)}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-[#01A8F3] hover:bg-[#E8F7FE] rounded-lg transition-colors cursor-pointer"
                             title={recent ? 'Edit Voucher' : 'Request Edit Approval (> 24h)'}
                           >
                             <Edit3 className="w-4 h-4" />
@@ -704,7 +701,7 @@ export const FinanceExpensesPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-blue-600" />
+                <Tag className="w-3.5 h-3.5 text-[#01A8F3]" />
                 <span>Expense Category <span className="text-red-500">*</span></span>
               </label>
               <Select
@@ -722,7 +719,7 @@ export const FinanceExpensesPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                <DollarSign className="w-3.5 h-3.5 text-[#547E1B]" />
                 <span>Voucher Amount (LKR) <span className="text-red-500">*</span></span>
               </label>
               <Input
@@ -759,7 +756,7 @@ export const FinanceExpensesPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <CreditCard className="w-3.5 h-3.5 text-indigo-600" />
+                <CreditCard className="w-3.5 h-3.5 text-[#01A8F3]" />
                 <span>Disbursement / Funding Method</span>
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -768,8 +765,8 @@ export const FinanceExpensesPage: React.FC = () => {
                   onClick={() => setPaymentMethod('CASH')}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                     paymentMethod === 'CASH'
-                      ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold shadow-2xs'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                      ? 'border-[#01A8F3] bg-[#E8F7FE] text-[#0188C7] font-bold shadow-2xs'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
                   }`}
                 >
                   <CreditCard className="w-4 h-4 text-slate-600 mb-1" />
@@ -782,11 +779,11 @@ export const FinanceExpensesPage: React.FC = () => {
                   onClick={() => setPaymentMethod('BANK_TRANSFER')}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                     paymentMethod === 'BANK_TRANSFER'
-                      ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 font-bold shadow-2xs'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                      ? 'border-[#01A8F3] bg-[#E8F7FE] text-[#0188C7] font-bold shadow-2xs'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
                   }`}
                 >
-                  <Building2 className="w-4 h-4 text-indigo-600 mb-1" />
+                  <Building2 className="w-4 h-4 text-[#0188C7] mb-1" />
                   <div className="text-xs font-bold">Bank Transfer</div>
                   <div className="text-[10px] text-slate-500">Corporate bank</div>
                 </button>
@@ -797,7 +794,7 @@ export const FinanceExpensesPage: React.FC = () => {
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                     paymentMethod === 'PETTY_CASH'
                       ? 'border-amber-600 bg-amber-50/70 text-amber-900 font-bold shadow-2xs'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
                   }`}
                 >
                   <Wallet className="w-4 h-4 text-amber-600 mb-1" />
@@ -809,7 +806,7 @@ export const FinanceExpensesPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                <Calendar className="w-3.5 h-3.5 text-[#01A8F3]" />
                 <span>Disbursement Date <span className="text-red-500">*</span></span>
               </label>
               <input
@@ -819,7 +816,7 @@ export const FinanceExpensesPage: React.FC = () => {
                   setExpenseDate(e.target.value);
                   setCreateError('');
                 }}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
                 required
               />
             </div>
@@ -869,7 +866,7 @@ export const FinanceExpensesPage: React.FC = () => {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Receipt number, invoice reference, or audit annotations..."
-              className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
+              className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 shadow-2xs"
             />
           </div>
 
@@ -898,7 +895,7 @@ export const FinanceExpensesPage: React.FC = () => {
               variant="primary"
               disabled={isSubmittingCreate || Boolean(isCreateOverPettyCashBalance)}
               isLoading={isSubmittingCreate}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+              className="w-full sm:w-auto"
             >
               {isSubmittingCreate ? 'Registering...' : 'Register Expense Voucher'}
             </Button>
@@ -913,8 +910,8 @@ export const FinanceExpensesPage: React.FC = () => {
         title="Edit Expense Voucher"
       >
         <div className="space-y-4">
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+          <div className="p-3 bg-[#E8F7FE] border border-[#B9E7FC] rounded-xl text-xs text-[#0188C7] flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#01A8F3] shrink-0" />
             <span>This expense was created within 24 hours. You have direct authorization to update it.</span>
           </div>
 
@@ -963,7 +960,7 @@ export const FinanceExpensesPage: React.FC = () => {
                 type="date"
                 value={editExpenseDate}
                 onChange={(e) => setEditExpenseDate(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
               />
             </div>
           </div>
@@ -984,7 +981,7 @@ export const FinanceExpensesPage: React.FC = () => {
               value={editNotes}
               onChange={(e) => setEditNotes(e.target.value)}
               placeholder="Audit or reconciliation notes..."
-              className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
             />
           </div>
 

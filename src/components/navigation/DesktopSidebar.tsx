@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   Building2,
   Calendar,
@@ -163,9 +163,12 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           COMPANY LOGO
       ========================================================= */}
       <div className="shrink-0 border-b border-slate-100 bg-white">
-        <div
+        <Link
+          to="/"
+          title="Go to Home"
+          aria-label="Level Grow Home"
           className={`
-            flex items-center
+            flex items-center transition-opacity hover:opacity-85 focus:outline-none focus:ring-2 focus:ring-blue-500/20 rounded-lg cursor-pointer
             ${
               isCollapsed
                 ? 'justify-center px-2 py-4'
@@ -185,7 +188,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               }
             `}
           />
-        </div>
+        </Link>
       </div>
 
       {/* =========================================================
@@ -247,11 +250,9 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                                   ${
                                     isActive
                                       ? `
-                                        bg-gradient-to-r
-                                        from-blue-600
-                                        to-indigo-600
+                                        bg-[#01A8F3]
                                         text-white
-                                        shadow-[0_5px_12px_rgba(37,99,235,0.25)]
+                                        shadow-[0_4px_12px_rgba(1,168,243,0.25)]
                                       `
                                       : `
                                         text-slate-500
@@ -292,7 +293,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                         transition-colors duration-150
                         ${
                           hasActiveChild
-                            ? 'text-blue-700'
+                            ? 'text-[#0188C7] font-semibold'
                             : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                         }
                       `}
@@ -303,7 +304,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                             h-[17px] w-[17px] shrink-0
                             ${
                               hasActiveChild
-                                ? 'text-blue-600'
+                                ? 'text-[#01A8F3]'
                                 : 'text-slate-400'
                             }
                           `}
@@ -384,11 +385,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                                       ${
                                         isActive
                                           ? `
-                                            bg-gradient-to-r
-                                            from-blue-600
-                                            to-indigo-600
+                                            bg-[#01A8F3]
                                             text-white
-                                            shadow-[0_5px_12px_rgba(37,99,235,0.22)]
+                                            font-semibold
+                                            shadow-[0_4px_12px_rgba(1,168,243,0.25)]
                                           `
                                           : `
                                             text-slate-600
@@ -444,12 +444,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                       ${
                         isActive
                           ? `
-                            bg-gradient-to-r
-                            from-blue-600
-                            to-indigo-600
+                            bg-[#01A8F3]
                             font-semibold
                             text-white
-                            shadow-[0_5px_14px_rgba(37,99,235,0.27)]
+                            shadow-[0_4px_12px_rgba(1,168,243,0.28)]
                           `
                           : `
                             text-slate-600

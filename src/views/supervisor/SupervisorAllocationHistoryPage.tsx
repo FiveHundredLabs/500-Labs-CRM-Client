@@ -426,7 +426,7 @@ export const SupervisorAllocationHistoryPage: React.FC = () => {
                   onClick={() => setInspectorTab('SALESMEN')}
                   className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                     inspectorTab === 'SALESMEN'
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[#01A8F3] text-white shadow-xs'
                       : 'text-slate-600 bg-slate-100 hover:bg-slate-200'
                   }`}
                 >
@@ -438,7 +438,7 @@ export const SupervisorAllocationHistoryPage: React.FC = () => {
                   onClick={() => setInspectorTab('NUMBERS')}
                   className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                     inspectorTab === 'NUMBERS'
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[#01A8F3] text-white shadow-xs'
                       : 'text-slate-600 bg-slate-100 hover:bg-slate-200'
                   }`}
                 >

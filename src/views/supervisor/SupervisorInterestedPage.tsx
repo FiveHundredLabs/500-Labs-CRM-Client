@@ -361,7 +361,7 @@ export const SupervisorInterestedPage: React.FC = () => {
           onClick={() => handleTabChange('POST')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
             activeDeliveryTab === 'POST'
-              ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/20'
+              ? 'bg-[#01A8F3] text-white shadow-sm ring-2 ring-[#01A8F3]/20'
               : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
           }`}
         >
