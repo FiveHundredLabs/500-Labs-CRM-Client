@@ -105,9 +105,22 @@ export class ApiUserRepository implements IUserRepository {
     return all.filter((u) => u.role === role);
   }
   async getByTeamId(teamId: string): Promise<User[]> {
-    return unwrap(
-      await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
-    );
+    try {
+      const res = unwrap(
+        await apiClient.get<{ data: any }>(`/users?teamId=${teamId}&limit=100`)
+      ) as any;
+      const items = Array.isArray(res) ? res : res?.items;
+      if (Array.isArray(items)) {
+        return items;
+      }
+      return unwrap(
+        await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
+      );
+    } catch {
+      return unwrap(
+        await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
+      );
+    }
   }
   async getBySupervisorId(supervisorId: string): Promise<User[]> {
     const all = await this.getAll();

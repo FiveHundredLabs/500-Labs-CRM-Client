@@ -101,6 +101,7 @@ export const UserProfileDossier: React.FC<UserProfileDossierProps> = ({ user, on
   const isDateInRange = (dateStr?: string) => {
     if (!dateStr) return false;
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return false;
     const now = new Date();
 
     if (dateFilter === 'WEEKLY') {
@@ -223,7 +224,13 @@ export const UserProfileDossier: React.FC<UserProfileDossierProps> = ({ user, on
               <span>&bull;</span>
               <span className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                Joined {format(new Date(user.joiningDate || user.createdAt), 'MMM dd, yyyy')}
+                Joined{' '}
+                {(() => {
+                  const d = user.joiningDate || user.createdAt;
+                  if (!d) return '—';
+                  const parsed = new Date(d);
+                  return !isNaN(parsed.getTime()) ? format(parsed, 'MMM dd, yyyy') : '—';
+                })()}
               </span>
             </div>
           </div>
