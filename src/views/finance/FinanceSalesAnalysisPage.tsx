@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { orderRepository, teamRepository, userRepository } from '../../repositories';
-import { Order, Team, User } from '../../models/domain';
+import { orderRepository, teamRepository, financeRepository } from '../../repositories';
+import { Order, Team, SalesAnalysisMember } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -42,7 +42,7 @@ import toast from 'react-hot-toast';
 export const FinanceSalesAnalysisPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [members, setMembers] = useState<SalesAnalysisMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filter States
@@ -57,24 +57,32 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
   const itemsPerPage = 15;
 
   useEffect(() => {
+    let isMounted = true;
     const loadData = async () => {
       setLoading(true);
       try {
-        const [ordersData, teamsData, usersData] = await Promise.all([
+        const [ordersData, teamsData, membersData] = await Promise.all([
           orderRepository.getAll(),
           teamRepository.getAll().catch(() => []),
-          userRepository.getAll().catch(() => []),
+          financeRepository.getSalesAnalysisMembers().catch(() => []),
         ]);
-        setOrders(ordersData);
-        setTeams(teamsData);
-        setUsers(usersData);
+        if (!isMounted) return;
+        setOrders(ordersData || []);
+        setTeams(teamsData || []);
+        setMembers(membersData || []);
       } catch (err: any) {
+        if (!isMounted) return;
         toast.error(err.message || 'Failed to load sales data.');
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
     loadData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Update date boundaries when preset changes
@@ -115,10 +123,12 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
   }, [teams]);
 
   const userMap = useMemo(() => {
-    const map: Record<string, User> = {};
-    users.forEach((u) => (map[u.id] = u));
+    const map: Record<string, SalesAnalysisMember> = {};
+    members.forEach((m) => {
+      if (m && m.id) map[m.id] = m;
+    });
     return map;
-  }, [users]);
+  }, [members]);
 
   // Master filtered orders
   const filteredOrders = useMemo(() => {
