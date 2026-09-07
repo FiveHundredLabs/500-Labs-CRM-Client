@@ -170,30 +170,39 @@ export const FinanceInventoryPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Print-Only Header */}
+      <div className="hidden print:block mb-6 border-b border-slate-300 pb-4">
+        <h1 className="text-xl font-bold text-slate-900">LEVEL GROW (PVT) LTD</h1>
+        <p className="text-xs text-slate-600">Inventory Valuation & Stock Asset Ledger</p>
+        <p className="text-[10px] text-slate-400 mt-1">Generated: {new Date().toLocaleString()}</p>
+      </div>
+
       {/* Header */}
-      <PageHeader
-        title="Inventory & Asset Valuation Ledger"
-        description="Comprehensive real-time stock asset audit, unit cost acquisition tracking, COGS allocation, and realized profit margins."
-        actions={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              leftIcon={<Printer className="w-4 h-4 text-slate-600" />}
-              onClick={() => window.print()}
-            >
-              Print Ledger
-            </Button>
-            <Button
-              variant="primary"
-              leftIcon={<FileSpreadsheet className="w-4 h-4" />}
-              onClick={handleExportExcel}
-              className="bg-[#80BD2B] hover:bg-[#72A826] text-white border-none"
-            >
-              Export Excel
-            </Button>
-          </div>
-        }
-      />
+      <div className="print:hidden">
+        <PageHeader
+          title="Inventory & Asset Valuation Ledger"
+          description="Comprehensive real-time stock asset audit, unit cost acquisition tracking, COGS allocation, and realized profit margins."
+          actions={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                leftIcon={<Printer className="w-4 h-4 text-slate-600" />}
+                onClick={() => window.print()}
+              >
+                Print Ledger
+              </Button>
+              <Button
+                variant="primary"
+                leftIcon={<FileSpreadsheet className="w-4 h-4" />}
+                onClick={handleExportExcel}
+                className="bg-[#80BD2B] hover:bg-[#72A826] text-white border-none"
+              >
+                Export Excel
+              </Button>
+            </div>
+          }
+        />
+      </div>
 
       {/* Top Level Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -228,7 +237,7 @@ export const FinanceInventoryPage: React.FC = () => {
       </div>
 
       {/* Filter and Control Bar */}
-      <Card className="border border-slate-200/80 shadow-2xs">
+      <Card className="border border-slate-200/80 shadow-2xs print:hidden">
         <CardContent className="p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {/* Search */}

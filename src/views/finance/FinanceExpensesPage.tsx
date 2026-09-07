@@ -20,6 +20,8 @@ import {
   Trash2, 
   Clock, 
   FileSpreadsheet, 
+  Download,
+  FileText,
   ShieldAlert,
   CreditCard,
   Building2,
@@ -29,6 +31,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { format, differenceInHours } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
+import { generateExpenseVoucherPdf } from '../../utils/voucherPdfGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -232,17 +235,6 @@ export const FinanceExpensesPage: React.FC = () => {
 
     setIsSubmittingCreate(true);
     try {
-      if (isCreatePettyCash) {
-        await pettyCashRepository.recordExpense({
-          reason: remarks.trim(),
-          category: selectedCategoryName === 'Other' ? customCategory.trim() : selectedCategoryName,
-          amount: parsedCreateAmount,
-          date: expenseDate,
-          description: notes.trim() || remarks.trim(),
-          allocationId: selectedAllocationId || undefined,
-        });
-      }
-
       await ExpenseService.createExpense(
         {
           categoryId: selectedCatObj?.id || '',
@@ -416,6 +408,71 @@ export const FinanceExpensesPage: React.FC = () => {
     XLSX.writeFile(wb, `Expenses_Ledger_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
+  // Safe CSV export with formula injection escaping
+  const handleExportCSV = () => {
+    const escapeCsvValue = (val: any): string => {
+      if (val === null || val === undefined) return '""';
+      let str = String(val);
+      if (/^[=+\-@]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const headers = [
+      'Voucher ID',
+      'Expense Date',
+      'Category',
+      'Amount (LKR)',
+      'Payment Method',
+      'Remarks',
+      'Notes',
+      'Petty Cash Ref',
+      'Created By',
+      'Created At',
+    ];
+
+    const rows = filtered.map((e) => [
+      e.id.length > 8 ? `EXP-${e.id.slice(0, 8).toUpperCase()}` : e.id,
+      e.expenseDate ? format(new Date(e.expenseDate), 'yyyy-MM-dd') : '',
+      e.categoryName,
+      Number(e.amount).toFixed(2),
+      e.paymentMethod || 'CASH',
+      e.remarks,
+      e.notes || '',
+      e.pettyCashRef || '',
+      e.createdByName,
+      format(new Date(e.createdAt), 'yyyy-MM-dd HH:mm'),
+    ]);
+
+    const csvContent = [
+      headers.map(escapeCsvValue).join(','),
+      ...rows.map((r) => r.map(escapeCsvValue).join(',')),
+    ].join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Expenses_Ledger_${format(new Date(), 'yyyyMMdd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Download Individual Voucher PDF
+  const handleDownloadVoucherPdf = (exp: Expense) => {
+    try {
+      const doc = generateExpenseVoucherPdf(exp);
+      const code = exp.id.length > 8 ? exp.id.slice(0, 8).toUpperCase() : exp.id;
+      doc.save(`Expense_Voucher_EXP-${code}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+      toast.success('Voucher PDF downloaded successfully.');
+    } catch {
+      toast.error('Failed to generate voucher PDF.');
+    }
+  };
+
   // Filter matching expenses
   const filtered = expenses.filter((e) => {
     const matchesSearch =
@@ -450,6 +507,13 @@ export const FinanceExpensesPage: React.FC = () => {
         description="Full audit record of verified vouchers, payment methods, and 24-hour authorization controls."
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              leftIcon={<Download className="w-4 h-4 text-[#0188C7]" />}
+              onClick={handleExportCSV}
+            >
+              Export CSV
+            </Button>
             <Button
               variant="outline"
               leftIcon={<FileSpreadsheet className="w-4 h-4 text-[#547E1B]" />}
@@ -658,6 +722,13 @@ export const FinanceExpensesPage: React.FC = () => {
 
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleDownloadVoucherPdf(exp)}
+                            className="p-1.5 text-slate-400 hover:text-[#0188C7] hover:bg-[#E8F7FE] rounded-lg transition-colors cursor-pointer"
+                            title="Download Voucher PDF"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => handleOpenEdit(exp)}
                             className="p-1.5 text-slate-400 hover:text-[#01A8F3] hover:bg-[#E8F7FE] rounded-lg transition-colors cursor-pointer"

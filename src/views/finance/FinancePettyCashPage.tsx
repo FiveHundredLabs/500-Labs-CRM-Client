@@ -25,9 +25,13 @@ import {
   ChevronDown,
   ChevronRight,
   FileSpreadsheet,
+  Download,
+  FileText,
+  Printer,
   Receipt,
   PiggyBank
 } from 'lucide-react';
+import { generatePettyCashAllocationPdf, generatePettyCashStatementPdf } from '../../utils/voucherPdfGenerator';
 import * as XLSX from 'xlsx';
 
 export const FinancePettyCashPage: React.FC = () => {
@@ -212,6 +216,83 @@ export const FinancePettyCashPage: React.FC = () => {
     XLSX.writeFile(wb, `Petty_Cash_Ledger_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
+  // Safe CSV export with formula injection escaping
+  const handleExportCSV = () => {
+    const escapeCsvValue = (val: any): string => {
+      if (val === null || val === undefined) return '""';
+      let str = String(val);
+      if (/^[=+\-@]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const headers = [
+      'Transaction ID',
+      'Type',
+      'Date',
+      'Category',
+      'Reason',
+      'Description',
+      'Amount (LKR)',
+      'Balance After (LKR)',
+      'Authorized By',
+      'Created At',
+    ];
+
+    const rows = filteredTransactions.map((t) => [
+      t.id.length > 8 ? `TX-${t.id.slice(0, 8).toUpperCase()}` : t.id,
+      t.transactionType,
+      t.date ? format(new Date(t.date), 'yyyy-MM-dd') : '',
+      t.category,
+      t.reason,
+      t.description || '',
+      Number(t.amount).toFixed(2),
+      Number(t.remainingBalance).toFixed(2),
+      t.userName,
+      format(new Date(t.createdAt), 'yyyy-MM-dd HH:mm'),
+    ]);
+
+    const csvContent = [
+      headers.map(escapeCsvValue).join(','),
+      ...rows.map((r) => r.map(escapeCsvValue).join(',')),
+    ].join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Petty_Cash_Ledger_${format(new Date(), 'yyyyMMdd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Download Allocation Voucher PDF
+  const handleDownloadAllocationPdf = (alloc: PettyCashAllocation, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      const doc = generatePettyCashAllocationPdf(alloc);
+      doc.save(`Petty_Cash_Allocation_${alloc.allocationCode}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+      toast.success(`Allocation voucher (${alloc.allocationCode}) downloaded.`);
+    } catch {
+      toast.error('Failed to generate allocation voucher PDF.');
+    }
+  };
+
+  // Download Balance Statement PDF
+  const handleDownloadStatementPdf = () => {
+    if (!wallet) return;
+    try {
+      const doc = generatePettyCashStatementPdf(wallet, transactions, targetTeamId ? 'Team Petty Cash Float' : 'Global Treasury Float');
+      doc.save(`Petty_Cash_Statement_${format(new Date(), 'yyyyMMdd')}.pdf`);
+      toast.success('Petty cash balance statement PDF downloaded.');
+    } catch {
+      toast.error('Failed to generate balance statement PDF.');
+    }
+  };
+
   // Filter transactions
   const filteredTransactions = transactions.filter((t) => {
     const matchesSearch =
@@ -227,7 +308,7 @@ export const FinancePettyCashPage: React.FC = () => {
   });
 
   const utilizationPercentage =
-    wallet.allocatedAmount > 0
+    wallet && wallet.allocatedAmount > 0
       ? Math.min(100, Math.round((wallet.usedAmount / wallet.allocatedAmount) * 100))
       : 0;
 
@@ -240,16 +321,31 @@ export const FinancePettyCashPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
+              leftIcon={<Download className="w-4 h-4 text-[#0188C7]" />}
+              onClick={handleExportCSV}
+            >
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
               leftIcon={<FileSpreadsheet className="w-4 h-4 text-[#547E1B]" />}
               onClick={handleExportExcel}
             >
               Export Ledger
             </Button>
+            <Button
+              variant="outline"
+              leftIcon={<FileText className="w-4 h-4 text-slate-600" />}
+              onClick={handleDownloadStatementPdf}
+            >
+              Statement PDF
+            </Button>
             {(role === 'ADMIN' || role === 'FINANCE') && (
               <Button
-                variant="outline"
-                leftIcon={<PiggyBank className="w-4 h-4 text-[#01A8F3]" />}
+                variant="primary"
+                leftIcon={<PiggyBank className="w-4 h-4 text-white" />}
                 onClick={() => setIsAllocateModalOpen(true)}
+                className="bg-[#80BD2B] hover:bg-[#71A924] text-white border-none shadow-xs"
               >
                 Allocate Funds
               </Button>
@@ -505,6 +601,14 @@ export const FinancePettyCashPage: React.FC = () => {
                             <div className="bg-[#01A8F3] h-1.5 rounded-full" style={{ width: `${allocUsagePct}%` }} />
                           </div>
                         </div>
+
+                        <button
+                          onClick={(e) => handleDownloadAllocationPdf(alloc, e)}
+                          className="p-2 text-slate-400 hover:text-[#0188C7] hover:bg-[#E8F7FE] rounded-lg transition-colors cursor-pointer"
+                          title="Download Allocation Voucher PDF"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
 

@@ -128,8 +128,15 @@ export const FinanceDashboard: React.FC = () => {
     };
   }, [filteredOrders]);
 
-  const totalExpenseAmount = stats?.totalExpenses ?? filteredExpenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-  const grossProfit = stats?.grossProfit ?? (salesMetrics.deliveredCOD - totalExpenseAmount);
+  const salesRevenue = stats?.salesRevenue ?? 0;
+  const grossProfit = stats?.grossProfit ?? 0;
+  const totalExpenses = stats?.totalExpenses ?? 0;
+  const cogs = stats?.cogs ?? 0;
+  const netProfit = stats?.netProfit ?? 0;
+  const deliveredCount = stats?.deliveredCount ?? 0;
+  const totalOrders = stats?.totalOrders ?? 0;
+  const pettyCashBalance = stats?.pettyCash?.remainingBalance ?? 0;
+  const pettyCashAllocated = stats?.pettyCash?.allocatedAmount ?? 0;
 
   // Category breakdown for Pie Chart
   const categoryTotals: Record<string, number> = stats?.expenseByCategory ?? {};
@@ -236,32 +243,31 @@ export const FinanceDashboard: React.FC = () => {
 
       {/* Executive Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Prominent Total Sales Metric Card */}
         <StatCard
           title={`${getFilterLabel()} Delivered Sales`}
-          value={formatCurrency(stats?.salesRevenue ?? salesMetrics.deliveredCOD)}
-          subtitle={`${stats?.deliveredCount ?? salesMetrics.deliveredCount} delivered of ${stats?.totalOrders ?? salesMetrics.totalOrders} orders`}
+          value={formatCurrency(salesRevenue)}
+          subtitle={`${deliveredCount} delivered of ${totalOrders} total orders`}
           icon={<DollarSign className="w-4 h-4" />}
           accentColor="blue"
         />
         <StatCard
           title="Gross Profit"
           value={formatCurrency(grossProfit)}
-          subtitle={`COGS: ${formatCurrency(stats?.cogs ?? 0)}`}
+          subtitle={`COGS: ${formatCurrency(cogs)}`}
           icon={<CheckCircle2 className="w-4 h-4" />}
           accentColor="green"
         />
         <StatCard
           title={`${getFilterLabel()} Total Expenses`}
-          value={formatCurrency(totalExpenseAmount)}
-          subtitle={`${filteredExpenses.length} Vouchers Recorded`}
+          value={formatCurrency(totalExpenses)}
+          subtitle={`Net Profit: ${formatCurrency(netProfit)}`}
           icon={<Layers className="w-4 h-4" />}
           accentColor="amber"
         />
         <StatCard
           title="Petty Cash Balance"
-          value={formatCurrency(stats?.pettyCash?.remainingBalance ?? 0)}
-          subtitle={`Allocated: ${formatCurrency(stats?.pettyCash?.allocatedAmount ?? 0)}`}
+          value={formatCurrency(pettyCashBalance)}
+          subtitle={`Allocated Float: ${formatCurrency(pettyCashAllocated)}`}
           icon={<Wallet className="w-4 h-4" />}
           accentColor="purple"
         />

@@ -106,17 +106,6 @@ export const FinanceNewExpensePage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      if (isPettyCash) {
-        await pettyCashRepository.recordExpense({
-          reason: remarks.trim(),
-          category: selectedCategoryName === 'Other' ? customCategory.trim() : selectedCategoryName,
-          amount: parsedAmount,
-          date: expenseDate,
-          description: notes.trim() || remarks.trim(),
-          allocationId: selectedAllocationId || undefined,
-        });
-      }
-
       await ExpenseService.createExpense(
         {
           categoryId: selectedCatObj?.id || '',
