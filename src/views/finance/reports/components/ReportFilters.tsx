@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActiveFilters, SupportedFilterType } from '../types';
 import { TEAMS, TeamItem, EXPENSE_CATEGORIES } from '../mockData';
+import { teamRepository } from '../../../../repositories';
 import { Select } from '../../../../components/ui/Select';
 import { 
   Calendar, 
@@ -30,6 +31,7 @@ interface ReportFiltersProps {
   filters: ActiveFilters;
   onChange: (updated: ActiveFilters) => void;
   rightActions?: React.ReactNode;
+  teams?: TeamItem[];
 }
 
 export const ReportFilters: React.FC<ReportFiltersProps> = ({
@@ -37,10 +39,37 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
   filters,
   onChange,
   rightActions,
+  teams,
 }) => {
   const supportsTeam = supportedFilters.includes('team');
   const supportsCategory = supportedFilters.includes('category');
   const supportsPaymentMethod = supportedFilters.includes('paymentMethod');
+
+  const [teamList, setTeamList] = useState<TeamItem[]>(
+    teams && teams.length > 0 ? teams : TEAMS
+  );
+
+  useEffect(() => {
+    if (teams && teams.length > 0) {
+      setTeamList(teams);
+      return;
+    }
+    if (!supportsTeam) return;
+    let isMounted = true;
+    teamRepository.getAll()
+      .then((realTeams) => {
+        if (isMounted && realTeams && realTeams.length > 0) {
+          setTeamList(realTeams.map((t) => ({ id: t.id, name: t.name })));
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not fetch teams from API:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supportsTeam, teams]);
 
   // Handle Preset change
   const handlePresetChange = (preset: ActiveFilters['dateRange']['preset']) => {
@@ -201,13 +230,13 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
                 <Users className="w-3.5 h-3.5 text-blue-600" />
                 <span className="hidden sm:inline">Team:</span>
               </span>
-              <div className="w-44">
+              <div className="w-48">
                 <Select
                   value={filters.teamId || 'ALL'}
                   onChange={(e) => onChange({ ...filters, teamId: e.target.value })}
                   options={[
-                    { value: 'ALL', label: 'All Departments' },
-                    ...TEAMS.map((t: TeamItem) => ({ value: t.id, label: t.name })),
+                    { value: 'ALL', label: 'All Teams' },
+                    ...teamList.map((t: TeamItem) => ({ value: t.id, label: t.name })),
                   ]}
                 />
               </div>

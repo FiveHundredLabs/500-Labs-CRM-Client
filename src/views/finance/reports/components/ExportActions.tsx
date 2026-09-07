@@ -122,15 +122,27 @@ export const ExportActions: React.FC<ExportActionsProps> = ({
         };
       });
 
-      // Headers & Rows
-      const tableHeaders = report.columns.map((c) => c.header);
-      const columnAlignments = report.columns.map((c) => c.align || 'left');
+      // Headers & Rows: use custom PDF columns if specified to avoid overcrowded/overlapping columns
+      const pdfCols = report.pdfConfig?.columns || report.columns.map((c) => ({
+        header: c.header,
+        accessorKey: c.accessorKey || c.id,
+        align: c.align || 'left',
+        format: c.format || 'text',
+        widthMm: undefined as number | undefined,
+      }));
+
+      const tableHeaders = pdfCols.map((c) => c.header);
+      const columnAlignments = pdfCols.map((c) => c.align || 'left');
+      const columnWidths = pdfCols.every((c) => c.widthMm)
+        ? (pdfCols.map((c) => c.widthMm!) as number[])
+        : undefined;
 
       const tableRows: (string | number)[][] = filteredData.slice(0, 250).map((row) => {
-        return report.columns.map((col) => {
+        return pdfCols.map((col) => {
           const val = col.accessorKey ? row[col.accessorKey] : '';
           if (val === null || val === undefined) return '-';
           if (col.format === 'currency') return formatCurrency(Number(val));
+          if (col.format === 'number') return Number(val).toLocaleString();
           if (col.format === 'date') {
             try {
               return format(new Date(val), 'yyyy-MM-dd');
@@ -142,6 +154,10 @@ export const ExportActions: React.FC<ExportActionsProps> = ({
         });
       });
 
+      const summaryLines = report.pdfConfig?.summaryLines
+        ? report.pdfConfig.summaryLines(filteredData, filters)
+        : undefined;
+
       const payload: ReportPdfPayload = {
         title: report.name,
         subtitle: report.description,
@@ -152,6 +168,9 @@ export const ExportActions: React.FC<ExportActionsProps> = ({
         tableHeaders,
         tableRows,
         columnAlignments,
+        columnWidths,
+        summaryLines,
+        orientation: report.pdfConfig?.orientation || 'portrait',
       };
 
       const doc = generateExecutiveA4Pdf(payload);

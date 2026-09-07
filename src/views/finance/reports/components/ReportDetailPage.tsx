@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ReportDefinition, ActiveFilters } from '../types';
-import { MOCK_FINANCE_DATABASE } from '../mockData';
+import { MOCK_FINANCE_DATABASE, TeamItem } from '../mockData';
+import { financeRepository, teamRepository } from '../../../../repositories';
 import { ReportFilters } from './ReportFilters';
 import { ReportSummaryCards } from './ReportSummaryCards';
 import { ReportChart } from './ReportChart';
@@ -39,10 +40,106 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
     search: '',
   });
 
-  // Query raw filtered report dataset
+  // Live backend dataset state
+  const [liveReportData, setLiveReportData] = useState<any>(null);
+  const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
+  const [loadedTeams, setLoadedTeams] = useState<TeamItem[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    teamRepository.getAll()
+      .then((teams) => {
+        if (active && teams && teams.length > 0) {
+          setLoadedTeams(teams.map((t) => ({ id: t.id, name: t.name })));
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load teams from API:', err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Compute combined actual teams from API and any live records
+  const availableTeams = useMemo(() => {
+    const map = new Map<string, string>();
+    loadedTeams.forEach((t) => map.set(t.id, t.name));
+    if (Array.isArray(liveReportData)) {
+      liveReportData.forEach((p: any) => {
+        if (p.teamId && p.teamName) {
+          map.set(p.teamId, p.teamName);
+        }
+      });
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [loadedTeams, liveReportData]);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchLiveData = async () => {
+      if (report.id === 'product-cost') {
+        setIsLoadingLive(true);
+        try {
+          const items = await financeRepository.getInventoryReport(
+            filters.teamId !== 'ALL' ? filters.teamId : undefined,
+            filters.dateRange.startDate || undefined,
+            filters.dateRange.endDate || undefined
+          );
+          if (active) {
+            setLiveReportData(items);
+          }
+        } catch (err) {
+          console.error('Failed to fetch live inventory report from backend:', err);
+          if (active) {
+            setLiveReportData(null);
+          }
+        } finally {
+          if (active) {
+            setIsLoadingLive(false);
+          }
+        }
+      } else if (report.id === 'income-summary') {
+        setIsLoadingLive(true);
+        try {
+          const orders = await financeRepository.getRealizedSalesReport(
+            filters.dateRange.startDate || undefined,
+            filters.dateRange.endDate || undefined,
+            filters.teamId !== 'ALL' ? filters.teamId : undefined
+          );
+          if (active) {
+            setLiveReportData(orders);
+          }
+        } catch (err) {
+          console.error('Failed to fetch live realized sales report from backend:', err);
+          if (active) {
+            setLiveReportData(null);
+          }
+        } finally {
+          if (active) {
+            setIsLoadingLive(false);
+          }
+        }
+      } else {
+        setLiveReportData(null);
+      }
+    };
+
+    fetchLiveData();
+
+    return () => {
+      active = false;
+    };
+  }, [report.id, filters.teamId, filters.dateRange.startDate, filters.dateRange.endDate, filters.dateRange.preset]);
+
+  // Query raw filtered report dataset (prefer live backend data when available)
   const rawReportData = useMemo(() => {
+    if ((report.id === 'product-cost' || report.id === 'income-summary') && liveReportData !== null) {
+      return report.getData(liveReportData, filters);
+    }
     return report.getData(MOCK_FINANCE_DATABASE, filters);
-  }, [report, filters]);
+  }, [report, filters, liveReportData]);
 
   // Extract tabular array rows (some reports like P&L or Income-vs-Expense return an object with rows array)
   const tabularData = useMemo(() => {
@@ -86,6 +183,12 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
                 {report.badgeText}
               </span>
+              {(report.id === 'product-cost' || report.id === 'income-summary') && liveReportData !== null && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live Database
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5 max-w-2xl leading-relaxed">
               {report.description}
@@ -99,6 +202,7 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
         supportedFilters={report.supportedFilters}
         filters={filters}
         onChange={setFilters}
+        teams={availableTeams.length > 0 ? availableTeams : undefined}
         rightActions={
           <ExportActions
             report={report}
@@ -142,6 +246,7 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
         <ReportTable
           columns={report.columns}
           data={tabularData}
+          isLoading={isLoadingLive}
         />
       </div>
     </div>

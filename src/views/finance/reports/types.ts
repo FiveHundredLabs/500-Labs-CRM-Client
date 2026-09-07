@@ -56,6 +56,25 @@ export interface ReportChartConfig {
   getChartData: (filteredData: ReportDataSet, filters: ActiveFilters) => any[];
 }
 
+export interface ReportPdfColumn {
+  header: string;
+  accessorKey: string;
+  align?: 'left' | 'center' | 'right';
+  format?: 'currency' | 'date' | 'badge' | 'text' | 'number';
+  widthMm?: number;
+}
+
+export interface ReportPdfConfig {
+  orientation?: 'portrait' | 'landscape';
+  columns?: ReportPdfColumn[];
+  summaryLines?: (data: any[], filters: ActiveFilters) => {
+    label: string;
+    value: string;
+    isBold?: boolean;
+    isHighlight?: boolean;
+  }[];
+}
+
 export interface ReportDefinition {
   id: string;
   name: string;
@@ -70,5 +89,6 @@ export interface ReportDefinition {
   columns: ReportColumn[];
   getData: (allData: any, filters: ActiveFilters) => any;
   defaultSort?: { key: string; direction: 'asc' | 'desc' };
+  pdfConfig?: ReportPdfConfig;
 }
 

@@ -105,9 +105,22 @@ export class ApiUserRepository implements IUserRepository {
     return all.filter((u) => u.role === role);
   }
   async getByTeamId(teamId: string): Promise<User[]> {
-    return unwrap(
-      await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
-    );
+    try {
+      const res = unwrap(
+        await apiClient.get<{ data: any }>(`/users?teamId=${teamId}&limit=100`)
+      ) as any;
+      const items = Array.isArray(res) ? res : res?.items;
+      if (Array.isArray(items)) {
+        return items;
+      }
+      return unwrap(
+        await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
+      );
+    } catch {
+      return unwrap(
+        await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
+      );
+    }
   }
   async getBySupervisorId(supervisorId: string): Promise<User[]> {
     const all = await this.getAll();
@@ -790,9 +803,27 @@ export class ApiFinanceRepository {
     );
   }
 
-  async getInventoryReport(): Promise<InventoryReportItem[]> {
+  async getInventoryReport(teamId?: string, startDate?: string, endDate?: string): Promise<InventoryReportItem[]> {
+    const params: Record<string, string> = {};
+    if (teamId && teamId !== 'ALL') params.teamId = teamId;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
     return unwrap(
-      await apiClient.get<{ data: InventoryReportItem[] }>('/finance/inventory-report')
+      await apiClient.get<{ data: InventoryReportItem[] }>('/finance/inventory-report', { params })
+    );
+  }
+
+  async getRealizedSalesReport(
+    startDate?: string,
+    endDate?: string,
+    teamId?: string,
+  ): Promise<any[]> {
+    const params: Record<string, string> = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (teamId && teamId !== 'ALL') params.teamId = teamId;
+    return unwrap(
+      await apiClient.get<{ data: any[] }>('/finance/realized-sales', { params })
     );
   }
 
