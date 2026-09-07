@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { User, SupervisorSalesTarget, SupervisorTargetTier } from '../../models/domain';
+import type { User, SupervisorSalesTarget, SupervisorTargetTier, UserRole } from '../../models/domain';
 import { userRepository, supervisorTargetRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
@@ -60,7 +60,7 @@ export const AdminSupervisorGoalsPage: React.FC = () => {
     setLoading(true);
     try {
       const [allSupervisors, allTargets] = await Promise.all([
-        userRepository.getByRole('SUPERVISOR' as any),
+        userRepository.getByRole('SUPERVISOR' as UserRole),
         supervisorTargetRepository.getAll(selectedMonth || undefined),
       ]);
       setSupervisors(allSupervisors.filter((u) => u.isActive));
@@ -601,7 +601,7 @@ export const AdminSupervisorGoalsPage: React.FC = () => {
         title="Remove Supervisor Goal"
         message={`Remove the ${deletingTarget?.evaluatedMonth || deletingTarget?.month} team goal for ${deletingTarget?.supervisor?.fullName || 'this supervisor'}? This will also delete all configured incentive tiers.`}
         confirmText="Remove Goal"
-        variant="danger"
+        isDanger={true}
         isLoading={isDeleting}
       />
     </div>

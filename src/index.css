@@ -299,3 +299,51 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* ═══════════════════════════════════════════════
+   RESPONSIVE 1280×1024 DESKTOP UTILITIES
+   ═══════════════════════════════════════════════ */
+
+/* Ensure tables inside containers scroll horizontally rather than overflowing */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Dialog/modal content area: allow scrolling without overflowing viewport */
+.dialog-scrollable-body {
+  overflow-y: auto;
+  max-height: calc(90vh - 130px);
+}
+
+/* Stat card grids: 2 col on small, 4 col on md+, never overflow */
+.stat-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+@media (min-width: 1024px) {
+  .stat-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Finance and admin pages: clamp page-level containers */
+.page-container {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Truncate long text in table cells at smaller widths */
+.cell-truncate {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 1280px) {
+  .cell-truncate {
+    max-width: 200px;
+  }
+}
