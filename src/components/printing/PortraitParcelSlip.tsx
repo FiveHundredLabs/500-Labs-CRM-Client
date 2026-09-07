@@ -667,7 +667,7 @@ export const PortraitParcelSlip: React.FC<
               flexShrink: 0,
             }}
           >
-            Tel: {data.customer.phone}
+            Tel: {customerPhones || '-'}
           </div>
         </div>
       </div>
