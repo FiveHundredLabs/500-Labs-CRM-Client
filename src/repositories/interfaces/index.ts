@@ -25,6 +25,7 @@ import {
   SupervisorSalesTarget,
   SupervisorTargetTier,
   PaymentMethod,
+  SalesAnalysisMember,
 } from '../../models/domain';
 
 export interface ExpenseWritePayload {
@@ -217,6 +218,7 @@ export interface IFinanceRepository {
   getRealizedSalesReport(startDate?: string, endDate?: string, teamId?: string): Promise<any[]>;
   getSalesReport(period: 'daily' | 'weekly' | 'monthly', startDate?: string, endDate?: string): Promise<any>;
   getCityDeliveryReport(startDate?: string, endDate?: string): Promise<any>;
+  getSalesAnalysisMembers(): Promise<SalesAnalysisMember[]>;
 }
 
 export interface ISalesTargetRepository {
