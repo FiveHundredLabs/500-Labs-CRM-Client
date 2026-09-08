@@ -328,6 +328,15 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
       return;
     }
 
+    const escapeCsvText = (val: any): string => {
+      if (val === null || val === undefined) return '""';
+      let str = String(val);
+      if (/^[=+\-@]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
     const headers = [
       'Order Number',
       'Date',
@@ -343,29 +352,29 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
     ];
 
     const rows = filteredOrders.map((o) => [
-      o.orderNumber,
-      o.createdAt.split('T')[0],
-      `"${(teamMap[o.teamId]?.name || o.teamId).replace(/"/g, '""')}"`,
-      `"${(userMap[o.teamMemberId]?.fullName || o.teamMemberId).replace(/"/g, '""')}"`,
-      o.selectedPackage || 'STANDARD',
+      escapeCsvText(o.orderNumber),
+      escapeCsvText(o.createdAt ? o.createdAt.split('T')[0] : ''),
+      escapeCsvText(teamMap[o.teamId]?.name || o.teamId),
+      escapeCsvText(userMap[o.teamMemberId]?.fullName || o.teamMemberId),
+      escapeCsvText(o.selectedPackage || 'STANDARD'),
       o.adultQty || 0,
       o.kidsQty || 0,
-      (o.totalAmount || 0).toFixed(2),
-      (o.codAmount || 0).toFixed(2),
-      o.status,
-      `"${(o.remarks || '').replace(/"/g, '""')}"`,
+      Number(o.totalAmount || 0).toFixed(2),
+      Number(o.codAmount || 0).toFixed(2),
+      escapeCsvText(o.status),
+      escapeCsvText(o.remarks || ''),
     ]);
 
     const csvContent = [
       `"500 Labs - Detailed Sales Analysis Report"`,
       `"Exported Date","${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}"`,
-      `"Team Filter","${selectedTeamId === 'ALL' ? 'All Teams' : teamMap[selectedTeamId]?.name || selectedTeamId}"`,
-      `"Date Range","${startDate || 'Start'} to ${endDate || 'Present'}"`,
+      `"Team Filter",${escapeCsvText(selectedTeamId === 'ALL' ? 'All Teams' : teamMap[selectedTeamId]?.name || selectedTeamId)}`,
+      `"Date Range",${escapeCsvText(`${startDate || 'Start'} to ${endDate || 'Present'}`)}`,
       `"Total Filtered Sales","${formatCurrency(metrics.totalSalesValue)}"`,
       '',
-      headers.join(','),
+      headers.map(escapeCsvText).join(','),
       ...rows.map((r) => r.join(',')),
-    ].join('\n');
+    ].join('\r\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -375,6 +384,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     toast.success('Sales ledger exported successfully!');
   };
 
