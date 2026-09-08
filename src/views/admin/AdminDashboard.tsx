@@ -318,47 +318,51 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* 1. Executive KPI Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <StatCard
+          variant="vibrant"
+          accentColor="sales"
           title="Gross Sales"
           value={formatCurrency(totalGrossSales)}
           subtitle={`${scopedOrders.length} Booked Orders`}
-          icon={<DollarSign className="w-4 h-4 text-emerald-600" />}
-          accentColor="green"
+          icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
           className="col-span-2 sm:col-span-1"
         />
 
         <StatCard
+          variant="vibrant"
+          accentColor="dispatched"
           title="Dispatched"
           value={`${lastDispatchedCount} Orders`}
           subtitle="In courier transit"
-          icon={<Package className="w-4 h-4 text-emerald-600" />}
-          accentColor="green"
+          icon={<Package className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
         />
 
         <StatCard
+          variant="vibrant"
+          accentColor="delivered"
           title="Delivered"
           value={totalDeliveredOrders}
           subtitle="Customer handovers"
-          icon={<CheckCircle2 className="w-4 h-4 text-blue-600" />}
-          accentColor="blue"
+          icon={<CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
         />
 
         <StatCard
+          variant="vibrant"
+          accentColor="interested"
           title="Interested"
           value={todayInterestedCount}
           subtitle="Qualified leads"
-          icon={<PhoneCall className="w-4 h-4 text-purple-600" />}
-          accentColor="purple"
+          icon={<PhoneCall className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
         />
 
         <StatCard
+          variant="vibrant"
+          accentColor="expenses"
           title="Expenses"
           value={formatCurrency(totalMonthlyExpenses)}
           subtitle="Finance logged"
-          icon={<DollarSign className="w-4 h-4 text-amber-600" />}
-          accentColor="amber"
-          className="col-span-2 sm:col-span-1"
+          icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />}
         />
       </div>
 
