@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Order, OrderStatus } from '../../models/domain';
 import { formatCurrency } from '../../utils/currency';
+import { getAmountToCollect, getCodCharge, getProductSalesValue } from '../../utils/orderAmounts';
 import { Button } from '../ui/Button';
 import { MessageSquare, History, CheckCheck, XCircle, Edit3, PlusCircle, Printer, ShieldAlert } from 'lucide-react';
 
@@ -21,18 +22,27 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
   onPrintSlip,
   onInspectDamages,
 }) => {
+  const productSalesValue = getProductSalesValue(order);
+  const codCharge = getCodCharge(order);
+  const amountToCollect = getAmountToCollect(order);
+
   return (
     <div
       className="mt-2.5 pt-2.5 border-t border-slate-200/80 space-y-2.5"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Items Description & LKR Total Amount */}
+      {/* Items Description & Amount Breakdown */}
       <div className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-700 space-y-1">
         <div className="font-semibold text-slate-900 flex justify-between items-center gap-2">
           <span className="truncate">{order.itemsDescription}</span>
           <span className="font-mono text-emerald-700 font-bold shrink-0">
-            {formatCurrency(order.totalAmount)}
+            {formatCurrency(amountToCollect)}
           </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 text-[11px] text-slate-600 border-t border-slate-200/60 pt-1">
+          <span>Product Value: <strong className="font-mono text-slate-900">{formatCurrency(productSalesValue)}</strong></span>
+          <span>COD / Delivery: <strong className="font-mono text-slate-900">{formatCurrency(codCharge)}</strong></span>
+          <span>Amount to Collect: <strong className="font-mono text-slate-900">{formatCurrency(amountToCollect)}</strong></span>
         </div>
         {order.remarks && order.remarks.trim() !== '' ? (
           <div className="text-[11px] text-slate-600 italic border-t border-slate-200/60 pt-1 mt-1 flex items-start gap-1">
