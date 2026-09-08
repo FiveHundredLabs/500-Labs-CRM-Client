@@ -24,7 +24,7 @@ export const downloadRoyalCourierExcel = async (
     const rep = item.responsibleUser;
     const tm = item.team;
 
-    const cod = ord?.totalAmount ?? ord?.codAmount ?? 0;
+    const cod = ord?.codAmount ?? ord?.totalAmount ?? 0;
     const dateFormatted = ord?.createdAt
       ? format(new Date(ord.createdAt), 'yyyy-MM-dd HH:mm')
       : format(new Date(cust.createdAt), 'yyyy-MM-dd HH:mm');
