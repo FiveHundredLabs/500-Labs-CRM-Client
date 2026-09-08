@@ -484,6 +484,9 @@ export class ApiExpenseRepository implements IExpenseRepository {
       await apiClient.patch<{ data: ExpenseCategory }>(`/expenses/categories/${id}`, data)
     );
   }
+  async deleteCategory(id: string): Promise<void> {
+    await apiClient.delete(`/expenses/categories/${id}`);
+  }
   async update(id: string, updates: ExpenseUpdatePayload): Promise<Expense> {
     const payload: ExpenseUpdatePayload = {};
     if (updates.categoryId !== undefined) payload.categoryId = updates.categoryId;

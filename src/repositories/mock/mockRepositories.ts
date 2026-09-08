@@ -682,6 +682,16 @@ export class MockExpenseRepository implements IExpenseRepository {
     throw new Error('Category not found');
   }
 
+  async deleteCategory(id: string): Promise<void> {
+    await delay();
+    const categories = getStoredItem<ExpenseCategory>(STORAGE_KEYS.EXPENSE_CATEGORIES, []);
+    const idx = categories.findIndex((c) => c.id === id);
+    if (idx !== -1) {
+      categories.splice(idx, 1);
+      setStoredItem(STORAGE_KEYS.EXPENSE_CATEGORIES, categories);
+    }
+  }
+
   async update(id: string, updates: Partial<Expense>): Promise<Expense> {
     await delay();
     const expenses = getStoredItem<Expense>(STORAGE_KEYS.EXPENSES, []);

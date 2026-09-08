@@ -14,6 +14,8 @@ import {
   Tag, 
   Plus, 
   Edit3, 
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const FinanceCategoriesPage: React.FC = () => {
@@ -28,6 +30,10 @@ export const FinanceCategoriesPage: React.FC = () => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Delete State
+  const [deleteTarget, setDeleteTarget] = useState<ExpenseCategory | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -91,6 +97,21 @@ export const FinanceCategoriesPage: React.FC = () => {
       toast.error(err.response?.data?.message || err.message || 'Operation failed.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await expenseRepository.deleteCategory(deleteTarget.id);
+      toast.success(`Category "${deleteTarget.name}" deleted successfully.`);
+      setDeleteTarget(null);
+      await loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to delete category.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -162,14 +183,23 @@ export const FinanceCategoriesPage: React.FC = () => {
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                  <span className="font-mono text-[11px] truncate max-w-[150px]">{cat.id}</span>
-                  <button
-                    onClick={() => openEdit(cat)}
-                    className="inline-flex items-center gap-1 text-[#0188C7] hover:text-[#016DA0] font-semibold cursor-pointer text-xs transition-colors"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Edit</span>
-                  </button>
+                  <span className="font-mono text-[11px] truncate max-w-[120px]">{cat.id}</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => openEdit(cat)}
+                      className="inline-flex items-center gap-1 text-[#0188C7] hover:text-[#016DA0] font-semibold cursor-pointer text-xs transition-colors"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(cat)}
+                      className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-semibold cursor-pointer text-xs transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -218,6 +248,45 @@ export const FinanceCategoriesPage: React.FC = () => {
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        isOpen={!!deleteTarget}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        title="Delete Expense Category"
+      >
+        <div className="space-y-4">
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-xs text-red-800">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-red-900">Are you sure you want to delete this category?</p>
+              <p className="mt-1">
+                Category <strong>"{deleteTarget?.name}"</strong> will be permanently removed. Categories linked to existing recorded expenses cannot be deleted.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white border-none"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Category'}
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

@@ -158,6 +158,7 @@ export interface IExpenseRepository {
   create(expense: ExpenseWritePayload): Promise<Expense>;
   createCategory(category: Omit<ExpenseCategory, 'id'>): Promise<ExpenseCategory>;
   updateCategory(id: string, data: Partial<ExpenseCategory>): Promise<ExpenseCategory>;
+  deleteCategory(id: string): Promise<void>;
   update(id: string, updates: ExpenseUpdatePayload): Promise<Expense>;
   delete(id: string): Promise<void>;
   requestChange(id: string, data: { action: 'EDIT' | 'DELETE'; reason: string; [key: string]: any }): Promise<any>;

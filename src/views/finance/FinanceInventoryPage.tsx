@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { productRepository, financeRepository } from '../../repositories';
-import { Product } from '../../models/domain';
+import { productRepository, financeRepository, teamRepository } from '../../repositories';
+import { Product, Team } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -17,33 +17,39 @@ import {
   DollarSign, 
   AlertTriangle, 
   FileSpreadsheet, 
-  Printer, 
-  Tag, 
+  FileText, 
+  Users, 
   ArrowUpRight,
-  ShieldCheck
+  ShieldCheck,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { generateInventoryValuationPdf } from '../../utils/voucherPdfGenerator';
+import toast from 'react-hot-toast';
+import { format } from 'date-fns';
 
 export const FinanceInventoryPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [inventoryAnalytics, setInventoryAnalytics] = useState<any[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [teamFilter, setTeamFilter] = useState('ALL');
   const [stockStatusFilter, setStockStatusFilter] = useState('ALL');
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [prodList, analyticsList] = await Promise.all([
+        const [prodList, analyticsList, teamList] = await Promise.all([
           productRepository.getAll().catch(() => []),
           financeRepository.getInventoryReport().catch(() => []),
+          teamRepository.getAll().catch(() => []),
         ]);
         setProducts(prodList);
         setInventoryAnalytics(analyticsList);
+        setTeams(teamList);
       } finally {
         setLoading(false);
       }
@@ -51,10 +57,12 @@ export const FinanceInventoryPage: React.FC = () => {
     load();
   }, []);
 
-  // Map analytics with product catalog
+  // Map analytics with product catalog & teams
   const inventoryItems = useMemo(() => {
     return products.map((prod) => {
       const analytics = inventoryAnalytics.find((a) => a.id === prod.id || a.code === prod.code);
+      const matchedTeam = teams.find((t) => t.id === prod.teamId) || prod.team;
+      const teamName = matchedTeam?.name || 'General Inventory';
       const costPrice = Number(prod.costPrice || 0);
       const sellingPrice = Number(prod.sellingPrice || 0);
       const currentStock = prod.currentStock || 0;
@@ -69,6 +77,8 @@ export const FinanceInventoryPage: React.FC = () => {
         id: prod.id,
         name: prod.name,
         code: prod.code,
+        teamId: prod.teamId,
+        teamName,
         category: prod.category || 'General',
         currentStock,
         minStockThreshold: prod.minStockThreshold || 10,
@@ -83,16 +93,7 @@ export const FinanceInventoryPage: React.FC = () => {
         isActive: prod.isActive,
       };
     });
-  }, [products, inventoryAnalytics]);
-
-  // Unique categories
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => {
-      if (p.category) set.add(p.category);
-    });
-    return Array.from(set);
-  }, [products]);
+  }, [products, inventoryAnalytics, teams]);
 
   // Filtered list
   const filtered = useMemo(() => {
@@ -101,9 +102,9 @@ export const FinanceInventoryPage: React.FC = () => {
         !search ||
         item.name.toLowerCase().includes(search.toLowerCase()) ||
         item.code.toLowerCase().includes(search.toLowerCase()) ||
-        item.category.toLowerCase().includes(search.toLowerCase());
+        item.teamName.toLowerCase().includes(search.toLowerCase());
 
-      const matchesCat = categoryFilter === 'ALL' || item.category === categoryFilter;
+      const matchesTeam = teamFilter === 'ALL' || item.teamId === teamFilter || item.teamName === teamFilter;
 
       let matchesStock = true;
       if (stockStatusFilter === 'LOW') {
@@ -114,9 +115,9 @@ export const FinanceInventoryPage: React.FC = () => {
         matchesStock = item.currentStock > item.minStockThreshold;
       }
 
-      return matchesSearch && matchesCat && matchesStock;
+      return matchesSearch && matchesTeam && matchesStock;
     });
-  }, [inventoryItems, search, categoryFilter, stockStatusFilter]);
+  }, [inventoryItems, search, teamFilter, stockStatusFilter]);
 
   // Summary Metrics
   const summary = useMemo(() => {
@@ -143,11 +144,22 @@ export const FinanceInventoryPage: React.FC = () => {
     };
   }, [inventoryItems]);
 
+  const handleDownloadStatementPdf = () => {
+    try {
+      const teamScope = teamFilter === 'ALL' ? 'All Teams' : (teams.find((t) => t.id === teamFilter)?.name || 'Filtered Team');
+      const doc = generateInventoryValuationPdf(filtered, summary, teamScope);
+      doc.save(`Inventory_Valuation_Statement_${format(new Date(), 'yyyyMMdd')}.pdf`);
+      toast.success('Inventory valuation statement PDF downloaded.');
+    } catch {
+      toast.error('Failed to generate inventory statement PDF.');
+    }
+  };
+
   const handleExportExcel = () => {
     const exportData = filtered.map((item) => ({
       'SKU Code': item.code,
       'Product Name': item.name,
-      'Category': item.category,
+      'Team': item.teamName,
       'Stock on Hand': item.currentStock,
       'Min Reorder Level': item.minStockThreshold,
       'Unit Cost (LKR)': item.costPrice,
@@ -186,10 +198,10 @@ export const FinanceInventoryPage: React.FC = () => {
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button
                 variant="outline"
-                leftIcon={<Printer className="w-4 h-4 text-slate-600" />}
-                onClick={() => window.print()}
+                leftIcon={<FileText className="w-4 h-4 text-slate-600" />}
+                onClick={handleDownloadStatementPdf}
               >
-                Print Ledger
+                Statement PDF
               </Button>
               <Button
                 variant="primary"
@@ -246,19 +258,19 @@ export const FinanceInventoryPage: React.FC = () => {
               <SearchInput
                 value={search}
                 onChange={setSearch}
-                placeholder="Search by SKU code, product title, or category..."
+                placeholder="Search by SKU code, product title, or team..."
               />
             </div>
 
-            {/* Category Filter */}
+            {/* Team Filter */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Team</label>
               <Select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                value={teamFilter}
+                onChange={(e) => setTeamFilter(e.target.value)}
                 options={[
-                  { value: 'ALL', label: 'All Product Categories' },
-                  ...categories.map((c) => ({ value: c, label: c })),
+                  { value: 'ALL', label: 'All Teams' },
+                  ...teams.map((t) => ({ value: t.id, label: t.name })),
                 ]}
               />
             </div>
@@ -303,7 +315,7 @@ export const FinanceInventoryPage: React.FC = () => {
               <thead className="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Item & Code</th>
-                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Team</th>
                   <th className="py-3 px-4 text-center">Stock Level</th>
                   <th className="py-3 px-4 text-right">Unit Cost</th>
                   <th className="py-3 px-4 text-right">Selling Price</th>
@@ -334,11 +346,11 @@ export const FinanceInventoryPage: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Category */}
+                      {/* Team */}
                       <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                          <Tag className="w-3 h-3 text-slate-400" />
-                          <span>{item.category}</span>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]">
+                          <Users className="w-3 h-3 text-[#01A8F3]" />
+                          <span>{item.teamName}</span>
                         </span>
                       </td>
 
