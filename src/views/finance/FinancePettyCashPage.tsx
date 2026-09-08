@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { ExpenseCategory, PettyCashWallet, PettyCashTransaction, PettyCashAllocation } from '../../models/domain';
-import { expenseRepository, pettyCashRepository } from '../../repositories';
+import { PettyCashWallet, PettyCashTransaction, PettyCashAllocation } from '../../models/domain';
+import { pettyCashRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -40,13 +40,8 @@ export const FinancePettyCashPage: React.FC = () => {
   const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
   const [transactions, setTransactions] = useState<PettyCashTransaction[]>([]);
   const [allocations, setAllocations] = useState<PettyCashAllocation[]>([]);
-  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [activeView, setActiveView] = useState<'TRANSACTIONS' | 'ALLOCATIONS'>('TRANSACTIONS');
-
-  // Expanded allocation ID for drilldown
-  const [expandedAllocationId, setExpandedAllocationId] = useState<string | null>(null);
 
   // Filter states
   const [search, setSearch] = useState('');
@@ -55,7 +50,6 @@ export const FinancePettyCashPage: React.FC = () => {
   // New Expense Dialog State
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [reason, setReason] = useState('');
-  const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [description, setDescription] = useState('');
@@ -75,19 +69,16 @@ export const FinancePettyCashPage: React.FC = () => {
     setLoading(true);
     setLoadError('');
     try {
-      const [walletData, txData, allocData, categoryData] = await Promise.all([
+      const [walletData, txData, allocData] = await Promise.all([
         pettyCashRepository.getWallet(targetTeamId),
         pettyCashRepository.getTransactions(targetTeamId),
         pettyCashRepository.getAllocations(targetTeamId).catch(() => []),
-        expenseRepository.getCategories().catch(() => []),
       ]);
       setWallet(walletData);
       setTransactions(
         (txData || []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       );
       setAllocations(allocData || []);
-      setCategories(categoryData || []);
-      setCategory((current) => current || categoryData?.[0]?.name || '');
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || 'Failed to load petty cash wallet data.';
       setLoadError(message);
@@ -101,6 +92,24 @@ export const FinancePettyCashPage: React.FC = () => {
     loadData();
   }, [targetTeamId]);
 
+  const availableAllocations = allocations.filter((a) => Number(a.remainingAmount) > 0);
+  const selectedAllocation = allocations.find((a) => a.id === selectedAllocId);
+  const selectedAllocRemaining = Number(selectedAllocation?.remainingAmount || 0);
+
+  const parsedAmount = parseFloat(amount) || 0;
+  const isOverBalance = parsedAmount > (wallet?.remainingBalance || 0);
+  const isOverAllocation = !!selectedAllocation && parsedAmount > selectedAllocRemaining;
+
+  // Auto-select first available allocation when modal opens
+  useEffect(() => {
+    if (isExpenseModalOpen) {
+      const valid = allocations.filter((a) => Number(a.remainingAmount) > 0);
+      if (valid.length > 0 && (!selectedAllocId || !valid.some((a) => a.id === selectedAllocId))) {
+        setSelectedAllocId(valid[0].id);
+      }
+    }
+  }, [isExpenseModalOpen, allocations, selectedAllocId]);
+
   if (loading) return <LoadingState rows={8} />;
 
   if (loadError || !wallet) {
@@ -112,14 +121,11 @@ export const FinancePettyCashPage: React.FC = () => {
     );
   }
 
-  const parsedAmount = parseFloat(amount) || 0;
-  const isOverBalance = parsedAmount > wallet.remainingBalance;
-
   // Handle Record Expense
   const handleRecordExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason.trim()) {
-      toast.error('Please enter a voucher title.');
+      toast.error('Please enter a voucher purpose.');
       return;
     }
 
@@ -128,8 +134,26 @@ export const FinancePettyCashPage: React.FC = () => {
       return;
     }
 
-    if (!category) {
-      toast.error('Please select a database expense category.');
+    if (availableAllocations.length === 0) {
+      toast.error('No allocation funds with available balance exist. Please allocate funds first.');
+      return;
+    }
+
+    if (!selectedAllocId) {
+      toast.error('Please select an active allocation fund.');
+      return;
+    }
+
+    const targetAlloc = allocations.find((a) => a.id === selectedAllocId);
+    if (!targetAlloc) {
+      toast.error('Selected allocation fund was not found.');
+      return;
+    }
+
+    if (parsedAmount > Number(targetAlloc.remainingAmount)) {
+      toast.error(
+        `Voucher amount (${formatCurrency(parsedAmount)}) exceeds available balance in ${targetAlloc.allocationCode} (${formatCurrency(targetAlloc.remainingAmount)}).`
+      );
       return;
     }
 
@@ -144,19 +168,17 @@ export const FinancePettyCashPage: React.FC = () => {
     try {
       await pettyCashRepository.recordExpense({
         reason: reason.trim(),
-        category,
         amount: parsedAmount,
         date,
         description: description.trim() || reason.trim(),
-        allocationId: selectedAllocId || undefined,
+        allocationId: selectedAllocId,
         teamId: targetTeamId,
       });
 
-      toast.success(`Petty cash voucher of ${formatCurrency(parsedAmount)} recorded!`);
+      toast.success(`Petty cash voucher of ${formatCurrency(parsedAmount)} recorded against ${targetAlloc.allocationCode}!`);
       setReason('');
       setAmount('');
       setDescription('');
-      setSelectedAllocId('');
       setIsExpenseModalOpen(false);
       await loadData();
     } catch (err: any) {
@@ -200,7 +222,7 @@ export const FinancePettyCashPage: React.FC = () => {
   const handleExportExcel = () => {
     const exportData = filteredTransactions.map((t) => ({
       'Type': t.transactionType,
-      'Category': t.category,
+      'Allocation Fund': t.allocation?.allocationCode || (t.transactionType === 'ALLOCATION' ? 'Deposit' : (t.category || 'N/A')),
       'Amount (LKR)': t.amount,
       'Date': t.date ? format(new Date(t.date), 'yyyy-MM-dd') : '',
       'Reason': t.reason,
@@ -231,7 +253,7 @@ export const FinancePettyCashPage: React.FC = () => {
       'Transaction ID',
       'Type',
       'Date',
-      'Category',
+      'Allocation Fund',
       'Reason',
       'Description',
       'Amount (LKR)',
@@ -244,7 +266,7 @@ export const FinancePettyCashPage: React.FC = () => {
       t.id.length > 8 ? `TX-${t.id.slice(0, 8).toUpperCase()}` : t.id,
       t.transactionType,
       t.date ? format(new Date(t.date), 'yyyy-MM-dd') : '',
-      t.category,
+      t.allocation?.allocationCode || (t.transactionType === 'ALLOCATION' ? 'Deposit' : (t.category || 'N/A')),
       t.reason,
       t.description || '',
       Number(t.amount).toFixed(2),
@@ -299,6 +321,7 @@ export const FinancePettyCashPage: React.FC = () => {
       !search ||
       t.reason.toLowerCase().includes(search.toLowerCase()) ||
       t.description.toLowerCase().includes(search.toLowerCase()) ||
+      (t.allocation?.allocationCode && t.allocation.allocationCode.toLowerCase().includes(search.toLowerCase())) ||
       t.category.toLowerCase().includes(search.toLowerCase()) ||
       t.userName.toLowerCase().includes(search.toLowerCase()) ||
       t.id.toLowerCase().includes(search.toLowerCase());
@@ -325,13 +348,6 @@ export const FinancePettyCashPage: React.FC = () => {
               onClick={handleExportCSV}
             >
               Export CSV
-            </Button>
-            <Button
-              variant="outline"
-              leftIcon={<FileSpreadsheet className="w-4 h-4 text-[#547E1B]" />}
-              onClick={handleExportExcel}
-            >
-              Export Ledger
             </Button>
             <Button
               variant="outline"
@@ -413,261 +429,115 @@ export const FinancePettyCashPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* View Switcher Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200">
-        <button
-          onClick={() => setActiveView('TRANSACTIONS')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
-            activeView === 'TRANSACTIONS'
-              ? 'border-[#01A8F3] text-[#0188C7] bg-[#E8F7FE]'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Receipt className="w-4 h-4" />
-          <span>Voucher Audit Transactions ({transactions.length})</span>
-        </button>
+      {/* Unified Transactions & Operations Ledger */}
+      <div className="space-y-4">
+        {/* Filters Bar: Search on left, Operation Type Filter on right */}
+        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="w-full sm:w-80">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search voucher, allocation code, user, ID..."
+            />
+          </div>
+          <div className="w-full sm:w-56">
+            <Select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as any)}
+              options={[
+                { value: 'ALL', label: 'All Operations' },
+                { value: 'ALLOCATION', label: 'Allocations Only' },
+                { value: 'EXPENSE', label: 'Vouchers / Expenses' },
+              ]}
+            />
+          </div>
+        </div>
 
-        <button
-          onClick={() => setActiveView('ALLOCATIONS')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
-            activeView === 'ALLOCATIONS'
-              ? 'border-[#01A8F3] text-[#0188C7] bg-[#E8F7FE]'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Allocation History & Drill-Down ({allocations.length})</span>
-        </button>
-      </div>
+        {filteredTransactions.length === 0 ? (
+          <EmptyState
+            title="No petty cash records found"
+            description="No transaction logs match your filter criteria."
+          />
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-slate-700">
+                <thead className="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Action</th>
+                    <th className="py-3 px-4">Voucher Title</th>
+                    <th className="py-3 px-4">Allocation Fund</th>
+                    <th className="py-3 px-4">Authorized User</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4 text-right">Amount</th>
+                    <th className="py-3 px-4 text-right">Remaining Float</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-sans">
+                  {filteredTransactions.map((tx) => {
+                    const isAlloc = tx.transactionType === 'ALLOCATION';
 
-      {/* Tab 1: Transactions Table */}
-      {activeView === 'TRANSACTIONS' && (
-        <div className="space-y-4">
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-            <div className="w-full sm:w-80">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Search reason, category, user, ID..."
-              />
-            </div>
-            <div className="w-full sm:w-48">
-              <Select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as any)}
-                options={[
-                  { value: 'ALL', label: 'All Operations' },
-                  { value: 'ALLOCATION', label: 'Allocations Only' },
-                  { value: 'EXPENSE', label: 'Vouchers / Expenses' },
-                ]}
-              />
+                    return (
+                      <tr key={tx.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                              isAlloc
+                                ? 'bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]'
+                                : 'bg-amber-50 text-amber-800 border border-amber-200'
+                            }`}
+                          >
+                            {isAlloc ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                            <span>{isAlloc ? 'Allocation' : 'Voucher'}</span>
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4 max-w-xs">
+                          <div className="font-semibold text-xs text-slate-900 truncate">{tx.reason}</div>
+                          {tx.description && tx.description !== tx.reason && (
+                            <div className="text-[11px] text-slate-400 truncate italic">{tx.description}</div>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {tx.allocation?.allocationCode ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-[#0188C7] bg-[#E8F7FE] border border-[#B9E7FC] px-2.5 py-1 rounded-lg">
+                              <Layers className="w-3 h-3 text-[#01A8F3]" />
+                              {tx.allocation.allocationCode}
+                            </span>
+                          ) : isAlloc ? (
+                            <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md">
+                              Deposit
+                            </span>
+                          ) : (
+                            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                              {tx.category || 'Float'}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-xs text-slate-600 font-medium">{tx.userName}</td>
+
+                        <td className="py-3.5 px-4 text-xs text-slate-500 font-mono">
+                          {tx.date ? format(new Date(tx.date), 'MMM dd, yyyy') : 'N/A'}
+                        </td>
+
+                        <td className={`py-3.5 px-4 text-right font-mono font-bold text-xs ${isAlloc ? 'text-[#0188C7]' : 'text-slate-900'}`}>
+                          {isAlloc ? `+${formatCurrency(tx.amount)}` : `-${formatCurrency(tx.amount)}`}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-xs text-slate-700">
+                          {formatCurrency(tx.remainingBalance)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
-
-          {filteredTransactions.length === 0 ? (
-            <EmptyState
-              title="No petty cash records found"
-              description="No transaction logs match your filter criteria."
-            />
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-700">
-                  <thead className="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    <tr>
-                      <th className="py-3 px-4">Action</th>
-                      <th className="py-3 px-4">Voucher Title</th>
-                      <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4">Authorized User</th>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4 text-right">Amount</th>
-                      <th className="py-3 px-4 text-right">Remaining Float</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-sans">
-                    {filteredTransactions.map((tx) => {
-                      const isAlloc = tx.transactionType === 'ALLOCATION';
-
-                      return (
-                        <tr key={tx.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="py-3.5 px-4">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                                isAlloc
-                                  ? 'bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]'
-                                  : 'bg-amber-50 text-amber-800 border border-amber-200'
-                              }`}
-                            >
-                              {isAlloc ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                              <span>{isAlloc ? 'Allocation' : 'Voucher'}</span>
-                            </span>
-                          </td>
-
-                          <td className="py-3.5 px-4 max-w-xs">
-                            <div className="font-semibold text-xs text-slate-900 truncate">{tx.reason}</div>
-                            {tx.description && tx.description !== tx.reason && (
-                              <div className="text-[11px] text-slate-400 truncate italic">{tx.description}</div>
-                            )}
-                          </td>
-
-                          <td className="py-3.5 px-4">
-                            <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                              {tx.category}
-                            </span>
-                          </td>
-
-                          <td className="py-3.5 px-4 text-xs text-slate-600 font-medium">{tx.userName}</td>
-
-                          <td className="py-3.5 px-4 text-xs text-slate-500 font-mono">
-                            {tx.date ? format(new Date(tx.date), 'MMM dd, yyyy') : 'N/A'}
-                          </td>
-
-                          <td className={`py-3.5 px-4 text-right font-mono font-bold text-xs ${isAlloc ? 'text-[#0188C7]' : 'text-slate-900'}`}>
-                            {isAlloc ? `+${formatCurrency(tx.amount)}` : `-${formatCurrency(tx.amount)}`}
-                          </td>
-
-                          <td className="py-3.5 px-4 text-right font-mono font-bold text-xs text-slate-700">
-                            {formatCurrency(tx.remainingBalance)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab 2: Allocation History & Drill-Down */}
-      {activeView === 'ALLOCATIONS' && (
-        <div className="space-y-4">
-          {allocations.length === 0 ? (
-            <EmptyState
-              title="No allocations recorded yet"
-              description="Click Allocate Funds above to deposit initial capital float into this wallet."
-            />
-          ) : (
-            <div className="space-y-3">
-              {allocations.map((alloc) => {
-                const isExpanded = expandedAllocationId === alloc.id;
-                const allocUsagePct =
-                  Number(alloc.amount) > 0
-                    ? Math.round((Number(alloc.usedAmount) / Number(alloc.amount)) * 100)
-                    : 0;
-
-                return (
-                  <Card key={alloc.id} className="border border-slate-200/90 shadow-2xs overflow-hidden">
-                    <div
-                      onClick={() => setExpandedAllocationId(isExpanded ? null : alloc.id)}
-                      className="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/70 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <button className="p-1 rounded text-slate-400 hover:text-slate-700">
-                          {isExpanded ? <ChevronDown className="w-5 h-5 text-[#01A8F3]" /> : <ChevronRight className="w-5 h-5" />}
-                        </button>
-                        <div className="w-10 h-10 rounded-xl bg-[#E8F7FE] border border-[#B9E7FC] flex items-center justify-center text-[#0188C7] font-bold text-xs font-mono shrink-0">
-                          {alloc.allocationCode.slice(-4)}
-                        </div>
-                        <div>
-                          <div className="font-bold text-slate-900 text-sm">{alloc.reason}</div>
-                          <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                            <span>Deposited by: <strong>{alloc.allocatedByName}</strong></span>
-                            <span>•</span>
-                            <span>{format(new Date(alloc.date), 'MMM dd, yyyy')}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Amounts & Progress */}
-                      <div className="flex items-center gap-6 text-right">
-                        <div>
-                          <div className="text-xs text-slate-400">Allocated Amount</div>
-                          <div className="font-bold font-mono text-sm text-slate-900">{formatCurrency(alloc.amount)}</div>
-                        </div>
-
-                        <div>
-                          <div className="text-xs text-slate-400">Spent / Remaining</div>
-                          <div className="font-bold font-mono text-xs text-[#547E1B]">
-                            {formatCurrency(alloc.remainingAmount)} left
-                          </div>
-                        </div>
-
-                        <div className="w-24 hidden sm:block">
-                          <div className="text-[10px] text-slate-400 text-left mb-1">{allocUsagePct}% spent</div>
-                          <div className="w-full bg-slate-100 rounded-full h-1.5">
-                            <div className="bg-[#01A8F3] h-1.5 rounded-full" style={{ width: `${allocUsagePct}%` }} />
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={(e) => handleDownloadAllocationPdf(alloc, e)}
-                          className="p-2 text-slate-400 hover:text-[#0188C7] hover:bg-[#E8F7FE] rounded-lg transition-colors cursor-pointer"
-                          title="Download Allocation Voucher PDF"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Drill-down expenses drawer */}
-                    {isExpanded && (
-                      <div className="bg-slate-50/80 border-t border-slate-200/80 p-4 sm:p-5 space-y-3">
-                        <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-                          <span className="flex items-center gap-1.5">
-                            <Receipt className="w-4 h-4 text-[#01A8F3]" />
-                            <span>Vouchers Drawn from {alloc.allocationCode}</span>
-                          </span>
-                          <span className="text-slate-500">
-                            {alloc.transactions ? alloc.transactions.length : 0} voucher entries recorded
-                          </span>
-                        </div>
-
-                        {(!alloc.transactions || alloc.transactions.length === 0) ? (
-                          <div className="p-4 bg-white rounded-xl border border-slate-200 text-center text-xs text-slate-500">
-                            No individual vouchers have been drawn from this specific allocation code yet.
-                          </div>
-                        ) : (
-                          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-                            <table className="w-full text-left text-xs">
-                              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
-                                <tr>
-                                  <th className="py-2.5 px-3">Title / Reason</th>
-                                  <th className="py-2.5 px-3">Category</th>
-                                  <th className="py-2.5 px-3">Recorded By</th>
-                                  <th className="py-2.5 px-3">Date</th>
-                                  <th className="py-2.5 px-3 text-right">Amount</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100">
-                                {alloc.transactions.map((tx) => (
-                                  <tr key={tx.id} className="hover:bg-slate-50">
-                                    <td className="py-2.5 px-3 font-semibold text-slate-900">{tx.reason}</td>
-                                    <td className="py-2.5 px-3 text-slate-600">{tx.category}</td>
-                                    <td className="py-2.5 px-3 text-slate-600">{tx.userName}</td>
-                                    <td className="py-2.5 px-3 text-slate-500 font-mono">
-                                      {format(new Date(tx.date), 'MMM dd, yyyy')}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                                      {formatCurrency(tx.amount)}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Record Expense Modal */}
       <Dialog
@@ -676,6 +546,34 @@ export const FinancePettyCashPage: React.FC = () => {
         title="Record Petty Cash Voucher"
       >
         <form onSubmit={handleRecordExpense} className="space-y-4">
+          {availableAllocations.length === 0 && (
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <div>
+                  <span className="font-bold block text-amber-950">No Allocation Funds Available</span>
+                  <span className="text-amber-800">
+                    All petty cash disbursements must be spent directly through an allocation fund. There are currently no active allocation funds with remaining balance.
+                  </span>
+                </div>
+                {role === 'FINANCE' && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="bg-white text-xs text-amber-900 border-amber-300 hover:bg-amber-100"
+                    onClick={() => {
+                      setIsExpenseModalOpen(false);
+                      setIsAllocateModalOpen(true);
+                    }}
+                  >
+                    Deposit Allocation Fund First
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Voucher Purpose <span className="text-red-500">*</span>
@@ -703,21 +601,11 @@ export const FinancePettyCashPage: React.FC = () => {
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
-              <Select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                options={[
-                  ...categories.map((cat) => ({ value: cat.name, label: cat.name })),
-                ]}
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Disbursement Date</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Disbursement Date <span className="text-red-500">*</span>
+              </label>
               <input
                 type="date"
                 value={date}
@@ -726,23 +614,39 @@ export const FinancePettyCashPage: React.FC = () => {
                 required
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Link to Allocation Code (Optional)
-              </label>
-              <Select
-                value={selectedAllocId}
-                onChange={(e) => setSelectedAllocId(e.target.value)}
-                options={[
-                  { value: '', label: 'General Wallet Float' },
-                  ...allocations.map((a) => ({
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Allocation Fund <span className="text-red-500">*</span>
+            </label>
+            {availableAllocations.length === 0 ? (
+              <div className="text-xs text-slate-500 italic bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+                No active allocations available with remaining balance.
+              </div>
+            ) : (
+              <>
+                <Select
+                  value={selectedAllocId}
+                  onChange={(e) => setSelectedAllocId(e.target.value)}
+                  options={availableAllocations.map((a) => ({
                     value: a.id,
-                    label: `${a.allocationCode} — Bal: ${formatCurrency(a.remainingAmount)}`,
-                  })),
-                ]}
-              />
-            </div>
+                    label: `${a.allocationCode} — Available: ${formatCurrency(a.remainingAmount)} (${a.reason})`,
+                  }))}
+                  required
+                />
+                {selectedAllocation && (
+                  <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500 bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-200">
+                    <span>
+                      Fund: <strong className="text-slate-800 font-mono">{selectedAllocation.allocationCode}</strong> ({selectedAllocation.reason})
+                    </span>
+                    <span>
+                      Available Balance: <strong className="text-[#0188C7] font-mono">{formatCurrency(selectedAllocation.remainingAmount)}</strong>
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <div>
@@ -756,11 +660,20 @@ export const FinancePettyCashPage: React.FC = () => {
             />
           </div>
 
-          {isOverBalance && (
+          {isOverAllocation && selectedAllocation && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
               <span>
-                Requested voucher amount of <strong>{formatCurrency(parsedAmount)}</strong> exceeds available float of <strong>{formatCurrency(wallet.remainingBalance)}</strong>.
+                Requested voucher amount of <strong>{formatCurrency(parsedAmount)}</strong> exceeds available balance of <strong>{formatCurrency(selectedAllocRemaining)}</strong> in allocation <strong>{selectedAllocation.allocationCode}</strong>.
+              </span>
+            </div>
+          )}
+
+          {!isOverAllocation && isOverBalance && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span>
+                Requested voucher amount of <strong>{formatCurrency(parsedAmount)}</strong> exceeds total petty cash balance of <strong>{formatCurrency(wallet.remainingBalance)}</strong>.
               </span>
             </div>
           )}
@@ -772,7 +685,14 @@ export const FinancePettyCashPage: React.FC = () => {
             <Button
               type="submit"
               variant="primary"
-              disabled={isSubmittingExpense || isOverBalance}
+              disabled={
+                isSubmittingExpense ||
+                availableAllocations.length === 0 ||
+                !selectedAllocId ||
+                isOverBalance ||
+                isOverAllocation ||
+                parsedAmount <= 0
+              }
             >
               {isSubmittingExpense ? 'Recording...' : 'Record Voucher'}
             </Button>

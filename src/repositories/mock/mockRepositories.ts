@@ -682,6 +682,16 @@ export class MockExpenseRepository implements IExpenseRepository {
     throw new Error('Category not found');
   }
 
+  async deleteCategory(id: string): Promise<void> {
+    await delay();
+    const categories = getStoredItem<ExpenseCategory>(STORAGE_KEYS.EXPENSE_CATEGORIES, []);
+    const idx = categories.findIndex((c) => c.id === id);
+    if (idx !== -1) {
+      categories.splice(idx, 1);
+      setStoredItem(STORAGE_KEYS.EXPENSE_CATEGORIES, categories);
+    }
+  }
+
   async update(id: string, updates: Partial<Expense>): Promise<Expense> {
     await delay();
     const expenses = getStoredItem<Expense>(STORAGE_KEYS.EXPENSES, []);
@@ -1157,6 +1167,9 @@ export class MockPettyCashRepository implements IPettyCashRepository {
       throw new Error(`Expense amount (LKR ${data.amount.toLocaleString()}) exceeds available petty cash balance (LKR ${wallet.remainingBalance.toLocaleString()})`);
     }
 
+    const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
+    const allocTx = txs.find((t) => t.id === data.allocationId && t.transactionType === 'ALLOCATION');
+
     const wallets = getStoredItem<PettyCashWallet>(STORAGE_KEYS.PETTY_CASH_WALLET, []);
     const idx = wallets.findIndex((w) => w.id === wallet.id);
 
@@ -1172,12 +1185,12 @@ export class MockPettyCashRepository implements IPettyCashRepository {
     if (idx !== -1) wallets[idx] = updatedWallet;
     setStoredItem(STORAGE_KEYS.PETTY_CASH_WALLET, wallets);
 
-    const txs = getStoredItem<PettyCashTransaction>(STORAGE_KEYS.PETTY_CASH_TRANSACTIONS, []);
     const newTx: PettyCashTransaction = {
       id: `pct_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       transactionType: 'EXPENSE',
+      allocationId: data.allocationId,
       reason: data.reason,
-      category: data.category,
+      category: data.category || allocTx?.reason || 'Petty Cash',
       amount: data.amount,
       date: data.date,
       description: data.description,

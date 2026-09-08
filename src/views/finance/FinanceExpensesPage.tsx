@@ -19,7 +19,6 @@ import {
   Edit3, 
   Trash2, 
   Clock, 
-  FileSpreadsheet, 
   Download,
   FileText,
   ShieldAlert,
@@ -34,7 +33,6 @@ import { formatCurrency } from '../../utils/currency';
 import { generateExpenseVoucherPdf } from '../../utils/voucherPdfGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
 
 export const FinanceExpensesPage: React.FC = () => {
   const { user, role } = useAuth();
@@ -389,24 +387,6 @@ export const FinanceExpensesPage: React.FC = () => {
     }
   };
 
-  // Export Excel
-  const handleExportExcel = () => {
-    const exportData = filtered.map((e) => ({
-      'Category': e.categoryName,
-      'Amount (LKR)': e.amount,
-      'Expense Date': e.expenseDate ? format(new Date(e.expenseDate), 'yyyy-MM-dd') : '',
-      'Payment Method': e.paymentMethod || 'CASH',
-      'Remarks': e.remarks,
-      'Notes': e.notes || '',
-      'Recorded By': e.createdByName,
-      'Created Timestamp': format(new Date(e.createdAt), 'yyyy-MM-dd HH:mm'),
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
-    XLSX.writeFile(wb, `Expenses_Ledger_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-  };
 
   // Safe CSV export with formula injection escaping
   const handleExportCSV = () => {
@@ -513,13 +493,6 @@ export const FinanceExpensesPage: React.FC = () => {
               onClick={handleExportCSV}
             >
               Export CSV
-            </Button>
-            <Button
-              variant="outline"
-              leftIcon={<FileSpreadsheet className="w-4 h-4 text-[#547E1B]" />}
-              onClick={handleExportExcel}
-            >
-              Export Excel
             </Button>
             <Button
               variant="primary"
