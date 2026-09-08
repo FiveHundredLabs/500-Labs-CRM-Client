@@ -3,6 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { userRepository, orderRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Leaderboard, LeaderboardItem } from '../../components/leaderboard';
+import { getProductSalesValue } from '../../utils/orderAmounts';
 
 export const MemberLeaderboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -30,7 +31,7 @@ export const MemberLeaderboardPage: React.FC = () => {
           const deliveredOrders = mOrders.filter((o) => o.status === 'DELIVERED');
           const deliveredSalesAmount = m.deliveredSalesAmount !== undefined
             ? Number(m.deliveredSalesAmount)
-            : deliveredOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+            : deliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
           const deliveredOrdersCount = m.deliveredOrdersCount !== undefined
             ? Number(m.deliveredOrdersCount)
             : deliveredOrders.length;

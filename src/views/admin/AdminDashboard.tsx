@@ -37,6 +37,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
+import { getAmountToCollect, getProductSalesValue } from '../../utils/orderAmounts';
 import {
   format,
   startOfDay,
@@ -148,8 +149,7 @@ export const AdminDashboard: React.FC = () => {
 
   // Dynamic KPI Metrics with explicit Number() casting
   const totalGrossSales = scopedOrders.reduce(
-    (acc, curr) =>
-      acc + Number(curr.codAmount !== undefined && curr.codAmount !== null ? curr.codAmount : (curr.totalAmount || 0)),
+    (acc, curr) => acc + getAmountToCollect(curr),
     0
   );
   const lastDispatchedCount = scopedOrders.filter((o) => o.status === 'DISPATCHED').length;
@@ -163,7 +163,7 @@ export const AdminDashboard: React.FC = () => {
     const list = teamMembers.map((m) => {
       const memberOrders = scopedOrders.filter((o) => o.teamMemberId === m.id);
       const deliveredOrders = memberOrders.filter((o) => o.status === 'DELIVERED');
-      const deliveredSalesAmount = deliveredOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+      const deliveredSalesAmount = deliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
       const deliveredCount = deliveredOrders.length;
       return {
         id: m.id,
@@ -318,47 +318,51 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* 1. Executive KPI Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <StatCard
+          variant="vibrant"
+          accentColor="sales"
           title="Gross Sales"
           value={formatCurrency(totalGrossSales)}
           subtitle={`${scopedOrders.length} Booked Orders`}
-          icon={<DollarSign className="w-4 h-4 text-emerald-600" />}
-          accentColor="green"
+          icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
           className="col-span-2 sm:col-span-1"
         />
 
         <StatCard
+          variant="vibrant"
+          accentColor="dispatched"
           title="Dispatched"
           value={`${lastDispatchedCount} Orders`}
           subtitle="In courier transit"
-          icon={<Package className="w-4 h-4 text-emerald-600" />}
-          accentColor="green"
+          icon={<Package className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
         />
 
         <StatCard
+          variant="vibrant"
+          accentColor="delivered"
           title="Delivered"
           value={totalDeliveredOrders}
           subtitle="Customer handovers"
-          icon={<CheckCircle2 className="w-4 h-4 text-blue-600" />}
-          accentColor="blue"
+          icon={<CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
         />
 
         <StatCard
+          variant="vibrant"
+          accentColor="interested"
           title="Interested"
           value={todayInterestedCount}
           subtitle="Qualified leads"
-          icon={<PhoneCall className="w-4 h-4 text-purple-600" />}
-          accentColor="purple"
+          icon={<PhoneCall className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
         />
 
         <StatCard
+          variant="vibrant"
+          accentColor="expenses"
           title="Expenses"
           value={formatCurrency(totalMonthlyExpenses)}
           subtitle="Finance logged"
-          icon={<DollarSign className="w-4 h-4 text-amber-600" />}
-          accentColor="amber"
-          className="col-span-2 sm:col-span-1"
+          icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />}
         />
       </div>
 

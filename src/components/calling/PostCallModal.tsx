@@ -68,9 +68,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
 
-  // Cash on Delivery (COD)
-  const [codAmount, setCodAmount] = useState<string>('0');
-  const [customCodManual, setCustomCodManual] = useState(false);
+  // Customer-paid delivery/COD charge. Empty input is treated as zero on submit.
+  const [codCharge, setCodCharge] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -115,12 +114,16 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     return selectedItems.reduce((acc, item) => acc + item.quantity, 0);
   }, [selectedItems]);
 
-  // Auto-sync COD amount with dynamic order total unless user manually overrides it
-  useEffect(() => {
-    if (!customCodManual) {
-      setCodAmount(totalOrderValue > 0 ? totalOrderValue.toString() : '');
-    }
-  }, [totalOrderValue, customCodManual]);
+  const parsedCodCharge = useMemo(() => {
+    const trimmed = codCharge.trim();
+    if (trimmed === '') return 0;
+    const parsed = parseFloat(trimmed);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  }, [codCharge]);
+
+  const amountToCollect = useMemo(() => {
+    return totalOrderValue + parsedCodCharge;
+  }, [totalOrderValue, parsedCodCharge]);
 
   const triggerNativeDialer = () => {
     if (!contact) return;
@@ -154,8 +157,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     setDeliveryNote('');
     setRemarks('');
     setSelectedQuantities({});
-    setCodAmount('0');
-    setCustomCodManual(false);
+    setCodCharge('');
 
     const loadData = async () => {
       setLoadingHistory(true);
@@ -234,14 +236,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     }));
   };
 
-  const handleCodChange = (val: string) => {
-    setCodAmount(val);
-    setCustomCodManual(true);
-  };
-
-  const handleResetCodToTotal = () => {
-    setCodAmount(totalOrderValue.toString());
-    setCustomCodManual(false);
+  const handleCodChargeChange = (val: string) => {
+    setCodCharge(val);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -276,9 +272,10 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           return;
         }
       }
-      const parsedCod = parseFloat(codAmount);
-      if (isNaN(parsedCod) || parsedCod < 0) {
-        toast.error('Please enter a valid Cash on Delivery (COD) amount.');
+      const trimmedCharge = codCharge.trim();
+      const parsedCharge = trimmedCharge === '' ? 0 : parseFloat(trimmedCharge);
+      if (!Number.isFinite(parsedCharge) || parsedCharge < 0) {
+        toast.error('Please enter a valid COD / delivery charge.');
         return;
       }
     }
@@ -287,11 +284,9 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     try {
       const itemsPayload = selectedItems.map((i) => ({
         productId: String(i.productId),
-        productName: String(i.productName),
-        unitPrice: Number(i.unitPrice),
         quantity: Math.floor(Number(i.quantity)),
-        subtotal: Number(i.subtotal),
       }));
+      const chargeToSubmit = isInterested ? (codCharge.trim() === '' ? 0 : parseFloat(codCharge)) : undefined;
 
       await CallLogService.submitCallResult(
         {
@@ -307,8 +302,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           deliveryMethod: isInterested ? deliveryMethod : undefined,
           deliveryNote: isInterested && deliveryNote.trim() ? deliveryNote.trim() : undefined,
           items: isInterested ? itemsPayload : undefined,
-          totalPackageValue: isInterested ? totalOrderValue : undefined,
-          codAmount: isInterested ? parseFloat(codAmount) || totalOrderValue : undefined,
+          codCharge: isInterested ? chargeToSubmit : undefined,
           remarks: remarks.trim() || undefined,
           callDurationSeconds: Math.floor(Math.random() * 120) + 30,
         },
@@ -317,7 +311,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
       toast.success(
         isInterested
-          ? `Lead recorded for ${customerName} (COD: ${formatCurrency(parseFloat(codAmount) || totalOrderValue)})!`
+          ? `Lead recorded for ${customerName} (Amount to collect: ${formatCurrency(totalOrderValue + (chargeToSubmit || 0))})!`
           : `Call outcome saved as ${status}`
       );
       onSuccess();
@@ -749,22 +743,13 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                     </div>
                   )}
 
-                  {/* Cash on Delivery (COD) Amount Entry */}
+                  {/* COD / Delivery Charge Entry */}
                   <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Cash on Delivery (COD) Amount *</span>
+                        <span>COD / Delivery Charge</span>
                       </label>
-                      {customCodManual && (
-                        <button
-                          type="button"
-                          onClick={handleResetCodToTotal}
-                          className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer"
-                        >
-                          Auto-fill Order Total ({formatCurrency(totalOrderValue)})
-                        </button>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -772,10 +757,9 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                         type="number"
                         step="1"
                         min="0"
-                        placeholder="Enter COD amount to collect"
-                        value={codAmount}
-                        onChange={(e) => handleCodChange(e.target.value)}
-                        required
+                        placeholder="0"
+                        value={codCharge}
+                        onChange={(e) => handleCodChargeChange(e.target.value)}
                       />
                     </div>
 
@@ -792,12 +776,16 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                         <div className="text-slate-400 italic text-[11px]">No products selected yet.</div>
                       )}
                       <div className="flex justify-between font-bold text-slate-800 border-t border-slate-200 pt-1">
-                        <span>Total Order Value:</span>
+                        <span>Products Total:</span>
                         <span className="font-mono text-emerald-700">{formatCurrency(totalOrderValue)}</span>
                       </div>
+                      <div className="flex justify-between font-bold text-slate-800 border-t border-slate-200 pt-1">
+                        <span>COD / Delivery Charge:</span>
+                        <span className="font-mono text-amber-700">{formatCurrency(parsedCodCharge)}</span>
+                      </div>
                       <div className="flex justify-between font-bold text-blue-900 border-t border-slate-200 pt-1">
-                        <span>COD Collection Amount:</span>
-                        <span className="font-mono text-blue-700">{formatCurrency(parseFloat(codAmount) || 0)}</span>
+                        <span>Amount to Collect:</span>
+                        <span className="font-mono text-blue-700">{formatCurrency(amountToCollect)}</span>
                       </div>
                     </div>
                   </div>

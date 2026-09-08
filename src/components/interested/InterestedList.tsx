@@ -5,6 +5,7 @@ import { EmptyState } from '../shared/EmptyState';
 import { Sparkles, Truck, AlertTriangle, Info, FileText, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DuplicateOrderConflictInfo } from '../orders/DuplicateOrderConflictDialog';
+import { getAmountToCollect } from '../../utils/orderAmounts';
 
 export interface InterestedListProps {
   filteredCustomers: Customer[];
@@ -61,7 +62,7 @@ export const InterestedList: React.FC<InterestedListProps> = ({
                   📦 {currentOrder.itemsDescription || 'Package Order'}
                 </span>
                 <span className="font-mono font-bold text-emerald-700 shrink-0">
-                  COD: LKR {(currentOrder.totalAmount || 0).toLocaleString()}
+                  COD: LKR {getAmountToCollect(currentOrder).toLocaleString()}
                 </span>
               </div>
             )}
