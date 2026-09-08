@@ -1117,7 +1117,7 @@ export class MockPettyCashRepository implements IPettyCashRepository {
     return txs.find(t => t.id === id && t.transactionType === 'ALLOCATION') || null;
   }
 
-  async allocate(amount: number, reason = 'Petty Cash Allocation', teamId?: string, remarks?: string): Promise<any> {
+  async allocate(amount: number, reason = 'Petty Cash Allocation', teamId?: string, remarks?: string, date?: string): Promise<any> {
     await delay();
     const wallet = await this.getWallet(teamId);
     const wallets = getStoredItem<PettyCashWallet>(STORAGE_KEYS.PETTY_CASH_WALLET, []);

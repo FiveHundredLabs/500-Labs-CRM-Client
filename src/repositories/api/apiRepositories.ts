@@ -693,13 +693,14 @@ export class ApiPettyCashRepository implements IPettyCashRepository {
   async getAllocationById(id: string): Promise<any> {
     return unwrap(await apiClient.get<{ data: any }>(`/petty-cash/allocations/${id}`));
   }
-  async allocate(amount: number, reason: string, teamId?: string, remarks?: string): Promise<any> {
+  async allocate(amount: number, reason: string, teamId?: string, remarks?: string, date?: string): Promise<any> {
     return unwrap(
       await apiClient.post<{ data: any }>('/petty-cash/allocate', {
         amount,
         reason,
         remarks,
         teamId,
+        date,
       })
     );
   }
