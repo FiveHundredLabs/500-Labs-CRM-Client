@@ -33,6 +33,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
+import { getAmountToCollect, getProductSalesValue } from '../../utils/orderAmounts';
 
 export const FinanceDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -109,13 +110,14 @@ export const FinanceDashboard: React.FC = () => {
     let deliveredCount = 0;
 
     filteredOrders.forEach((o) => {
-      const amt = Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : (o.totalAmount || 0));
-      totalSales += amt;
+      const productSalesValue = getProductSalesValue(o);
+      const amountToCollect = getAmountToCollect(o);
+      totalSales += productSalesValue;
       if (o.status === 'DELIVERED') {
-        deliveredCOD += amt;
+        deliveredCOD += amountToCollect;
         deliveredCount++;
       } else if (o.status === 'DISPATCHED') {
-        inTransit += amt;
+        inTransit += amountToCollect;
       }
     });
 
@@ -128,7 +130,7 @@ export const FinanceDashboard: React.FC = () => {
     };
   }, [filteredOrders]);
 
-  const salesRevenue = stats?.salesRevenue ?? 0;
+  const salesRevenue = salesMetrics.totalSales || stats?.salesRevenue || 0;
   const grossProfit = stats?.grossProfit ?? 0;
   const totalExpenses = stats?.totalExpenses ?? 0;
   const cogs = stats?.cogs ?? 0;
@@ -165,7 +167,7 @@ export const FinanceDashboard: React.FC = () => {
     filteredOrders.forEach((o) => {
       const day = o.createdAt.split('T')[0];
       if (dayMap[day]) {
-        dayMap[day].sales += Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : (o.totalAmount || 0));
+        dayMap[day].sales += getAmountToCollect(o);
       }
     });
 

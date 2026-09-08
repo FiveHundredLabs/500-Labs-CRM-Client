@@ -30,6 +30,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Leaderboard } from '../../components/leaderboard';
 import { formatCurrency } from '../../utils/currency';
+import { getProductSalesValue } from '../../utils/orderAmounts';
 import { 
   format, 
   isWithinInterval, 
@@ -115,7 +116,7 @@ export const MemberDashboard: React.FC = () => {
         const uDeliveredOrders = uOrders.filter((o) => o.status === 'DELIVERED');
         const deliveredSalesAmount = u.deliveredSalesAmount !== undefined
           ? Number(u.deliveredSalesAmount)
-          : uDeliveredOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+          : uDeliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
         const deliveredCount = u.deliveredOrdersCount !== undefined
           ? Number(u.deliveredOrdersCount)
           : uDeliveredOrders.length;
@@ -199,7 +200,7 @@ export const MemberDashboard: React.FC = () => {
     [orders, dateFilter, startDate, endDate]
   );
   const scopedDeliveredSalesValue = useMemo(
-    () => scopedDeliveredOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0),
+    () => scopedDeliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0),
     [scopedDeliveredOrders]
   );
 
@@ -242,7 +243,7 @@ export const MemberDashboard: React.FC = () => {
   const memberBreakdown = activeTarget?.memberBreakdowns?.find((m) => m.id === user?.id);
   const currentSalesAmount = memberBreakdown
     ? memberBreakdown.actualSales
-    : monthlyDeliveredOrders.reduce((sum, o) => sum + (Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : o.totalAmount) || 0), 0);
+    : monthlyDeliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
   const deliveredOrdersCount = memberBreakdown?.ordersCount !== undefined
     ? memberBreakdown.ordersCount
     : monthlyDeliveredOrders.length;

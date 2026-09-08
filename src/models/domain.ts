@@ -258,7 +258,10 @@ export interface Order {
   kidsUnitPrice?: number;
   kidsSubtotal?: number;
   totalPackageValue?: number;
+  codCharge?: number | null;
   codAmount?: number;
+  amountToCollect?: number;
+  productSalesValue?: number;
   totalAmount: number;
   currency: string;
   remarks?: string;
@@ -305,6 +308,9 @@ export interface ParcelSlipData {
   itemsDescription: string;
   paymentMethod?: string | null;
   codAmount?: number | string | null;
+  codCharge?: number | string | null;
+  amountToCollect?: number | string | null;
+  productSalesValue?: number | string | null;
   totalAmount: number | string;
   currency?: string;
   contactCode?: string | null;

@@ -37,6 +37,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
+import { getAmountToCollect, getProductSalesValue } from '../../utils/orderAmounts';
 import {
   format,
   startOfDay,
@@ -148,8 +149,7 @@ export const AdminDashboard: React.FC = () => {
 
   // Dynamic KPI Metrics with explicit Number() casting
   const totalGrossSales = scopedOrders.reduce(
-    (acc, curr) =>
-      acc + Number(curr.codAmount !== undefined && curr.codAmount !== null ? curr.codAmount : (curr.totalAmount || 0)),
+    (acc, curr) => acc + getAmountToCollect(curr),
     0
   );
   const lastDispatchedCount = scopedOrders.filter((o) => o.status === 'DISPATCHED').length;
@@ -163,7 +163,7 @@ export const AdminDashboard: React.FC = () => {
     const list = teamMembers.map((m) => {
       const memberOrders = scopedOrders.filter((o) => o.teamMemberId === m.id);
       const deliveredOrders = memberOrders.filter((o) => o.status === 'DELIVERED');
-      const deliveredSalesAmount = deliveredOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+      const deliveredSalesAmount = deliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
       const deliveredCount = deliveredOrders.length;
       return {
         id: m.id,
