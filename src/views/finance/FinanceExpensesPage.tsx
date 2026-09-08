@@ -19,7 +19,8 @@ import {
   Edit3, 
   Trash2, 
   Clock, 
-  FileSpreadsheet, 
+  Download,
+  FileText,
   ShieldAlert,
   CreditCard,
   Building2,
@@ -29,9 +30,14 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { format, differenceInHours } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
+import { generateExpenseVoucherPdf } from '../../utils/voucherPdfGenerator';
 import { useAuth } from '../../hooks/useAuth';
+import {
+  getLocalDateString,
+  getStartOfCurrentWeekString,
+  validateExpenseDate,
+} from '../../utils/dateValidation';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
 
 export const FinanceExpensesPage: React.FC = () => {
   const { user, role } = useAuth();
@@ -45,13 +51,16 @@ export const FinanceExpensesPage: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('ALL');
 
+  const minExpenseDate = getStartOfCurrentWeekString();
+  const maxExpenseDate = getLocalDateString();
+
   // Create Expense Dialog
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedCategoryName, setSelectedCategoryName] = useState('');
   const [customCategory, setCustomCategory] = useState('');
   const [amount, setAmount] = useState('');
-  const [expenseDate, setExpenseDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'PETTY_CASH'>('CASH');
+  const [expenseDate, setExpenseDate] = useState(getLocalDateString());
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER'>('CASH');
   const [remarks, setRemarks] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedAllocationId, setSelectedAllocationId] = useState('');
@@ -189,9 +198,6 @@ export const FinanceExpensesPage: React.FC = () => {
   };
 
   const parsedCreateAmount = parseFloat(amount) || 0;
-  const isCreatePettyCash = selectedCategoryName === 'Petty Cash' || paymentMethod === 'PETTY_CASH';
-  const isCreateOverPettyCashBalance =
-    isCreatePettyCash && wallet && parsedCreateAmount > wallet.remainingBalance;
 
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,6 +205,12 @@ export const FinanceExpensesPage: React.FC = () => {
 
     if (isNaN(parsedCreateAmount) || parsedCreateAmount <= 0) {
       setCreateError('Please enter a valid positive amount.');
+      return;
+    }
+
+    const dateCheck = validateExpenseDate(expenseDate);
+    if (!dateCheck.isValid) {
+      setCreateError(dateCheck.error || 'Invalid expense date.');
       return;
     }
 
@@ -218,13 +230,6 @@ export const FinanceExpensesPage: React.FC = () => {
       return;
     }
 
-    if (isCreateOverPettyCashBalance && wallet) {
-      setCreateError(
-        `Expense amount (${formatCurrency(parsedCreateAmount)}) exceeds available Petty Cash balance (${formatCurrency(wallet.remainingBalance)}).`
-      );
-      return;
-    }
-
     if (!user) {
       setCreateError('You must be signed in to record an expense.');
       return;
@@ -232,17 +237,6 @@ export const FinanceExpensesPage: React.FC = () => {
 
     setIsSubmittingCreate(true);
     try {
-      if (isCreatePettyCash) {
-        await pettyCashRepository.recordExpense({
-          reason: remarks.trim(),
-          category: selectedCategoryName === 'Other' ? customCategory.trim() : selectedCategoryName,
-          amount: parsedCreateAmount,
-          date: expenseDate,
-          description: notes.trim() || remarks.trim(),
-          allocationId: selectedAllocationId || undefined,
-        });
-      }
-
       await ExpenseService.createExpense(
         {
           categoryId: selectedCatObj?.id || '',
@@ -322,6 +316,12 @@ export const FinanceExpensesPage: React.FC = () => {
       return;
     }
 
+    const dateCheck = validateExpenseDate(editExpenseDate);
+    if (!dateCheck.isValid) {
+      toast.error(dateCheck.error || 'Invalid expense date.');
+      return;
+    }
+
     setIsSavingEdit(true);
     try {
       await expenseRepository.update(editingExpense.id, {
@@ -368,6 +368,14 @@ export const FinanceExpensesPage: React.FC = () => {
       return;
     }
 
+    if (changeRequestAction === 'EDIT') {
+      const dateCheck = validateExpenseDate(editExpenseDate);
+      if (!dateCheck.isValid) {
+        toast.error(dateCheck.error || 'Invalid expense date.');
+        return;
+      }
+    }
+
     setIsSubmittingCR(true);
     try {
       const payload: any = {
@@ -397,23 +405,70 @@ export const FinanceExpensesPage: React.FC = () => {
     }
   };
 
-  // Export Excel
-  const handleExportExcel = () => {
-    const exportData = filtered.map((e) => ({
-      'Category': e.categoryName,
-      'Amount (LKR)': e.amount,
-      'Expense Date': e.expenseDate ? format(new Date(e.expenseDate), 'yyyy-MM-dd') : '',
-      'Payment Method': e.paymentMethod || 'CASH',
-      'Remarks': e.remarks,
-      'Notes': e.notes || '',
-      'Recorded By': e.createdByName,
-      'Created Timestamp': format(new Date(e.createdAt), 'yyyy-MM-dd HH:mm'),
-    }));
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
-    XLSX.writeFile(wb, `Expenses_Ledger_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  // Safe CSV export with formula injection escaping
+  const handleExportCSV = () => {
+    const escapeCsvValue = (val: any): string => {
+      if (val === null || val === undefined) return '""';
+      let str = String(val);
+      if (/^[=+\-@]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const headers = [
+      'Voucher ID',
+      'Expense Date',
+      'Category',
+      'Amount (LKR)',
+      'Payment Method',
+      'Remarks',
+      'Notes',
+      'Petty Cash Ref',
+      'Created By',
+      'Created At',
+    ];
+
+    const rows = filtered.map((e) => [
+      e.id.length > 8 ? `EXP-${e.id.slice(0, 8).toUpperCase()}` : e.id,
+      e.expenseDate ? format(new Date(e.expenseDate), 'yyyy-MM-dd') : '',
+      e.categoryName,
+      Number(e.amount).toFixed(2),
+      e.paymentMethod || 'CASH',
+      e.remarks,
+      e.notes || '',
+      e.pettyCashRef || '',
+      e.createdByName,
+      format(new Date(e.createdAt), 'yyyy-MM-dd HH:mm'),
+    ]);
+
+    const csvContent = [
+      headers.map(escapeCsvValue).join(','),
+      ...rows.map((r) => r.map(escapeCsvValue).join(',')),
+    ].join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Expenses_Ledger_${format(new Date(), 'yyyyMMdd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Download Individual Voucher PDF
+  const handleDownloadVoucherPdf = (exp: Expense) => {
+    try {
+      const doc = generateExpenseVoucherPdf(exp);
+      const code = exp.id.length > 8 ? exp.id.slice(0, 8).toUpperCase() : exp.id;
+      doc.save(`Expense_Voucher_EXP-${code}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+      toast.success('Voucher PDF downloaded successfully.');
+    } catch {
+      toast.error('Failed to generate voucher PDF.');
+    }
   };
 
   // Filter matching expenses
@@ -452,10 +507,10 @@ export const FinanceExpensesPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
-              leftIcon={<FileSpreadsheet className="w-4 h-4 text-[#547E1B]" />}
-              onClick={handleExportExcel}
+              leftIcon={<Download className="w-4 h-4 text-[#0188C7]" />}
+              onClick={handleExportCSV}
             >
-              Export Excel
+              Export CSV
             </Button>
             <Button
               variant="primary"
@@ -659,6 +714,13 @@ export const FinanceExpensesPage: React.FC = () => {
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => handleDownloadVoucherPdf(exp)}
+                            className="p-1.5 text-slate-400 hover:text-[#0188C7] hover:bg-[#E8F7FE] rounded-lg transition-colors cursor-pointer"
+                            title="Download Voucher PDF"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleOpenEdit(exp)}
                             className="p-1.5 text-slate-400 hover:text-[#01A8F3] hover:bg-[#E8F7FE] rounded-lg transition-colors cursor-pointer"
                             title={recent ? 'Edit Voucher' : 'Request Edit Approval (> 24h)'}
@@ -759,7 +821,7 @@ export const FinanceExpensesPage: React.FC = () => {
                 <CreditCard className="w-3.5 h-3.5 text-[#01A8F3]" />
                 <span>Disbursement / Funding Method</span>
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('CASH')}
@@ -787,20 +849,6 @@ export const FinanceExpensesPage: React.FC = () => {
                   <div className="text-xs font-bold">Bank Transfer</div>
                   <div className="text-[10px] text-slate-500">Corporate bank</div>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('PETTY_CASH')}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    paymentMethod === 'PETTY_CASH'
-                      ? 'border-amber-600 bg-amber-50/70 text-amber-900 font-bold shadow-2xs'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
-                  }`}
-                >
-                  <Wallet className="w-4 h-4 text-amber-600 mb-1" />
-                  <div className="text-xs font-bold">Petty Cash</div>
-                  <div className="text-[10px] text-slate-500">Float wallet</div>
-                </button>
               </div>
             </div>
 
@@ -811,6 +859,8 @@ export const FinanceExpensesPage: React.FC = () => {
               </label>
               <input
                 type="date"
+                min={minExpenseDate}
+                max={maxExpenseDate}
                 value={expenseDate}
                 onChange={(e) => {
                   setExpenseDate(e.target.value);
@@ -819,28 +869,11 @@ export const FinanceExpensesPage: React.FC = () => {
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
                 required
               />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Current week only (Mon {minExpenseDate} - Today {maxExpenseDate})
+              </p>
             </div>
           </div>
-
-          {isCreatePettyCash && allocations.length > 0 && (
-            <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
-              <label className="block text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                <Wallet className="w-3.5 h-3.5 text-amber-600" />
-                <span>Link to Specific Petty Cash Allocation (Optional)</span>
-              </label>
-              <Select
-                value={selectedAllocationId}
-                onChange={(e) => setSelectedAllocationId(e.target.value)}
-                options={[
-                  { value: '', label: 'General Petty Cash Wallet Float' },
-                  ...allocations.map((a) => ({
-                    value: a.id,
-                    label: `${a.allocationCode} - ${a.reason} (Bal: ${formatCurrency(a.remainingAmount)})`,
-                  })),
-                ]}
-              />
-            </div>
-          )}
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -870,16 +903,6 @@ export const FinanceExpensesPage: React.FC = () => {
             />
           </div>
 
-          {isCreateOverPettyCashBalance && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
-              <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <span>
-                The requested voucher amount of <strong>{formatCurrency(parsedCreateAmount)}</strong> exceeds your
-                available Petty Cash float balance of <strong>{formatCurrency(wallet?.remainingBalance)}</strong>.
-              </span>
-            </div>
-          )}
-
           <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3">
             <Button
               type="button"
@@ -893,7 +916,7 @@ export const FinanceExpensesPage: React.FC = () => {
             <Button
               type="submit"
               variant="primary"
-              disabled={isSubmittingCreate || Boolean(isCreateOverPettyCashBalance)}
+              disabled={isSubmittingCreate}
               isLoading={isSubmittingCreate}
               className="w-full sm:w-auto"
             >
@@ -949,7 +972,6 @@ export const FinanceExpensesPage: React.FC = () => {
                 options={[
                   { value: 'CASH', label: 'Cash' },
                   { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
-                  { value: 'PETTY_CASH', label: 'Petty Cash' },
                 ]}
               />
             </div>
@@ -958,10 +980,15 @@ export const FinanceExpensesPage: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-700 mb-1">Expense Date</label>
               <input
                 type="date"
+                min={minExpenseDate}
+                max={maxExpenseDate}
                 value={editExpenseDate}
                 onChange={(e) => setEditExpenseDate(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
               />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Current week only (Mon {minExpenseDate} - Today {maxExpenseDate})
+              </p>
             </div>
           </div>
 

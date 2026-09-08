@@ -37,7 +37,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadData = async () => {
-    if (role !== 'ADMIN') {
+    if (role !== 'ADMIN' && role !== 'FINANCE') {
       setLoading(false);
       return;
     }
@@ -60,6 +60,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
   const filteredRequests = requests.filter((r) => r.status === activeTab);
 
   const openReview = (req: ExpenseChangeRequest, decision: 'APPROVED' | 'REJECTED') => {
+    if (role !== 'ADMIN') return;
     setSelectedRequest(req);
     setReviewDecision(decision);
     setRejectionReason('');
@@ -67,7 +68,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
   };
 
   const handleConfirmReview = async () => {
-    if (!selectedRequest) return;
+    if (role !== 'ADMIN' || !selectedRequest) return;
 
     if (reviewDecision === 'REJECTED' && !rejectionReason.trim()) {
       toast.error('Please specify a reason for rejecting this change request.');
@@ -99,7 +100,7 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
 
   if (loading) return <LoadingState rows={8} />;
 
-  if (role !== 'ADMIN') {
+  if (role !== 'ADMIN' && role !== 'FINANCE') {
     return (
       <div className="space-y-6">
         <PageHeader
@@ -107,18 +108,24 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
           description="Formal review queue for modifying or voiding operational expenses recorded over 24 hours ago."
         />
         <EmptyState
-          title="Admin authorization required"
-          description="Expense change requests can only be reviewed by an Admin account."
+          title="Authorization Required"
+          description="You do not have permission to view expense change requests."
         />
       </div>
     );
   }
 
+  const isFinanceUser = role === 'FINANCE';
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Expense Audit & Change Request Authorizations"
-        description="Formal review queue for modifying or voiding operational expenses recorded over 24 hours ago."
+        title={isFinanceUser ? 'Expense Change Request Status & History' : 'Expense Audit & Change Request Authorizations'}
+        description={
+          isFinanceUser
+            ? 'Track review status and history for your operational expense edit and deletion requests.'
+            : 'Formal review queue for modifying or voiding operational expenses recorded over 24 hours ago.'
+        }
       />
 
       {/* Tabs */}
@@ -232,26 +239,33 @@ export const FinanceExpenseApprovalsPage: React.FC = () => {
 
                     {/* Action buttons for pending */}
                     {req.status === 'PENDING' && (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          leftIcon={<XCircle className="w-4 h-4 text-red-600" />}
-                          onClick={() => openReview(req, 'REJECTED')}
-                          className="text-red-700 border-red-200 hover:bg-red-50 text-xs"
-                        >
-                          Reject
-                        </Button>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          leftIcon={<CheckCircle2 className="w-4 h-4 text-white" />}
-                          onClick={() => openReview(req, 'APPROVED')}
-                          className="bg-[#80BD2B] hover:bg-[#71A924] text-xs shadow-xs"
-                        >
-                          Authorize & Apply
-                        </Button>
-                      </div>
+                      role === 'ADMIN' ? (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            leftIcon={<XCircle className="w-4 h-4 text-red-600" />}
+                            onClick={() => openReview(req, 'REJECTED')}
+                            className="text-red-700 border-red-200 hover:bg-red-50 text-xs"
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            leftIcon={<CheckCircle2 className="w-4 h-4 text-white" />}
+                            onClick={() => openReview(req, 'APPROVED')}
+                            className="bg-[#80BD2B] hover:bg-[#71A924] text-xs shadow-xs"
+                          >
+                            Authorize & Apply
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Awaiting Admin Review</span>
+                        </span>
+                      )
                     )}
                   </div>
 

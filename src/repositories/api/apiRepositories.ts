@@ -484,6 +484,9 @@ export class ApiExpenseRepository implements IExpenseRepository {
       await apiClient.patch<{ data: ExpenseCategory }>(`/expenses/categories/${id}`, data)
     );
   }
+  async deleteCategory(id: string): Promise<void> {
+    await apiClient.delete(`/expenses/categories/${id}`);
+  }
   async update(id: string, updates: ExpenseUpdatePayload): Promise<Expense> {
     const payload: ExpenseUpdatePayload = {};
     if (updates.categoryId !== undefined) payload.categoryId = updates.categoryId;
@@ -690,13 +693,14 @@ export class ApiPettyCashRepository implements IPettyCashRepository {
   async getAllocationById(id: string): Promise<any> {
     return unwrap(await apiClient.get<{ data: any }>(`/petty-cash/allocations/${id}`));
   }
-  async allocate(amount: number, reason: string, teamId?: string, remarks?: string): Promise<any> {
+  async allocate(amount: number, reason: string, teamId?: string, remarks?: string, date?: string): Promise<any> {
     return unwrap(
       await apiClient.post<{ data: any }>('/petty-cash/allocate', {
         amount,
         reason,
         remarks,
         teamId,
+        date,
       })
     );
   }
