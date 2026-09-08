@@ -44,10 +44,10 @@ export type ExpenseUpdatePayload = Partial<ExpenseWritePayload>;
 export interface PettyCashExpensePayload {
   amount: number;
   reason: string;
-  category: string;
+  category?: string;
   description: string;
   date: string;
-  allocationId?: string;
+  allocationId: string;
   teamId?: string;
 }
 
