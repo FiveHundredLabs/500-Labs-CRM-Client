@@ -205,7 +205,7 @@ export interface IPettyCashRepository {
   getTransactions(teamId?: string): Promise<PettyCashTransaction[]>;
   getAllocations(teamId?: string): Promise<any[]>;
   getAllocationById(id: string): Promise<any>;
-  allocate(amount: number, reason: string, teamId?: string, remarks?: string): Promise<any>;
+  allocate(amount: number, reason: string, teamId?: string, remarks?: string, date?: string): Promise<any>;
   recordExpense(data: PettyCashExpensePayload): Promise<PettyCashTransaction>;
 }
 

@@ -32,10 +32,18 @@ import {
   PiggyBank
 } from 'lucide-react';
 import { generatePettyCashAllocationPdf, generatePettyCashStatementPdf } from '../../utils/voucherPdfGenerator';
+import {
+  getLocalDateString,
+  getYesterdayDateString,
+  validatePettyCashDate,
+} from '../../utils/dateValidation';
 import * as XLSX from 'xlsx';
 
 export const FinancePettyCashPage: React.FC = () => {
   const { user, role } = useAuth();
+
+  const todayDate = getLocalDateString();
+  const yesterdayDate = getYesterdayDateString();
 
   const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
   const [transactions, setTransactions] = useState<PettyCashTransaction[]>([]);
@@ -51,7 +59,7 @@ export const FinancePettyCashPage: React.FC = () => {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [date, setDate] = useState(getLocalDateString());
   const [description, setDescription] = useState('');
   const [selectedAllocId, setSelectedAllocId] = useState('');
   const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
@@ -60,6 +68,7 @@ export const FinancePettyCashPage: React.FC = () => {
   const [isAllocateModalOpen, setIsAllocateModalOpen] = useState(false);
   const [allocateAmount, setAllocateAmount] = useState('');
   const [allocateReason, setAllocateReason] = useState('');
+  const [allocateDate, setAllocateDate] = useState(getLocalDateString());
   const [allocateRemarks, setAllocateRemarks] = useState('');
   const [isSubmittingAllocation, setIsSubmittingAllocation] = useState(false);
 
@@ -134,6 +143,12 @@ export const FinancePettyCashPage: React.FC = () => {
       return;
     }
 
+    const dateCheck = validatePettyCashDate(date);
+    if (!dateCheck.isValid) {
+      toast.error(dateCheck.error || 'Invalid petty cash voucher date.');
+      return;
+    }
+
     if (availableAllocations.length === 0) {
       toast.error('No allocation funds with available balance exist. Please allocate funds first.');
       return;
@@ -178,6 +193,7 @@ export const FinancePettyCashPage: React.FC = () => {
       toast.success(`Petty cash voucher of ${formatCurrency(parsedAmount)} recorded against ${targetAlloc.allocationCode}!`);
       setReason('');
       setAmount('');
+      setDate(getLocalDateString());
       setDescription('');
       setIsExpenseModalOpen(false);
       await loadData();
@@ -202,12 +218,25 @@ export const FinancePettyCashPage: React.FC = () => {
       return;
     }
 
+    const dateCheck = validatePettyCashDate(allocateDate);
+    if (!dateCheck.isValid) {
+      toast.error(dateCheck.error || 'Invalid allocation date.');
+      return;
+    }
+
     setIsSubmittingAllocation(true);
     try {
-      await pettyCashRepository.allocate(parsedAlloc, allocateReason.trim(), targetTeamId, allocateRemarks.trim() || undefined);
+      await pettyCashRepository.allocate(
+        parsedAlloc,
+        allocateReason.trim(),
+        targetTeamId,
+        allocateRemarks.trim() || undefined,
+        allocateDate
+      );
       toast.success(`Allocated ${formatCurrency(parsedAlloc)} to Petty Cash wallet!`);
       setAllocateAmount('');
       setAllocateReason('');
+      setAllocateDate(getLocalDateString());
       setAllocateRemarks('');
       setIsAllocateModalOpen(false);
       await loadData();
@@ -608,11 +637,16 @@ export const FinancePettyCashPage: React.FC = () => {
               </label>
               <input
                 type="date"
+                min={yesterdayDate}
+                max={todayDate}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
                 required
               />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Yesterday ({yesterdayDate}) or Today ({todayDate}) only
+              </p>
             </div>
           </div>
 
@@ -712,19 +746,39 @@ export const FinancePettyCashPage: React.FC = () => {
             <span>This will deposit operational cash float and create an audit-tracked allocation code (e.g. PC-0001).</span>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Deposit Amount (LKR) <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={allocateAmount}
-              onChange={(e) => setAllocateAmount(e.target.value)}
-              placeholder="e.g. 50000"
-              required
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Deposit Amount (LKR) <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={allocateAmount}
+                onChange={(e) => setAllocateAmount(e.target.value)}
+                placeholder="e.g. 50000"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Allocation Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                min={yesterdayDate}
+                max={todayDate}
+                value={allocateDate}
+                onChange={(e) => setAllocateDate(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
+                required
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Yesterday ({yesterdayDate}) or Today ({todayDate}) only
+              </p>
+            </div>
           </div>
 
           <div>

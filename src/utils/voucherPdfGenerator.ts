@@ -573,7 +573,8 @@ export interface InventoryPdfSummary {
 }
 
 /**
- * Generates an official Inventory & Asset Valuation Ledger PDF.
+ * Generates an official, beautifully styled Inventory & Asset Valuation Ledger PDF.
+ * Designed with precise typography, strict non-overlapping column bounds, and multi-page pagination.
  */
 export function generateInventoryValuationPdf(
   items: InventoryPdfItem[],
@@ -587,195 +588,280 @@ export function generateInventoryValuationPdf(
   });
 
   const pageWidth = doc.internal.pageSize.getWidth(); // 297mm
-  const margin = 14;
-  const contentWidth = pageWidth - margin * 2; // 269mm
+  const pageHeight = doc.internal.pageSize.getHeight(); // 210mm
+  const margin = 12;
+  const contentWidth = pageWidth - margin * 2; // 273mm
 
-  // Header
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(15, 23, 42);
-  doc.text('LEVEL GROW (PVT) LTD', margin, 18);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(100, 116, 139);
-  doc.text('Inventory & Asset Valuation Ledger - Stock & Margin Audit', margin, 24);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(1, 136, 199); // #0188C7
-  doc.text(`Scope: ${teamScope} (${items.length} registered SKUs)`, margin, 30);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text(`As of: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, pageWidth - margin, 18, { align: 'right' });
-
-  // Divider
-  doc.setDrawColor(226, 232, 240);
-  doc.line(margin, 34, pageWidth - margin, 34);
-
-  // Summary Metrics Cards (4 cards)
-  const cardWidth = (contentWidth - 12) / 4;
-  let y = 38;
-
-  const metrics = [
-    { title: 'TOTAL VALUATION (COST)', val: formatCurrency(summary.totalValuationCost), color: [1, 168, 243] },
-    { title: 'POTENTIAL REVENUE', val: formatCurrency(summary.totalPotentialSales), color: [1, 136, 199] },
-    { title: 'REALIZED SALES REVENUE', val: formatCurrency(summary.totalRealizedRevenue), color: [84, 126, 27] },
-    { title: 'GROSS PROFIT & MARGIN', val: `${formatCurrency(summary.totalGrossProfit)} (${summary.avgMargin}%)`, color: [128, 189, 43] },
+  // Column definitions with strict bounds (sum = 273mm)
+  const columns = [
+    { id: 'sku', header: 'SKU CODE', width: 22, align: 'left' as const },
+    { id: 'name', header: 'PRODUCT TITLE', width: 38, align: 'left' as const },
+    { id: 'team', header: 'TEAM', width: 30, align: 'left' as const },
+    { id: 'stock', header: 'STOCK', width: 18, align: 'center' as const },
+    { id: 'cost', header: 'UNIT COST', width: 24, align: 'right' as const },
+    { id: 'selling', header: 'SELLING PRICE', width: 24, align: 'right' as const },
+    { id: 'valuation', header: 'STOCK VALUATION', width: 30, align: 'right' as const },
+    { id: 'sold', header: 'DELIVERED', width: 16, align: 'center' as const },
+    { id: 'revenue', header: 'REALIZED REV', width: 25, align: 'right' as const },
+    { id: 'profit', header: 'GROSS PROFIT', width: 26, align: 'right' as const },
+    { id: 'margin', header: 'MARGIN', width: 20, align: 'right' as const },
   ];
 
-  metrics.forEach((m, idx) => {
-    const x = margin + idx * (cardWidth + 4);
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(x, y, cardWidth, 18, 2, 2, 'F');
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(x, y, cardWidth, 18, 2, 2, 'S');
+  const drawHeader = (pageNumber: number) => {
+    if (pageNumber === 1) {
+      // Top accent bar
+      doc.setFillColor(1, 168, 243); // #01A8F3
+      doc.rect(margin, 10, contentWidth, 1.5, 'F');
+
+      // Company Branding & Document Title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text('LEVEL GROW (PVT) LTD', margin, 18);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.text('Inventory & Asset Valuation Ledger — Real-Time Stock & Profitability Audit', margin, 23);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(1, 136, 199); // #0188C7
+      doc.text(`Scope: ${teamScope} (${items.length} registered SKUs)`, margin, 28);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, pageWidth - margin, 18, { align: 'right' });
+      doc.text('Status: Official Audit Record', pageWidth - margin, 23, { align: 'right' });
+
+      // Summary KPI Cards (4 cards)
+      const cardWidth = (contentWidth - 9) / 4;
+      const cardY = 32;
+
+      const metrics = [
+        {
+          title: 'TOTAL VALUATION (COST)',
+          val: formatCurrency(summary.totalValuationCost),
+          color: [1, 168, 243], // Blue
+        },
+        {
+          title: 'POTENTIAL REVENUE',
+          val: formatCurrency(summary.totalPotentialSales),
+          color: [1, 136, 199], // Cyan
+        },
+        {
+          title: 'REALIZED SALES REVENUE',
+          val: formatCurrency(summary.totalRealizedRevenue),
+          color: [84, 126, 27], // Green
+        },
+        {
+          title: 'GROSS PROFIT & MARGIN',
+          val: `${formatCurrency(summary.totalGrossProfit)} (${summary.avgMargin}%)`,
+          color: [128, 189, 43], // Light Green
+        },
+      ];
+
+      metrics.forEach((m, idx) => {
+        const x = margin + idx * (cardWidth + 3);
+        doc.setFillColor(248, 250, 252); // slate-50
+        doc.roundedRect(x, cardY, cardWidth, 16, 1.5, 1.5, 'F');
+        doc.setDrawColor(226, 232, 240); // slate-200
+        doc.roundedRect(x, cardY, cardWidth, 16, 1.5, 1.5, 'S');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(m.title, x + 3, cardY + 5);
+
+        doc.setFontSize(9.5);
+        doc.setTextColor(m.color[0], m.color[1], m.color[2]);
+        doc.text(m.val, x + 3, cardY + 12);
+      });
+
+      // Section Heading
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Stock Asset Valuation & Profitability Breakdown', margin, 54);
+    } else {
+      // Header for subsequent pages
+      doc.setFillColor(1, 168, 243);
+      doc.rect(margin, 8, contentWidth, 1, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text('LEVEL GROW (PVT) LTD — Inventory & Asset Valuation Ledger (Cont.)', margin, 14);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Scope: ${teamScope} | Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, pageWidth - margin, 14, { align: 'right' });
+    }
+  };
+
+  const drawTableHeader = (headerY: number) => {
+    // Header Background
+    doc.setFillColor(241, 245, 249); // slate-100
+    doc.rect(margin, headerY, contentWidth, 7, 'F');
+    doc.setDrawColor(203, 213, 225); // slate-300
+    doc.rect(margin, headerY, contentWidth, 7, 'S');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.setTextColor(100, 116, 139);
-    doc.text(m.title, x + 3.5, y + 6);
+    doc.setFontSize(6.8);
+    doc.setTextColor(71, 85, 105); // slate-600
 
-    doc.setFontSize(10.5);
-    doc.setTextColor(m.color[0], m.color[1], m.color[2]);
-    doc.text(m.val, x + 3.5, y + 13.5);
-  });
+    let currentX = margin;
+    columns.forEach((col) => {
+      const textY = headerY + 4.6;
+      if (col.align === 'left') {
+        doc.text(col.header, currentX + 1.5, textY);
+      } else if (col.align === 'center') {
+        doc.text(col.header, currentX + col.width / 2, textY, { align: 'center' });
+      } else {
+        doc.text(col.header, currentX + col.width - 1.5, textY, { align: 'right' });
+      }
+      currentX += col.width;
+    });
+  };
 
-  // Table Subheading
-  y = 62;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(15, 23, 42);
-  doc.text('Stock Asset Valuation & Profitability Breakdown', margin, y);
+  let pageNumber = 1;
+  drawHeader(pageNumber);
 
-  // Table Header
-  y = 66;
-  doc.setFillColor(241, 245, 249);
-  doc.rect(margin, y, contentWidth, 8, 'F');
-  doc.setDrawColor(203, 213, 225);
-  doc.rect(margin, y, contentWidth, 8, 'S');
+  let currentY = 58;
+  drawTableHeader(currentY);
+  currentY += 7;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor(71, 85, 105);
+  const rowHeight = 6.2;
+  const bottomLimit = pageHeight - 16; // 194mm
 
-  // Column offsets (total: 269mm)
-  // Code: 20, Name: 44, Team: 32, Stock: 20, Cost: 24, Selling: 24, Val: 28, Sold: 18, Rev: 26, Profit: 24, Margin: 9
-  let colX = margin + 2;
-  doc.text('SKU CODE', colX, y + 5.5);
-  colX += 22;
-  doc.text('PRODUCT TITLE', colX, y + 5.5);
-  colX += 46;
-  doc.text('TEAM', colX, y + 5.5);
-  colX += 34;
-  doc.text('STOCK', colX, y + 5.5);
-  colX += 22;
-  doc.text('UNIT COST', colX + 22, y + 5.5, { align: 'right' });
-  colX += 24;
-  doc.text('SELLING PRICE', colX + 22, y + 5.5, { align: 'right' });
-  colX += 24;
-  doc.text('STOCK VALUATION', colX + 26, y + 5.5, { align: 'right' });
-  colX += 28;
-  doc.text('DELIVERED', colX + 9, y + 5.5, { align: 'center' });
-  colX += 18;
-  doc.text('REALIZED REV', colX + 24, y + 5.5, { align: 'right' });
-  colX += 26;
-  doc.text('GROSS PROFIT', colX + 22, y + 5.5, { align: 'right' });
-  colX += 25;
-  doc.text('MARGIN', margin + contentWidth - 2, y + 5.5, { align: 'right' });
-
-  // Rows
-  y += 8;
-
-  items.slice(0, 18).forEach((item, idx) => {
-    if (y > 185) return;
-
-    if (idx % 2 === 1) {
-      doc.setFillColor(248, 250, 252);
-      doc.rect(margin, y, contentWidth, 6.5, 'F');
+  items.forEach((item, idx) => {
+    // Check page overflow
+    if (currentY + rowHeight > bottomLimit) {
+      // Add new page
+      doc.addPage('a4', 'landscape');
+      pageNumber++;
+      drawHeader(pageNumber);
+      currentY = 18;
+      drawTableHeader(currentY);
+      currentY += 7;
     }
 
+    // Zebra striping
+    if (idx % 2 === 1) {
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.rect(margin, currentY, contentWidth, rowHeight, 'F');
+    }
+
+    let currentX = margin;
+
+    // 1. SKU Code
+    doc.setFont('courier', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(item.code.slice(0, 12), currentX + 1.5, currentY + 4.3);
+    currentX += columns[0].width;
+
+    // 2. Product Title
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
-
-    let rowX = margin + 2;
-    // Code
-    doc.setTextColor(100, 116, 139);
-    doc.setFont('courier', 'bold');
-    doc.text(item.code.slice(0, 12), rowX, y + 4.5);
-    doc.setFont('helvetica', 'normal');
-
-    // Name
-    rowX += 22;
     doc.setTextColor(15, 23, 42);
-    doc.text(item.name.slice(0, 26), rowX, y + 4.5);
+    doc.text(item.name.slice(0, 24), currentX + 1.5, currentY + 4.3);
+    currentX += columns[1].width;
 
-    // Team
-    rowX += 46;
+    // 3. Team
     doc.setTextColor(1, 136, 199);
-    doc.text(item.teamName.slice(0, 18), rowX, y + 4.5);
+    doc.text(item.teamName.slice(0, 18), currentX + 1.5, currentY + 4.3);
+    currentX += columns[2].width;
 
-    // Stock
-    rowX += 34;
-    doc.setTextColor(item.currentStock === 0 ? 220 : 51, item.currentStock === 0 ? 38 : 65, item.currentStock === 0 ? 38 : 85);
-    doc.text(`${item.currentStock} units`, rowX, y + 4.5);
+    // 4. Stock
+    if (item.currentStock === 0) {
+      doc.setTextColor(220, 38, 38);
+      doc.setFont('helvetica', 'bold');
+    } else {
+      doc.setTextColor(51, 65, 85);
+      doc.setFont('helvetica', 'normal');
+    }
+    doc.text(`${item.currentStock} u`, currentX + columns[3].width / 2, currentY + 4.3, { align: 'center' });
+    currentX += columns[3].width;
 
-    // Unit Cost
-    rowX += 22;
+    // 5. Unit Cost
+    doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
-    doc.text(formatCurrency(item.costPrice), rowX + 22, y + 4.5, { align: 'right' });
+    doc.text(formatCurrency(item.costPrice), currentX + columns[4].width - 1.5, currentY + 4.3, { align: 'right' });
+    currentX += columns[4].width;
 
-    // Selling Price
-    rowX += 24;
+    // 6. Selling Price
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCurrency(item.sellingPrice), rowX + 22, y + 4.5, { align: 'right' });
+    doc.text(formatCurrency(item.sellingPrice), currentX + columns[5].width - 1.5, currentY + 4.3, { align: 'right' });
+    currentX += columns[5].width;
 
-    // Stock Valuation
-    rowX += 24;
+    // 7. Stock Valuation
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(1, 136, 199);
-    doc.text(formatCurrency(item.stockValuation), rowX + 26, y + 4.5, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
+    doc.text(formatCurrency(item.stockValuation), currentX + columns[6].width - 1.5, currentY + 4.3, { align: 'right' });
+    currentX += columns[6].width;
 
-    // Delivered
-    rowX += 28;
+    // 8. Delivered Units
+    doc.setFont('helvetica', 'normal');
     doc.setTextColor(51, 65, 85);
-    doc.text(`${item.soldUnits}`, rowX + 9, y + 4.5, { align: 'center' });
+    doc.text(`${item.soldUnits}`, currentX + columns[7].width / 2, currentY + 4.3, { align: 'center' });
+    currentX += columns[7].width;
 
-    // Realized Revenue
-    rowX += 18;
+    // 9. Realized Revenue
     doc.setTextColor(84, 126, 27);
-    doc.text(formatCurrency(item.realizedRevenue), rowX + 24, y + 4.5, { align: 'right' });
+    doc.text(formatCurrency(item.realizedRevenue), currentX + columns[8].width - 1.5, currentY + 4.3, { align: 'right' });
+    currentX += columns[8].width;
 
-    // Gross profit
-    rowX += 26;
+    // 10. Gross Profit
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(item.realizedGrossProfit >= 0 ? 84 : 220, item.realizedGrossProfit >= 0 ? 126 : 38, item.realizedGrossProfit >= 0 ? 27 : 38);
-    doc.text(formatCurrency(item.realizedGrossProfit), rowX + 22, y + 4.5, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
+    if (item.realizedGrossProfit >= 0) {
+      doc.setTextColor(84, 126, 27); // green
+    } else {
+      doc.setTextColor(220, 38, 38); // red
+    }
+    doc.text(formatCurrency(item.realizedGrossProfit), currentX + columns[9].width - 1.5, currentY + 4.3, { align: 'right' });
+    currentX += columns[9].width;
 
-    // Margin
+    // 11. Margin
+    doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
-    doc.text(`${item.marginPct}%`, margin + contentWidth - 2, y + 4.5, { align: 'right' });
+    doc.text(`${item.marginPct}%`, currentX + columns[10].width - 1.5, currentY + 4.3, { align: 'right' });
 
-    // Row border
+    // Thin row divider
     doc.setDrawColor(241, 245, 249);
-    doc.line(margin, y + 6.5, margin + contentWidth, y + 6.5);
+    doc.line(margin, currentY + rowHeight, margin + contentWidth, currentY + rowHeight);
 
-    y += 6.5;
+    currentY += rowHeight;
   });
 
-  // Footer
-  doc.setFontSize(7.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text(
-    `Official Inventory & Asset Valuation Ledger | Level Grow (Pvt) Ltd | Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`,
-    pageWidth / 2,
-    202,
-    { align: 'center' }
-  );
+  // Add Footers to all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184); // slate-400
+
+    // Footer divider
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
+
+    doc.text(
+      `Official Inventory & Asset Valuation Ledger | Level Grow (Pvt) Ltd | Generated on ${format(new Date(), 'yyyy-MM-dd HH:mm')}`,
+      margin,
+      pageHeight - 6
+    );
+
+    doc.text(
+      `Page ${i} of ${totalPages}`,
+      pageWidth - margin,
+      pageHeight - 6,
+      { align: 'right' }
+    );
+  }
 
   return doc;
 }
+

@@ -25,17 +25,25 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
+import {
+  getLocalDateString,
+  getStartOfCurrentWeekString,
+  validateExpenseDate,
+} from '../../utils/dateValidation';
 
 export const FinanceNewExpensePage: React.FC = () => {
   const { user, role } = useAuth();
   const navigate = useNavigate();
 
+  const minExpenseDate = getStartOfCurrentWeekString();
+  const maxExpenseDate = getLocalDateString();
+
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string>('');
   const [customCategory, setCustomCategory] = useState('');
   const [amount, setAmount] = useState('');
-  const [expenseDate, setExpenseDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'PETTY_CASH'>('CASH');
+  const [expenseDate, setExpenseDate] = useState(getLocalDateString());
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER'>('CASH');
   const [remarks, setRemarks] = useState('');
   const [notes, setNotes] = useState('');
   const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
@@ -68,14 +76,18 @@ export const FinanceNewExpensePage: React.FC = () => {
   }, []);
 
   const parsedAmount = parseFloat(amount) || 0;
-  const isPettyCash = selectedCategoryName === 'Petty Cash' || paymentMethod === 'PETTY_CASH';
-  const isOverPettyCashBalance = isPettyCash && wallet && parsedAmount > wallet.remainingBalance;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       toast.error('Please enter a valid positive amount.');
+      return;
+    }
+
+    const dateCheck = validateExpenseDate(expenseDate);
+    if (!dateCheck.isValid) {
+      toast.error(dateCheck.error || 'Invalid expense date.');
       return;
     }
 
@@ -92,13 +104,6 @@ export const FinanceNewExpensePage: React.FC = () => {
 
     if (!remarks.trim()) {
       toast.error('Please enter voucher remarks or purpose.');
-      return;
-    }
-
-    if (isOverPettyCashBalance && wallet) {
-      toast.error(
-        `Expense amount (${formatCurrency(parsedAmount)}) exceeds available Petty Cash balance (${formatCurrency(wallet.remainingBalance)}).`
-      );
       return;
     }
 
@@ -226,11 +231,16 @@ export const FinanceNewExpensePage: React.FC = () => {
                     </label>
                     <input
                       type="date"
+                      min={minExpenseDate}
+                      max={maxExpenseDate}
                       value={expenseDate}
                       onChange={(e) => setExpenseDate(e.target.value)}
                       className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 shadow-2xs"
                       required
                     />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Current week only (Mon {minExpenseDate} - Today {maxExpenseDate})
+                    </p>
                   </div>
                 </div>
 
@@ -240,7 +250,7 @@ export const FinanceNewExpensePage: React.FC = () => {
                     <CreditCard className="w-3.5 h-3.5 text-[#01A8F3]" />
                     <span>Disbursement / Funding Method</span>
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('CASH')}
@@ -268,43 +278,8 @@ export const FinanceNewExpensePage: React.FC = () => {
                       <div className="text-xs font-bold">Bank Transfer</div>
                       <div className="text-[10px] text-slate-500">Corporate bank</div>
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('PETTY_CASH')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        paymentMethod === 'PETTY_CASH'
-                          ? 'border-amber-600 bg-amber-50/70 text-amber-900 font-bold shadow-2xs'
-                          : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
-                      }`}
-                    >
-                      <Wallet className="w-4 h-4 text-amber-600 mb-1" />
-                      <div className="text-xs font-bold">Petty Cash</div>
-                      <div className="text-[10px] text-slate-500">Float wallet</div>
-                    </button>
                   </div>
                 </div>
-
-                {/* Petty Cash Allocation Linkage */}
-                {isPettyCash && allocations.length > 0 && (
-                  <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
-                    <label className="block text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                      <Wallet className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Link to Specific Petty Cash Allocation (Optional)</span>
-                    </label>
-                    <Select
-                      value={selectedAllocationId}
-                      onChange={(e) => setSelectedAllocationId(e.target.value)}
-                      options={[
-                        { value: '', label: 'General Petty Cash Wallet Float' },
-                        ...allocations.map((a) => ({
-                          value: a.id,
-                          label: `${a.allocationCode} — ${a.reason} (Bal: ${formatCurrency(a.remainingAmount)})`,
-                        })),
-                      ]}
-                    />
-                  </div>
-                )}
 
                 {/* Remarks */}
                 <div>
@@ -333,16 +308,6 @@ export const FinanceNewExpensePage: React.FC = () => {
                   />
                 </div>
 
-                {/* Warning on Over balance */}
-                {isOverPettyCashBalance && (
-                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2">
-                    <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                    <span>
-                      The requested voucher amount of <strong>{formatCurrency(parsedAmount)}</strong> exceeds your available Petty Cash float balance of <strong>{formatCurrency(wallet?.remainingBalance)}</strong>.
-                    </span>
-                  </div>
-                )}
-
                 {/* Submit button */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
                   <Button
@@ -355,7 +320,7 @@ export const FinanceNewExpensePage: React.FC = () => {
                   <Button
                     type="submit"
                     variant="primary"
-                    disabled={isSubmitting || Boolean(isOverPettyCashBalance)}
+                    disabled={isSubmitting}
                   >
                     {isSubmitting ? 'Registering...' : 'Register Expense Voucher'}
                   </Button>
