@@ -24,7 +24,8 @@ import {
   Gift,
   Zap,
   Sparkles,
-  Target
+  Target,
+  RotateCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Leaderboard } from '../../components/leaderboard';
@@ -39,7 +40,9 @@ import {
   startOfMonth, 
   endOfMonth, 
   subMonths, 
-  subDays 
+  subDays,
+  addMonths,
+  differenceInDays
 } from 'date-fns';
 
 export type DashboardDateFilter = 'THIS_MONTH' | 'LAST_MONTH' | 'TODAY' | 'THIS_WEEK' | 'ALL' | 'LAST_6_MONTHS' | 'CUSTOM';
@@ -64,8 +67,17 @@ export const MemberDashboard: React.FC = () => {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Month preset for goal tracking
-  const [selectedMonthPreset, setSelectedMonthPreset] = useState<string>('THIS_MONTH');
+  // Month selection for recurring monthly sales goal tracking (format: 'YYYY-MM')
+  const currentMonthStr = format(new Date(), 'yyyy-MM');
+  const lastMonthStr = format(subMonths(new Date(), 1), 'yyyy-MM');
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
+
+  // Selected month date context (top-level hook before any early return)
+  const selectedMonthDate = useMemo(() => {
+    const [y, m] = selectedMonth.split('-').map((v) => parseInt(v, 10));
+    return new Date(y, m - 1, 1);
+  }, [selectedMonth]);
+
   // Date filter for top KPI cards & call queue
   const [dateFilter, setDateFilter] = useState<DashboardDateFilter>('THIS_MONTH');
   
@@ -77,11 +89,7 @@ export const MemberDashboard: React.FC = () => {
     setLoading(true);
     try {
       const currentTeamId = user.teamId || '';
-      const now = new Date();
-      let targetMonthPrefix = format(now, 'yyyy-MM');
-      if (selectedMonthPreset === 'LAST_MONTH') {
-        targetMonthPrefix = format(subMonths(now, 1), 'yyyy-MM');
-      }
+      const targetMonthPrefix = selectedMonth;
 
       const [mContacts, mLogs, mOrders, teamUsers, teamOrders, fetchedTargets] = await Promise.all([
         contactRepository.getByMemberId(user.id).catch(() => []),
@@ -137,7 +145,7 @@ export const MemberDashboard: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [user, selectedMonthPreset]);
+  }, [user, selectedMonth]);
 
   // Date Range Matcher Helper for Top Cards
   const isDateInFilter = (dateStr?: string | null) => {
@@ -209,9 +217,20 @@ export const MemberDashboard: React.FC = () => {
   const activeTiers = activeTarget?.tiers && activeTarget.tiers.length > 0 ? activeTarget.tiers : [];
 
   const now = new Date();
-  const targetYear = now.getFullYear();
-  const targetMonthIndex = selectedMonthPreset === 'THIS_MONTH' ? now.getMonth() : now.getMonth() - 1;
-  const targetMonthPrefix = `${targetYear}-${String(targetMonthIndex + 1).padStart(2, '0')}`;
+  const targetMonthPrefix = selectedMonth;
+
+  // Selected month date context
+
+  const isCurrentMonth = selectedMonth === currentMonthStr;
+  const isPastMonth = selectedMonth < currentMonthStr;
+  const isFutureMonth = selectedMonth > currentMonthStr;
+
+  const cycleStartDate = startOfMonth(selectedMonthDate);
+  const cycleEndDate = endOfMonth(selectedMonthDate);
+  const cycleDateRangeText = `${format(cycleStartDate, 'd MMM')} – ${format(cycleEndDate, 'd MMM yyyy')}`;
+  const nextRenewalDate = addMonths(cycleStartDate, 1);
+  const nextRenewalDateText = format(nextRenewalDate, 'd MMM yyyy');
+  const daysUntilRenewal = Math.max(1, differenceInDays(endOfMonth(now), now) + 1);
 
   const monthlyDeliveredOrders = orders.filter((o) => {
     if (o.status !== 'DELIVERED') return false;
@@ -224,6 +243,9 @@ export const MemberDashboard: React.FC = () => {
   const currentSalesAmount = memberBreakdown
     ? memberBreakdown.actualSales
     : monthlyDeliveredOrders.reduce((sum, o) => sum + (Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : o.totalAmount) || 0), 0);
+  const deliveredOrdersCount = memberBreakdown?.ordersCount !== undefined
+    ? memberBreakdown.ordersCount
+    : monthlyDeliveredOrders.length;
 
   const achievementPercentage = targetGoal > 0 ? (currentSalesAmount / targetGoal) * 100 : 0;
   const achievementProgressClamped = Math.min(100, achievementPercentage);
@@ -377,55 +399,129 @@ export const MemberDashboard: React.FC = () => {
       {/* Sleek, Non-Cluttered Sales Goal & Allowance Widget */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3.5">
         {/* Top Header: Title & Month Switcher */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#01A8F3] text-white flex items-center justify-center shadow-2xs shrink-0">
-              <Target className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#01A8F3] to-[#0188C7] text-white flex items-center justify-center shadow-xs shrink-0">
+              <Target className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-tight">
-                Monthly Sales Goal &amp; Allowance
-              </h3>
-              <p className="text-[11px] text-slate-400 font-sans">
-                Goal: <strong className="font-mono text-slate-700">{formatCurrency(targetGoal)}</strong> / month
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-tight">
+                  Monthly Sales Goal &amp; Allowance
+                </h3>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <RotateCw className="w-3 h-3 text-emerald-600 animate-[spin_10s_linear_infinite]" />
+                  Renews Monthly
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-sans mt-0.5">
+                Target: <strong className="font-mono text-slate-800 font-semibold">{formatCurrency(targetGoal)}</strong> / month &bull;
+                <span className="text-slate-400 ml-1">Auto-resets on the 1st of every month</span>
               </p>
             </div>
           </div>
 
-          {/* Month Switcher */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-xs font-semibold shrink-0 border border-slate-200/80">
+          {/* Month Switcher & Selector */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 self-start sm:self-auto">
             <button
               type="button"
-              onClick={() => setSelectedMonthPreset('THIS_MONTH')}
-              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer text-[11px] sm:text-xs ${
-                selectedMonthPreset === 'THIS_MONTH'
-                  ? 'bg-white text-[#0188C7] shadow-2xs font-bold'
+              onClick={() => setSelectedMonth(currentMonthStr)}
+              className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer text-xs flex items-center gap-1.5 ${
+                selectedMonth === currentMonthStr
+                  ? 'bg-white text-[#0188C7] shadow-2xs font-bold border border-slate-200/60'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              {format(now, 'MMM yyyy')}
+              <span className={`w-1.5 h-1.5 rounded-full ${selectedMonth === currentMonthStr ? 'bg-[#01A8F3]' : 'bg-slate-300'}`} />
+              <span>{format(now, 'MMM yyyy')}</span>
+              {selectedMonth === currentMonthStr && (
+                <span className="text-[9px] uppercase px-1 py-0.2 bg-[#E8F7FE] text-[#0188C7] rounded font-extrabold tracking-wider">
+                  Active
+                </span>
+              )}
             </button>
             <button
               type="button"
-              onClick={() => setSelectedMonthPreset('LAST_MONTH')}
-              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer text-[11px] sm:text-xs ${
-                selectedMonthPreset === 'LAST_MONTH'
-                  ? 'bg-white text-[#0188C7] shadow-2xs font-bold'
+              onClick={() => setSelectedMonth(lastMonthStr)}
+              className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer text-xs ${
+                selectedMonth === lastMonthStr
+                  ? 'bg-white text-[#0188C7] shadow-2xs font-bold border border-slate-200/60'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Last Month
+              Last Month ({format(subMonths(now, 1), 'MMM')})
             </button>
+            {/* Quick Month Picker for any other cycle */}
+            <div className="relative">
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => {
+                  if (e.target.value) setSelectedMonth(e.target.value);
+                }}
+                className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
+                title="Browse other monthly cycles"
+              />
+              <div
+                className={`p-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-all cursor-pointer ${
+                  selectedMonth !== currentMonthStr && selectedMonth !== lastMonthStr
+                    ? 'bg-white text-[#0188C7] shadow-2xs font-bold border border-slate-200/60'
+                    : 'hover:bg-slate-200/60'
+                }`}
+                title="Select another month"
+              >
+                <Calendar className="w-4 h-4" />
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Monthly Cycle Status Strip */}
+        <div
+          className={`px-3 py-1.5 rounded-xl text-xs flex items-center justify-between border ${
+            isCurrentMonth
+              ? 'bg-emerald-50/70 border-emerald-200/80 text-emerald-900'
+              : isPastMonth
+              ? 'bg-slate-100/90 border-slate-200 text-slate-700'
+              : 'bg-blue-50/80 border-blue-200/80 text-blue-900'
+          }`}
+        >
+          <div className="flex items-center gap-1.5 text-[11px] font-medium">
+            {isCurrentMonth ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span><strong>Active Monthly Cycle:</strong> {cycleDateRangeText}</span>
+                <span className="text-emerald-700 font-semibold">• Auto-renews in {daysUntilRenewal} {daysUntilRenewal === 1 ? 'day' : 'days'} on {nextRenewalDateText}</span>
+              </>
+            ) : isPastMonth ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span><strong>Archived Past Cycle:</strong> {cycleDateRangeText} • Finalized achievement &amp; allowance</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                <span><strong>Upcoming Cycle:</strong> {cycleDateRangeText} • Standing policy auto-renewed</span>
+              </>
+            )}
+          </div>
+          <span className="text-[10px] font-mono font-semibold opacity-75 hidden sm:inline-block">
+            {isCurrentMonth ? 'Active Period' : isPastMonth ? 'Closed Period' : 'Future Period'}
+          </span>
         </div>
 
         {/* Sales Numbers & Two Dedicated Metric Cards */}
         <div className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-3.5 space-y-3.5">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
-              <span className="text-[11px] text-slate-400 font-medium uppercase tracking-wider block">
-                Personal Delivered Sales
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-400 font-medium uppercase tracking-wider block">
+                  Personal Delivered Sales
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/60 text-slate-600 font-mono font-semibold">
+                  {deliveredOrdersCount} {deliveredOrdersCount === 1 ? 'delivered order' : 'delivered orders'} in {format(selectedMonthDate, 'MMM yyyy')}
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 tracking-tight">
                   {formatCurrency(currentSalesAmount)}
@@ -517,6 +613,10 @@ export const MemberDashboard: React.FC = () => {
               <span>
                 {achievementPercentage >= 100 ? (
                   <strong className="text-emerald-700 font-semibold">🎉 100% Monthly Target Achieved!</strong>
+                ) : currentSalesAmount === 0 ? (
+                  <span className="text-slate-500">
+                    Fresh monthly cycle started &bull; Deliver orders to unlock your milestone allowance!
+                  </span>
                 ) : nextTier ? (
                   <span>
                     Need <strong className="font-mono text-slate-800">{formatCurrency(nextTierDeficit)}</strong> more for {nextTier.minPercentage}% ({formatCurrency(nextTier.allowanceAmount)} allowance)

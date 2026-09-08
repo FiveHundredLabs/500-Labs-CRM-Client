@@ -27,6 +27,7 @@ import {
   HelpCircle,
   Users,
   UserCheck,
+  RotateCw,
 } from 'lucide-react';
 
 export const AdminSalesGoalsPage: React.FC = () => {
@@ -307,6 +308,10 @@ export const AdminSalesGoalsPage: React.FC = () => {
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <RotateCw className="w-2.5 h-2.5 text-emerald-600" />
+                Auto-Renews Monthly
+              </span>
             </div>
 
             {/* Team Filter (e.g. Brand Alpha, Brand Beta) */}
