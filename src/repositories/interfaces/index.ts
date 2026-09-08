@@ -22,7 +22,48 @@ import {
   TeamSalesTarget,
   TeamTargetTier,
   DuplicatePhoneCheckResult,
+  SupervisorSalesTarget,
+  SupervisorTargetTier,
+  PaymentMethod,
+  SalesAnalysisMember,
 } from '../../models/domain';
+
+export interface ExpenseWritePayload {
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  expenseDate: string;
+  remarks: string;
+  paymentMethod?: PaymentMethod;
+  notes?: string;
+  pettyCashRef?: string;
+}
+
+export type ExpenseUpdatePayload = Partial<ExpenseWritePayload>;
+
+export interface PettyCashExpensePayload {
+  amount: number;
+  reason: string;
+  category?: string;
+  description: string;
+  date: string;
+  allocationId: string;
+  teamId?: string;
+}
+
+export type ApprovalRequestCreatePayload = Omit<
+  ApprovalRequest,
+  'id' | 'createdAt' | 'status' | 'requestedById' | 'requestedByName'
+> &
+  Partial<Pick<ApprovalRequest, 'requestedById' | 'requestedByName'>>;
+
+export interface ActivityLogWritePayload {
+  action: ActivityLog['action'];
+  entityType: ActivityLog['entityType'];
+  entityId: string;
+  description: string;
+  metadata?: Record<string, any>;
+}
 
 export interface ITeamRepository {
   getAll(): Promise<Team[]>;
@@ -107,14 +148,22 @@ export interface IActivityLogRepository {
   getByUserId(userId: string): Promise<ActivityLog[]>;
   getRecentWithinMonth(userId?: string): Promise<ActivityLog[]>;
   getByEntity(entityType: string, entityId: string): Promise<ActivityLog[]>;
-  create(log: Omit<ActivityLog, 'id' | 'createdAt'>): Promise<ActivityLog>;
+  create(log: ActivityLogWritePayload): Promise<ActivityLog>;
 }
 
 export interface IExpenseRepository {
-  getAll(): Promise<Expense[]>;
+  getAll(params?: { dateStart?: string; dateEnd?: string; categoryId?: string }): Promise<Expense[]>;
+  getById(id: string): Promise<Expense | null>;
   getCategories(): Promise<ExpenseCategory[]>;
-  create(expense: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense>;
+  create(expense: ExpenseWritePayload): Promise<Expense>;
   createCategory(category: Omit<ExpenseCategory, 'id'>): Promise<ExpenseCategory>;
+  updateCategory(id: string, data: Partial<ExpenseCategory>): Promise<ExpenseCategory>;
+  deleteCategory(id: string): Promise<void>;
+  update(id: string, updates: ExpenseUpdatePayload): Promise<Expense>;
+  delete(id: string): Promise<void>;
+  requestChange(id: string, data: { action: 'EDIT' | 'DELETE'; reason: string; [key: string]: any }): Promise<any>;
+  getChangeRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<any[]>;
+  reviewChangeRequest(id: string, decision: 'APPROVED' | 'REJECTED', rejectionReason?: string): Promise<any>;
 }
 
 export interface IEmailNotificationRepository {
@@ -147,15 +196,30 @@ export interface IApprovalRequestRepository {
   getById(id: string): Promise<ApprovalRequest | null>;
   getByStatus(status: ApprovalStatus): Promise<ApprovalRequest[]>;
   getByTeamId(teamId: string): Promise<ApprovalRequest[]>;
-  create(request: Omit<ApprovalRequest, 'id' | 'createdAt' | 'status'>): Promise<ApprovalRequest>;
+  create(request: ApprovalRequestCreatePayload): Promise<ApprovalRequest>;
   review(id: string, status: 'APPROVED' | 'REJECTED', reviewedBy: User, rejectionReason?: string): Promise<ApprovalRequest>;
 }
 
 export interface IPettyCashRepository {
   getWallet(teamId?: string): Promise<PettyCashWallet>;
-  getTransactions(): Promise<PettyCashTransaction[]>;
-  allocate(amount: number, user: User, reason?: string): Promise<PettyCashWallet>;
-  recordExpense(data: { amount: number; reason: string; category: string; description: string; date: string }, user: User): Promise<PettyCashTransaction>;
+  getTransactions(teamId?: string): Promise<PettyCashTransaction[]>;
+  getAllocations(teamId?: string): Promise<any[]>;
+  getAllocationById(id: string): Promise<any>;
+  allocate(amount: number, reason: string, teamId?: string, remarks?: string, date?: string): Promise<any>;
+  recordExpense(data: PettyCashExpensePayload): Promise<PettyCashTransaction>;
+}
+
+export interface IFinanceRepository {
+  getDashboard(startDate?: string, endDate?: string): Promise<any>;
+  getIncomeStatement(startDate?: string, endDate?: string): Promise<any>;
+  getCashFlow(startDate?: string, endDate?: string): Promise<any>;
+  getFSR(startDate?: string, endDate?: string): Promise<any>;
+  getExpenseReport(startDate?: string, endDate?: string): Promise<any>;
+  getInventoryReport(teamId?: string, startDate?: string, endDate?: string): Promise<any[]>;
+  getRealizedSalesReport(startDate?: string, endDate?: string, teamId?: string): Promise<any[]>;
+  getSalesReport(period: 'daily' | 'weekly' | 'monthly', startDate?: string, endDate?: string): Promise<any>;
+  getCityDeliveryReport(startDate?: string, endDate?: string): Promise<any>;
+  getSalesAnalysisMembers(): Promise<SalesAnalysisMember[]>;
 }
 
 export interface ISalesTargetRepository {
@@ -172,3 +236,16 @@ export interface ISalesTargetRepository {
   delete(id: string): Promise<void>;
 }
 
+export interface ISupervisorTargetRepository {
+  getAll(month?: string, supervisorId?: string): Promise<SupervisorSalesTarget[]>;
+  getById(id: string): Promise<SupervisorSalesTarget | null>;
+  upsert(target: {
+    supervisorId: string;
+    month: string;
+    targetAmount: number;
+    notes?: string;
+    tiers: SupervisorTargetTier[];
+  }): Promise<SupervisorSalesTarget>;
+  update(id: string, updates: Partial<SupervisorSalesTarget>): Promise<SupervisorSalesTarget>;
+  delete(id: string): Promise<void>;
+}

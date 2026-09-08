@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { orderRepository, teamRepository, userRepository } from '../../repositories';
-import { Order, Team, User, OrderStatus } from '../../models/domain';
+import { orderRepository, teamRepository, financeRepository } from '../../repositories';
+import { Order, Team, SalesAnalysisMember } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -28,24 +28,21 @@ import {
 import {
   TrendingUp,
   DollarSign,
-  Package,
   CheckCircle2,
   Truck,
   Filter,
   Download,
-  Calendar,
-  Layers,
-  ArrowUpRight,
   ShoppingBag,
+  Calendar,
 } from 'lucide-react';
-import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
 import toast from 'react-hot-toast';
 
 export const FinanceSalesAnalysisPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [members, setMembers] = useState<SalesAnalysisMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filter States
@@ -60,24 +57,32 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
   const itemsPerPage = 15;
 
   useEffect(() => {
+    let isMounted = true;
     const loadData = async () => {
       setLoading(true);
       try {
-        const [ordersData, teamsData, usersData] = await Promise.all([
+        const [ordersData, teamsData, membersData] = await Promise.all([
           orderRepository.getAll(),
           teamRepository.getAll().catch(() => []),
-          userRepository.getAll().catch(() => []),
+          financeRepository.getSalesAnalysisMembers().catch(() => []),
         ]);
-        setOrders(ordersData);
-        setTeams(teamsData);
-        setUsers(usersData);
+        if (!isMounted) return;
+        setOrders(ordersData || []);
+        setTeams(teamsData || []);
+        setMembers(membersData || []);
       } catch (err: any) {
+        if (!isMounted) return;
         toast.error(err.message || 'Failed to load sales data.');
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
     loadData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Update date boundaries when preset changes
@@ -118,10 +123,12 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
   }, [teams]);
 
   const userMap = useMemo(() => {
-    const map: Record<string, User> = {};
-    users.forEach((u) => (map[u.id] = u));
+    const map: Record<string, SalesAnalysisMember> = {};
+    members.forEach((m) => {
+      if (m && m.id) map[m.id] = m;
+    });
     return map;
-  }, [users]);
+  }, [members]);
 
   // Master filtered orders
   const filteredOrders = useMemo(() => {
@@ -281,8 +288,8 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
     });
 
     const data = [
-      { name: 'Adult Package', value: adultRev, color: '#2563EB' },
-      { name: 'Kids Package', value: kidsRev, color: '#10B981' },
+      { name: 'Adult Package', value: adultRev, color: '#01A8F3' },
+      { name: 'Kids Package', value: kidsRev, color: '#80BD2B' },
       { name: 'Combo (Both)', value: bothRev, color: '#8B5CF6' },
     ];
     if (standardRev > 0) {
@@ -306,8 +313,8 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
       }
     });
     return [
-      { status: 'Delivered', count: counts.DELIVERED, color: '#16A34A' },
-      { status: 'Dispatched', count: counts.DISPATCHED, color: '#2563EB' },
+      { status: 'Delivered', count: counts.DELIVERED, color: '#80BD2B' },
+      { status: 'Dispatched', count: counts.DISPATCHED, color: '#01A8F3' },
       { status: 'Prepared', count: counts.PREPARED, color: '#D97706' },
       { status: 'Rejected', count: counts.REJECTED, color: '#DC2626' },
       { status: 'Cancelled', count: counts.CANCELLED, color: '#64748B' },
@@ -320,6 +327,15 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
       toast.error('No sales transactions to export.');
       return;
     }
+
+    const escapeCsvText = (val: any): string => {
+      if (val === null || val === undefined) return '""';
+      let str = String(val);
+      if (/^[=+\-@]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
 
     const headers = [
       'Order Number',
@@ -336,29 +352,29 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
     ];
 
     const rows = filteredOrders.map((o) => [
-      o.orderNumber,
-      o.createdAt.split('T')[0],
-      `"${(teamMap[o.teamId]?.name || o.teamId).replace(/"/g, '""')}"`,
-      `"${(userMap[o.teamMemberId]?.fullName || o.teamMemberId).replace(/"/g, '""')}"`,
-      o.selectedPackage || 'STANDARD',
+      escapeCsvText(o.orderNumber),
+      escapeCsvText(o.createdAt ? o.createdAt.split('T')[0] : ''),
+      escapeCsvText(teamMap[o.teamId]?.name || o.teamId),
+      escapeCsvText(userMap[o.teamMemberId]?.fullName || o.teamMemberId),
+      escapeCsvText(o.selectedPackage || 'STANDARD'),
       o.adultQty || 0,
       o.kidsQty || 0,
-      (o.totalAmount || 0).toFixed(2),
-      (o.codAmount || 0).toFixed(2),
-      o.status,
-      `"${(o.remarks || '').replace(/"/g, '""')}"`,
+      Number(o.totalAmount || 0).toFixed(2),
+      Number(o.codAmount || 0).toFixed(2),
+      escapeCsvText(o.status),
+      escapeCsvText(o.remarks || ''),
     ]);
 
     const csvContent = [
       `"500 Labs - Detailed Sales Analysis Report"`,
       `"Exported Date","${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}"`,
-      `"Team Filter","${selectedTeamId === 'ALL' ? 'All Teams' : teamMap[selectedTeamId]?.name || selectedTeamId}"`,
-      `"Date Range","${startDate || 'Start'} to ${endDate || 'Present'}"`,
+      `"Team Filter",${escapeCsvText(selectedTeamId === 'ALL' ? 'All Teams' : teamMap[selectedTeamId]?.name || selectedTeamId)}`,
+      `"Date Range",${escapeCsvText(`${startDate || 'Start'} to ${endDate || 'Present'}`)}`,
       `"Total Filtered Sales","${formatCurrency(metrics.totalSalesValue)}"`,
       '',
-      headers.join(','),
+      headers.map(escapeCsvText).join(','),
       ...rows.map((r) => r.join(',')),
-    ].join('\n');
+    ].join('\r\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -368,6 +384,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     toast.success('Sales ledger exported successfully!');
   };
 
@@ -386,205 +403,187 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
         title="Sales Financial Analysis & Intelligence"
         description="Executive multi-parameter revenue tracking, team performance comparison, and fulfillment ledger."
         actions={
-          <Button
-            variant="outline"
-            leftIcon={<Download className="w-4 h-4 text-blue-600" />}
-            onClick={handleExportCSV}
-          >
-            Export Sales Ledger (CSV)
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              leftIcon={<Download className="w-4 h-4 text-[#01A8F3]" />}
+              onClick={handleExportCSV}
+            >
+              Export Sales Ledger (CSV)
+            </Button>
+          </div>
         }
       />
 
       {/* Multi-Parameter Filtering Panel */}
-      <Card className="border-slate-200 bg-white shadow-xs">
-        <CardContent className="p-4 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
-              <Filter className="w-4 h-4 text-blue-600" />
-              <span>Multi-Parameter Filters</span>
-            </div>
-            <button
-              onClick={() => {
-                setSelectedTeamId('ALL');
-                setDatePreset('THIS_MONTH');
-                setStatusFilter('ALL');
-                setPackageFilter('ALL');
-                setSearchQuery('');
-              }}
-              className="text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
-            >
-              Reset Filters
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-            {/* 1. Team-wise Filter */}
-            <Select
-              label="Assigned Brand / Team"
-              value={selectedTeamId}
-              onChange={(e) => {
-                setSelectedTeamId(e.target.value);
-                setCurrentPage(1);
-              }}
-              options={[
-                { value: 'ALL', label: '🌟 All Brands & Teams' },
-                ...teams.map((t) => ({ value: t.id, label: `${t.name} (${t.code})` })),
-              ]}
-            />
-
-            {/* 2. Date Range Preset */}
-            <Select
-              label="Date Range Period"
-              value={datePreset}
-              onChange={(e) => {
-                setDatePreset(e.target.value);
-                setCurrentPage(1);
-              }}
-              options={[
-                { value: 'TODAY', label: 'Today' },
-                { value: 'YESTERDAY', label: 'Yesterday' },
-                { value: 'LAST_7_DAYS', label: 'Last 7 Days' },
-                { value: 'LAST_30_DAYS', label: 'Last 30 Days' },
-                { value: 'THIS_MONTH', label: 'This Month' },
-                { value: 'LAST_MONTH', label: 'Last Month' },
-                { value: 'ALL', label: 'All Historical Records' },
-                { value: 'CUSTOM', label: 'Custom Date Range' },
-              ]}
-            />
-
-            {/* 3. Order Status Filter */}
-            <Select
-              label="Fulfillment Status"
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              options={[
-                { value: 'ALL', label: 'All Statuses' },
-                { value: 'DELIVERED', label: 'Delivered (Realized COD)' },
-                { value: 'DISPATCHED', label: 'Dispatched (In-Transit)' },
-                { value: 'PREPARED', label: 'Prepared (Interested/Draft)' },
-                { value: 'REJECTED', label: 'Rejected / Returned' },
-                { value: 'CANCELLED', label: 'Cancelled' },
-              ]}
-            />
-
-            {/* 4. Package Selection Filter */}
-            <Select
-              label="Package Tier"
-              value={packageFilter}
-              onChange={(e) => {
-                setPackageFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              options={[
-                { value: 'ALL', label: 'All Packages' },
-                { value: 'ADULT', label: 'Adult Package Only' },
-                { value: 'KIDS', label: 'Kids Package Only' },
-                { value: 'BOTH', label: 'Combo (Adult & Kids)' },
-              ]}
-            />
-          </div>
-
-          {/* Custom Date Range Inputs (if CUSTOM selected) */}
-          {datePreset === 'CUSTOM' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+      <Card className="border-slate-200 bg-white">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col gap-4">
+            {/* Top row filters */}
+            {/* Top row filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">From Date</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full h-9 rounded-lg border border-slate-300 px-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Sales Team / Brand</label>
+                <Select
+                  value={selectedTeamId}
+                  onChange={(e) => {
+                    setSelectedTeamId(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full text-xs"
+                  options={[
+                    { value: 'ALL', label: 'All Brands & Teams' },
+                    ...teams.map((t) => ({ value: t.id, label: t.name })),
+                  ]}
                 />
               </div>
+
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">To Date</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full h-9 rounded-lg border border-slate-300 px-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Order Status</label>
+                <Select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full text-xs"
+                  options={[
+                    { value: 'ALL', label: 'All Operational Statuses' },
+                    { value: 'PREPARED', label: 'Prepared' },
+                    { value: 'DISPATCHED', label: 'Dispatched' },
+                    { value: 'DELIVERED', label: 'Delivered (COD Realized)' },
+                    { value: 'REJECTED', label: 'Rejected' },
+                    { value: 'CANCELLED', label: 'Cancelled' },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Package Filter</label>
+                <Select
+                  value={packageFilter}
+                  onChange={(e) => {
+                    setPackageFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full text-xs"
+                  options={[
+                    { value: 'ALL', label: 'All Packages' },
+                    { value: 'ADULT', label: 'Adult Package' },
+                    { value: 'KIDS', label: 'Kids Package' },
+                    { value: 'BOTH', label: 'Combo (Both)' },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Time Period Preset</label>
+                <Select
+                  value={datePreset}
+                  onChange={(e) => {
+                    setDatePreset(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full text-xs"
+                  options={[
+                    { value: 'TODAY', label: 'Today' },
+                    { value: 'YESTERDAY', label: 'Yesterday' },
+                    { value: 'LAST_7_DAYS', label: 'Last 7 Days' },
+                    { value: 'LAST_30_DAYS', label: 'Last 30 Days' },
+                    { value: 'THIS_MONTH', label: 'This Month' },
+                    { value: 'LAST_MONTH', label: 'Last Month' },
+                    { value: 'CUSTOM', label: 'Custom Date Range' },
+                    { value: 'ALL', label: 'All Time' },
+                  ]}
                 />
               </div>
             </div>
-          )}
+
+            {/* Custom Date Inputs if CUSTOM */}
+            {datePreset === 'CUSTOM' && (
+              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-600">From:</span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-600">To:</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Top-Level Executive Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Gross Sales"
+          title="Total Filtered Gross Sales"
           value={formatCurrency(metrics.totalSalesValue)}
-          subtitle={`${metrics.totalOrdersCount} Total Booked Orders`}
-          icon={<DollarSign className="w-4 h-4" />}
+          subtitle={`${metrics.totalOrdersCount} Total Orders in Period`}
+          icon={<DollarSign className="w-5 h-5" />}
           accentColor="blue"
         />
         <StatCard
-          title="Delivered COD Revenue"
+          title="Realized Delivered Revenue"
           value={formatCurrency(metrics.deliveredValue)}
-          subtitle={`${metrics.deliveredCount} Realized Orders`}
-          icon={<CheckCircle2 className="w-4 h-4" />}
+          subtitle={`${metrics.deliveredCount} Orders (${metrics.deliverySuccessRate.toFixed(1)}% Success)`}
+          icon={<CheckCircle2 className="w-5 h-5" />}
           accentColor="green"
         />
         <StatCard
-          title="In-Transit Dispatched"
+          title="Dispatched (In Transit)"
           value={formatCurrency(metrics.dispatchedValue)}
-          subtitle={`${metrics.dispatchedCount} Dispatches in Courier`}
-          icon={<Truck className="w-4 h-4" />}
+          subtitle={`${metrics.dispatchedCount} Parcels with Courier`}
+          icon={<Truck className="w-5 h-5" />}
+          accentColor="blue"
+        />
+        <StatCard
+          title="Units Dispatched & Sold"
+          value={metrics.totalUnits.toLocaleString()}
+          subtitle={`Adult: ${metrics.adultUnits} | Kids: ${metrics.kidsUnits}`}
+          icon={<ShoppingBag className="w-5 h-5" />}
           accentColor="purple"
-        />
-        <StatCard
-          title="Average Order Value"
-          value={formatCurrency(metrics.averageOrderValue)}
-          subtitle={`${metrics.totalUnits} Packages Sold`}
-          icon={<ShoppingBag className="w-4 h-4" />}
-          accentColor="amber"
-        />
-        <StatCard
-          title="Delivery Success Rate"
-          value={`${metrics.deliverySuccessRate.toFixed(1)}%`}
-          subtitle={`${metrics.rejectedCount} Return / Rejections`}
-          icon={<TrendingUp className="w-4 h-4" />}
-          accentColor={metrics.deliverySuccessRate >= 80 ? 'green' : 'amber'}
         />
       </div>
 
-      {/* Dynamic Visualizations Grid */}
+      {/* Visual Analytics Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Timeline Revenue & Order Volume Chart */}
+        {/* Sales Timeline Area Chart */}
         <Card className="lg:col-span-2 border-slate-200 bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-base font-bold text-slate-900">
-                Sales Revenue & Order Volume Trajectory
-              </CardTitle>
-              <CardDescription>Daily revenue intake and delivered order momentum</CardDescription>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1 text-blue-600 font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" /> Total Booked
-              </span>
-              <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block" /> Delivered COD
-              </span>
-            </div>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-bold text-slate-900">Revenue & Cashflow Timeline</CardTitle>
+            <CardDescription>Daily gross booked sales vs realized delivered cash collections</CardDescription>
           </CardHeader>
           <CardContent className="h-[280px]">
             {salesTimelineData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={salesTimelineData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0.0} />
+                    <linearGradient id="colorGross" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#01A8F3" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#01A8F3" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="delivGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
+                    <linearGradient id="colorDelivered" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#80BD2B" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#80BD2B" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
@@ -596,36 +595,37 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
                   <Tooltip
                     formatter={(val: any, name: any) => [
                       formatCurrency(Number(val)),
-                      name === 'revenue' ? 'Total Booked Revenue' : 'Delivered COD',
+                      name === 'revenue' ? 'Gross Booked' : 'Delivered COD',
                     ]}
-                    labelStyle={{ fontWeight: 'bold', color: '#1E293B' }}
                     contentStyle={{
                       backgroundColor: '#FFFFFF',
                       borderRadius: '8px',
                       border: '1px solid #CBD5E1',
-                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     }}
                   />
+                  <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '11px' }} />
                   <Area
                     type="monotone"
                     dataKey="revenue"
-                    stroke="#2563EB"
-                    strokeWidth={2.5}
+                    name="Gross Booked (LKR)"
+                    stroke="#01A8F3"
+                    strokeWidth={2}
                     fillOpacity={1}
-                    fill="url(#salesGrad)"
+                    fill="url(#colorGross)"
                   />
                   <Area
                     type="monotone"
                     dataKey="delivered"
-                    stroke="#10B981"
+                    name="Delivered COD (LKR)"
+                    stroke="#80BD2B"
                     strokeWidth={2}
                     fillOpacity={1}
-                    fill="url(#delivGrad)"
+                    fill="url(#colorDelivered)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyState title="No Sales in Selected Period" description="Adjust date range or team filter." />
+              <EmptyState title="No Chart Data" description="No sales in selected period." />
             )}
           </CardContent>
         </Card>
@@ -698,8 +698,8 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
                     }}
                   />
                   <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '11px' }} />
-                  <Bar dataKey="revenue" name="Total Booked (LKR)" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="delivered" name="Delivered COD (LKR)" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" name="Total Booked (LKR)" fill="#01A8F3" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="delivered" name="Delivered COD (LKR)" fill="#80BD2B" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -728,7 +728,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
                     border: '1px solid #CBD5E1',
                   }}
                 />
-                <Bar dataKey="count" fill="#2563EB" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="count" fill="#01A8F3" radius={[0, 4, 4, 0]}>
                   {orderStatusData.map((entry, index) => (
                     <Cell key={`cell-status-${index}`} fill={entry.color} />
                   ))}
@@ -778,7 +778,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {paginatedOrders.map((o) => (
                     <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-blue-700 text-xs">{o.orderNumber}</td>
+                      <td className="py-3 px-4 font-mono font-bold text-[#0188C7] text-xs">{o.orderNumber}</td>
                       <td className="py-3 px-4 text-xs text-slate-600">
                         {format(new Date(o.createdAt), 'MMM dd, yyyy')}
                       </td>
@@ -798,7 +798,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
                       <td className="py-3 px-4 text-xs text-right font-mono font-semibold text-slate-900">
                         {formatCurrency(o.totalAmount || 0)}
                       </td>
-                      <td className="py-3 px-4 text-xs text-right font-mono font-bold text-emerald-700">
+                      <td className="py-3 px-4 text-xs text-right font-mono font-bold text-[#547E1B]">
                         {formatCurrency(o.codAmount || o.totalAmount || 0)}
                       </td>
                       <td className="py-3 px-4 text-center">

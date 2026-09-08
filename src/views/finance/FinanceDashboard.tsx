@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { expenseRepository, pettyCashRepository, orderRepository } from '../../repositories';
-import { Expense, PettyCashWallet, Order } from '../../models/domain';
+import { expenseRepository, financeRepository, orderRepository } from '../../repositories';
+import { Expense, FinanceDashboardStats, Order } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -28,18 +28,17 @@ import {
   TrendingUp,
   Wallet,
   CheckCircle2,
-  Truck,
   FileSpreadsheet,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format, subDays, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
 
 export const FinanceDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
+  const [stats, setStats] = useState<FinanceDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Date Filter States
@@ -51,20 +50,20 @@ export const FinanceDashboard: React.FC = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const [expData, walletData, orderData] = await Promise.all([
+        const [dashboardStats, expData, orderData] = await Promise.all([
+          financeRepository.getDashboard(startDate || undefined, endDate || undefined),
           expenseRepository.getAll(),
-          pettyCashRepository.getWallet(),
           orderRepository.getAll(),
         ]);
+        setStats(dashboardStats);
         setExpenses(expData);
-        setWallet(walletData);
         setOrders(orderData);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
+  }, [startDate, endDate]);
 
   // Initialize dates on preset selection
   useEffect(() => {
@@ -129,22 +128,26 @@ export const FinanceDashboard: React.FC = () => {
     };
   }, [filteredOrders]);
 
-  const totalExpenseAmount = filteredExpenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-  const grossProfit = salesMetrics.deliveredCOD - totalExpenseAmount;
+  const salesRevenue = stats?.salesRevenue ?? 0;
+  const grossProfit = stats?.grossProfit ?? 0;
+  const totalExpenses = stats?.totalExpenses ?? 0;
+  const cogs = stats?.cogs ?? 0;
+  const netProfit = stats?.netProfit ?? 0;
+  const deliveredCount = stats?.deliveredCount ?? 0;
+  const totalOrders = stats?.totalOrders ?? 0;
+  const pettyCashBalance = stats?.pettyCash?.remainingBalance ?? 0;
+  const pettyCashAllocated = stats?.pettyCash?.allocatedAmount ?? 0;
 
   // Category breakdown for Pie Chart
-  const categoryTotals: Record<string, number> = {};
-  filteredExpenses.forEach((e) => {
-    categoryTotals[e.categoryName] = (categoryTotals[e.categoryName] || 0) + Number(e.amount || 0);
-  });
+  const categoryTotals: Record<string, number> = stats?.expenseByCategory ?? {};
 
-  const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'];
+  const COLORS = ['#01A8F3', '#80BD2B', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'];
   const pieData = Object.entries(categoryTotals).map(([name, value]) => ({
     name,
     value,
   }));
 
-  // Combined 30-Day Sales vs Expense Trend Chart
+  // Combined 14-Day Sales vs Expense Trend Chart
   const trendData = useMemo(() => {
     const dayMap: Record<string, { date: string; sales: number; expenses: number }> = {};
     const now = new Date();
@@ -159,22 +162,22 @@ export const FinanceDashboard: React.FC = () => {
       };
     }
 
-    orders.forEach((o) => {
-      const k = o.createdAt.split('T')[0];
-      if (dayMap[k]) {
-        dayMap[k].sales += Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : (o.totalAmount || 0));
+    filteredOrders.forEach((o) => {
+      const day = o.createdAt.split('T')[0];
+      if (dayMap[day]) {
+        dayMap[day].sales += Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : (o.totalAmount || 0));
       }
     });
 
-    expenses.forEach((e) => {
-      const k = e.expenseDate;
-      if (dayMap[k]) {
-        dayMap[k].expenses += Number(e.amount || 0);
+    filteredExpenses.forEach((e) => {
+      const day = e.expenseDate;
+      if (dayMap[day]) {
+        dayMap[day].expenses += Number(e.amount || 0);
       }
     });
 
     return Object.values(dayMap);
-  }, [orders, expenses]);
+  }, [filteredOrders, filteredExpenses]);
 
   const getFilterLabel = () => {
     if (datePreset === 'THIS_MONTH') return 'This Month';
@@ -192,17 +195,17 @@ export const FinanceDashboard: React.FC = () => {
         title="Finance & Revenue Command Center"
         description="High-level cash flow overview, prominent total sales tracking, and operational expenditure ledger."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="outline"
-              leftIcon={<TrendingUp className="w-4 h-4 text-blue-600" />}
+              leftIcon={<TrendingUp className="w-4 h-4 text-[#01A8F3]" />}
               onClick={() => navigate('/finance/sales-analysis')}
             >
               Sales Analysis
             </Button>
             <Button
               variant="outline"
-              leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+              leftIcon={<FileSpreadsheet className="w-4 h-4 text-[#547E1B]" />}
               onClick={() => navigate('/finance/reports')}
             >
               Financial Reports
@@ -210,7 +213,7 @@ export const FinanceDashboard: React.FC = () => {
             <Button
               variant="primary"
               leftIcon={<Plus className="w-4 h-4" />}
-              onClick={() => navigate('/finance/expenses/new')}
+              onClick={() => navigate('/finance/expenses?recordExpense=1')}
             >
               Record Expense
             </Button>
@@ -219,10 +222,10 @@ export const FinanceDashboard: React.FC = () => {
       />
 
       {/* Date Filter Toolbar */}
-      <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
           <span>Reporting Window:</span>
-          <span className="text-blue-700 font-bold">{getFilterLabel()}</span>
+          <span className="text-[#0188C7] font-bold">{getFilterLabel()}</span>
         </div>
         <div className="w-48">
           <Select
@@ -240,68 +243,57 @@ export const FinanceDashboard: React.FC = () => {
 
       {/* Executive Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Prominent Total Sales Metric Card */}
         <StatCard
-          title={`${getFilterLabel()} Total Sales`}
-          value={formatCurrency(salesMetrics.totalSales)}
-          subtitle={`${salesMetrics.totalOrders} Booked Orders`}
+          title={`${getFilterLabel()} Delivered Sales`}
+          value={formatCurrency(salesRevenue)}
+          subtitle={`${deliveredCount} delivered of ${totalOrders} total orders`}
           icon={<DollarSign className="w-4 h-4" />}
           accentColor="blue"
         />
         <StatCard
-          title="Realized Delivered COD"
-          value={formatCurrency(salesMetrics.deliveredCOD)}
-          subtitle={`${salesMetrics.deliveredCount} Delivered Orders`}
+          title="Gross Profit"
+          value={formatCurrency(grossProfit)}
+          subtitle={`COGS: ${formatCurrency(cogs)}`}
           icon={<CheckCircle2 className="w-4 h-4" />}
           accentColor="green"
         />
         <StatCard
           title={`${getFilterLabel()} Total Expenses`}
-          value={formatCurrency(totalExpenseAmount)}
-          subtitle={`${filteredExpenses.length} Vouchers Recorded`}
+          value={formatCurrency(totalExpenses)}
+          subtitle={`Net Profit: ${formatCurrency(netProfit)}`}
           icon={<Layers className="w-4 h-4" />}
           accentColor="amber"
         />
         <StatCard
           title="Petty Cash Balance"
-          value={formatCurrency(wallet?.remainingBalance || 0)}
-          subtitle={`Allocated: ${formatCurrency(wallet?.allocatedAmount || 0)}`}
+          value={formatCurrency(pettyCashBalance)}
+          subtitle={`Allocated Float: ${formatCurrency(pettyCashAllocated)}`}
           icon={<Wallet className="w-4 h-4" />}
           accentColor="purple"
         />
       </div>
 
-      {/* Interactive Visualizations */}
+      {/* Visual Analytics Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sales vs Expenses 15-Day Trajectory */}
+        {/* Sales vs Expenses Area Chart */}
         <Card className="lg:col-span-2 border-slate-200 bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-base font-bold text-slate-900">
-                15-Day Revenue Intake vs Expenditures
-              </CardTitle>
-              <CardDescription>Daily gross sales intake compared against logged operational costs</CardDescription>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1 text-blue-600 font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" /> Sales (LKR)
-              </span>
-              <span className="flex items-center gap-1 text-rose-500 font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" /> Expenses (LKR)
-              </span>
-            </div>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-bold text-slate-900">
+              14-Day Sales & Expense Cashflow
+            </CardTitle>
+            <CardDescription>Realized sales cash inflow vs operating outflow</CardDescription>
           </CardHeader>
           <CardContent className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="dashSalesGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0.0} />
+                  <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#01A8F3" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#01A8F3" stopOpacity={0} />
                   </linearGradient>
-                  <linearGradient id="dashExpGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0.0} />
+                  <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
@@ -313,7 +305,7 @@ export const FinanceDashboard: React.FC = () => {
                 <Tooltip
                   formatter={(val: any, name: any) => [
                     formatCurrency(Number(val)),
-                    name === 'sales' ? 'Gross Sales' : 'Operating Expenses',
+                    name === 'sales' ? 'Realized Sales' : 'Expenses',
                   ]}
                   contentStyle={{
                     backgroundColor: '#FFFFFF',
@@ -321,28 +313,31 @@ export const FinanceDashboard: React.FC = () => {
                     border: '1px solid #CBD5E1',
                   }}
                 />
+                <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '11px' }} />
                 <Area
                   type="monotone"
                   dataKey="sales"
-                  stroke="#2563EB"
-                  strokeWidth={2.5}
+                  name="Sales (LKR)"
+                  stroke="#01A8F3"
+                  strokeWidth={2}
                   fillOpacity={1}
-                  fill="url(#dashSalesGrad)"
+                  fill="url(#salesGrad)"
                 />
                 <Area
                   type="monotone"
                   dataKey="expenses"
+                  name="Expenses (LKR)"
                   stroke="#EF4444"
                   strokeWidth={2}
                   fillOpacity={1}
-                  fill="url(#dashExpGrad)"
+                  fill="url(#expGrad)"
                 />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Expense Distribution Pie Chart */}
+        {/* Expense Category Donut */}
         <Card className="border-slate-200 bg-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-bold text-slate-900">
@@ -389,35 +384,35 @@ export const FinanceDashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div
           onClick={() => navigate('/finance/sales-analysis')}
-          className="p-4 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-200 rounded-xl hover:border-blue-400 transition-all cursor-pointer flex items-center justify-between"
+          className="p-4 bg-white border border-slate-200 rounded-xl hover:border-[#01A8F3]/60 hover:bg-[#E8F7FE]/30 transition-all cursor-pointer flex items-center justify-between"
         >
           <div className="space-y-1">
-            <h4 className="font-bold text-sm text-blue-900">Deep-Dive Sales Analysis</h4>
-            <p className="text-xs text-blue-700">Team-wise revenue, package splits & fulfillment ledger</p>
+            <h4 className="font-bold text-sm text-slate-900">Deep-Dive Sales Analysis</h4>
+            <p className="text-xs text-slate-500">Team-wise revenue, package splits & fulfillment ledger</p>
           </div>
-          <ArrowRight className="w-5 h-5 text-blue-700" />
+          <ArrowRight className="w-5 h-5 text-[#0188C7]" />
         </div>
 
         <div
           onClick={() => navigate('/finance/reports')}
-          className="p-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-200 rounded-xl hover:border-emerald-400 transition-all cursor-pointer flex items-center justify-between"
+          className="p-4 bg-white border border-slate-200 rounded-xl hover:border-[#80BD2B]/60 hover:bg-[#F2F9E9]/30 transition-all cursor-pointer flex items-center justify-between"
         >
           <div className="space-y-1">
-            <h4 className="font-bold text-sm text-emerald-900">Official Financial Reports</h4>
-            <p className="text-xs text-emerald-700">Income Statements, Cash Flow, FSR & Inventory reports</p>
+            <h4 className="font-bold text-sm text-slate-900">Official Financial Reports</h4>
+            <p className="text-xs text-slate-500">Income Statements, Cash Flow, FSR & Inventory reports</p>
           </div>
-          <ArrowRight className="w-5 h-5 text-emerald-700" />
+          <ArrowRight className="w-5 h-5 text-[#547E1B]" />
         </div>
 
         <div
           onClick={() => navigate('/finance/petty-cash')}
-          className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-200 rounded-xl hover:border-purple-400 transition-all cursor-pointer flex items-center justify-between"
+          className="p-4 bg-white border border-slate-200 rounded-xl hover:border-amber-300 hover:bg-amber-50/30 transition-all cursor-pointer flex items-center justify-between"
         >
           <div className="space-y-1">
-            <h4 className="font-bold text-sm text-purple-900">Petty Cash Wallet</h4>
-            <p className="text-xs text-purple-700">Audit transactions, disbursements & balance replenishments</p>
+            <h4 className="font-bold text-sm text-slate-900">Petty Cash Wallet</h4>
+            <p className="text-xs text-slate-500">Audit transactions, disbursements & balance replenishments</p>
           </div>
-          <ArrowRight className="w-5 h-5 text-purple-700" />
+          <ArrowRight className="w-5 h-5 text-amber-700" />
         </div>
       </div>
     </div>

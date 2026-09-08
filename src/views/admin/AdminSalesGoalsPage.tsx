@@ -27,6 +27,7 @@ import {
   HelpCircle,
   Users,
   UserCheck,
+  RotateCw,
 } from 'lucide-react';
 
 export const AdminSalesGoalsPage: React.FC = () => {
@@ -245,7 +246,7 @@ export const AdminSalesGoalsPage: React.FC = () => {
   if (loading && targets.length === 0) return <LoadingState rows={6} />;
 
   return (
-    <div className="space-y-4 sm:space-y-6 pb-24 overflow-hidden max-w-7xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 pb-24 overflow-hidden">
       <PageHeader
         title="Individual Sales Goals & Allowance Incentives"
         description="Monitor individual tele-calling specialist sales quotas, milestone achievements, and tiered cash allowance pools"
@@ -307,16 +308,20 @@ export const AdminSalesGoalsPage: React.FC = () => {
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <RotateCw className="w-2.5 h-2.5 text-emerald-600" />
+                Auto-Renews Monthly
+              </span>
             </div>
 
             {/* Team Filter (e.g. Brand Alpha, Brand Beta) */}
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-blue-600 shrink-0" />
+              <Layers className="w-4 h-4 text-[#01A8F3] shrink-0" />
               <label className="text-xs font-bold text-slate-700">Team Filter:</label>
               <select
                 value={selectedTeamFilter}
                 onChange={(e) => setSelectedTeamFilter(e.target.value)}
-                className="text-xs font-semibold bg-blue-50/60 border border-blue-200 text-blue-900 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-xs font-semibold bg-[#E8F7FE] border border-[#B9E7FC] text-[#0188C7] rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
               >
                 <option value="ALL">All Teams ({teams.length})</option>
                 {teams.map((t) => (
@@ -449,7 +454,7 @@ export const AdminSalesGoalsPage: React.FC = () => {
 
                       {/* Team */}
                       <td className="py-3 px-3.5 font-sans">
-                        <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                        <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]">
                           {member.teamName}
                         </span>
                       </td>
@@ -484,7 +489,7 @@ export const AdminSalesGoalsPage: React.FC = () => {
                           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all duration-500 ${
-                                isAchieved ? 'bg-emerald-500' : isNear ? 'bg-amber-500' : 'bg-blue-500'
+                                isAchieved ? 'bg-[#80BD2B]' : isNear ? 'bg-amber-500' : 'bg-[#01A8F3]'
                               }`}
                               style={{ width: `${Math.min(100, pct)}%` }}
                             />
@@ -547,12 +552,12 @@ export const AdminSalesGoalsPage: React.FC = () => {
         maxWidth="2xl"
       >
         <form onSubmit={handleSaveTarget} className="space-y-4">
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1">
-            <div className="font-bold text-blue-900 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+          <div className="p-3 bg-[#E8F7FE] border border-[#B9E7FC] rounded-xl text-xs space-y-1">
+            <div className="font-bold text-[#0188C7] flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#01A8F3]" />
               <span>Ongoing Monthly Policy</span>
             </div>
-            <p className="text-blue-700">
+            <p className="text-[#0188C7]">
               Once configured, this monthly sales goal and its allowance tiers will automatically carry over and apply to every month until you modify it.
             </p>
           </div>
@@ -807,7 +812,7 @@ export const AdminSalesGoalsPage: React.FC = () => {
                               <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full rounded-full ${
-                                    isAchieved ? 'bg-emerald-500' : isNear ? 'bg-amber-500' : 'bg-blue-500'
+                                    isAchieved ? 'bg-[#80BD2B]' : isNear ? 'bg-amber-500' : 'bg-[#01A8F3]'
                                   }`}
                                   style={{ width: `${Math.min(100, pct)}%` }}
                                 />

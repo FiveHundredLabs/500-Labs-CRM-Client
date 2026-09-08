@@ -14,10 +14,6 @@ export class ActivityLogService {
     metadata?: Record<string, any>;
   }): Promise<ActivityLog> {
     return activityLogRepository.create({
-      userId: params.userId,
-      userRole: params.userRole,
-      userName: params.userName,
-      teamId: params.teamId,
       action: params.action,
       entityType: params.entityType,
       entityId: params.entityId,

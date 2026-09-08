@@ -40,6 +40,7 @@ import { AdminProfilePage } from "../views/admin/AdminProfilePage";
 import { AdminApprovalsPage } from "../views/admin/AdminApprovalsPage";
 import { AdminProductsPage } from "../views/admin/AdminProductsPage";
 import { AdminSalesGoalsPage } from "../views/admin/AdminSalesGoalsPage";
+import { AdminSupervisorGoalsPage } from "../views/admin/AdminSupervisorGoalsPage";
 import { AdminTeamsPage } from "../views/admin/AdminTeamsPage";
 
 // Finance Views
@@ -51,7 +52,8 @@ import { FinanceNewExpensePage } from "../views/finance/FinanceNewExpensePage";
 import { FinanceCategoriesPage } from "../views/finance/FinanceCategoriesPage";
 import { FinanceReportsPage } from "../views/finance/FinanceReportsPage";
 import { FinanceProfilePage } from "../views/finance/FinanceProfilePage";
-import { FinanceUnderDevelopmentPage } from "../views/finance/FinanceUnderDevelopmentPage";
+import { FinanceInventoryPage } from "../views/finance/FinanceInventoryPage";
+import { FinanceExpenseApprovalsPage } from "../views/finance/FinanceExpenseApprovalsPage";
 
 export const router = createBrowserRouter([
   {
@@ -137,6 +139,7 @@ export const router = createBrowserRouter([
                 children: [
                   { path: "dashboard", element: <AdminDashboard /> },
                   { path: "sales-goals", element: <AdminSalesGoalsPage /> },
+                  { path: "supervisor-goals", element: <AdminSupervisorGoalsPage /> },
                   { path: "teams", element: <AdminTeamsPage /> },
                   { path: "approvals", element: <AdminApprovalsPage /> },
                   { path: "products", element: <AdminProductsPage /> },
@@ -162,79 +165,93 @@ export const router = createBrowserRouter([
                     element: <SupervisorAllocationHistoryPage />,
                   },
 
-                  // Finance Operations for Admin (Under Development Notice)
+                  // Finance Operations for Admin
+                  {
+                    path: "finance/dashboard",
+                    element: <FinanceDashboard />,
+                  },
                   {
                     path: "finance/sales-analysis",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="Finance Sales Analysis & Profitability" />
-                    ),
+                    element: <FinanceSalesAnalysisPage />,
                   },
                   {
                     path: "finance/petty-cash",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="Finance Petty Cash & Wallet Operations" />
-                    ),
+                    element: <FinancePettyCashPage />,
                   },
                   {
                     path: "finance/expenses",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="Operational Expenses & Category Ledgers" />
-                    ),
+                    element: <FinanceExpensesPage />,
                   },
                   {
                     path: "finance/expenses/new",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="New Expense Voucher Registration" />
-                    ),
+                    element: <FinanceNewExpensePage />,
+                  },
+                  {
+                    path: "finance/inventory",
+                    element: <FinanceInventoryPage />,
+                  },
+                  {
+                    path: "finance/approvals",
+                    element: <FinanceExpenseApprovalsPage />,
+                  },
+                  {
+                    path: "finance/reports",
+                    element: <FinanceReportsPage />,
+                  },
+                  {
+                    path: "finance/reports/:reportId",
+                    element: <FinanceReportsPage />,
+                  },
+                  {
+                    path: "finance/categories",
+                    element: <FinanceCategoriesPage />,
                   },
                 ],
               },
-              // Finance Routes (Under Development Notice)
+              // Finance Routes
               {
                 path: "finance",
                 element: <ProtectedRoute allowedRoles={["FINANCE", "ADMIN"]} />,
                 children: [
                   {
                     path: "dashboard",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="Finance & Executive Financial Intelligence" />
-                    ),
+                    element: <FinanceDashboard />,
                   },
                   {
                     path: "sales-analysis",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="Finance Sales Analysis & Profitability" />
-                    ),
+                    element: <FinanceSalesAnalysisPage />,
                   },
                   {
                     path: "petty-cash",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="Finance Petty Cash & Wallet Operations" />
-                    ),
+                    element: <FinancePettyCashPage />,
                   },
                   {
                     path: "expenses",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="Operational Expenses & Category Ledgers" />
-                    ),
+                    element: <FinanceExpensesPage />,
                   },
                   {
                     path: "expenses/new",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="New Expense Voucher Registration" />
-                    ),
+                    element: <FinanceNewExpensePage />,
+                  },
+                  {
+                    path: "inventory",
+                    element: <FinanceInventoryPage />,
+                  },
+                  {
+                    path: "approvals",
+                    element: <FinanceExpenseApprovalsPage />,
                   },
                   {
                     path: "reports",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="Official Financial & Sales Reports" />
-                    ),
+                    element: <FinanceReportsPage />,
+                  },
+                  {
+                    path: "reports/:reportId",
+                    element: <FinanceReportsPage />,
                   },
                   {
                     path: "categories",
-                    element: (
-                      <FinanceUnderDevelopmentPage moduleName="Finance Expense Categories" />
-                    ),
+                    element: <FinanceCategoriesPage />,
                   },
                   { path: "profile", element: <FinanceProfilePage /> },
                 ],

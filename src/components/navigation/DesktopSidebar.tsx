@@ -1,211 +1,585 @@
-import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
-import { ROLE_NAVIGATION, NavItem } from '../../config/navigation';
-import { getTeamBranding } from '../../config/branding';
-import { ChevronLeft, ChevronRight, ChevronDown, LogOut } from 'lucide-react';
+  import React, { useEffect, useMemo, useState } from 'react';
+  import { Link, NavLink, useLocation } from 'react-router-dom';
+  import {
+    Building2,
+    Calendar,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    LayoutDashboard,
+  } from 'lucide-react';
+  import { format } from 'date-fns';
 
-export interface DesktopSidebarProps {
-  isCollapsed: boolean;
-  onToggle: () => void;
-}
+  import { useAuth } from '../../hooks/useAuth';
+  import { ROLE_NAVIGATION } from '../../config/navigation';
+  import { getTeamBranding } from '../../config/branding';
+  import { UserProfileMenu } from './UserProfileMenu';
 
-export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ isCollapsed, onToggle }) => {
-  const { user, role, logout } = useAuth();
-  const location = useLocation();
+  export interface DesktopSidebarProps {
+    isCollapsed: boolean;
+    onToggle: () => void;
+  }
 
-  // State to track open dropdowns by group/label (collapsed by default)
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    Supervisor: false,
-    Finance: false,
-  });
+  export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
+    isCollapsed,
+    onToggle,
+  }) => {
+    const { user, role } = useAuth();
+    const location = useLocation();
 
-  const navItems = (role && ROLE_NAVIGATION[role]) || [];
-  const teamBrand = getTeamBranding(user?.team || user?.teamId);
-
-  // Auto-expand group if current path is inside that group's children
-  useEffect(() => {
-    if (!navItems.length) return;
-    navItems.forEach((item) => {
-      if (item.children && item.children.some((c) => location.pathname.startsWith(c.path))) {
-        setOpenGroups((prev) => ({ ...prev, [item.label]: true }));
-      }
+    /**
+     * Dropdown groups are collapsed by default.
+     * Active group will automatically open based on current route.
+     */
+    const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+      Supervisor: false,
+      Finance: false,
     });
-  }, [location.pathname, navItems]);
 
-  if (!user || !role) return null;
+    /**
+     * Navigation items for current role.
+     */
+    const navItems = useMemo(
+      () => (role && ROLE_NAVIGATION[role]) || [],
+      [role]
+    );
 
-  const toggleGroup = (groupLabel: string) => {
-    setOpenGroups((prev) => ({
-      ...prev,
-      [groupLabel]: !prev[groupLabel],
-    }));
-  };
+    /**
+     * Team branding.
+     */
+    const teamBrand = getTeamBranding(user?.team || user?.teamId);
+    const isUnknownTeam = teamBrand.name === 'Unknown Team';
 
-  return (
-    <aside
-      className={`hidden md:flex flex-col h-full bg-white/80 backdrop-blur-md border-r border-slate-200/80 transition-all duration-200 relative shrink-0 z-20 ${
-        isCollapsed ? 'w-[72px]' : 'w-[250px]'
-      }`}
-    >
-      {/* Toggle button */}
-      <button
-        onClick={onToggle}
-        className="absolute -right-3 top-5 z-30 w-6 h-6 bg-white border border-slate-200/90 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 shadow-sm cursor-pointer hover:scale-105 transition-transform"
-        aria-label="Toggle sidebar"
+    /**
+     * Portal label based on role.
+     */
+    const rolePortalLabel = role
+      ? `${role
+        .split('_')
+        .map(
+          (part) =>
+            part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+        )
+        .join(' ')} Portal`
+      : 'CRM Portal';
+
+    /**
+     * Finance routes should display Finance Portal.
+     */
+    const portalName =
+      location.pathname.startsWith('/finance') ||
+        location.pathname.startsWith('/admin/finance')
+        ? 'Finance Portal'
+        : rolePortalLabel;
+
+    /**
+     * Team name fallback.
+     */
+    const teamName =
+      user?.team?.name ||
+      (isUnknownTeam ? 'Level Grow' : teamBrand.name);
+
+    /**
+     * Automatically expand the navigation group
+     * if the user is currently inside one of its child routes.
+     */
+    useEffect(() => {
+      if (!navItems.length) return;
+
+      navItems.forEach((item) => {
+        if (
+          item.children &&
+          item.children.some((child) =>
+            location.pathname.startsWith(child.path)
+          )
+        ) {
+          setOpenGroups((prev) => ({
+            ...prev,
+            [item.label]: true,
+          }));
+        }
+      });
+    }, [location.pathname, navItems]);
+
+    if (!user || !role) {
+      return null;
+    }
+
+    /**
+     * Open / close grouped navigation.
+     */
+    const toggleGroup = (groupLabel: string) => {
+      setOpenGroups((prev) => ({
+        ...prev,
+        [groupLabel]: !prev[groupLabel],
+      }));
+    };
+
+    return (
+      <aside
+        className={`
+          hidden md:flex
+          relative z-20
+          h-full shrink-0 flex-col
+          border-r border-slate-200/80
+          bg-white
+          transition-[width] duration-200 ease-out
+          ${isCollapsed ? 'w-[64px]' : 'w-[260px]'}
+        `}
       >
-        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-      </button>
-
-      {/* Brand Header */}
-      <div className="h-14 px-4 border-b border-slate-200/80 flex items-center gap-3 bg-white/40">
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-md shadow-blue-500/20"
-          style={{ backgroundColor: teamBrand.brandColor }}
+        {/* =========================================================
+            SIDEBAR COLLAPSE BUTTON
+        ========================================================= */}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="
+            absolute -right-3 top-5 z-30
+            flex h-6 w-6 items-center justify-center
+            rounded-full
+            border border-slate-200
+            bg-white
+            text-slate-500
+            shadow-sm
+            transition-all duration-150
+            hover:scale-105
+            hover:border-slate-300
+            hover:text-slate-900
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-500/20
+          "
         >
-          {role === 'ADMIN' ? 'AD' : teamBrand.code.substring(0, 2)}
+          {isCollapsed ? (
+            <ChevronRight className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronLeft className="h-3.5 w-3.5" />
+          )}
+        </button>
+
+        {/* =========================================================
+            COMPANY LOGO
+        ========================================================= */}
+        <div className="shrink-0 border-b border-slate-100 bg-white">
+          <Link
+            to="/"
+            title="Go to Home"
+            aria-label="Level Grow Home"
+            className={`
+              flex items-center transition-opacity hover:opacity-85 focus:outline-none focus:ring-2 focus:ring-blue-500/20 rounded-lg cursor-pointer
+              ${isCollapsed
+                ? 'justify-center px-2 py-4'
+                : 'justify-start px-4 py-4'
+              }
+            `}
+          >
+            <img
+              src="/logos/Level Grow Logo.png"
+              alt="Level Grow"
+              className={`
+                block object-contain
+                ${isCollapsed
+                  ? 'h-8 w-8'
+                  : 'h-auto max-h-[76px] w-full max-w-full'
+                }
+              `}
+            />
+          </Link>
         </div>
-        {!isCollapsed && (
-          <div className="overflow-hidden">
-            <h2 className="font-bold text-xs text-slate-900 truncate tracking-tight">
-              {role === 'ADMIN' ? '500 Labs Admin' : teamBrand.name}
-            </h2>
-            <p className="text-[10px] text-blue-600 font-bold truncate uppercase tracking-wider">{role} Portal</p>
-          </div>
-        )}
-      </div>
 
-      {/* Navigation Items List */}
-      <nav className="flex-1 p-2.5 space-y-1.5 overflow-y-auto">
-        {navItems
-          .filter((item) => item.path !== '#more')
-          .map((item) => {
-            const Icon = item.icon;
+        {/* =========================================================
+            MAIN NAVIGATION
+        ========================================================= */}
+        <nav
+          className="
+            flex-1
+            overflow-y-auto
+            overflow-x-hidden
+            px-2 py-3
+            scrollbar-thin
+          "
+        >
+          <div className="space-y-1">
+            {navItems
+              .filter((item) => item.path !== '#more')
+              .map((item) => {
+                const Icon = item.icon;
 
-            // 1. Group / Dropdown Items (e.g. Supervisor, Finance)
-            if (item.children && item.children.length > 0) {
-              const isOpen = !!openGroups[item.label];
-              const hasActiveChild = item.children.some((child) =>
-                location.pathname.startsWith(child.path)
-              );
+                /**
+                 * =====================================================
+                 * GROUP NAVIGATION
+                 * Supervisor / Finance / etc.
+                 * =====================================================
+                 */
+                if (item.children && item.children.length > 0) {
+                  const isOpen = !!openGroups[item.label];
 
-              return (
-                <div key={item.label} className="pt-2">
-                  {!isCollapsed ? (
-                    <div>
-                      {/* Dropdown Header Button */}
-                      <button
-                        type="button"
-                        onClick={() => toggleGroup(item.label)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${
-                          hasActiveChild
-                            ? 'text-blue-700 bg-blue-50/80 border border-blue-100/80 shadow-2xs'
-                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/60'
-                        }`}
+                  const hasActiveChild = item.children.some((child) =>
+                    location.pathname.startsWith(child.path)
+                  );
+
+                  /**
+                   * Collapsed sidebar:
+                   * show all child icons directly.
+                   */
+                  if (isCollapsed) {
+                    return (
+                      <div
+                        key={item.label}
+                        className="border-t border-slate-100 pt-2 first:border-t-0 first:pt-0"
                       >
-                        <div className="flex items-center gap-2.5">
-                          <Icon className={`w-4 h-4 ${hasActiveChild ? 'text-blue-600' : 'text-slate-400'}`} />
-                          <span>{item.label}</span>
-                          {item.label === 'Finance' && (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
-                              Dev
-                            </span>
-                          )}
-                        </div>
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                            isOpen ? 'rotate-0 text-blue-600' : '-rotate-90 text-slate-400'
-                          }`}
-                        />
-                      </button>
-
-                      {/* Expandable Child Links */}
-                      {isOpen && (
-                        <div className="mt-1 ml-3 pl-3 border-l-2 border-slate-200/80 space-y-1">
+                        <div className="flex flex-col items-center gap-1">
                           {item.children.map((child) => {
                             const ChildIcon = child.icon;
+
                             return (
                               <NavLink
                                 key={child.path}
                                 to={child.path}
+                                title={`${item.label} → ${child.label}`}
                                 className={({ isActive }) =>
-                                  `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                    isActive
-                                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-md shadow-blue-500/20'
-                                      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                                  }`
+                                  `
+                                    flex h-10 w-10
+                                    items-center justify-center
+                                    rounded-lg
+                                    transition-all duration-150
+                                    ${isActive
+                                    ? `
+                                          bg-[#01A8F3]
+                                          text-white
+                                          shadow-[0_4px_12px_rgba(1,168,243,0.25)]
+                                        `
+                                    : `
+                                          text-slate-500
+                                          hover:bg-slate-100
+                                          hover:text-slate-900
+                                        `
+                                  }
+                                  `
                                 }
                               >
-                                <ChildIcon className="w-3.5 h-3.5 shrink-0" />
-                                <span className="truncate">{child.label}</span>
+                                <ChildIcon className="h-[18px] w-[18px] shrink-0" />
                               </NavLink>
                             );
                           })}
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* Collapsed Icon Group */
-                    <div className="flex flex-col items-center gap-1 py-1">
-                      {item.children.map((child) => {
-                        const ChildIcon = child.icon;
-                        return (
-                          <NavLink
-                            key={child.path}
-                            to={child.path}
-                            className={({ isActive }) =>
-                              `flex items-center justify-center w-10 h-10 rounded-lg text-xs font-medium transition-all ${
-                                isActive
-                                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-md shadow-blue-500/20'
-                                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
-                              }`
+                      </div>
+                    );
+                  }
+
+                  /**
+                   * Expanded grouped navigation.
+                   */
+                  return (
+                    <div
+                      key={item.label}
+                      className="pt-2"
+                    >
+                      {/* Group Header */}
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(item.label)}
+                        className={`
+                          flex w-full
+                          items-center justify-between
+                          rounded-lg
+                          px-3 py-2.5
+                          text-left
+                          transition-colors duration-150
+                          ${hasActiveChild
+                            ? 'text-[#0188C7] font-semibold'
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                          }
+                        `}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Icon
+                            className={`
+                              h-[17px] w-[17px] shrink-0
+                              ${hasActiveChild
+                                ? 'text-[#01A8F3]'
+                                : 'text-slate-400'
+                              }
+                            `}
+                          />
+
+                          <span className="truncate text-[11px] font-bold uppercase tracking-[0.055em]">
+                            {item.label}
+                          </span>
+                        </div>
+
+                        <ChevronDown
+                          className={`
+                            h-3.5 w-3.5 shrink-0
+                            transition-transform duration-200
+                            ${isOpen
+                              ? 'rotate-0'
+                              : '-rotate-90'
                             }
-                            title={`${item.label} → ${child.label}`}
-                          >
-                            <ChildIcon className="w-4 h-4 shrink-0" />
-                          </NavLink>
-                        );
-                      })}
+                            ${hasActiveChild
+                              ? 'text-blue-600'
+                              : 'text-slate-400'
+                            }
+                          `}
+                        />
+                      </button>
+
+                      {/* Children */}
+                      <div
+                        className={`
+                          grid overflow-hidden
+                          transition-[grid-template-rows,opacity] duration-200 ease-out
+                          ${isOpen
+                            ? 'grid-rows-[1fr] opacity-100'
+                            : 'grid-rows-[0fr] opacity-0'
+                          }
+                        `}
+                      >
+                        <div className="min-h-0">
+                          <div className="ml-[19px] mt-1 border-l border-slate-200 pl-2">
+                            <div className="space-y-1">
+                              {item.children.map((child) => {
+                                const ChildIcon = child.icon;
+
+                                return (
+                                  <NavLink
+                                    key={child.path}
+                                    to={child.path}
+                                    className={({ isActive }) =>
+                                      `
+                                        group
+                                        flex min-h-[38px]
+                                        items-center gap-2.5
+                                        rounded-lg
+                                        px-3 py-2
+                                        text-[13px]
+                                        font-medium
+                                        transition-all duration-150
+                                        ${isActive
+                                        ? `
+                                              bg-[#01A8F3]
+                                              text-white
+                                              font-semibold
+                                              shadow-[0_4px_12px_rgba(1,168,243,0.25)]
+                                            `
+                                        : `
+                                              text-slate-600
+                                              hover:bg-slate-100
+                                              hover:text-slate-900
+                                            `
+                                      }
+                                      `
+                                    }
+                                  >
+                                    <ChildIcon className="h-4 w-4 shrink-0" />
+
+                                    <span className="min-w-0 truncate">
+                                      {child.label}
+                                    </span>
+                                  </NavLink>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              );
-            }
-
-            // 2. Direct Navigation Links (Home, Users, Reports, Activity, Profile)
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-md shadow-blue-500/20'
-                      : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
-                  } ${isCollapsed ? 'justify-center px-0' : ''}`
+                  );
                 }
-                title={isCollapsed ? item.label : undefined}
-              >
-                <Icon className="w-4.5 h-4.5 shrink-0" />
-                {!isCollapsed && <span className="truncate">{item.label}</span>}
-              </NavLink>
-            );
-          })}
-      </nav>
 
-      {/* User / Sign Out Footer */}
-      <div className="p-3 border-t border-slate-200/80 bg-white/40">
-        <button
-          onClick={logout}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer ${
-            isCollapsed ? 'justify-center px-0' : ''
-          }`}
-          title={isCollapsed ? 'Sign Out' : undefined}
-        >
-          <LogOut className="w-4 h-4 shrink-0" />
-          {!isCollapsed && <span>Sign Out</span>}
-        </button>
-      </div>
-    </aside>
-  );
-};
+                /**
+                 * =====================================================
+                 * STANDARD NAVIGATION
+                 * Home / Users / Products / Reports / etc.
+                 * =====================================================
+                 */
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    title={isCollapsed ? item.label : undefined}
+                    className={({ isActive }) =>
+                      `
+                        group
+                        flex min-h-[38px]
+                        items-center
+                        rounded-lg
+                        py-2
+                        text-[13px]
+                        font-medium
+                        transition-all duration-150
+                        ${isCollapsed
+                        ? 'justify-center px-0'
+                        : 'gap-3 px-3'
+                      }
+                        ${isActive
+                        ? `
+                              bg-[#01A8F3]
+                              font-semibold
+                              text-white
+                              shadow-[0_4px_12px_rgba(1,168,243,0.28)]
+                            `
+                        : `
+                              text-slate-600
+                              hover:bg-slate-100
+                              hover:text-slate-900
+                            `
+                      }
+                      `
+                    }
+                  >
+                    <Icon
+                      className="
+                        h-[18px] w-[18px]
+                        shrink-0
+                      "
+                    />
+
+                    {!isCollapsed && (
+                      <span className="min-w-0 truncate">
+                        {item.label}
+                      </span>
+                    )}
+                  </NavLink>
+                );
+              })}
+          </div>
+        </nav>
+
+        {/* =========================================================
+            BOTTOM AREA
+        ========================================================= */}
+        <div className="shrink-0 border-t border-slate-100 bg-white">
+          {/* Workspace / Team Information */}
+          {!isCollapsed && (
+            <div className="px-3 pt-3 pb-2">
+              <div
+                className="
+                  rounded-xl
+                  border border-slate-200/80
+                  bg-slate-50/80
+                  px-3 py-2.5
+                "
+              >
+                {/* Team */}
+                <div className="flex min-w-0 items-start gap-2.5 py-1.5">
+                  <div
+                    className="
+                      mt-[1px]
+                      flex h-7 w-7 shrink-0
+                      items-center justify-center
+                      rounded-lg
+                      border border-slate-200
+                      bg-white
+                      text-slate-500
+                    "
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                      Team
+                    </div>
+
+                    <div
+                      title={teamName}
+                      className="
+                        mt-0.5
+                        truncate
+                        text-[12px]
+                        font-semibold
+                        leading-tight
+                        text-slate-800
+                      "
+                    >
+                      {teamName}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Portal */}
+                <div className="flex min-w-0 items-start gap-2.5 py-1.5">
+                  <div
+                    className="
+                      mt-[1px]
+                      flex h-7 w-7 shrink-0
+                      items-center justify-center
+                      rounded-lg
+                      border border-slate-200
+                      bg-white
+                      text-slate-500
+                    "
+                  >
+                    <LayoutDashboard className="h-3.5 w-3.5" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                      Portal
+                    </div>
+
+                    <div
+                      title={portalName}
+                      className="
+                        mt-0.5
+                        truncate
+                        text-[12px]
+                        font-semibold
+                        leading-tight
+                        text-slate-800
+                      "
+                    >
+                      {portalName}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Date */}
+                <div className="flex min-w-0 items-start gap-2.5 py-1.5">
+                  <div
+                    className="
+                      mt-[1px]
+                      flex h-7 w-7 shrink-0
+                      items-center justify-center
+                      rounded-lg
+                      border border-slate-200
+                      bg-white
+                      text-slate-500
+                    "
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                      Date
+                    </div>
+
+                    <div className="mt-0.5 text-[12px] font-semibold leading-tight text-slate-800">
+                      {format(new Date(), 'MMM dd, yyyy')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* User Profile */}
+          <div
+            className={`
+              border-t border-slate-100
+              ${isCollapsed ? 'p-2' : 'px-3 py-3'}
+            `}
+          >
+            <UserProfileMenu
+              isCollapsed={isCollapsed}
+              placement="top"
+            />
+          </div>
+        </div>
+      </aside>
+    );
+  };

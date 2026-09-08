@@ -8,7 +8,9 @@ import {
   activityLogRepository,
   productRepository,
   callLogRepository,
+  supervisorTargetRepository,
 } from '../../repositories';
+import type { SupervisorSalesTarget } from '../../models/domain';
 import { SupervisorAnalyticsService } from '../../services/supervisorAnalyticsService';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
@@ -33,6 +35,8 @@ import {
   DollarSign,
   Trophy,
   ArrowRight,
+  Target,
+  Award,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -62,6 +66,9 @@ export const SupervisorDashboard: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Supervisor team goal state
+  const [supervisorTarget, setSupervisorTarget] = useState<SupervisorSalesTarget | null>(null);
 
   // Date Filter State
   const [dateFilter, setDateFilter] = useState<DashboardDateFilter>('THIS_MONTH');
@@ -114,6 +121,16 @@ export const SupervisorDashboard: React.FC = () => {
     };
 
     loadDashboard();
+  }, [user]);
+
+  // Load supervisor's own team goal (current month)
+  useEffect(() => {
+    if (!user) return;
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    supervisorTargetRepository
+      .getAll(currentMonth, user.id)
+      .then((results) => setSupervisorTarget(results[0] || null))
+      .catch(() => setSupervisorTarget(null));
   }, [user]);
 
   // Date Range Matcher Helper
@@ -196,7 +213,7 @@ export const SupervisorDashboard: React.FC = () => {
   const unallocatedContacts = contacts.filter((c) => !c.isAllocated && c.status === 'NEW').length;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 pb-16">
       <PageHeader
         title="Supervisor Overview"
         description="Operational & Sales Control Center for Team Performance and Fulfillment"
@@ -242,9 +259,9 @@ export const SupervisorDashboard: React.FC = () => {
       <div className="p-3.5 bg-white border border-slate-200 rounded-2xl shadow-2xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2 font-bold text-xs text-slate-800 uppercase tracking-wider">
-            <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+            <Calendar className="w-4 h-4 text-[#01A8F3] shrink-0" />
             <span>Time Period Scope:</span>
-            <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-2.5 py-0.5 rounded-full capitalize tracking-normal border border-blue-100">
+            <span className="text-[10px] bg-[#E8F7FE] text-[#0188C7] font-bold px-2.5 py-0.5 rounded-full capitalize tracking-normal border border-[#B9E7FC]">
               {dateFilter === 'ALL'
                 ? 'All Time (Total)'
                 : dateFilter === 'THIS_MONTH'
@@ -277,7 +294,7 @@ export const SupervisorDashboard: React.FC = () => {
                 onClick={() => setDateFilter(item.key as DashboardDateFilter)}
                 className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   dateFilter === item.key
-                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    ? 'bg-[#01A8F3] text-white shadow-xs font-bold'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
@@ -295,7 +312,7 @@ export const SupervisorDashboard: React.FC = () => {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
               />
             </div>
             <div className="flex items-center gap-2 text-xs">
@@ -304,7 +321,7 @@ export const SupervisorDashboard: React.FC = () => {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
               />
             </div>
           </div>
@@ -335,6 +352,83 @@ export const SupervisorDashboard: React.FC = () => {
           </Button>
         </div>
       )}
+
+      {/* Supervisor Team Goal & Incentive Widget */}
+      {supervisorTarget && (() => {
+        const pct = Number(supervisorTarget.achievementPercentage || 0);
+        const isAchieved = pct >= 100;
+        const isNear = pct >= 80 && pct < 100;
+        return (
+          <div className={`p-4 rounded-xl border shadow-2xs ${isAchieved ? 'bg-emerald-50 border-emerald-200' : isNear ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isAchieved ? 'bg-emerald-500/20' : 'bg-blue-500/10'}`}>
+                  <Target className={`w-5 h-5 ${isAchieved ? 'text-emerald-600' : 'text-blue-600'}`} />
+                </div>
+                <div>
+                  <div className="font-bold text-sm text-slate-900">
+                    My Team Goal — {supervisorTarget.evaluatedMonth || supervisorTarget.month}
+                    {isAchieved && <span className="ml-2 text-emerald-700">🏆 Goal Achieved!</span>}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    Collective team sales target · {supervisorTarget.membersCount || 0} team member(s)
+                  </div>
+                </div>
+              </div>
+              {(supervisorTarget.unlockedAllowance || 0) > 0 && (
+                <div className="flex items-center gap-1.5 bg-amber-100 border border-amber-300 text-amber-900 rounded-lg px-3 py-1.5 font-bold text-xs">
+                  <Award className="w-3.5 h-3.5 text-amber-600" />
+                  Incentive Unlocked: {formatCurrency(supervisorTarget.unlockedAllowance!)}
+                </div>
+              )}
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="text-center p-2 bg-white/80 rounded-lg border border-slate-100">
+                <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Team Target</div>
+                <div className="font-bold font-mono text-slate-900 text-sm mt-0.5">{formatCurrency(supervisorTarget.targetAmount)}</div>
+              </div>
+              <div className="text-center p-2 bg-white/80 rounded-lg border border-slate-100">
+                <div className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider">Team Sales</div>
+                <div className="font-bold font-mono text-emerald-800 text-sm mt-0.5">{formatCurrency(supervisorTarget.totalTeamSales || 0)}</div>
+              </div>
+              <div className="text-center p-2 bg-white/80 rounded-lg border border-slate-100">
+                <div className={`text-[10px] font-semibold uppercase tracking-wider ${isAchieved ? 'text-emerald-600' : isNear ? 'text-amber-600' : 'text-blue-600'}`}>Achievement</div>
+                <div className={`font-bold font-mono text-sm mt-0.5 ${isAchieved ? 'text-emerald-800' : isNear ? 'text-amber-800' : 'text-blue-800'}`}>{pct.toFixed(1)}%</div>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="mb-2">
+              <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${isAchieved ? 'bg-gradient-to-r from-emerald-400 to-green-500' : isNear ? 'bg-gradient-to-r from-amber-400 to-orange-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'}`}
+                  style={{ width: `${Math.min(100, pct)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Tier badges */}
+            {supervisorTarget.tiers && supervisorTarget.tiers.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {supervisorTarget.tiers.map((tier, i) => {
+                  const isUnlocked = pct >= Number(tier.minPercentage);
+                  return (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${isUnlocked ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-500 border-slate-200'}`}
+                    >
+                      {isUnlocked && <Award className="w-2.5 h-2.5 text-emerald-600" />}
+                      {Number(tier.minPercentage)}% → {formatCurrency(Number(tier.allowanceAmount))}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* KPI Metric Cards Scoped to Date Filter */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

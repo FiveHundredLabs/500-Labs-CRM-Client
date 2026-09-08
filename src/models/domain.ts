@@ -66,6 +66,14 @@ export interface User {
   team?: Team | null;
 }
 
+export interface SalesAnalysisMember {
+  id: string;
+  fullName: string;
+  teamId?: string | null;
+  role: UserRole | string;
+  username: string;
+}
+
 export interface Contact {
   id: string; // e.g., 'cnt_001'
   code?: string; // Unique contact code e.g. 'CTC-001', 'LEAD-9821'
@@ -278,6 +286,8 @@ export interface ParcelSlipTeam {
 export interface ParcelSlipCustomer {
   fullName: string;
   phone: string;
+  secondaryMobile?: string | null;
+  secondaryPhone?: string | null;
   address: string;
   code?: string | null;
   contactCode?: string | null;
@@ -358,11 +368,35 @@ export interface ActivityLog {
   createdAt: string;
 }
 
+export type ExpenseChangeRequestAction = 'EDIT' | 'DELETE';
+export type ExpenseChangeRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'PETTY_CASH';
+
 export interface ExpenseCategory {
   id: string; // e.g., 'cat_001'
   name: string; // 'Petty Cash', 'Postal Charges', 'Transport', 'Printing', 'Other'
   isCustom: boolean;
   description?: string;
+}
+
+export interface ExpenseChangeRequest {
+  id: string;
+  expenseId: string;
+  action: ExpenseChangeRequestAction;
+  originalValues: Record<string, any>;
+  requestedValues?: Record<string, any> | null;
+  reason: string;
+  requestedById: string;
+  requestedByName: string;
+  requestedAt: string;
+  status: ExpenseChangeRequestStatus;
+  reviewedById?: string | null;
+  reviewedByName?: string | null;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  expense?: Expense;
 }
 
 export interface Expense {
@@ -372,9 +406,17 @@ export interface Expense {
   amount: number;
   expenseDate: string; // YYYY-MM-DD
   remarks: string;
+  paymentMethod?: PaymentMethod | null;
+  notes?: string | null;
+  pettyCashRef?: string | null;
   createdBy: string; // Finance User ID
   createdByName: string;
+  isDeleted?: boolean;
+  deletedAt?: string | null;
   createdAt: string;
+  updatedAt?: string;
+  changeRequests?: ExpenseChangeRequest[];
+  hasPendingChangeRequest?: boolean;
 }
 
 export interface EmailNotification {
@@ -531,9 +573,28 @@ export interface PettyCashWallet {
   updatedAt: string;
 }
 
+export interface PettyCashAllocation {
+  id: string;
+  allocationCode: string; // e.g. 'PC-0001'
+  walletId: string;
+  teamId?: string | null;
+  amount: number;
+  usedAmount: number;
+  remainingAmount: number;
+  reason: string;
+  allocatedById: string;
+  allocatedByName: string;
+  remarks?: string | null;
+  date: string; // YYYY-MM-DD
+  createdAt: string;
+  updatedAt: string;
+  transactions?: PettyCashTransaction[]; // Linked expense transactions
+}
+
 export interface PettyCashTransaction {
   id: string; // e.g., 'pct_001'
   transactionType: 'ALLOCATION' | 'EXPENSE';
+  allocationId?: string | null; // Linked PettyCashAllocation ID
   reason: string;
   category: string;
   amount: number;
@@ -541,8 +602,138 @@ export interface PettyCashTransaction {
   description: string;
   userId: string;
   userName: string;
+  teamId?: string | null;
   remainingBalance: number;
   createdAt: string;
+  allocation?: PettyCashAllocation | null;
+}
+
+// ─── Finance Analytics Types ──────────────────────────────────────────────────
+
+export interface FinanceDashboardStats {
+  salesRevenue: number;
+  cogs: number;
+  grossProfit: number;
+  totalExpenses: number;
+  netProfit: number;
+  totalStockValue: number;
+  totalOrders: number;
+  deliveredCount: number;
+  pettyCash: {
+    allocatedAmount: number;
+    usedAmount: number;
+    remainingBalance: number;
+  };
+  pettyCashExpensesTotal: number;
+  expenseByCategory: Record<string, number>;
+}
+
+export interface IncomeStatementData {
+  revenue: {
+    salesRevenue: number;
+    otherIncome: number;
+    totalRevenue: number;
+  };
+  cogs: number;
+  grossProfit: number;
+  operatingExpenses: {
+    breakdown: Record<string, number>;
+    totalOperatingExpenses: number;
+    pettyCashExpenses: number;
+    pettyCashBreakdown: Record<string, number>;
+    totalAllExpenses: number;
+  };
+  netProfit: number;
+  orderCount: number;
+}
+
+export interface CashFlowData {
+  inflows: {
+    salesCollections: number;
+    otherIncome: number;
+    totalInflows: number;
+    details: Array<{ date: string; description: string; amount: number }>;
+  };
+  outflows: {
+    operatingExpenses: number;
+    pettyCashUsage: number;
+    totalOutflows: number;
+    expenseDetails: Array<{ date: string; description: string; amount: number }>;
+  };
+  netCashFlow: number;
+}
+
+export interface FinanceFSRData {
+  period: { startDate?: string; endDate?: string };
+  summary: {
+    totalRevenue: number;
+    totalCOGS: number;
+    grossProfit: number;
+    totalOperatingExpenses: number;
+    netProfit: number;
+    netCashFlow: number;
+  };
+  incomeStatement: IncomeStatementData;
+  cashFlow: CashFlowData;
+  pettyCash: { allocatedAmount: number; usedAmount: number; remainingBalance: number } | null;
+  generatedAt: string;
+}
+
+export interface InventoryReportItem {
+  id: string;
+  name: string;
+  code: string;
+  teamId?: string;
+  teamName?: string;
+  category?: string;
+  currentStock: number;
+  soldStock: number;
+  damagedStock?: number;
+  costPrice: number;
+  sellingPrice: number;
+  stockValue: number;
+  salesRevenue: number;
+  salesQuantity: number;
+  cogs: number;
+  grossProfit: number;
+  margin: string;
+  activeBatches: number;
+}
+
+export interface SalesReportPeriodData {
+  period: string;
+  revenue: number;
+  orderCount: number;
+  cogs: number;
+  grossProfit: number;
+}
+
+export interface CityDeliveryData {
+  city: string;
+  total: number;
+  delivered: number;
+  pending: number;
+  cancelled: number;
+  revenue: number;
+}
+
+export interface ExpenseReportData {
+  total: number;
+  byCategory: Record<string, number>;
+  byPaymentMethod: Record<string, number>;
+  byDate: Record<string, number>;
+  monthlyTrend: Record<string, number>;
+  expenses: Array<{
+    id: string;
+    date: string;
+    category: string;
+    amount: number;
+    paymentMethod?: string;
+    remarks: string;
+    notes?: string;
+    createdByName: string;
+    createdAt: string;
+  }>;
 }
 
 export interface TeamTargetTier {
@@ -594,3 +785,51 @@ export interface TeamSalesTarget {
   updatedAt?: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPERVISOR TEAM GOAL & INCENTIVE SYSTEM
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SupervisorTargetTier {
+  id?: string;
+  targetId?: string;
+  minPercentage: number;
+  allowanceAmount: number;
+  title?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SupervisorMemberBreakdown {
+  id: string;
+  fullName: string;
+  username: string;
+  actualSales: number;
+  ordersCount: number;
+}
+
+export interface SupervisorSalesTarget {
+  id: string;
+  supervisorId: string;
+  month: string; // YYYY-MM
+  targetAmount: number; // Collective team goal in LKR
+  notes?: string;
+  evaluatedMonth?: string;
+  isInheritedStandingTarget?: boolean;
+  effectiveFromMonth?: string;
+  supervisor?: {
+    id: string;
+    fullName: string;
+    username: string;
+    teamId?: string | null;
+    team?: { id: string; name: string; code: string; brandColor?: string } | null;
+  };
+  tiers: SupervisorTargetTier[];
+  totalTeamSales?: number;
+  achievementPercentage?: number;
+  unlockedAllowance?: number;
+  highestUnlockedTier?: SupervisorTargetTier | null;
+  membersCount?: number;
+  memberBreakdowns?: SupervisorMemberBreakdown[];
+  createdAt?: string;
+  updatedAt?: string;
+}

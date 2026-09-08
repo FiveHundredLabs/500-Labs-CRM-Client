@@ -9,6 +9,9 @@ export interface CreateExpenseInput {
   amount: number;
   expenseDate: string;
   remarks: string;
+  paymentMethod?: 'CASH' | 'BANK_TRANSFER' | 'PETTY_CASH';
+  notes?: string;
+  pettyCashRef?: string;
 }
 
 export class ExpenseService {
@@ -22,24 +25,26 @@ export class ExpenseService {
 
   static async createExpense(input: CreateExpenseInput, actor: User): Promise<Expense> {
     let finalCategoryName = input.categoryName;
+    let finalCategoryId = input.categoryId;
 
     if (input.categoryName === 'Other' && input.customCategoryName && input.customCategoryName.trim() !== '') {
       finalCategoryName = input.customCategoryName.trim();
-      // Optionally create a custom category record
-      await expenseRepository.createCategory({
+      const createdCategory = await expenseRepository.createCategory({
         name: finalCategoryName,
         isCustom: true,
       });
+      finalCategoryId = createdCategory.id;
     }
 
     const newExpense = await expenseRepository.create({
-      categoryId: input.categoryId,
+      categoryId: finalCategoryId,
       categoryName: finalCategoryName,
       amount: input.amount,
       expenseDate: input.expenseDate,
       remarks: input.remarks,
-      createdBy: actor.id,
-      createdByName: actor.fullName,
+      paymentMethod: input.paymentMethod || 'CASH',
+      notes: input.notes,
+      pettyCashRef: input.pettyCashRef,
     });
 
     await ActivityLogService.logAction({

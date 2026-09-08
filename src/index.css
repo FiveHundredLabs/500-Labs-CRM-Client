@@ -18,18 +18,26 @@
   --border-default: #E2E8F0;
   --border-subtle: #F1F5F9;
 
-  --brand-primary: #2563EB;
-  --brand-primary-hover: #1D4ED8;
-  --brand-primary-subtle: #EFF6FF;
+  /* Official Primary Brand Blue */
+  --brand-primary: #01A8F3;
+  --brand-primary-hover: #0096DC;
+  --brand-primary-subtle: #E8F7FE;
+  --brand-primary-border: #B9E7FC;
+  --brand-primary-text: #0188C7;
 
-  --color-success: #10B981;
-  --color-success-bg: #ECFDF5;
+  /* Official Primary Positive Green */
+  --color-success: #80BD2B;
+  --color-success-hover: #71A924;
+  --color-success-bg: #F2F9E9;
+  --color-success-border: #D4ECC6;
+  --color-success-text: #547E1B;
+
   --color-warning: #F59E0B;
   --color-warning-bg: #FFFBEB;
   --color-danger: #EF4444;
   --color-danger-bg: #FEF2F2;
-  --color-info: #06B6D4;
-  --color-info-bg: #ECFEFF;
+  --color-info: #01A8F3;
+  --color-info-bg: #E8F7FE;
 }
 
 /* ═══════════════════════════════════════════════
@@ -65,11 +73,11 @@ h1, h2, h3, h4, h5, h6 {
 .theme-modern-mesh {
   background-color: #f8fafc;
   background-image: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.08) 0px, transparent 50%),
-    radial-gradient(at 50% 50%, rgba(244, 63, 94, 0.03) 0px, transparent 60%),
-    radial-gradient(at 20% 100%, rgba(16, 185, 129, 0.06) 0px, transparent 50%),
-    radial-gradient(at 80% 100%, rgba(168, 85, 247, 0.07) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(1, 168, 243, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(128, 189, 43, 0.08) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(244, 63, 94, 0.02) 0px, transparent 60%),
+    radial-gradient(at 20% 100%, rgba(128, 189, 43, 0.06) 0px, transparent 50%),
+    radial-gradient(at 80% 100%, rgba(1, 168, 243, 0.07) 0px, transparent 50%);
   background-attachment: fixed;
 }
 
@@ -90,8 +98,8 @@ h1, h2, h3, h4, h5, h6 {
 
 .enterprise-input:focus {
   outline: none;
-  border-color: #2563EB;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: #01A8F3;
+  box-shadow: 0 0 0 3px rgba(1, 168, 243, 0.18);
 }
 
 .enterprise-input::placeholder {
@@ -102,8 +110,8 @@ h1, h2, h3, h4, h5, h6 {
    NAVIGATION PILLS
    ═══════════════════════════════════════════════ */
 .nav-item-active {
-  background-color: #EFF6FF;
-  color: #2563EB;
+  background-color: #E8F7FE;
+  color: #0188C7;
   font-weight: 600;
 }
 
@@ -120,15 +128,15 @@ h1, h2, h3, h4, h5, h6 {
    STATUS PILL BADGES (Restrained Light Semantic)
    ═══════════════════════════════════════════════ */
 .badge-blue {
-  background-color: #EFF6FF;
-  color: #2563EB;
-  border: 1px solid #DBEAFE;
+  background-color: #E8F7FE;
+  color: #0188C7;
+  border: 1px solid #B9E7FC;
 }
 
 .badge-green {
-  background-color: #ECFDF5;
-  color: #15803D;
-  border: 1px solid #D1FAE5;
+  background-color: #F2F9E9;
+  color: #547E1B;
+  border: 1px solid #D4ECC6;
 }
 
 .badge-amber {
@@ -150,9 +158,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .badge-indigo {
-  background-color: #EEF2FF;
-  color: #4F46E5;
-  border: 1px solid #E0E7FF;
+  background-color: #E8F7FE;
+  color: #0188C7;
+  border: 1px solid #B9E7FC;
 }
 
 .badge-purple {
@@ -172,7 +180,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .perf-bar {
-  background-color: #2563EB;
+  background-color: #01A8F3;
   height: 100%;
   border-radius: 9999px;
   transition: width 0.4s ease-out;
@@ -299,3 +307,51 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* ═══════════════════════════════════════════════
+   RESPONSIVE 1280×1024 DESKTOP UTILITIES
+   ═══════════════════════════════════════════════ */
+
+/* Ensure tables inside containers scroll horizontally rather than overflowing */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Dialog/modal content area: allow scrolling without overflowing viewport */
+.dialog-scrollable-body {
+  overflow-y: auto;
+  max-height: calc(90vh - 130px);
+}
+
+/* Stat card grids: 2 col on small, 4 col on md+, never overflow */
+.stat-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+@media (min-width: 1024px) {
+  .stat-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Finance and admin pages: clamp page-level containers */
+.page-container {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Truncate long text in table cells at smaller widths */
+.cell-truncate {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 1280px) {
+  .cell-truncate {
+    max-width: 200px;
+  }
+}

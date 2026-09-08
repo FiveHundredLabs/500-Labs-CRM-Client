@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
-import { Eye, EyeOff, Lock, Mail, Building2 } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -29,11 +29,14 @@ export const LoginPage: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!email.trim()) return;
 
     setIsLoading(true);
+
     try {
       const user = await login(email.trim(), password);
+
       if (user.role === "ADMIN")
         navigate("/admin/dashboard", { replace: true });
       else if (user.role === "SUPERVISOR")
@@ -54,7 +57,11 @@ export const LoginPage: React.FC = () => {
       {/* Dynamic Responsive Background */}
       <picture className="absolute inset-0 w-full h-full pointer-events-none z-0">
         <source media="(min-width: 768px)" srcSet="/login_bg_landscape.jpg" />
-        <source media="(orientation: landscape)" srcSet="/login_bg_landscape.jpg" />
+        <source
+          media="(orientation: landscape)"
+          srcSet="/login_bg_landscape.jpg"
+        />
+
         <img
           src="/login_bg_portrait.jpg"
           alt="CRM Login Background"
@@ -70,19 +77,31 @@ export const LoginPage: React.FC = () => {
       <div className="relative z-10 w-full max-w-md backdrop-blur-2xl bg-white/95 border border-white/60 shadow-2xl shadow-black/60 rounded-3xl overflow-hidden transition-all duration-300">
         {/* Header */}
         <div className="p-7 sm:p-8 pb-5 text-center border-b border-slate-100/80 bg-white/50">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-sm mx-auto flex items-center justify-center shadow-lg shadow-blue-500/25 mb-3.5 transition-transform hover:scale-105 duration-200">
-            <Building2 className="w-6 h-6" />
+          {/* Company Logo */}
+          <div className="mx-auto mb-4 flex min-h-[72px] w-full max-w-[180px] items-center justify-center px-2">
+            <img
+              src="/logos/Level Grow Logo.png"
+              alt="Level Grow"
+              className="block max-h-[72px] w-full object-contain"
+              loading="eager"
+              draggable={false}
+            />
           </div>
+
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Enterprise CRM
           </h1>
+
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Order Fulfillment &amp; Sales Workspace
           </p>
         </div>
 
         {/* Login Form */}
-        <form onSubmit={handleLogin} className="p-7 sm:p-8 pt-5 space-y-4">
+        <form
+          onSubmit={handleLogin}
+          className="p-7 sm:p-8 pt-5 space-y-4"
+        >
           <Input
             label="Email or Username"
             type="text"
@@ -126,12 +145,16 @@ export const LoginPage: React.FC = () => {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-3.5 h-3.5"
+                className="rounded border-slate-300 text-[#01A8F3] focus:ring-[#01A8F3]/20 w-3.5 h-3.5"
               />
-              <span className="group-hover:text-slate-900 transition-colors">Remember me</span>
+
+              <span className="group-hover:text-slate-900 transition-colors">
+                Remember me
+              </span>
             </label>
+
             <span className="text-slate-400 font-medium flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#80BD2B] inline-block animate-pulse" />
               Secure 256-bit SSL
             </span>
           </div>
@@ -139,7 +162,7 @@ export const LoginPage: React.FC = () => {
           <Button
             type="submit"
             variant="primary"
-            className="w-full h-11 text-sm font-semibold mt-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-500/20 active:scale-[0.99] transition-all rounded-xl"
+            className="w-full h-11 text-sm font-semibold mt-3 bg-[#01A8F3] hover:bg-[#0096DC] text-white shadow-md shadow-[#01A8F3]/25 active:scale-[0.99] transition-all rounded-xl"
             isLoading={isLoading || status === "checking"}
           >
             Sign In to Workspace
@@ -147,7 +170,7 @@ export const LoginPage: React.FC = () => {
         </form>
       </div>
 
-      {/* Modern Footer Branding */}
+      {/* Footer Branding */}
       <div className="relative z-10 text-xs text-slate-300/80 mt-6 text-center tracking-wide drop-shadow-sm">
         500 Flow CRM Platform &bull; 2026 Production Edition
       </div>
