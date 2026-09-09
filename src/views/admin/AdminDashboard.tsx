@@ -22,7 +22,6 @@ import {
   PhoneCall,
   CheckCircle2,
   Package,
-  Trophy,
   ArrowRight,
   DollarSign,
   Users,
@@ -318,7 +317,7 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* 1. Executive KPI Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3 xl:gap-4">
         <StatCard
           variant="vibrant"
           accentColor="sales"
@@ -426,27 +425,6 @@ export const AdminDashboard: React.FC = () => {
 
       {/* 3. Team Leaderboards Comparison Section */}
       <div className="space-y-3 sm:space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 shrink-0" />
-              <span>Top Tele-Calling Specialists Ranking</span>
-            </h2>
-            <p className="text-[11px] sm:text-xs text-slate-500">
-              Performance leaderboard by verified delivered sales amount (LKR) across teams
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            leftIcon={<ArrowRight className="w-3.5 h-3.5" />}
-            onClick={() => navigate('/supervisor/team-members')}
-            className="w-full sm:w-auto text-xs"
-          >
-            Full Performance Report
-          </Button>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {teamLeaderboards.map(({ team, items }) => (
             <Leaderboard
@@ -455,7 +433,7 @@ export const AdminDashboard: React.FC = () => {
               compact={true}
               title={`${team.name} Sales Leaderboard`}
               unitLabel="orders"
-              onViewFullLeaderboard={() => navigate('/supervisor/team-members')}
+              onViewFullLeaderboard={() => navigate(`/admin/leaderboards?teamId=${team.id}`)}
             />
           ))}
         </div>

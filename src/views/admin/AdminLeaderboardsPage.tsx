@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { teamRepository, userRepository, orderRepository } from '../../repositories';
 import { Team, User, Order } from '../../models/domain';
 import {
@@ -13,6 +14,9 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } f
 import { Layers } from 'lucide-react';
 
 export const AdminLeaderboardsPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const urlTeamId = searchParams.get('teamId');
+
   const [teams, setTeams] = useState<Team[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -39,7 +43,8 @@ export const AdminLeaderboardsPage: React.FC = () => {
         setOrders(ordersData);
 
         if (teamsData.length > 0) {
-          setSelectedTeamId(teamsData[0].id);
+          const matched = urlTeamId && teamsData.some((t) => t.id === urlTeamId);
+          setSelectedTeamId(matched ? urlTeamId : teamsData[0].id);
         }
       } finally {
         setLoading(false);
