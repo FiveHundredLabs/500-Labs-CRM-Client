@@ -872,6 +872,30 @@ export class ApiFinanceRepository implements IFinanceRepository {
       await apiClient.get<{ data: SalesAnalysisMember[] }>('/finance/sales-analysis/members')
     );
   }
+
+  async getTeamMemberSalesReport(startDate?: string, endDate?: string, teamId?: string): Promise<any> {
+    const params = this.buildParams(startDate, endDate);
+    if (teamId && teamId !== 'ALL') {
+      params.teamId = teamId;
+    }
+    return unwrap(
+      await apiClient.get<{ data: any }>('/finance/team-member-sales', {
+        params,
+      })
+    );
+  }
+
+  async getContactBatchReport(startDate?: string, endDate?: string, teamId?: string): Promise<any> {
+    const params = this.buildParams(startDate, endDate);
+    if (teamId && teamId !== 'ALL') {
+      params.teamId = teamId;
+    }
+    return unwrap(
+      await apiClient.get<{ data: any }>('/finance/contact-batch-report', {
+        params,
+      })
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
