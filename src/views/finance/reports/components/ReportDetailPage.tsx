@@ -19,13 +19,13 @@ const LIVE_DATA_REPORTS = [
   'operating-expense',
   'cash-flow',
   'petty-cash',
+  'consignment-sales',
+  'contact-batch-report',
+  'team-member-sales',
+  'city-delivery',
   'daily-sales',
   'weekly-sales',
   'monthly-sales',
-  'city-delivery',
-  'consignment-sales',
-  'team-member-sales',
-  'contact-batch-report',
 ];
 
 /** Normalise a date value from the backend to a plain YYYY-MM-DD string */
