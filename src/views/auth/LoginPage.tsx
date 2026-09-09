@@ -171,7 +171,7 @@ export const LoginPage: React.FC = () => {
       </div>
 
       {/* Footer Branding */}
-      <div className="relative z-10 text-[11px] text-slate-400/90 mt-6 text-center tracking-wide drop-shadow-sm flex flex-col items-center justify-center gap-0.5 font-medium leading-relaxed">
+      <div className="relative z-10 text-[9px] sm:text-[11px] text-slate-400/90 mt-6 text-center tracking-wide drop-shadow-sm flex flex-col items-center justify-center gap-0.5 font-medium leading-relaxed">
         <span>© 2026 500 Labs. All Rights Reserved.</span>
         <span className="text-slate-300/80">Developed &amp; Maintained by 500 Labs.</span>
       </div>

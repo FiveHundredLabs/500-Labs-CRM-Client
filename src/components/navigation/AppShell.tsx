@@ -25,8 +25,8 @@ export const AppShell: React.FC = () => {
             </div>
 
             {/* System Copyright & Developer Attribution */}
-            <footer className="mt-8 pt-4 pb-2 border-t border-slate-200/60 flex items-center justify-end">
-              <div className="text-[11px] text-slate-400 font-medium text-right leading-relaxed">
+            <footer className="mt-6 sm:mt-8 pt-3 sm:pt-4 pb-1 sm:pb-2 border-t border-slate-200/60 flex items-center justify-center sm:justify-end">
+              <div className="text-[9px] sm:text-[11px] text-slate-400 font-medium text-center sm:text-right leading-tight sm:leading-relaxed">
                 <span>© 2026 500 Labs. All Rights Reserved.</span>{' '}
                 <span className="text-slate-500 font-semibold">Developed &amp; Maintained by 500 Labs.</span>
               </div>
