@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
+import { getAmountToCollect, getProductSalesValue } from '../../utils/orderAmounts';
 import toast from 'react-hot-toast';
 
 export const FinanceSalesAnalysisPage: React.FC = () => {
@@ -185,17 +186,18 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
     let kidsUnits = 0;
 
     filteredOrders.forEach((o) => {
-      const amt = Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : (o.totalAmount || 0));
-      totalSalesValue += amt;
+      const productSalesValue = getProductSalesValue(o);
+      const amountToCollect = getAmountToCollect(o);
+      totalSalesValue += productSalesValue;
 
       if (o.status === 'DELIVERED') {
-        deliveredValue += amt;
+        deliveredValue += amountToCollect;
         deliveredCount++;
       } else if (o.status === 'DISPATCHED') {
-        dispatchedValue += amt;
+        dispatchedValue += amountToCollect;
         dispatchedCount++;
       } else if (o.status === 'PREPARED') {
-        preparedValue += amt;
+        preparedValue += amountToCollect;
       } else if (o.status === 'REJECTED') {
         rejectedCount++;
       }
@@ -240,11 +242,10 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
           delivered: 0,
         };
       }
-      const amt = Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : (o.totalAmount || 0));
-      dateGroups[dateKey].revenue += amt;
+      dateGroups[dateKey].revenue += getProductSalesValue(o);
       dateGroups[dateKey].orders += 1;
       if (o.status === 'DELIVERED') {
-        dateGroups[dateKey].delivered += amt;
+        dateGroups[dateKey].delivered += getAmountToCollect(o);
       }
     });
 
@@ -261,11 +262,10 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
       if (!teamStats[tName]) {
         teamStats[tName] = { name: tName, revenue: 0, orders: 0, delivered: 0 };
       }
-      const amt = Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : (o.totalAmount || 0));
-      teamStats[tName].revenue += amt;
+      teamStats[tName].revenue += getProductSalesValue(o);
       teamStats[tName].orders += 1;
       if (o.status === 'DELIVERED') {
-        teamStats[tName].delivered += amt;
+        teamStats[tName].delivered += getAmountToCollect(o);
       }
     });
 
@@ -280,7 +280,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
     let standardRev = 0;
 
     filteredOrders.forEach((o) => {
-      const amt = Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : (o.totalAmount || 0));
+      const amt = getProductSalesValue(o);
       if (o.selectedPackage === 'ADULT') adultRev += amt;
       else if (o.selectedPackage === 'KIDS') kidsRev += amt;
       else if (o.selectedPackage === 'BOTH') bothRev += amt;
@@ -345,7 +345,8 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
       'Package',
       'Adult Qty',
       'Kids Qty',
-      'Total Amount (LKR)',
+      'Product Sales Value (LKR)',
+      'COD / Delivery Charge (LKR)',
       'COD Amount (LKR)',
       'Status',
       'Remarks',
@@ -359,8 +360,9 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
       escapeCsvText(o.selectedPackage || 'STANDARD'),
       o.adultQty || 0,
       o.kidsQty || 0,
-      Number(o.totalAmount || 0).toFixed(2),
-      Number(o.codAmount || 0).toFixed(2),
+      getProductSalesValue(o).toFixed(2),
+      Math.max(0, getAmountToCollect(o) - getProductSalesValue(o)).toFixed(2),
+      getAmountToCollect(o).toFixed(2),
       escapeCsvText(o.status),
       escapeCsvText(o.remarks || ''),
     ]);
@@ -535,7 +537,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Filtered Gross Sales"
+          title="Product Sales Value"
           value={formatCurrency(metrics.totalSalesValue)}
           subtitle={`${metrics.totalOrdersCount} Total Orders in Period`}
           icon={<DollarSign className="w-5 h-5" />}
@@ -770,7 +772,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
                     <th className="py-3 px-4">Brand / Team</th>
                     <th className="py-3 px-4">Sales Agent</th>
                     <th className="py-3 px-4">Package & Quantities</th>
-                    <th className="py-3 px-4 text-right">Total Amount</th>
+                    <th className="py-3 px-4 text-right">Product Value</th>
                     <th className="py-3 px-4 text-right">COD Amount</th>
                     <th className="py-3 px-4 text-center">Status</th>
                   </tr>
@@ -796,10 +798,10 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-xs text-right font-mono font-semibold text-slate-900">
-                        {formatCurrency(o.totalAmount || 0)}
+                        {formatCurrency(getProductSalesValue(o))}
                       </td>
                       <td className="py-3 px-4 text-xs text-right font-mono font-bold text-[#547E1B]">
-                        {formatCurrency(o.codAmount || o.totalAmount || 0)}
+                        {formatCurrency(getAmountToCollect(o))}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <StatusBadge type="order" status={o.status} />

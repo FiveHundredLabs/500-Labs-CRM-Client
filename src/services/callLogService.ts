@@ -22,12 +22,13 @@ export interface SubmitCallResultInput {
   kidsSubtotal?: number;
   items?: {
     productId: string;
-    productName: string;
-    unitPrice: number;
+    productName?: string;
+    unitPrice?: number;
     quantity: number;
-    subtotal: number;
+    subtotal?: number;
   }[];
   totalPackageValue?: number;
+  codCharge?: number;
   codAmount?: number;
   remarks?: string;
   callDurationSeconds?: number;
@@ -53,8 +54,8 @@ export class CallLogService {
     let selectedPackage = input.selectedPackage;
 
     if (input.items && input.items.length > 0) {
-      const adultItem = input.items.find((i) => /adult/i.test(i.productName));
-      const kidsItem = input.items.find((i) => /kid|child/i.test(i.productName));
+      const adultItem = input.items.find((i) => i.productName && /adult/i.test(i.productName));
+      const kidsItem = input.items.find((i) => i.productName && /kid|child/i.test(i.productName));
 
       if (adultItem) {
         adultQty = adultQty ?? adultItem.quantity;

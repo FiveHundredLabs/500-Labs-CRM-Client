@@ -1,5 +1,6 @@
 import { Order, User, OrderStatus } from '../models/domain';
 import { ORDER_STATUS_CONFIG } from '../config/status';
+import { getProductSalesValue } from '../utils/orderAmounts';
 
 export interface LeaderboardMemberStats {
   rank: number;
@@ -153,7 +154,7 @@ export class SupervisorAnalyticsService {
 
       if (order.status === 'DELIVERED') {
         stats.deliveredOrders += 1;
-        stats.totalSalesValue += Number(order.totalAmount) || 0;
+        stats.totalSalesValue += getProductSalesValue(order);
       } else if (order.status === 'DISPATCHED') {
         stats.dispatchedOrders += 1;
       } else if (order.status === 'REJECTED' || order.status === 'RETURNED') {
@@ -201,11 +202,12 @@ export class SupervisorAnalyticsService {
 
     orders.forEach((o) => {
       const amt = Number(o.totalAmount) || 0;
+      const productSalesValue = getProductSalesValue(o);
       totalOrderValue += amt;
 
       if (o.status === 'DELIVERED') {
         deliveredOrders += 1;
-        deliveredOrderValue += amt;
+        deliveredOrderValue += productSalesValue;
       } else if (o.status === 'DISPATCHED') {
         dispatchedOrders += 1;
         dispatchedOrderValue += amt;

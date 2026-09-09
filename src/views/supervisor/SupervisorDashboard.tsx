@@ -51,6 +51,7 @@ import {
   subMonths,
 } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
+import { getAmountToCollect, getProductSalesValue } from '../../utils/orderAmounts';
 import toast from 'react-hot-toast';
 
 export type DashboardDateFilter = 'THIS_MONTH' | 'LAST_MONTH' | 'TODAY' | 'THIS_WEEK' | 'ALL' | 'LAST_6_MONTHS' | 'CUSTOM';
@@ -188,13 +189,13 @@ export const SupervisorDashboard: React.FC = () => {
   const rejectedOrders = scopedOrders.filter((o) => o.status === 'REJECTED' || o.status === 'RETURNED').length;
   
   const totalGrossSales = scopedOrders.reduce(
-    (sum, o) => sum + (Number(o.codAmount !== undefined && o.codAmount !== null ? o.codAmount : o.totalAmount) || 0),
+    (sum, o) => sum + getAmountToCollect(o),
     0
   );
 
   const totalDeliveredSales = scopedOrders
     .filter((o) => o.status === 'DELIVERED')
-    .reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+    .reduce((sum, o) => sum + getProductSalesValue(o), 0);
 
   const deliveryRate = totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0;
 

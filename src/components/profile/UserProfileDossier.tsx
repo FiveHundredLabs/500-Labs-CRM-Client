@@ -31,6 +31,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
+import { getProductSalesValue } from '../../utils/orderAmounts';
 
 export interface UserProfileDossierProps {
   user: User;
@@ -133,7 +134,7 @@ export const UserProfileDossier: React.FC<UserProfileDossierProps> = ({ user, on
     const rejected = scopedOrders.filter((o) => o.status === 'REJECTED' || o.status === 'RETURNED');
     const dispatched = scopedOrders.filter((o) => o.status === 'DISPATCHED');
 
-    const totalSales = delivered.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+    const totalSales = delivered.reduce((sum, o) => sum + getProductSalesValue(o), 0);
     const interested = scopedCallLogs.filter((cl) => cl.status === 'INTERESTED').length;
     const numbersAdded = scopedContacts.filter((c) => c.addedBy === user.id || c.isSelfAdded).length || scopedContacts.length;
 
@@ -163,7 +164,7 @@ export const UserProfileDossier: React.FC<UserProfileDossierProps> = ({ user, on
 
     const delivered = scopedOrders.filter((o) => o.status === 'DELIVERED');
     const rejected = scopedOrders.filter((o) => o.status === 'REJECTED' || o.status === 'RETURNED');
-    const totalSales = delivered.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+    const totalSales = delivered.reduce((sum, o) => sum + getProductSalesValue(o), 0);
 
     return {
       salesAmount: totalSales,

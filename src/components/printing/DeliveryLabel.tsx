@@ -2,6 +2,7 @@ import React from 'react';
 import { Order, Customer } from '../../models/domain';
 import { getTeamBranding } from '../../config/branding';
 import { formatCurrency } from '../../utils/currency';
+import { getAmountToCollect } from '../../utils/orderAmounts';
 
 export interface DeliveryLabelProps {
   order: Order;
@@ -55,7 +56,7 @@ export const DeliveryLabel: React.FC<DeliveryLabelProps> = ({ order, customer, c
       <div className="p-2 bg-slate-100 border border-slate-300 rounded text-slate-900 my-1">
         <div className="flex items-center justify-between text-[10px] font-bold uppercase border-b border-slate-300 pb-1">
           <span>Items: {order.itemsDescription}</span>
-          <span>COD: {formatCurrency(order.totalAmount)}</span>
+          <span>COD: {formatCurrency(getAmountToCollect(order))}</span>
         </div>
         <div className="text-[9px] font-medium text-slate-600 mt-1 truncate">
           Sender: {teamBrand.name} • {teamBrand.contactPhone}
