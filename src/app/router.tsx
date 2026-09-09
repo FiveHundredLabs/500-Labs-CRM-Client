@@ -147,6 +147,7 @@ export const router = createBrowserRouter([
                   { path: "users/:id", element: <AdminEmployeeDetailPage /> },
                   { path: "customers", element: <SupervisorInterestedPage /> },
                   { path: "reports", element: <AdminReportsPage /> },
+                  { path: "reports/:reportId", element: <AdminReportsPage /> },
                   { path: "leaderboards", element: <AdminLeaderboardsPage /> },
                   { path: "activity", element: <AdminActivityPage /> },
                   { path: "profile", element: <AdminProfilePage /> },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ActiveFilters, SupportedFilterType } from '../types';
-import { TEAMS, TeamItem, EXPENSE_CATEGORIES } from '../mockData';
+import { TeamItem, EXPENSE_CATEGORIES } from '../mockData';
 import { teamRepository } from '../../../../repositories';
 import { Select } from '../../../../components/ui/Select';
 import { 
@@ -44,7 +44,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
   const supportsPaymentMethod = supportedFilters.includes('paymentMethod');
 
   const [teamList, setTeamList] = useState<TeamItem[]>(
-    teams && teams.length > 0 ? teams : TEAMS
+    teams && teams.length > 0 ? teams : []
   );
 
   useEffect(() => {
@@ -166,14 +166,14 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
                 value={filters.dateRange.preset}
                 onChange={(e) => handlePresetChange(e.target.value as any)}
                 options={[
-                  { value: 'ALL', label: 'All Historic Dates' },
-                  { value: 'TODAY', label: 'Today' },
-                  { value: 'THIS_WEEK', label: 'This Week' },
-                  { value: 'THIS_MONTH', label: 'This Month' },
+                  { value: 'ALL', label: 'Automatic Date Range (All)' },
+                  { value: 'THIS_WEEK', label: 'Weekly (This Week)' },
+                  { value: 'THIS_MONTH', label: 'Monthly (This Month)' },
                   { value: 'LAST_MONTH', label: 'Last Month' },
+                  { value: 'TODAY', label: 'Today' },
                   { value: 'THIS_QUARTER', label: 'This Quarter' },
                   { value: 'THIS_YEAR', label: 'This Year (2026)' },
-                  { value: 'CUSTOM', label: 'Custom Range...' },
+                  { value: 'CUSTOM', label: 'Custom Date Range...' },
                 ]}
               />
             </div>
