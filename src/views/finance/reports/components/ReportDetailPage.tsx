@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ReportDefinition, ActiveFilters } from '../types';
-import { MOCK_FINANCE_DATABASE, TeamItem } from '../mockData';
+import { TeamItem } from '../mockData';
 import { financeRepository, teamRepository, pettyCashRepository } from '../../../../repositories';
 import { ReportFilters } from './ReportFilters';
 import { ReportSummaryCards } from './ReportSummaryCards';
@@ -373,13 +373,9 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
     };
   }, [report.id, filters.teamId, filters.dateRange.startDate, filters.dateRange.endDate, filters.dateRange.preset]);
 
-  // Query raw filtered report dataset (prefer live backend data when available)
+  // Query raw filtered report dataset (strictly live data from database)
   const rawReportData = useMemo(() => {
-    const isLiveReport = LIVE_DATA_REPORTS.includes(report.id);
-    if (isLiveReport) {
-      return liveReportData !== null ? report.getData(liveReportData, filters) : [];
-    }
-    return report.getData(MOCK_FINANCE_DATABASE, filters);
+    return liveReportData !== null ? report.getData(liveReportData, filters) : [];
   }, [report, filters, liveReportData]);
 
   // Extract tabular array rows (some reports like cash-flow return an object with a rows array)

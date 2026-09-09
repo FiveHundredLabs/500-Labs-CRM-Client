@@ -18,7 +18,7 @@ export interface ActiveFilters {
   search?: string;
 }
 
-export type ReportDataSet = any[] & Record<string, any>;
+export type ReportDataSet = any;
 
 export interface ReportKPI {
   id: string;

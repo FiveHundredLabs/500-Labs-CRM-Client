@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ActiveFilters, SupportedFilterType } from '../types';
-import { TEAMS, TeamItem, EXPENSE_CATEGORIES } from '../mockData';
+import { TeamItem, EXPENSE_CATEGORIES } from '../mockData';
 import { teamRepository } from '../../../../repositories';
 import { Select } from '../../../../components/ui/Select';
 import { 
@@ -44,7 +44,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
   const supportsPaymentMethod = supportedFilters.includes('paymentMethod');
 
   const [teamList, setTeamList] = useState<TeamItem[]>(
-    teams && teams.length > 0 ? teams : TEAMS
+    teams && teams.length > 0 ? teams : []
   );
 
   useEffect(() => {

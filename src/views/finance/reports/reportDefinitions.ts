@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { ReportDefinition, ActiveFilters } from './types';
 import { 
-  MOCK_FINANCE_DATABASE, 
   ExpenseRecord, 
   DeliveredOrderRecord, 
   ProductCostRecord, 
@@ -676,7 +675,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
       { id: 'remainingBalance', header: 'Vault Balance', accessorKey: 'remainingBalance', align: 'right', format: 'currency' },
     ],
     getData: (db, filters) => {
-      // Support both live db-object format and direct array (mock data passes MOCK_FINANCE_DATABASE)
+      // Support live db-object format or direct array
       const txns: PettyCashTransactionRecord[] = Array.isArray(db)
         ? db
         : (db.pettyCashTransactions || []);
