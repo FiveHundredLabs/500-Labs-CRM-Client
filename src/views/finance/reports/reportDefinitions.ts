@@ -701,514 +701,12 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
     },
   },
 ];
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SALES INTELLIGENCE REPORTS (Live from /finance/sales-report & /delivery-report)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const SALES_REPORTS: ReportDefinition[] = [
-  // 1. Daily Sales Performance Report
-  {
-    id: 'daily-sales',
-    name: 'Daily Sales Performance Report',
-    description: 'Granular day-by-day order counts, gross COD sales, COGS deductions, and net realized profits.',
-    category: 'SALES',
-    groupCategory: 'SALES',
-    badgeText: 'Daily Velocity',
-    badgeType: 'analytical',
-    icon: Clock,
-    supportedFilters: ['dateRange', 'search'],
-    kpis: [
-      {
-        id: 'daily-revenue',
-        label: 'Realized Sales Revenue',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0,
-        subtitle: (data) => `${Array.isArray(data) ? data.length : 0} operational days recorded`,
-        accentColor: 'blue',
-      },
-      {
-        id: 'daily-orders',
-        label: 'Delivered Consignments',
-        format: 'number',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.orderCount) || 0), 0) : 0,
-        subtitle: () => 'Orders fulfilled & collected',
-        accentColor: 'green',
-      },
-      {
-        id: 'daily-profit',
-        label: 'Realized Gross Margin',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0,
-        subtitle: (data) => {
-          const rev = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0;
-          const gp = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0;
-          return rev > 0 ? `${((gp / rev) * 100).toFixed(1)}% gross margin` : '0%';
-        },
-        accentColor: 'purple',
-      },
-      {
-        id: 'daily-avg-velocity',
-        label: 'Average Daily Velocity',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) && data.length ? Math.round(data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) / data.length) : 0,
-        subtitle: () => 'Average revenue per active day',
-        accentColor: 'amber',
-      },
-    ],
-    chartConfig: {
-      type: 'BAR',
-      xAxisKey: 'period',
-      series: [
-        { key: 'revenue', name: 'Realized Revenue (LKR)', color: '#01A8F3' },
-        { key: 'grossProfit', name: 'Gross Margin (LKR)', color: '#80BD2B' },
-      ],
-      getChartData: (data) => Array.isArray(data) ? data.map((d: any) => ({
-        period: d.period,
-        revenue: Number(d.revenue) || 0,
-        grossProfit: Number(d.grossProfit) || 0,
-      })) : [],
-    },
-    columns: [
-      { id: 'period', header: 'Date', accessorKey: 'period', format: 'text' },
-      { id: 'orderCount', header: 'Delivered Orders', accessorKey: 'orderCount', align: 'center', format: 'number' },
-      { id: 'revenue', header: 'Gross Revenue', accessorKey: 'revenue', align: 'right', format: 'currency' },
-      { id: 'cogs', header: 'Product COGS', accessorKey: 'cogs', align: 'right', format: 'currency' },
-      { id: 'grossProfit', header: 'Realized Margin', accessorKey: 'grossProfit', align: 'right', format: 'currency' },
-      { 
-        id: 'marginPct', 
-        header: 'Margin %', 
-        accessorKey: 'marginPct',
-        align: 'right', 
-        cell: (row) => {
-          const rev = Number(row.revenue) || 0;
-          const gp = Number(row.grossProfit) || 0;
-          const pct = row.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
-          return React.createElement('span', { className: 'font-bold text-[#547E1B]' }, pct);
-        } 
-      },
-    ],
-    pdfConfig: {
-      orientation: 'portrait',
-      columns: [
-        { header: 'Date', accessorKey: 'period', align: 'left', widthMm: 30 },
-        { header: 'Delivered Orders', accessorKey: 'orderCount', align: 'center', format: 'number', widthMm: 28 },
-        { header: 'Gross Revenue', accessorKey: 'revenue', align: 'right', format: 'currency', widthMm: 34 },
-        { header: 'Product COGS', accessorKey: 'cogs', align: 'right', format: 'currency', widthMm: 34 },
-        { header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency', widthMm: 32 },
-        { header: 'Margin %', accessorKey: 'marginPct', align: 'right', format: 'text', widthMm: 24 },
-      ],
-      summaryLines: (data) => {
-        const rev = data.reduce((s: number, d: any) => s + (Number(d.revenue) || 0), 0);
-        const cogs = data.reduce((s: number, d: any) => s + (Number(d.cogs) || 0), 0);
-        const gp = data.reduce((s: number, d: any) => s + (Number(d.grossProfit) || 0), 0);
-        const orders = data.reduce((s: number, d: any) => s + (Number(d.orderCount) || 0), 0);
-        const overallMargin = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
-        return [
-          { label: 'Total Operating Days Recorded:', value: `${data.length} days`, isBold: true },
-          { label: 'Total Orders Delivered:', value: `${orders.toLocaleString()} orders` },
-          { label: 'Total Procurement COGS:', value: formatCurrency(cogs) },
-          { label: 'Realized Gross Margin:', value: `${formatCurrency(gp)} (${overallMargin})`, isBold: true },
-          { label: 'Total Realized Sales Revenue:', value: formatCurrency(rev), isBold: true, isHighlight: true },
-        ];
-      },
-    },
-    getData: (allData, filters) => {
-      const raw = allData && allData.periodData ? allData.periodData : (Array.isArray(allData) ? allData : []);
-      return raw.map((d: any) => {
-        const rev = Number(d.revenue) || 0;
-        const gp = Number(d.grossProfit) || 0;
-        const marginPct = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
-        return { ...d, marginPct };
-      }).filter((d: any) => {
-        if (!isDateInRange(d.period, filters.dateRange.startDate, filters.dateRange.endDate)) return false;
-        if (filters.search && !String(d.period).toLowerCase().includes(filters.search.toLowerCase())) return false;
-        return true;
-      });
-    },
-  },
-
-  // 2. Weekly Sales Trend Report
-  {
-    id: 'weekly-sales',
-    name: 'Weekly Sales Trend Report',
-    description: 'Week-over-week revenue velocity, shipment delivery volumes, and cost vs profitability dynamics.',
-    category: 'SALES',
-    groupCategory: 'SALES',
-    badgeText: 'Weekly Growth',
-    badgeType: 'executive',
-    icon: TrendingUp,
-    supportedFilters: ['dateRange', 'search'],
-    kpis: [
-      {
-        id: 'weekly-revenue',
-        label: 'Total Weekly Revenue',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0,
-        subtitle: (data) => `${Array.isArray(data) ? data.length : 0} calendar weeks active`,
-        accentColor: 'blue',
-      },
-      {
-        id: 'weekly-orders',
-        label: 'Total Orders Delivered',
-        format: 'number',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.orderCount) || 0), 0) : 0,
-        subtitle: () => 'Consignments fulfilled',
-        accentColor: 'green',
-      },
-      {
-        id: 'weekly-profit',
-        label: 'Realized Gross Profit',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0,
-        subtitle: (data) => {
-          const rev = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0;
-          const gp = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0;
-          return rev > 0 ? `${((gp / rev) * 100).toFixed(1)}% net gross margin` : '0%';
-        },
-        accentColor: 'purple',
-      },
-      {
-        id: 'weekly-cogs',
-        label: 'Cumulative COGS',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.cogs) || 0), 0) : 0,
-        subtitle: () => 'Direct inventory acquisition',
-        accentColor: 'amber',
-      },
-    ],
-    chartConfig: {
-      type: 'GROUPED_BAR',
-      xAxisKey: 'period',
-      series: [
-        { key: 'revenue', name: 'Weekly Revenue (LKR)', color: '#01A8F3' },
-        { key: 'cogs', name: 'COGS (LKR)', color: '#F59E0B' },
-        { key: 'grossProfit', name: 'Gross Margin (LKR)', color: '#80BD2B' },
-      ],
-      getChartData: (data) => Array.isArray(data) ? data.map((d: any) => ({
-        period: d.period,
-        revenue: Number(d.revenue) || 0,
-        cogs: Number(d.cogs) || 0,
-        grossProfit: Number(d.grossProfit) || 0,
-      })) : [],
-    },
-    columns: [
-      { id: 'period', header: 'Week', accessorKey: 'period', format: 'text' },
-      { id: 'orderCount', header: 'Delivered Orders', accessorKey: 'orderCount', align: 'center', format: 'number' },
-      { id: 'revenue', header: 'Weekly Revenue', accessorKey: 'revenue', align: 'right', format: 'currency' },
-      { id: 'cogs', header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency' },
-      { id: 'grossProfit', header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency' },
-      { 
-        id: 'marginPct', 
-        header: 'Margin %', 
-        accessorKey: 'marginPct',
-        align: 'right', 
-        cell: (row) => {
-          const rev = Number(row.revenue) || 0;
-          const gp = Number(row.grossProfit) || 0;
-          const pct = row.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
-          return React.createElement('span', { className: 'font-bold text-[#547E1B]' }, pct);
-        } 
-      },
-    ],
-    pdfConfig: {
-      orientation: 'portrait',
-      columns: [
-        { header: 'Week', accessorKey: 'period', align: 'left', widthMm: 30 },
-        { header: 'Delivered Orders', accessorKey: 'orderCount', align: 'center', format: 'number', widthMm: 28 },
-        { header: 'Weekly Revenue', accessorKey: 'revenue', align: 'right', format: 'currency', widthMm: 34 },
-        { header: 'Product COGS', accessorKey: 'cogs', align: 'right', format: 'currency', widthMm: 34 },
-        { header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency', widthMm: 32 },
-        { header: 'Margin %', accessorKey: 'marginPct', align: 'right', format: 'text', widthMm: 24 },
-      ],
-      summaryLines: (data) => {
-        const rev = data.reduce((s: number, d: any) => s + (Number(d.revenue) || 0), 0);
-        const cogs = data.reduce((s: number, d: any) => s + (Number(d.cogs) || 0), 0);
-        const gp = data.reduce((s: number, d: any) => s + (Number(d.grossProfit) || 0), 0);
-        const orders = data.reduce((s: number, d: any) => s + (Number(d.orderCount) || 0), 0);
-        const overallMargin = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
-        return [
-          { label: 'Total Calendar Weeks Active:', value: `${data.length} weeks`, isBold: true },
-          { label: 'Total Orders Delivered:', value: `${orders.toLocaleString()} orders` },
-          { label: 'Total Product COGS:', value: formatCurrency(cogs) },
-          { label: 'Realized Gross Margin:', value: `${formatCurrency(gp)} (${overallMargin})`, isBold: true },
-          { label: 'Total Realized Weekly Revenue:', value: formatCurrency(rev), isBold: true, isHighlight: true },
-        ];
-      },
-    },
-    getData: (allData, filters) => {
-      const raw = allData && allData.periodData ? allData.periodData : (Array.isArray(allData) ? allData : []);
-      return raw.map((d: any) => {
-        const rev = Number(d.revenue) || 0;
-        const gp = Number(d.grossProfit) || 0;
-        const marginPct = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
-        return { ...d, marginPct };
-      }).filter((d: any) => {
-        if (filters.search && !String(d.period).toLowerCase().includes(filters.search.toLowerCase())) return false;
-        return true;
-      });
-    },
-  },
-
-  // 3. Monthly Sales & Revenue Report
-  {
-    id: 'monthly-sales',
-    name: 'Monthly Sales & Revenue Report',
-    description: 'Executive monthly aggregated revenue trajectories, procurement COGS, and operational margin ratios.',
-    category: 'SALES',
-    groupCategory: 'SALES',
-    badgeText: 'Monthly P&L',
-    badgeType: 'executive',
-    icon: BarChart3,
-    supportedFilters: ['dateRange', 'search'],
-    kpis: [
-      {
-        id: 'monthly-revenue',
-        label: 'Cumulative Period Revenue',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0,
-        subtitle: (data) => `${Array.isArray(data) ? data.length : 0} months compiled`,
-        accentColor: 'blue',
-      },
-      {
-        id: 'monthly-orders',
-        label: 'Total Orders Fulfilled',
-        format: 'number',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.orderCount) || 0), 0) : 0,
-        subtitle: () => 'Consignments delivered',
-        accentColor: 'green',
-      },
-      {
-        id: 'monthly-profit',
-        label: 'Realized Gross Profit',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0,
-        subtitle: (data) => {
-          const rev = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0;
-          const gp = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0;
-          return rev > 0 ? `${((gp / rev) * 100).toFixed(1)}% realized margin` : '0%';
-        },
-        accentColor: 'purple',
-      },
-      {
-        id: 'monthly-cogs',
-        label: 'Procurement COGS',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.cogs) || 0), 0) : 0,
-        subtitle: () => 'Physical goods cost',
-        accentColor: 'amber',
-      },
-    ],
-    chartConfig: {
-      type: 'AREA',
-      xAxisKey: 'period',
-      series: [
-        { key: 'revenue', name: 'Gross Revenue (LKR)', color: '#01A8F3' },
-        { key: 'grossProfit', name: 'Gross Margin (LKR)', color: '#80BD2B' },
-      ],
-      getChartData: (data) => Array.isArray(data) ? data.map((d: any) => ({
-        period: d.period,
-        revenue: Number(d.revenue) || 0,
-        grossProfit: Number(d.grossProfit) || 0,
-      })) : [],
-    },
-    columns: [
-      { id: 'period', header: 'Month', accessorKey: 'period', format: 'text' },
-      { id: 'orderCount', header: 'Delivered Consignments', accessorKey: 'orderCount', align: 'center', format: 'number' },
-      { id: 'revenue', header: 'Gross Revenue', accessorKey: 'revenue', align: 'right', format: 'currency' },
-      { id: 'cogs', header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency' },
-      { id: 'grossProfit', header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency' },
-      { 
-        id: 'marginPct', 
-        header: 'Profitability %', 
-        accessorKey: 'marginPct',
-        align: 'right', 
-        cell: (row) => {
-          const rev = Number(row.revenue) || 0;
-          const gp = Number(row.grossProfit) || 0;
-          const pct = row.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
-          return React.createElement('span', { className: 'font-bold text-[#547E1B]' }, pct);
-        } 
-      },
-    ],
-    pdfConfig: {
-      orientation: 'portrait',
-      columns: [
-        { header: 'Month', accessorKey: 'period', align: 'left', widthMm: 30 },
-        { header: 'Delivered Orders', accessorKey: 'orderCount', align: 'center', format: 'number', widthMm: 28 },
-        { header: 'Gross Revenue', accessorKey: 'revenue', align: 'right', format: 'currency', widthMm: 34 },
-        { header: 'Procurement COGS', accessorKey: 'cogs', align: 'right', format: 'currency', widthMm: 34 },
-        { header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency', widthMm: 32 },
-        { header: 'Profitability %', accessorKey: 'marginPct', align: 'right', format: 'text', widthMm: 24 },
-      ],
-      summaryLines: (data) => {
-        const rev = data.reduce((s: number, d: any) => s + (Number(d.revenue) || 0), 0);
-        const cogs = data.reduce((s: number, d: any) => s + (Number(d.cogs) || 0), 0);
-        const gp = data.reduce((s: number, d: any) => s + (Number(d.grossProfit) || 0), 0);
-        const orders = data.reduce((s: number, d: any) => s + (Number(d.orderCount) || 0), 0);
-        const overallMargin = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
-        return [
-          { label: 'Total Months Compiled:', value: `${data.length} months`, isBold: true },
-          { label: 'Total Consignments Delivered:', value: `${orders.toLocaleString()} orders` },
-          { label: 'Total Procurement COGS:', value: formatCurrency(cogs) },
-          { label: 'Realized Gross Margin:', value: `${formatCurrency(gp)} (${overallMargin})`, isBold: true },
-          { label: 'Total Realized Sales Revenue:', value: formatCurrency(rev), isBold: true, isHighlight: true },
-        ];
-      },
-    },
-    getData: (allData, filters) => {
-      const raw = allData && allData.periodData ? allData.periodData : (Array.isArray(allData) ? allData : []);
-      return raw.map((d: any) => {
-        const rev = Number(d.revenue) || 0;
-        const gp = Number(d.grossProfit) || 0;
-        const marginPct = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
-        return { ...d, marginPct };
-      }).filter((d: any) => {
-        if (filters.search && !String(d.period).toLowerCase().includes(filters.search.toLowerCase())) return false;
-        return true;
-      });
-    },
-  },
-
-  // 4. District & City Delivery Report
-  {
-    id: 'city-delivery',
-    name: 'District & City Delivery Report',
-    description: 'Geographic dispatch logistics, completed delivery success rate, returns, and regional collection volumes.',
-    category: 'SALES',
-    groupCategory: 'SALES',
-    badgeText: 'Logistics',
-    badgeType: 'analytical',
-    icon: MapPin,
-    supportedFilters: ['dateRange', 'search'],
-    kpis: [
-      {
-        id: 'total-dispatched',
-        label: 'Total Dispatched',
-        format: 'number',
-        getValue: (data) => Array.isArray(data) ? data.reduce((s, c) => s + (Number(c.total) || 0), 0) : 0,
-        subtitle: () => 'Consignments booked across destinations',
-        accentColor: 'blue',
-      },
-      {
-        id: 'fulfillment-rate',
-        label: 'Delivery Success Rate',
-        format: 'percentage',
-        getValue: (data) => {
-          if (!Array.isArray(data) || !data.length) return 0;
-          const tot = data.reduce((s, c) => s + (Number(c.total) || 0), 0);
-          const del = data.reduce((s, c) => s + (Number(c.delivered) || 0), 0);
-          return tot > 0 ? Math.round((del / tot) * 100) : 0;
-        },
-        subtitle: () => 'Realized delivered packages',
-        accentColor: 'green',
-      },
-      {
-        id: 'city-collections',
-        label: 'COD Collections',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((s, c) => s + (Number(c.revenue) || 0), 0) : 0,
-        subtitle: () => 'Realized cash on delivery',
-        accentColor: 'purple',
-      },
-      {
-        id: 'active-cities',
-        label: 'Active Delivery Hubs',
-        format: 'number',
-        getValue: (data) => Array.isArray(data) ? data.length : 0,
-        subtitle: () => 'Monitored distribution centers',
-        accentColor: 'amber',
-      },
-    ],
-    chartConfig: {
-      type: 'BAR',
-      xAxisKey: 'city',
-      series: [
-        { key: 'revenue', name: 'COD Collections (LKR)', color: '#01A8F3' },
-        { key: 'delivered', name: 'Delivered Packages', color: '#80BD2B' },
-      ],
-      getChartData: (data) => Array.isArray(data) ? data.slice(0, 10).map((c: any) => ({
-        city: c.city,
-        revenue: Number(c.revenue) || 0,
-        delivered: Number(c.delivered) || 0,
-      })) : [],
-    },
-    columns: [
-      { id: 'city', header: 'City / District', accessorKey: 'city', format: 'text' },
-      { id: 'total', header: 'Booked Consignments', accessorKey: 'total', align: 'center', format: 'number' },
-      { id: 'delivered', header: 'Delivered', accessorKey: 'delivered', align: 'center', format: 'number' },
-      { id: 'pending', header: 'In Transit', accessorKey: 'pending', align: 'center', format: 'number' },
-      { id: 'cancelled', header: 'Cancelled / Returned', accessorKey: 'cancelled', align: 'center', format: 'number' },
-      { 
-        id: 'rate', 
-        header: 'Delivery Rate', 
-        accessorKey: 'rate',
-        align: 'center', 
-        cell: (row) => {
-          const tot = Number(row.total) || 0;
-          const del = Number(row.delivered) || 0;
-          const pct = tot > 0 ? ((del / tot) * 100).toFixed(1) : '0.0';
-          const isGood = Number(pct) >= 60;
-          return React.createElement(
-            'span',
-            {
-              className: `px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                isGood 
-                  ? 'bg-[#F2F9E9] text-[#547E1B] border border-[#D4ECC6]' 
-                  : 'bg-amber-50 text-amber-700 border border-amber-200'
-              }`,
-            },
-            `${pct}%`
-          );
-        } 
-      },
-      { id: 'revenue', header: 'Realized Collections', accessorKey: 'revenue', align: 'right', format: 'currency' },
-    ],
-    pdfConfig: {
-      orientation: 'portrait',
-      columns: [
-        { header: 'City / District', accessorKey: 'city', align: 'left', widthMm: 42 },
-        { header: 'Booked', accessorKey: 'total', align: 'center', format: 'number', widthMm: 20 },
-        { header: 'Delivered', accessorKey: 'delivered', align: 'center', format: 'number', widthMm: 20 },
-        { header: 'In Transit', accessorKey: 'pending', align: 'center', format: 'number', widthMm: 20 },
-        { header: 'Cancelled', accessorKey: 'cancelled', align: 'center', format: 'number', widthMm: 20 },
-        { header: 'Delivery Rate', accessorKey: 'rate', align: 'center', format: 'text', widthMm: 22 },
-        { header: 'COD Collections', accessorKey: 'revenue', align: 'right', format: 'currency', widthMm: 38 },
-      ],
-      summaryLines: (data) => {
-        const tot = data.reduce((s: number, c: any) => s + (Number(c.total) || 0), 0);
-        const del = data.reduce((s: number, c: any) => s + (Number(c.delivered) || 0), 0);
-        const inTransit = data.reduce((s: number, c: any) => s + (Number(c.pending) || 0), 0);
-        const canc = data.reduce((s: number, c: any) => s + (Number(c.cancelled) || 0), 0);
-        const rev = data.reduce((s: number, c: any) => s + (Number(c.revenue) || 0), 0);
-        const overallRate = tot > 0 ? `${((del / tot) * 100).toFixed(1)}%` : '0.0%';
-        return [
-          { label: 'Total Consignments Booked:', value: `${tot.toLocaleString()} parcels`, isBold: true },
-          { label: 'Successfully Delivered:', value: `${del.toLocaleString()} parcels (${overallRate})` },
-          { label: 'Currently In Transit:', value: `${inTransit.toLocaleString()} parcels` },
-          { label: 'Cancelled / Returned:', value: `${canc.toLocaleString()} parcels` },
-          { label: 'Total Realized COD Collections:', value: formatCurrency(rev), isBold: true, isHighlight: true },
-        ];
-      },
-    },
-    getData: (allData, filters) => {
-      const raw = allData && allData.cityData ? allData.cityData : (Array.isArray(allData) ? allData : []);
-      return raw.map((c: any) => {
-        const tot = Number(c.total) || 0;
-        const del = Number(c.delivered) || 0;
-        const rate = tot > 0 ? `${((del / tot) * 100).toFixed(1)}%` : '0.0%';
-        return {
-          ...c,
-          rate,
-        };
-      }).filter((c: any) => {
-        if (filters.search && !String(c.city).toLowerCase().includes(filters.search.toLowerCase())) return false;
-        return true;
-      });
-    },
-  },
-
-  // 5. Consignment Realized Sales Ledger
+  // 1. Consignment Realized Sales Ledger
   {
     id: 'consignment-sales',
     name: 'Consignment Realized Sales Ledger',
@@ -1353,194 +851,7 @@ export const SALES_REPORTS: ReportDefinition[] = [
     },
   },
 
-  // 6. Team Member Sales & Performance Report
-  {
-    id: 'team-member-sales',
-    name: 'Team Member Sales & Performance Report',
-    description: 'Audited sales revenue, delivered consignments, COGS, and profit margins broken down by individual team members and sales representatives for each team separately.',
-    category: 'SALES',
-    groupCategory: 'SALES',
-    badgeText: 'Team Intelligence',
-    badgeType: 'executive',
-    icon: Users,
-    supportedFilters: ['dateRange', 'team', 'search'],
-    kpis: [
-      {
-        id: 'team-total-revenue',
-        label: 'Realized Delivered Revenue',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredRevenue) || 0), 0) : 0,
-        subtitle: (data) => {
-          const totalBooked = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.totalSales) || 0), 0) : 0;
-          return `Booked: ${formatCurrency(totalBooked)}`;
-        },
-        accentColor: 'blue',
-      },
-      {
-        id: 'team-orders-fulfilled',
-        label: 'Delivered Consignments',
-        format: 'number',
-        getValue: (data) => Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredOrders) || 0), 0) : 0,
-        subtitle: (data) => {
-          const tot = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.totalOrders) || 0), 0) : 0;
-          const del = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredOrders) || 0), 0) : 0;
-          const rate = tot > 0 ? ((del / tot) * 100).toFixed(1) : '0.0';
-          return `${rate}% delivery fulfillment rate`;
-        },
-        accentColor: 'green',
-      },
-      {
-        id: 'team-gross-profit',
-        label: 'Realized Gross Profit',
-        format: 'currency',
-        getValue: (data) => Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.grossProfit) || 0), 0) : 0,
-        subtitle: (data) => {
-          const rev = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredRevenue) || 0), 0) : 0;
-          const gp = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.grossProfit) || 0), 0) : 0;
-          return rev > 0 ? `${((gp / rev) * 100).toFixed(1)}% realized margin` : '0%';
-        },
-        accentColor: 'purple',
-      },
-      {
-        id: 'active-members-count',
-        label: 'Active Sales Reps',
-        format: 'number',
-        getValue: (data) => Array.isArray(data) ? data.filter((m) => (Number(m.totalOrders) || 0) > 0).length : 0,
-        subtitle: (data) => `${Array.isArray(data) ? data.length : 0} registered team members`,
-        accentColor: 'amber',
-      },
-    ],
-    chartConfig: {
-      type: 'GROUPED_BAR',
-      xAxisKey: 'memberName',
-      series: [
-        { key: 'deliveredRevenue', name: 'Realized Revenue (LKR)', color: '#01A8F3' },
-        { key: 'grossProfit', name: 'Gross Profit (LKR)', color: '#80BD2B' },
-      ],
-      getChartData: (data) => {
-        if (!Array.isArray(data)) return [];
-        return data.slice(0, 10).map((m: any) => ({
-          memberName: m.memberName || 'Agent',
-          deliveredRevenue: Number(m.deliveredRevenue) || 0,
-          grossProfit: Number(m.grossProfit) || 0,
-          totalSales: Number(m.totalSales) || 0,
-        }));
-      },
-    },
-    columns: [
-      { 
-        id: 'memberName', 
-        header: 'Sales Representative', 
-        accessorKey: 'memberName', 
-        format: 'text',
-        cell: (row) => {
-          return React.createElement('div', { className: 'flex flex-col' },
-            React.createElement('span', { className: 'font-bold text-slate-900' }, row.memberName || 'Agent'),
-            React.createElement('span', { className: 'text-[11px] text-slate-500 capitalize' }, (row.role || 'Sales Rep').toLowerCase().replace('_', ' '))
-          );
-        }
-      },
-      { id: 'teamName', header: 'Team / Brand', accessorKey: 'teamName', format: 'badge' },
-      { id: 'totalOrders', header: 'Booked', accessorKey: 'totalOrders', align: 'center', format: 'number' },
-      { id: 'deliveredOrders', header: 'Delivered', accessorKey: 'deliveredOrders', align: 'center', format: 'number' },
-      { 
-        id: 'deliveryRate', 
-        header: 'Success Rate', 
-        accessorKey: 'deliveryRate', 
-        align: 'center',
-        cell: (row) => {
-          const rateVal = parseFloat(String(row.deliveryRate || '0'));
-          const isGood = rateVal >= 60;
-          return React.createElement(
-            'span',
-            {
-              className: `px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                isGood
-                  ? 'bg-[#F2F9E9] text-[#547E1B] border border-[#D4ECC6]'
-                  : 'bg-amber-50 text-amber-700 border border-amber-200'
-              }`,
-            },
-            row.deliveryRate || '0.0%'
-          );
-        }
-      },
-      { id: 'totalSales', header: 'Gross Booked', accessorKey: 'totalSales', align: 'right', format: 'currency' },
-      { id: 'deliveredRevenue', header: 'Realized Revenue', accessorKey: 'deliveredRevenue', align: 'right', format: 'currency' },
-      { id: 'cogs', header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency' },
-      { id: 'grossProfit', header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency' },
-      { 
-        id: 'marginPct', 
-        header: 'Margin %', 
-        accessorKey: 'marginPct', 
-        align: 'right',
-        cell: (row) => {
-          const rev = Number(row.deliveredRevenue) || 0;
-          const gp = Number(row.grossProfit) || 0;
-          const pct = row.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
-          return React.createElement('span', { className: 'font-bold text-[#547E1B]' }, pct);
-        }
-      },
-    ],
-    pdfConfig: {
-      orientation: 'landscape',
-      columns: [
-        { header: 'Sales Representative', accessorKey: 'memberName', align: 'left', widthMm: 42 },
-        { header: 'Team / Brand', accessorKey: 'teamName', align: 'left', widthMm: 30 },
-        { header: 'Booked', accessorKey: 'totalOrders', align: 'center', format: 'number', widthMm: 18 },
-        { header: 'Delivered', accessorKey: 'deliveredOrders', align: 'center', format: 'number', widthMm: 18 },
-        { header: 'Success %', accessorKey: 'deliveryRate', align: 'center', format: 'text', widthMm: 22 },
-        { header: 'Gross Booked', accessorKey: 'totalSales', align: 'right', format: 'currency', widthMm: 32 },
-        { header: 'Realized Revenue', accessorKey: 'deliveredRevenue', align: 'right', format: 'currency', widthMm: 34 },
-        { header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency', widthMm: 26 },
-        { header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency', widthMm: 25 },
-        { header: 'Margin %', accessorKey: 'marginPct', align: 'right', format: 'text', widthMm: 20 },
-      ],
-      summaryLines: (data) => {
-        const rev = data.reduce((s: number, m: any) => s + (Number(m.deliveredRevenue) || 0), 0);
-        const cogs = data.reduce((s: number, m: any) => s + (Number(m.cogs) || 0), 0);
-        const gp = data.reduce((s: number, m: any) => s + (Number(m.grossProfit) || 0), 0);
-        const totOrders = data.reduce((s: number, m: any) => s + (Number(m.totalOrders) || 0), 0);
-        const delOrders = data.reduce((s: number, m: any) => s + (Number(m.deliveredOrders) || 0), 0);
-        const overallRate = totOrders > 0 ? `${((delOrders / totOrders) * 100).toFixed(1)}%` : '0.0%';
-        const overallMargin = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
-        return [
-          { label: 'Active Sales Representatives:', value: `${data.filter((m: any) => (Number(m.totalOrders) || 0) > 0).length} of ${data.length} members`, isBold: true },
-          { label: 'Total Consignments Delivered:', value: `${delOrders.toLocaleString()} of ${totOrders.toLocaleString()} booked (${overallRate})` },
-          { label: 'Total Direct Inventory COGS:', value: formatCurrency(cogs) },
-          { label: 'Total Realized Gross Margin:', value: `${formatCurrency(gp)} (${overallMargin})`, isBold: true },
-          { label: 'Cumulative Realized Revenue:', value: formatCurrency(rev), isBold: true, isHighlight: true },
-        ];
-      },
-    },
-    getData: (allData, filters) => {
-      const raw = allData && allData.members ? allData.members : (Array.isArray(allData) ? allData : []);
-      return raw.map((m: any) => {
-        const rev = Number(m.deliveredRevenue) || 0;
-        const gp = Number(m.grossProfit) || 0;
-        const marginPct = m.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
-        const totOrders = Number(m.totalOrders) || 0;
-        const delOrders = Number(m.deliveredOrders) || 0;
-        const deliveryRate = m.deliveryRate || (totOrders > 0 ? `${((delOrders / totOrders) * 100).toFixed(1)}%` : '0.0%');
-        return {
-          ...m,
-          marginPct,
-          deliveryRate,
-        };
-      }).filter((m: any) => {
-        if (filters.teamId && filters.teamId !== 'ALL' && m.teamId !== filters.teamId) return false;
-        if (filters.search && filters.search.trim()) {
-          const q = filters.search.toLowerCase().trim();
-          const matchName = (m.memberName || '').toLowerCase().includes(q);
-          const matchUser = (m.username || '').toLowerCase().includes(q);
-          const matchTeam = (m.teamName || '').toLowerCase().includes(q);
-          return matchName || matchUser || matchTeam;
-        }
-        return true;
-      });
-    },
-  },
-
-  // 7. Contact Batch-Wise Performance Report
+  // 2. Contact Batch-Wise Performance Report
   {
     id: 'contact-batch-report',
     name: 'Contact Batch-Wise Performance Report',
@@ -1740,6 +1051,694 @@ export const SALES_REPORTS: ReportDefinition[] = [
           const matchTeam = (b.teamName || '').toLowerCase().includes(q);
           return matchCode || matchTeam;
         }
+        return true;
+      });
+    },
+  },
+
+  // 3. Team Member Sales & Performance Report
+  {
+    id: 'team-member-sales',
+    name: 'Team Member Sales & Performance Report',
+    description: 'Audited sales revenue, delivered consignments, COGS, and profit margins broken down by individual team members and sales representatives for each team separately.',
+    category: 'SALES',
+    groupCategory: 'SALES',
+    badgeText: 'Team Intelligence',
+    badgeType: 'executive',
+    icon: Users,
+    supportedFilters: ['dateRange', 'team', 'search'],
+    kpis: [
+      {
+        id: 'team-total-revenue',
+        label: 'Realized Delivered Revenue',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredRevenue) || 0), 0) : 0,
+        subtitle: (data) => {
+          const totalBooked = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.totalSales) || 0), 0) : 0;
+          return `Booked: ${formatCurrency(totalBooked)}`;
+        },
+        accentColor: 'blue',
+      },
+      {
+        id: 'team-orders-fulfilled',
+        label: 'Delivered Consignments',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredOrders) || 0), 0) : 0,
+        subtitle: (data) => {
+          const tot = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.totalOrders) || 0), 0) : 0;
+          const del = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredOrders) || 0), 0) : 0;
+          const rate = tot > 0 ? ((del / tot) * 100).toFixed(1) : '0.0';
+          return `${rate}% delivery fulfillment rate`;
+        },
+        accentColor: 'green',
+      },
+      {
+        id: 'team-gross-profit',
+        label: 'Realized Gross Profit',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.grossProfit) || 0), 0) : 0,
+        subtitle: (data) => {
+          const rev = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredRevenue) || 0), 0) : 0;
+          const gp = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.grossProfit) || 0), 0) : 0;
+          return rev > 0 ? `${((gp / rev) * 100).toFixed(1)}% realized margin` : '0%';
+        },
+        accentColor: 'purple',
+      },
+      {
+        id: 'active-members-count',
+        label: 'Active Sales Reps',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.filter((m) => (Number(m.totalOrders) || 0) > 0).length : 0,
+        subtitle: (data) => `${Array.isArray(data) ? data.length : 0} registered team members`,
+        accentColor: 'amber',
+      },
+    ],
+    chartConfig: {
+      type: 'GROUPED_BAR',
+      xAxisKey: 'memberName',
+      series: [
+        { key: 'deliveredRevenue', name: 'Realized Revenue (LKR)', color: '#01A8F3' },
+        { key: 'grossProfit', name: 'Gross Profit (LKR)', color: '#80BD2B' },
+      ],
+      getChartData: (data) => {
+        if (!Array.isArray(data)) return [];
+        return data.slice(0, 10).map((m: any) => ({
+          memberName: m.memberName || 'Agent',
+          deliveredRevenue: Number(m.deliveredRevenue) || 0,
+          grossProfit: Number(m.grossProfit) || 0,
+          totalSales: Number(m.totalSales) || 0,
+        }));
+      },
+    },
+    columns: [
+      { 
+        id: 'memberName', 
+        header: 'Sales Representative', 
+        accessorKey: 'memberName', 
+        format: 'text',
+        cell: (row) => {
+          return React.createElement('div', { className: 'flex flex-col' },
+            React.createElement('span', { className: 'font-bold text-slate-900' }, row.memberName || 'Agent'),
+            React.createElement('span', { className: 'text-[11px] text-slate-500 capitalize' }, (row.role || 'Sales Rep').toLowerCase().replace('_', ' '))
+          );
+        }
+      },
+      { id: 'teamName', header: 'Team / Brand', accessorKey: 'teamName', format: 'badge' },
+      { id: 'totalOrders', header: 'Booked', accessorKey: 'totalOrders', align: 'center', format: 'number' },
+      { id: 'deliveredOrders', header: 'Delivered', accessorKey: 'deliveredOrders', align: 'center', format: 'number' },
+      { 
+        id: 'deliveryRate', 
+        header: 'Success Rate', 
+        accessorKey: 'deliveryRate', 
+        align: 'center',
+        cell: (row) => {
+          const rateVal = parseFloat(String(row.deliveryRate || '0'));
+          const isGood = rateVal >= 60;
+          return React.createElement(
+            'span',
+            {
+              className: `px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                isGood
+                  ? 'bg-[#F2F9E9] text-[#547E1B] border border-[#D4ECC6]'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`,
+            },
+            row.deliveryRate || '0.0%'
+          );
+        }
+      },
+      { id: 'totalSales', header: 'Gross Booked', accessorKey: 'totalSales', align: 'right', format: 'currency' },
+      { id: 'deliveredRevenue', header: 'Realized Revenue', accessorKey: 'deliveredRevenue', align: 'right', format: 'currency' },
+      { id: 'cogs', header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency' },
+      { id: 'grossProfit', header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency' },
+      { 
+        id: 'marginPct', 
+        header: 'Margin %', 
+        accessorKey: 'marginPct', 
+        align: 'right',
+        cell: (row) => {
+          const rev = Number(row.deliveredRevenue) || 0;
+          const gp = Number(row.grossProfit) || 0;
+          const pct = row.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
+          return React.createElement('span', { className: 'font-bold text-[#547E1B]' }, pct);
+        }
+      },
+    ],
+    pdfConfig: {
+      orientation: 'landscape',
+      columns: [
+        { header: 'Sales Representative', accessorKey: 'memberName', align: 'left', widthMm: 42 },
+        { header: 'Team / Brand', accessorKey: 'teamName', align: 'left', widthMm: 30 },
+        { header: 'Booked', accessorKey: 'totalOrders', align: 'center', format: 'number', widthMm: 18 },
+        { header: 'Delivered', accessorKey: 'deliveredOrders', align: 'center', format: 'number', widthMm: 18 },
+        { header: 'Success %', accessorKey: 'deliveryRate', align: 'center', format: 'text', widthMm: 22 },
+        { header: 'Gross Booked', accessorKey: 'totalSales', align: 'right', format: 'currency', widthMm: 32 },
+        { header: 'Realized Revenue', accessorKey: 'deliveredRevenue', align: 'right', format: 'currency', widthMm: 34 },
+        { header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency', widthMm: 26 },
+        { header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency', widthMm: 25 },
+        { header: 'Margin %', accessorKey: 'marginPct', align: 'right', format: 'text', widthMm: 20 },
+      ],
+      summaryLines: (data) => {
+        const rev = data.reduce((s: number, m: any) => s + (Number(m.deliveredRevenue) || 0), 0);
+        const cogs = data.reduce((s: number, m: any) => s + (Number(m.cogs) || 0), 0);
+        const gp = data.reduce((s: number, m: any) => s + (Number(m.grossProfit) || 0), 0);
+        const totOrders = data.reduce((s: number, m: any) => s + (Number(m.totalOrders) || 0), 0);
+        const delOrders = data.reduce((s: number, m: any) => s + (Number(m.deliveredOrders) || 0), 0);
+        const overallRate = totOrders > 0 ? `${((delOrders / totOrders) * 100).toFixed(1)}%` : '0.0%';
+        const overallMargin = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
+        return [
+          { label: 'Active Sales Representatives:', value: `${data.filter((m: any) => (Number(m.totalOrders) || 0) > 0).length} of ${data.length} members`, isBold: true },
+          { label: 'Total Consignments Delivered:', value: `${delOrders.toLocaleString()} of ${totOrders.toLocaleString()} booked (${overallRate})` },
+          { label: 'Total Direct Inventory COGS:', value: formatCurrency(cogs) },
+          { label: 'Total Realized Gross Margin:', value: `${formatCurrency(gp)} (${overallMargin})`, isBold: true },
+          { label: 'Cumulative Realized Revenue:', value: formatCurrency(rev), isBold: true, isHighlight: true },
+        ];
+      },
+    },
+    getData: (allData, filters) => {
+      const raw = allData && allData.members ? allData.members : (Array.isArray(allData) ? allData : []);
+      return raw.map((m: any) => {
+        const rev = Number(m.deliveredRevenue) || 0;
+        const gp = Number(m.grossProfit) || 0;
+        const marginPct = m.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
+        const totOrders = Number(m.totalOrders) || 0;
+        const delOrders = Number(m.deliveredOrders) || 0;
+        const deliveryRate = m.deliveryRate || (totOrders > 0 ? `${((delOrders / totOrders) * 100).toFixed(1)}%` : '0.0%');
+        return {
+          ...m,
+          marginPct,
+          deliveryRate,
+        };
+      }).filter((m: any) => {
+        if (filters.teamId && filters.teamId !== 'ALL' && m.teamId !== filters.teamId) return false;
+        if (filters.search && filters.search.trim()) {
+          const q = filters.search.toLowerCase().trim();
+          const matchName = (m.memberName || '').toLowerCase().includes(q);
+          const matchUser = (m.username || '').toLowerCase().includes(q);
+          const matchTeam = (m.teamName || '').toLowerCase().includes(q);
+          return matchName || matchUser || matchTeam;
+        }
+        return true;
+      });
+    },
+  },
+
+  // 4. District & City Delivery Report
+  {
+    id: 'city-delivery',
+    name: 'District & City Delivery Report',
+    description: 'Geographic dispatch logistics, completed delivery success rate, returns, and regional collection volumes.',
+    category: 'SALES',
+    groupCategory: 'SALES',
+    badgeText: 'Logistics',
+    badgeType: 'analytical',
+    icon: MapPin,
+    supportedFilters: ['dateRange', 'search'],
+    kpis: [
+      {
+        id: 'total-dispatched',
+        label: 'Total Dispatched',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, c) => s + (Number(c.total) || 0), 0) : 0,
+        subtitle: () => 'Consignments booked across destinations',
+        accentColor: 'blue',
+      },
+      {
+        id: 'fulfillment-rate',
+        label: 'Delivery Success Rate',
+        format: 'percentage',
+        getValue: (data) => {
+          if (!Array.isArray(data) || !data.length) return 0;
+          const tot = data.reduce((s, c) => s + (Number(c.total) || 0), 0);
+          const del = data.reduce((s, c) => s + (Number(c.delivered) || 0), 0);
+          return tot > 0 ? Math.round((del / tot) * 100) : 0;
+        },
+        subtitle: () => 'Realized delivered packages',
+        accentColor: 'green',
+      },
+      {
+        id: 'city-collections',
+        label: 'COD Collections',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, c) => s + (Number(c.revenue) || 0), 0) : 0,
+        subtitle: () => 'Realized cash on delivery',
+        accentColor: 'purple',
+      },
+      {
+        id: 'active-cities',
+        label: 'Active Delivery Hubs',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.length : 0,
+        subtitle: () => 'Monitored distribution centers',
+        accentColor: 'amber',
+      },
+    ],
+    chartConfig: {
+      type: 'BAR',
+      xAxisKey: 'city',
+      series: [
+        { key: 'revenue', name: 'COD Collections (LKR)', color: '#01A8F3' },
+        { key: 'delivered', name: 'Delivered Packages', color: '#80BD2B' },
+      ],
+      getChartData: (data) => Array.isArray(data) ? data.slice(0, 10).map((c: any) => ({
+        city: c.city,
+        revenue: Number(c.revenue) || 0,
+        delivered: Number(c.delivered) || 0,
+      })) : [],
+    },
+    columns: [
+      { id: 'city', header: 'City / District', accessorKey: 'city', format: 'text' },
+      { id: 'total', header: 'Booked Consignments', accessorKey: 'total', align: 'center', format: 'number' },
+      { id: 'delivered', header: 'Delivered', accessorKey: 'delivered', align: 'center', format: 'number' },
+      { id: 'pending', header: 'In Transit', accessorKey: 'pending', align: 'center', format: 'number' },
+      { id: 'cancelled', header: 'Cancelled / Returned', accessorKey: 'cancelled', align: 'center', format: 'number' },
+      { 
+        id: 'rate', 
+        header: 'Delivery Rate', 
+        accessorKey: 'rate',
+        align: 'center', 
+        cell: (row) => {
+          const tot = Number(row.total) || 0;
+          const del = Number(row.delivered) || 0;
+          const pct = tot > 0 ? ((del / tot) * 100).toFixed(1) : '0.0';
+          const isGood = Number(pct) >= 60;
+          return React.createElement(
+            'span',
+            {
+              className: `px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                isGood 
+                  ? 'bg-[#F2F9E9] text-[#547E1B] border border-[#D4ECC6]' 
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`,
+            },
+            `${pct}%`
+          );
+        } 
+      },
+      { id: 'revenue', header: 'Realized Collections', accessorKey: 'revenue', align: 'right', format: 'currency' },
+    ],
+    pdfConfig: {
+      orientation: 'portrait',
+      columns: [
+        { header: 'City / District', accessorKey: 'city', align: 'left', widthMm: 42 },
+        { header: 'Booked', accessorKey: 'total', align: 'center', format: 'number', widthMm: 20 },
+        { header: 'Delivered', accessorKey: 'delivered', align: 'center', format: 'number', widthMm: 20 },
+        { header: 'In Transit', accessorKey: 'pending', align: 'center', format: 'number', widthMm: 20 },
+        { header: 'Cancelled', accessorKey: 'cancelled', align: 'center', format: 'number', widthMm: 20 },
+        { header: 'Delivery Rate', accessorKey: 'rate', align: 'center', format: 'text', widthMm: 22 },
+        { header: 'COD Collections', accessorKey: 'revenue', align: 'right', format: 'currency', widthMm: 38 },
+      ],
+      summaryLines: (data) => {
+        const tot = data.reduce((s: number, c: any) => s + (Number(c.total) || 0), 0);
+        const del = data.reduce((s: number, c: any) => s + (Number(c.delivered) || 0), 0);
+        const inTransit = data.reduce((s: number, c: any) => s + (Number(c.pending) || 0), 0);
+        const canc = data.reduce((s: number, c: any) => s + (Number(c.cancelled) || 0), 0);
+        const rev = data.reduce((s: number, c: any) => s + (Number(c.revenue) || 0), 0);
+        const overallRate = tot > 0 ? `${((del / tot) * 100).toFixed(1)}%` : '0.0%';
+        return [
+          { label: 'Total Consignments Booked:', value: `${tot.toLocaleString()} parcels`, isBold: true },
+          { label: 'Successfully Delivered:', value: `${del.toLocaleString()} parcels (${overallRate})` },
+          { label: 'Currently In Transit:', value: `${inTransit.toLocaleString()} parcels` },
+          { label: 'Cancelled / Returned:', value: `${canc.toLocaleString()} parcels` },
+          { label: 'Total Realized COD Collections:', value: formatCurrency(rev), isBold: true, isHighlight: true },
+        ];
+      },
+    },
+    getData: (allData, filters) => {
+      const raw = allData && allData.cityData ? allData.cityData : (Array.isArray(allData) ? allData : []);
+      return raw.map((c: any) => {
+        const tot = Number(c.total) || 0;
+        const del = Number(c.delivered) || 0;
+        const rate = tot > 0 ? `${((del / tot) * 100).toFixed(1)}%` : '0.0%';
+        return {
+          ...c,
+          rate,
+        };
+      }).filter((c: any) => {
+        if (filters.search && !String(c.city).toLowerCase().includes(filters.search.toLowerCase())) return false;
+        return true;
+      });
+    },
+  },
+
+  // 5. Daily Sales Performance Report
+  {
+    id: 'daily-sales',
+    name: 'Daily Sales Performance Report',
+    description: 'Granular day-by-day order counts, gross COD sales, COGS deductions, and net realized profits.',
+    category: 'SALES',
+    groupCategory: 'SALES',
+    badgeText: 'Daily Velocity',
+    badgeType: 'analytical',
+    icon: Clock,
+    supportedFilters: ['dateRange', 'search'],
+    kpis: [
+      {
+        id: 'daily-revenue',
+        label: 'Realized Sales Revenue',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0,
+        subtitle: (data) => `${Array.isArray(data) ? data.length : 0} operational days recorded`,
+        accentColor: 'blue',
+      },
+      {
+        id: 'daily-orders',
+        label: 'Delivered Consignments',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.orderCount) || 0), 0) : 0,
+        subtitle: () => 'Orders fulfilled & collected',
+        accentColor: 'green',
+      },
+      {
+        id: 'daily-profit',
+        label: 'Realized Gross Margin',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0,
+        subtitle: (data) => {
+          const rev = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0;
+          const gp = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0;
+          return rev > 0 ? `${((gp / rev) * 100).toFixed(1)}% gross margin` : '0%';
+        },
+        accentColor: 'purple',
+      },
+      {
+        id: 'daily-avg-velocity',
+        label: 'Average Daily Velocity',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) && data.length ? Math.round(data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) / data.length) : 0,
+        subtitle: () => 'Average revenue per active day',
+        accentColor: 'amber',
+      },
+    ],
+    chartConfig: {
+      type: 'BAR',
+      xAxisKey: 'period',
+      series: [
+        { key: 'revenue', name: 'Realized Revenue (LKR)', color: '#01A8F3' },
+        { key: 'grossProfit', name: 'Gross Margin (LKR)', color: '#80BD2B' },
+      ],
+      getChartData: (data) => Array.isArray(data) ? data.map((d: any) => ({
+        period: d.period,
+        revenue: Number(d.revenue) || 0,
+        grossProfit: Number(d.grossProfit) || 0,
+      })) : [],
+    },
+    columns: [
+      { id: 'period', header: 'Date', accessorKey: 'period', format: 'text' },
+      { id: 'orderCount', header: 'Delivered Orders', accessorKey: 'orderCount', align: 'center', format: 'number' },
+      { id: 'revenue', header: 'Gross Revenue', accessorKey: 'revenue', align: 'right', format: 'currency' },
+      { id: 'cogs', header: 'Product COGS', accessorKey: 'cogs', align: 'right', format: 'currency' },
+      { id: 'grossProfit', header: 'Realized Margin', accessorKey: 'grossProfit', align: 'right', format: 'currency' },
+      { 
+        id: 'marginPct', 
+        header: 'Margin %', 
+        accessorKey: 'marginPct',
+        align: 'right', 
+        cell: (row) => {
+          const rev = Number(row.revenue) || 0;
+          const gp = Number(row.grossProfit) || 0;
+          const pct = row.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
+          return React.createElement('span', { className: 'font-bold text-[#547E1B]' }, pct);
+        } 
+      },
+    ],
+    pdfConfig: {
+      orientation: 'portrait',
+      columns: [
+        { header: 'Date', accessorKey: 'period', align: 'left', widthMm: 30 },
+        { header: 'Delivered Orders', accessorKey: 'orderCount', align: 'center', format: 'number', widthMm: 28 },
+        { header: 'Gross Revenue', accessorKey: 'revenue', align: 'right', format: 'currency', widthMm: 34 },
+        { header: 'Product COGS', accessorKey: 'cogs', align: 'right', format: 'currency', widthMm: 34 },
+        { header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency', widthMm: 32 },
+        { header: 'Margin %', accessorKey: 'marginPct', align: 'right', format: 'text', widthMm: 24 },
+      ],
+      summaryLines: (data) => {
+        const rev = data.reduce((s: number, d: any) => s + (Number(d.revenue) || 0), 0);
+        const cogs = data.reduce((s: number, d: any) => s + (Number(d.cogs) || 0), 0);
+        const gp = data.reduce((s: number, d: any) => s + (Number(d.grossProfit) || 0), 0);
+        const orders = data.reduce((s: number, d: any) => s + (Number(d.orderCount) || 0), 0);
+        const overallMargin = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
+        return [
+          { label: 'Total Operating Days Recorded:', value: `${data.length} days`, isBold: true },
+          { label: 'Total Orders Delivered:', value: `${orders.toLocaleString()} orders` },
+          { label: 'Total Procurement COGS:', value: formatCurrency(cogs) },
+          { label: 'Realized Gross Margin:', value: `${formatCurrency(gp)} (${overallMargin})`, isBold: true },
+          { label: 'Total Realized Sales Revenue:', value: formatCurrency(rev), isBold: true, isHighlight: true },
+        ];
+      },
+    },
+    getData: (allData, filters) => {
+      const raw = allData && allData.periodData ? allData.periodData : (Array.isArray(allData) ? allData : []);
+      return raw.map((d: any) => {
+        const rev = Number(d.revenue) || 0;
+        const gp = Number(d.grossProfit) || 0;
+        const marginPct = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
+        return { ...d, marginPct };
+      }).filter((d: any) => {
+        if (!isDateInRange(d.period, filters.dateRange.startDate, filters.dateRange.endDate)) return false;
+        if (filters.search && !String(d.period).toLowerCase().includes(filters.search.toLowerCase())) return false;
+        return true;
+      });
+    },
+  },
+
+  // 6. Weekly Sales Performance Report
+  {
+    id: 'weekly-sales',
+    name: 'Weekly Sales Performance Report',
+    description: 'Week-over-week revenue velocity, shipment delivery volumes, and cost vs profitability dynamics.',
+    category: 'SALES',
+    groupCategory: 'SALES',
+    badgeText: 'Weekly Growth',
+    badgeType: 'executive',
+    icon: TrendingUp,
+    supportedFilters: ['dateRange', 'search'],
+    kpis: [
+      {
+        id: 'weekly-revenue',
+        label: 'Total Weekly Revenue',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0,
+        subtitle: (data) => `${Array.isArray(data) ? data.length : 0} calendar weeks active`,
+        accentColor: 'blue',
+      },
+      {
+        id: 'weekly-orders',
+        label: 'Total Orders Delivered',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.orderCount) || 0), 0) : 0,
+        subtitle: () => 'Consignments fulfilled',
+        accentColor: 'green',
+      },
+      {
+        id: 'weekly-profit',
+        label: 'Realized Gross Profit',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0,
+        subtitle: (data) => {
+          const rev = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0;
+          const gp = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0;
+          return rev > 0 ? `${((gp / rev) * 100).toFixed(1)}% net gross margin` : '0%';
+        },
+        accentColor: 'purple',
+      },
+      {
+        id: 'weekly-cogs',
+        label: 'Cumulative COGS',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.cogs) || 0), 0) : 0,
+        subtitle: () => 'Direct inventory acquisition',
+        accentColor: 'amber',
+      },
+    ],
+    chartConfig: {
+      type: 'GROUPED_BAR',
+      xAxisKey: 'period',
+      series: [
+        { key: 'revenue', name: 'Weekly Revenue (LKR)', color: '#01A8F3' },
+        { key: 'cogs', name: 'COGS (LKR)', color: '#F59E0B' },
+        { key: 'grossProfit', name: 'Gross Margin (LKR)', color: '#80BD2B' },
+      ],
+      getChartData: (data) => Array.isArray(data) ? data.map((d: any) => ({
+        period: d.period,
+        revenue: Number(d.revenue) || 0,
+        cogs: Number(d.cogs) || 0,
+        grossProfit: Number(d.grossProfit) || 0,
+      })) : [],
+    },
+    columns: [
+      { id: 'period', header: 'Week', accessorKey: 'period', format: 'text' },
+      { id: 'orderCount', header: 'Delivered Orders', accessorKey: 'orderCount', align: 'center', format: 'number' },
+      { id: 'revenue', header: 'Weekly Revenue', accessorKey: 'revenue', align: 'right', format: 'currency' },
+      { id: 'cogs', header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency' },
+      { id: 'grossProfit', header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency' },
+      { 
+        id: 'marginPct', 
+        header: 'Margin %', 
+        accessorKey: 'marginPct', 
+        align: 'right', 
+        cell: (row) => {
+          const rev = Number(row.revenue) || 0;
+          const gp = Number(row.grossProfit) || 0;
+          const pct = row.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
+          return React.createElement('span', { className: 'font-bold text-[#547E1B]' }, pct);
+        } 
+      },
+    ],
+    pdfConfig: {
+      orientation: 'portrait',
+      columns: [
+        { header: 'Week', accessorKey: 'period', align: 'left', widthMm: 30 },
+        { header: 'Delivered Orders', accessorKey: 'orderCount', align: 'center', format: 'number', widthMm: 28 },
+        { header: 'Weekly Revenue', accessorKey: 'revenue', align: 'right', format: 'currency', widthMm: 34 },
+        { header: 'Product COGS', accessorKey: 'cogs', align: 'right', format: 'currency', widthMm: 34 },
+        { header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency', widthMm: 32 },
+        { header: 'Margin %', accessorKey: 'marginPct', align: 'right', format: 'text', widthMm: 24 },
+      ],
+      summaryLines: (data) => {
+        const rev = data.reduce((s: number, d: any) => s + (Number(d.revenue) || 0), 0);
+        const cogs = data.reduce((s: number, d: any) => s + (Number(d.cogs) || 0), 0);
+        const gp = data.reduce((s: number, d: any) => s + (Number(d.grossProfit) || 0), 0);
+        const orders = data.reduce((s: number, d: any) => s + (Number(d.orderCount) || 0), 0);
+        const overallMargin = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
+        return [
+          { label: 'Total Calendar Weeks Active:', value: `${data.length} weeks`, isBold: true },
+          { label: 'Total Orders Delivered:', value: `${orders.toLocaleString()} orders` },
+          { label: 'Total Product COGS:', value: formatCurrency(cogs) },
+          { label: 'Realized Gross Margin:', value: `${formatCurrency(gp)} (${overallMargin})`, isBold: true },
+          { label: 'Total Realized Weekly Revenue:', value: formatCurrency(rev), isBold: true, isHighlight: true },
+        ];
+      },
+    },
+    getData: (allData, filters) => {
+      const raw = allData && allData.periodData ? allData.periodData : (Array.isArray(allData) ? allData : []);
+      return raw.map((d: any) => {
+        const rev = Number(d.revenue) || 0;
+        const gp = Number(d.grossProfit) || 0;
+        const marginPct = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
+        return { ...d, marginPct };
+      }).filter((d: any) => {
+        if (filters.search && !String(d.period).toLowerCase().includes(filters.search.toLowerCase())) return false;
+        return true;
+      });
+    },
+  },
+
+  // 7. Monthly Sales Performance Report
+  {
+    id: 'monthly-sales',
+    name: 'Monthly Sales Performance Report',
+    description: 'Executive monthly aggregated revenue trajectories, procurement COGS, and operational margin ratios.',
+    category: 'SALES',
+    groupCategory: 'SALES',
+    badgeText: 'Monthly P&L',
+    badgeType: 'executive',
+    icon: BarChart3,
+    supportedFilters: ['dateRange', 'search'],
+    kpis: [
+      {
+        id: 'monthly-revenue',
+        label: 'Cumulative Period Revenue',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0,
+        subtitle: (data) => `${Array.isArray(data) ? data.length : 0} months compiled`,
+        accentColor: 'blue',
+      },
+      {
+        id: 'monthly-orders',
+        label: 'Total Orders Fulfilled',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.orderCount) || 0), 0) : 0,
+        subtitle: () => 'Consignments delivered',
+        accentColor: 'green',
+      },
+      {
+        id: 'monthly-profit',
+        label: 'Realized Gross Profit',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0,
+        subtitle: (data) => {
+          const rev = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0) : 0;
+          const gp = Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.grossProfit) || 0), 0) : 0;
+          return rev > 0 ? `${((gp / rev) * 100).toFixed(1)}% realized margin` : '0%';
+        },
+        accentColor: 'purple',
+      },
+      {
+        id: 'monthly-cogs',
+        label: 'Procurement COGS',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((sum, d) => sum + (Number(d.cogs) || 0), 0) : 0,
+        subtitle: () => 'Physical goods cost',
+        accentColor: 'amber',
+      },
+    ],
+    chartConfig: {
+      type: 'AREA',
+      xAxisKey: 'period',
+      series: [
+        { key: 'revenue', name: 'Gross Revenue (LKR)', color: '#01A8F3' },
+        { key: 'grossProfit', name: 'Gross Margin (LKR)', color: '#80BD2B' },
+      ],
+      getChartData: (data) => Array.isArray(data) ? data.map((d: any) => ({
+        period: d.period,
+        revenue: Number(d.revenue) || 0,
+        grossProfit: Number(d.grossProfit) || 0,
+      })) : [],
+    },
+    columns: [
+      { id: 'period', header: 'Month', accessorKey: 'period', format: 'text' },
+      { id: 'orderCount', header: 'Delivered Consignments', accessorKey: 'orderCount', align: 'center', format: 'number' },
+      { id: 'revenue', header: 'Gross Revenue', accessorKey: 'revenue', align: 'right', format: 'currency' },
+      { id: 'cogs', header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency' },
+      { id: 'grossProfit', header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency' },
+      { 
+        id: 'marginPct', 
+        header: 'Profitability %', 
+        accessorKey: 'marginPct', 
+        align: 'right', 
+        cell: (row) => {
+          const rev = Number(row.revenue) || 0;
+          const gp = Number(row.grossProfit) || 0;
+          const pct = row.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
+          return React.createElement('span', { className: 'font-bold text-[#547E1B]' }, pct);
+        } 
+      },
+    ],
+    pdfConfig: {
+      orientation: 'portrait',
+      columns: [
+        { header: 'Month', accessorKey: 'period', align: 'left', widthMm: 30 },
+        { header: 'Delivered Orders', accessorKey: 'orderCount', align: 'center', format: 'number', widthMm: 28 },
+        { header: 'Gross Revenue', accessorKey: 'revenue', align: 'right', format: 'currency', widthMm: 34 },
+        { header: 'Procurement COGS', accessorKey: 'cogs', align: 'right', format: 'currency', widthMm: 34 },
+        { header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency', widthMm: 32 },
+        { header: 'Profitability %', accessorKey: 'marginPct', align: 'right', format: 'text', widthMm: 24 },
+      ],
+      summaryLines: (data) => {
+        const rev = data.reduce((s: number, d: any) => s + (Number(d.revenue) || 0), 0);
+        const cogs = data.reduce((s: number, d: any) => s + (Number(d.cogs) || 0), 0);
+        const gp = data.reduce((s: number, d: any) => s + (Number(d.grossProfit) || 0), 0);
+        const orders = data.reduce((s: number, d: any) => s + (Number(d.orderCount) || 0), 0);
+        const overallMargin = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
+        return [
+          { label: 'Total Months Compiled:', value: `${data.length} months`, isBold: true },
+          { label: 'Total Consignments Delivered:', value: `${orders.toLocaleString()} orders` },
+          { label: 'Total Procurement COGS:', value: formatCurrency(cogs) },
+          { label: 'Realized Gross Margin:', value: `${formatCurrency(gp)} (${overallMargin})`, isBold: true },
+          { label: 'Total Realized Sales Revenue:', value: formatCurrency(rev), isBold: true, isHighlight: true },
+        ];
+      },
+    },
+    getData: (allData, filters) => {
+      const raw = allData && allData.periodData ? allData.periodData : (Array.isArray(allData) ? allData : []);
+      return raw.map((d: any) => {
+        const rev = Number(d.revenue) || 0;
+        const gp = Number(d.grossProfit) || 0;
+        const marginPct = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
+        return { ...d, marginPct };
+      }).filter((d: any) => {
+        if (filters.search && !String(d.period).toLowerCase().includes(filters.search.toLowerCase())) return false;
         return true;
       });
     },

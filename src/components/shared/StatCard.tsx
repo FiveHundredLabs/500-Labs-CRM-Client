@@ -154,10 +154,80 @@ export const StatCard: React.FC<StatCardProps> = ({
 }) => {
   const scheme = flatColorMap[accentColor] || flatColorMap.blue;
 
+  // Render value with smart currency prefix typography & responsive scaling
+  const renderValueContent = () => {
+    if (typeof value === 'string') {
+      // Matches currencies like "LKR 2,607,500.00", "Rs. 1,000", "$500.00", etc.
+      const match = value.match(/^(LKR|Rs\.?|USD|EUR|GBP|\$|€|£)\s*([0-9,]+(?:\.[0-9]+)?.*)$/i);
+      if (match) {
+        const prefix = match[1].toUpperCase();
+        const numStr = match[2].trim();
+
+        // Check if there is an integer and decimal part
+        const decMatch = numStr.match(/^([0-9,]+)(\.[0-9]+)(.*)$/);
+        const intPart = decMatch ? decMatch[1] : numStr;
+        const decPart = decMatch ? decMatch[2] : '';
+        const suffix = decMatch ? decMatch[3] : '';
+
+        // Dynamic responsive font sizing based on length of the number string
+        // Ensures values like "2,607,500.00" or even "125,000,000.00" never get truncated
+        const numLen = numStr.length;
+        let numFontSize = 'text-xl sm:text-2xl xl:text-3xl';
+        if (numLen >= 15) {
+          numFontSize = 'text-base sm:text-base xl:text-lg';
+        } else if (numLen >= 11) {
+          numFontSize = 'text-lg sm:text-xl xl:text-2xl 2xl:text-3xl';
+        } else if (numLen >= 8) {
+          numFontSize = 'text-xl sm:text-2xl xl:text-3xl 2xl:text-4xl';
+        }
+
+        return (
+          <div
+            className="flex items-baseline flex-nowrap font-sans text-white tracking-tight leading-none overflow-visible"
+            title={value}
+          >
+            {/* Smaller, slightly elevated currency prefix */}
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider opacity-85 select-none -translate-y-0.5 sm:-translate-y-1 mr-1 shrink-0 inline-block">
+              {prefix}
+            </span>
+            <span className={`${numFontSize} font-extrabold tabular-nums whitespace-nowrap`}>
+              {intPart}
+              {decPart && (
+                <span className="text-[0.78em] font-semibold opacity-85">{decPart}</span>
+              )}
+              {suffix}
+            </span>
+          </div>
+        );
+      }
+    }
+
+    // Non-currency strings or raw numbers
+    const strVal = String(value);
+    const valLen = strVal.length;
+    let fontSize = 'text-xl sm:text-2xl xl:text-3xl';
+    if (valLen >= 15) {
+      fontSize = 'text-sm sm:text-base xl:text-lg';
+    } else if (valLen >= 11) {
+      fontSize = 'text-base sm:text-lg xl:text-xl 2xl:text-2xl';
+    } else if (valLen >= 8) {
+      fontSize = 'text-lg sm:text-xl xl:text-2xl';
+    }
+
+    return (
+      <div
+        className={`${fontSize} font-extrabold text-white tracking-tight font-sans leading-none whitespace-nowrap overflow-visible`}
+        title={strVal}
+      >
+        {value}
+      </div>
+    );
+  };
+
   return (
     <div
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl p-4 sm:p-5 text-white transition-all duration-200 flex flex-col justify-between border shadow-2xs hover:shadow-md hover:-translate-y-0.5 ${scheme.bg} ${scheme.border} ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      className={`group relative overflow-hidden rounded-2xl p-3.5 sm:p-4 xl:p-4.5 text-white transition-all duration-200 flex flex-col justify-between border shadow-2xs hover:shadow-md hover:-translate-y-0.5 ${scheme.bg} ${scheme.border} ${onClick ? 'cursor-pointer' : ''} ${className}`}
     >
       {/* Top Header Row: Title & Glassmorphic Icon */}
       <div className="flex items-start justify-between gap-2">
@@ -168,7 +238,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         </span>
         {icon && (
           <div
-            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 backdrop-blur-xs transition-transform duration-200 group-hover:scale-105 [&_svg]:w-5 [&_svg]:h-5 [&_svg]:text-white [&_svg]:stroke-current ${scheme.badge}`}
+            className={`w-8 h-8 sm:w-9 sm:h-9 xl:w-10 xl:h-10 rounded-xl flex items-center justify-center shrink-0 backdrop-blur-xs transition-transform duration-200 group-hover:scale-105 [&_svg]:w-4.5 [&_svg]:h-4.5 sm:[&_svg]:w-5 sm:[&_svg]:h-5 [&_svg]:text-white [&_svg]:stroke-current ${scheme.badge}`}
           >
             {icon}
           </div>
@@ -177,9 +247,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 
       {/* Value & Supporting Information */}
       <div className="mt-3 sm:mt-4">
-        <div className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-white tracking-tight font-sans truncate">
-          {value}
-        </div>
+        {renderValueContent()}
         {(subtitle || trend) && (
           <div className="flex items-center gap-1.5 mt-1.5 text-[11px] sm:text-xs">
             {trend && (
