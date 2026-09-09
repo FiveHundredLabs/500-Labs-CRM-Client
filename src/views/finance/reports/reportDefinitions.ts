@@ -1540,6 +1540,211 @@ export const SALES_REPORTS: ReportDefinition[] = [
       });
     },
   },
+
+  // 7. Contact Batch-Wise Performance Report
+  {
+    id: 'contact-batch-report',
+    name: 'Contact Batch-Wise Performance Report',
+    description: 'Audited lead batch analytics, conversion funnel from imported contacts to saved customers, interested leads, and completed delivered orders.',
+    category: 'SALES',
+    groupCategory: 'SALES',
+    badgeText: 'Batch Intelligence',
+    badgeType: 'executive',
+    icon: Boxes,
+    supportedFilters: ['dateRange', 'team', 'search'],
+    kpis: [
+      {
+        id: 'total-batch-contacts',
+        label: 'Total Imported Contacts',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, b) => s + (Number(b.totalContacts) || 0), 0) : 0,
+        subtitle: (data) => `${Array.isArray(data) ? data.length : 0} active lead batches`,
+        accentColor: 'blue',
+      },
+      {
+        id: 'saved-contacts-count',
+        label: 'Contacts Saved to Customer',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, b) => s + (Number(b.savedContacts) || 0), 0) : 0,
+        subtitle: (data) => {
+          const tot = Array.isArray(data) ? data.reduce((s, b) => s + (Number(b.totalContacts) || 0), 0) : 0;
+          const saved = Array.isArray(data) ? data.reduce((s, b) => s + (Number(b.savedContacts) || 0), 0) : 0;
+          return tot > 0 ? `${((saved / tot) * 100).toFixed(1)}% save conversion rate` : '0%';
+        },
+        accentColor: 'purple',
+      },
+      {
+        id: 'interested-leads-count',
+        label: 'Reached Interested Stage',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, b) => s + (Number(b.interestedContacts) || 0), 0) : 0,
+        subtitle: (data) => {
+          const tot = Array.isArray(data) ? data.reduce((s, b) => s + (Number(b.totalContacts) || 0), 0) : 0;
+          const int = Array.isArray(data) ? data.reduce((s, b) => s + (Number(b.interestedContacts) || 0), 0) : 0;
+          return tot > 0 ? `${((int / tot) * 100).toFixed(1)}% interested conversion` : '0%';
+        },
+        accentColor: 'amber',
+      },
+      {
+        id: 'delivered-orders-count',
+        label: 'Orders Delivered',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, b) => s + (Number(b.deliveredContacts) || 0), 0) : 0,
+        subtitle: (data) => {
+          const rev = Array.isArray(data) ? data.reduce((s, b) => s + (Number(b.deliveredRevenue) || 0), 0) : 0;
+          return `Realized: ${formatCurrency(rev)}`;
+        },
+        accentColor: 'green',
+      },
+    ],
+    chartConfig: {
+      type: 'GROUPED_BAR',
+      xAxisKey: 'batchCode',
+      series: [
+        { key: 'totalContacts', name: 'Total Contacts', color: '#01A8F3' },
+        { key: 'interestedContacts', name: 'Interested Stage', color: '#F59E0B' },
+        { key: 'deliveredContacts', name: 'Delivered Orders', color: '#80BD2B' },
+      ],
+      getChartData: (data) => {
+        if (!Array.isArray(data)) return [];
+        return data.slice(0, 10).map((b: any) => ({
+          batchCode: b.batchCode || 'Batch',
+          totalContacts: Number(b.totalContacts) || 0,
+          interestedContacts: Number(b.interestedContacts) || 0,
+          deliveredContacts: Number(b.deliveredContacts) || 0,
+        }));
+      },
+    },
+    columns: [
+      {
+        id: 'batchCode',
+        header: 'Batch Code / ID',
+        accessorKey: 'batchCode',
+        format: 'text',
+        cell: (row) => {
+          return React.createElement(
+            'div',
+            { className: 'flex flex-col' },
+            React.createElement('span', { className: 'font-mono font-bold text-[#0188C7] text-xs' }, row.batchCode || 'Batch'),
+            React.createElement('span', { className: 'text-[11px] text-slate-400' }, row.importedAt || '')
+          );
+        },
+      },
+      { id: 'teamName', header: 'Team / Brand', accessorKey: 'teamName', format: 'badge' },
+      { id: 'totalContacts', header: 'Total Contacts', accessorKey: 'totalContacts', align: 'center', format: 'number' },
+      { id: 'savedContacts', header: 'Saved', accessorKey: 'savedContacts', align: 'center', format: 'number' },
+      { id: 'interestedContacts', header: 'Interested Stage', accessorKey: 'interestedContacts', align: 'center', format: 'number' },
+      {
+        id: 'interestedRate',
+        header: 'Interested %',
+        accessorKey: 'interestedRate',
+        align: 'center',
+        cell: (row) => {
+          const rateVal = parseFloat(String(row.interestedRate || '0'));
+          const isGood = rateVal >= 30;
+          return React.createElement(
+            'span',
+            {
+              className: `px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                isGood
+                  ? 'bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]'
+                  : 'bg-slate-100 text-slate-700 border border-slate-200'
+              }`,
+            },
+            row.interestedRate || '0.0%'
+          );
+        },
+      },
+      { id: 'deliveredContacts', header: 'Delivered', accessorKey: 'deliveredContacts', align: 'center', format: 'number' },
+      {
+        id: 'deliveryRate',
+        header: 'Delivered %',
+        accessorKey: 'deliveryRate',
+        align: 'center',
+        cell: (row) => {
+          const rateVal = parseFloat(String(row.deliveryRate || '0'));
+          const isGood = rateVal >= 15;
+          return React.createElement(
+            'span',
+            {
+              className: `px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                isGood
+                  ? 'bg-[#F2F9E9] text-[#547E1B] border border-[#D4ECC6]'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`,
+            },
+            row.deliveryRate || '0.0%'
+          );
+        },
+      },
+      { id: 'followUpContacts', header: 'Follow Up', accessorKey: 'followUpContacts', align: 'center', format: 'number' },
+      { id: 'phoneOffContacts', header: 'Phone Off', accessorKey: 'phoneOffContacts', align: 'center', format: 'number' },
+      { id: 'notAnsweredContacts', header: 'Not Answered', accessorKey: 'notAnsweredContacts', align: 'center', format: 'number' },
+      { id: 'deliveredRevenue', header: 'Realized Revenue', accessorKey: 'deliveredRevenue', align: 'right', format: 'currency' },
+    ],
+    pdfConfig: {
+      orientation: 'landscape',
+      columns: [
+        { header: 'Batch Code', accessorKey: 'batchCode', align: 'left', widthMm: 30 },
+        { header: 'Team / Brand', accessorKey: 'teamName', align: 'left', widthMm: 28 },
+        { header: 'Total Leads', accessorKey: 'totalContacts', align: 'center', format: 'number', widthMm: 20 },
+        { header: 'Saved', accessorKey: 'savedContacts', align: 'center', format: 'number', widthMm: 16 },
+        { header: 'Interested', accessorKey: 'interestedContacts', align: 'center', format: 'number', widthMm: 20 },
+        { header: 'Interest %', accessorKey: 'interestedRate', align: 'center', format: 'text', widthMm: 20 },
+        { header: 'Delivered', accessorKey: 'deliveredContacts', align: 'center', format: 'number', widthMm: 18 },
+        { header: 'Deliver %', accessorKey: 'deliveryRate', align: 'center', format: 'text', widthMm: 18 },
+        { header: 'Follow Up', accessorKey: 'followUpContacts', align: 'center', format: 'number', widthMm: 18 },
+        { header: 'Phone Off', accessorKey: 'phoneOffContacts', align: 'center', format: 'number', widthMm: 18 },
+        { header: 'No Answer', accessorKey: 'notAnsweredContacts', align: 'center', format: 'number', widthMm: 18 },
+        { header: 'Realized Sales', accessorKey: 'deliveredRevenue', align: 'right', format: 'currency', widthMm: 32 },
+      ],
+      summaryLines: (data) => {
+        const totalLeads = data.reduce((s: number, b: any) => s + (Number(b.totalContacts) || 0), 0);
+        const totalSaved = data.reduce((s: number, b: any) => s + (Number(b.savedContacts) || 0), 0);
+        const totalInt = data.reduce((s: number, b: any) => s + (Number(b.interestedContacts) || 0), 0);
+        const totalDel = data.reduce((s: number, b: any) => s + (Number(b.deliveredContacts) || 0), 0);
+        const totalRev = data.reduce((s: number, b: any) => s + (Number(b.deliveredRevenue) || 0), 0);
+        const overallIntRate = totalLeads > 0 ? `${((totalInt / totalLeads) * 100).toFixed(1)}%` : '0.0%';
+        const overallDelRate = totalLeads > 0 ? `${((totalDel / totalLeads) * 100).toFixed(1)}%` : '0.0%';
+        const overallSaveRate = totalLeads > 0 ? `${((totalSaved / totalLeads) * 100).toFixed(1)}%` : '0.0%';
+        return [
+          { label: 'Total Contact Batches Audited:', value: `${data.length.toLocaleString()} batches`, isBold: true },
+          { label: 'Total Contacts Saved to Customer:', value: `${totalSaved.toLocaleString()} of ${totalLeads.toLocaleString()} (${overallSaveRate})` },
+          { label: 'Leads Reached Interested Stage:', value: `${totalInt.toLocaleString()} leads (${overallIntRate})` },
+          { label: 'Orders Successfully Delivered:', value: `${totalDel.toLocaleString()} packages (${overallDelRate})`, isBold: true },
+          { label: 'Cumulative Realized Batch Sales Revenue:', value: formatCurrency(totalRev), isBold: true, isHighlight: true },
+        ];
+      },
+    },
+    getData: (allData, filters) => {
+      const raw = allData && allData.batches ? allData.batches : (Array.isArray(allData) ? allData : []);
+      return raw.map((b: any) => {
+        const tot = Number(b.totalContacts) || 0;
+        const saved = Number(b.savedContacts) || 0;
+        const int = Number(b.interestedContacts) || 0;
+        const del = Number(b.deliveredContacts) || 0;
+        const interestedRate = b.interestedRate || (tot > 0 ? `${((int / tot) * 100).toFixed(1)}%` : '0.0%');
+        const deliveryRate = b.deliveryRate || (tot > 0 ? `${((del / tot) * 100).toFixed(1)}%` : '0.0%');
+        const savedRate = b.savedRate || (tot > 0 ? `${((saved / tot) * 100).toFixed(1)}%` : '0.0%');
+        return {
+          ...b,
+          interestedRate,
+          deliveryRate,
+          savedRate,
+        };
+      }).filter((b: any) => {
+        if (!isDateInRange(b.importedAt, filters.dateRange.startDate, filters.dateRange.endDate)) return false;
+        if (filters.teamId && filters.teamId !== 'ALL' && b.teamId !== filters.teamId) return false;
+        if (filters.search && filters.search.trim()) {
+          const q = filters.search.toLowerCase().trim();
+          const matchCode = (b.batchCode || '').toLowerCase().includes(q);
+          const matchTeam = (b.teamName || '').toLowerCase().includes(q);
+          return matchCode || matchTeam;
+        }
+        return true;
+      });
+    },
+  },
 ];
 
 // Unified catalog of all system intelligence reports

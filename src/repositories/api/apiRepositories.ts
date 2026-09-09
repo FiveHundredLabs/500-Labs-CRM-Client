@@ -884,6 +884,18 @@ export class ApiFinanceRepository implements IFinanceRepository {
       })
     );
   }
+
+  async getContactBatchReport(startDate?: string, endDate?: string, teamId?: string): Promise<any> {
+    const params = this.buildParams(startDate, endDate);
+    if (teamId && teamId !== 'ALL') {
+      params.teamId = teamId;
+    }
+    return unwrap(
+      await apiClient.get<{ data: any }>('/finance/contact-batch-report', {
+        params,
+      })
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

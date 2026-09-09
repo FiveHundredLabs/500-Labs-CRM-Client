@@ -25,6 +25,7 @@ const LIVE_DATA_REPORTS = [
   'city-delivery',
   'consignment-sales',
   'team-member-sales',
+  'contact-batch-report',
 ];
 
 /** Normalise a date value from the backend to a plain YYYY-MM-DD string */
@@ -337,6 +338,25 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
         } catch (err) {
           console.error('Failed to fetch team member sales report from backend:', err);
           if (active) setLiveReportData({ members: [] });
+        } finally {
+          if (active) setIsLoadingLive(false);
+        }
+
+      // ── Contact Batch-Wise Performance Report ──────────────────────────────
+      } else if (report.id === 'contact-batch-report') {
+        setIsLoadingLive(true);
+        try {
+          const res = await financeRepository.getContactBatchReport(
+            filters.dateRange.startDate || undefined,
+            filters.dateRange.endDate || undefined,
+            filters.teamId !== 'ALL' ? filters.teamId : undefined
+          );
+          if (active) {
+            setLiveReportData(res || { batches: [] });
+          }
+        } catch (err) {
+          console.error('Failed to fetch contact batch report from backend:', err);
+          if (active) setLiveReportData({ batches: [] });
         } finally {
           if (active) setIsLoadingLive(false);
         }
