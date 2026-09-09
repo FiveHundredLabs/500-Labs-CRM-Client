@@ -377,7 +377,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
         id: 'total-inflows',
         label: 'Operational Inflows',
         format: 'currency',
-        getValue: (data) => data.inflows,
+        getValue: (data) => (data && !Array.isArray(data)) ? (data.inflows ?? 0) : 0,
         subtitle: () => 'Customer remittances deposited',
         accentColor: 'green',
       },
@@ -385,7 +385,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
         id: 'total-outflows',
         label: 'Operational Outflows',
         format: 'currency',
-        getValue: (data) => data.outflows,
+        getValue: (data) => (data && !Array.isArray(data)) ? (data.outflows ?? 0) : 0,
         subtitle: () => 'Operating expenses & petty cash',
         accentColor: 'red',
       },
@@ -393,15 +393,17 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
         id: 'net-cash-flow',
         label: 'Net Liquidity Movement',
         format: 'currency',
-        getValue: (data) => data.netCashFlow,
-        subtitle: (data) => data.netCashFlow >= 0 ? '+ Positive net generation' : '- Net liquidity deficit',
+        getValue: (data) => (data && !Array.isArray(data)) ? (data.netCashFlow ?? 0) : 0,
+        subtitle: (data) => ((data && !Array.isArray(data) ? (data.netCashFlow ?? 0) : 0) >= 0)
+          ? '+ Positive net generation'
+          : '- Net liquidity deficit',
         accentColor: 'blue',
       },
       {
         id: 'ending-cash',
         label: 'Audited Float Vault',
         format: 'currency',
-        getValue: () => 41750,
+        getValue: (data) => (data && !Array.isArray(data) && typeof data.walletBalance === 'number') ? data.walletBalance : 0,
         subtitle: () => 'Current petty cash balance',
         accentColor: 'purple',
       },
@@ -415,16 +417,18 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
         { key: 'net', name: 'Net Cash Flow (LKR)', color: '#2563EB', type: 'line' },
       ],
       getChartData: (data) => {
+        // Guard: during loading, data is [] instead of the expected cash-flow object
+        if (!data || Array.isArray(data) || !data.incomes || !data.expenses) return [];
         const monthMap: Record<string, { inflows: number; outflows: number }> = {};
-        data.incomes.forEach((i: DeliveredOrderRecord) => {
+        (data.incomes as DeliveredOrderRecord[]).forEach((i) => {
           const m = i.deliveredAt.substring(0, 7);
           if (!monthMap[m]) monthMap[m] = { inflows: 0, outflows: 0 };
-          monthMap[m].inflows += i.totalAmount;
+          monthMap[m].inflows += Number(i.totalAmount) || 0;
         });
-        data.expenses.forEach((e: ExpenseRecord) => {
+        (data.expenses as ExpenseRecord[]).forEach((e) => {
           const m = e.expenseDate.substring(0, 7);
           if (!monthMap[m]) monthMap[m] = { inflows: 0, outflows: 0 };
-          monthMap[m].outflows += e.amount;
+          monthMap[m].outflows += Number(e.amount) || 0;
         });
         return Object.entries(monthMap)
           .sort(([a], [b]) => a.localeCompare(b))
@@ -443,11 +447,11 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
       { id: 'amount', header: 'Amount (LKR)', accessorKey: 'amount', align: 'right', format: 'currency' },
     ],
     getData: (db, filters) => {
-      const incs = db.deliveredOrders.filter((i: DeliveredOrderRecord) => isDateInRange(i.deliveredAt, filters.dateRange.startDate, filters.dateRange.endDate));
-      const exps = db.expenses.filter((e: ExpenseRecord) => isDateInRange(e.expenseDate, filters.dateRange.startDate, filters.dateRange.endDate));
+      const incs = (db.deliveredOrders || []).filter((i: DeliveredOrderRecord) => isDateInRange(i.deliveredAt, filters.dateRange.startDate, filters.dateRange.endDate));
+      const exps = (db.expenses || []).filter((e: ExpenseRecord) => isDateInRange(e.expenseDate, filters.dateRange.startDate, filters.dateRange.endDate));
 
-      const inflows = incs.reduce((acc: number, c: DeliveredOrderRecord) => acc + c.totalAmount, 0);
-      const outflows = exps.reduce((acc: number, c: ExpenseRecord) => acc + c.amount, 0);
+      const inflows = incs.reduce((acc: number, c: DeliveredOrderRecord) => acc + (Number(c.totalAmount) || 0), 0);
+      const outflows = exps.reduce((acc: number, c: ExpenseRecord) => acc + (Number(c.amount) || 0), 0);
       const netCashFlow = inflows - outflows;
 
       const rows = [
@@ -455,19 +459,24 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
           id: `in_${i.id}`,
           date: i.deliveredAt,
           type: 'INFLOW',
-          description: `Sales collection — ${i.orderNumber} (${i.customerName}, ${i.city})`,
-          amount: i.totalAmount,
+          description: i.orderNumber
+            ? `Sales collection — ${i.orderNumber}${i.customerName ? ` (${i.customerName}${i.city ? `, ${i.city}` : ''})` : ''}`
+            : 'Sales collection',
+          amount: Number(i.totalAmount) || 0,
         })),
         ...exps.map((e: ExpenseRecord) => ({
           id: `out_${e.id}`,
           date: e.expenseDate,
           type: 'OUTFLOW',
           description: `${e.categoryName}: ${e.remarks}`,
-          amount: e.amount,
+          amount: Number(e.amount) || 0,
         })),
       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-      return { inflows, outflows, netCashFlow, incomes: incs, expenses: exps, rows };
+      // walletBalance forwarded from live data for the KPI card
+      const walletBalance: number = typeof db.walletBalance === 'number' ? db.walletBalance : 0;
+
+      return { inflows, outflows, netCashFlow, incomes: incs, expenses: exps, rows, walletBalance };
     },
   },
 
@@ -626,7 +635,7 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
         id: 'available-float',
         label: 'Current Working Float',
         format: 'currency',
-        getValue: () => 41750,
+        getValue: (data) => Array.isArray(data) ? ((data as any)._walletBalance ?? 0) : 0,
         subtitle: () => 'Audited vault balance',
         accentColor: 'green',
       },
@@ -657,10 +666,29 @@ export const FINANCE_REPORTS: ReportDefinition[] = [
       { id: 'remainingBalance', header: 'Vault Balance', accessorKey: 'remainingBalance', align: 'right', format: 'currency' },
     ],
     getData: (db, filters) => {
-      return db.pettyCashTransactions.filter((p: PettyCashTransactionRecord) => {
+      // Support both live db-object format and direct array (mock data passes MOCK_FINANCE_DATABASE)
+      const txns: PettyCashTransactionRecord[] = Array.isArray(db)
+        ? db
+        : (db.pettyCashTransactions || []);
+
+      const filtered = txns.filter((p: PettyCashTransactionRecord) => {
         if (!isDateInRange(p.date, filters.dateRange.startDate, filters.dateRange.endDate)) return false;
         return true;
       });
+
+      // Inject walletBalance as a hidden non-enumerable property so the
+      // 'available-float' KPI card can read it without breaking array ops.
+      const walletBalance: number = Array.isArray(db)
+        ? 0
+        : (typeof db.walletBalance === 'number' ? db.walletBalance : 0);
+      Object.defineProperty(filtered, '_walletBalance', {
+        value: walletBalance,
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
+
+      return filtered;
     },
   },
 ];
