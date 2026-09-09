@@ -10,7 +10,8 @@ import {
   Clock, 
   Tag,
   MapPin,
-  Package
+  Package,
+  Users
 } from 'lucide-react';
 import { ReportDefinition, ActiveFilters } from './types';
 import { 
@@ -1347,6 +1348,193 @@ export const SALES_REPORTS: ReportDefinition[] = [
           const matchCity = (o.city || '').toLowerCase().includes(q);
           const matchTeam = (o.teamName || '').toLowerCase().includes(q);
           return matchOrder || matchCust || matchCity || matchTeam;
+        }
+        return true;
+      });
+    },
+  },
+
+  // 6. Team Member Sales & Performance Report
+  {
+    id: 'team-member-sales',
+    name: 'Team Member Sales & Performance Report',
+    description: 'Audited sales revenue, delivered consignments, COGS, and profit margins broken down by individual team members and sales representatives for each team separately.',
+    category: 'SALES',
+    groupCategory: 'SALES',
+    badgeText: 'Team Intelligence',
+    badgeType: 'executive',
+    icon: Users,
+    supportedFilters: ['dateRange', 'team', 'search'],
+    kpis: [
+      {
+        id: 'team-total-revenue',
+        label: 'Realized Delivered Revenue',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredRevenue) || 0), 0) : 0,
+        subtitle: (data) => {
+          const totalBooked = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.totalSales) || 0), 0) : 0;
+          return `Booked: ${formatCurrency(totalBooked)}`;
+        },
+        accentColor: 'blue',
+      },
+      {
+        id: 'team-orders-fulfilled',
+        label: 'Delivered Consignments',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredOrders) || 0), 0) : 0,
+        subtitle: (data) => {
+          const tot = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.totalOrders) || 0), 0) : 0;
+          const del = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredOrders) || 0), 0) : 0;
+          const rate = tot > 0 ? ((del / tot) * 100).toFixed(1) : '0.0';
+          return `${rate}% delivery fulfillment rate`;
+        },
+        accentColor: 'green',
+      },
+      {
+        id: 'team-gross-profit',
+        label: 'Realized Gross Profit',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.grossProfit) || 0), 0) : 0,
+        subtitle: (data) => {
+          const rev = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.deliveredRevenue) || 0), 0) : 0;
+          const gp = Array.isArray(data) ? data.reduce((s, m) => s + (Number(m.grossProfit) || 0), 0) : 0;
+          return rev > 0 ? `${((gp / rev) * 100).toFixed(1)}% realized margin` : '0%';
+        },
+        accentColor: 'purple',
+      },
+      {
+        id: 'active-members-count',
+        label: 'Active Sales Reps',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.filter((m) => (Number(m.totalOrders) || 0) > 0).length : 0,
+        subtitle: (data) => `${Array.isArray(data) ? data.length : 0} registered team members`,
+        accentColor: 'amber',
+      },
+    ],
+    chartConfig: {
+      type: 'GROUPED_BAR',
+      xAxisKey: 'memberName',
+      series: [
+        { key: 'deliveredRevenue', name: 'Realized Revenue (LKR)', color: '#01A8F3' },
+        { key: 'grossProfit', name: 'Gross Profit (LKR)', color: '#80BD2B' },
+      ],
+      getChartData: (data) => {
+        if (!Array.isArray(data)) return [];
+        return data.slice(0, 10).map((m: any) => ({
+          memberName: m.memberName || 'Agent',
+          deliveredRevenue: Number(m.deliveredRevenue) || 0,
+          grossProfit: Number(m.grossProfit) || 0,
+          totalSales: Number(m.totalSales) || 0,
+        }));
+      },
+    },
+    columns: [
+      { 
+        id: 'memberName', 
+        header: 'Sales Representative', 
+        accessorKey: 'memberName', 
+        format: 'text',
+        cell: (row) => {
+          return React.createElement('div', { className: 'flex flex-col' },
+            React.createElement('span', { className: 'font-bold text-slate-900' }, row.memberName || 'Agent'),
+            React.createElement('span', { className: 'text-[11px] text-slate-500 capitalize' }, (row.role || 'Sales Rep').toLowerCase().replace('_', ' '))
+          );
+        }
+      },
+      { id: 'teamName', header: 'Team / Brand', accessorKey: 'teamName', format: 'badge' },
+      { id: 'totalOrders', header: 'Booked', accessorKey: 'totalOrders', align: 'center', format: 'number' },
+      { id: 'deliveredOrders', header: 'Delivered', accessorKey: 'deliveredOrders', align: 'center', format: 'number' },
+      { 
+        id: 'deliveryRate', 
+        header: 'Success Rate', 
+        accessorKey: 'deliveryRate', 
+        align: 'center',
+        cell: (row) => {
+          const rateVal = parseFloat(String(row.deliveryRate || '0'));
+          const isGood = rateVal >= 60;
+          return React.createElement(
+            'span',
+            {
+              className: `px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                isGood
+                  ? 'bg-[#F2F9E9] text-[#547E1B] border border-[#D4ECC6]'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`,
+            },
+            row.deliveryRate || '0.0%'
+          );
+        }
+      },
+      { id: 'totalSales', header: 'Gross Booked', accessorKey: 'totalSales', align: 'right', format: 'currency' },
+      { id: 'deliveredRevenue', header: 'Realized Revenue', accessorKey: 'deliveredRevenue', align: 'right', format: 'currency' },
+      { id: 'cogs', header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency' },
+      { id: 'grossProfit', header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency' },
+      { 
+        id: 'marginPct', 
+        header: 'Margin %', 
+        accessorKey: 'marginPct', 
+        align: 'right',
+        cell: (row) => {
+          const rev = Number(row.deliveredRevenue) || 0;
+          const gp = Number(row.grossProfit) || 0;
+          const pct = row.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
+          return React.createElement('span', { className: 'font-bold text-[#547E1B]' }, pct);
+        }
+      },
+    ],
+    pdfConfig: {
+      orientation: 'landscape',
+      columns: [
+        { header: 'Sales Representative', accessorKey: 'memberName', align: 'left', widthMm: 42 },
+        { header: 'Team / Brand', accessorKey: 'teamName', align: 'left', widthMm: 30 },
+        { header: 'Booked', accessorKey: 'totalOrders', align: 'center', format: 'number', widthMm: 18 },
+        { header: 'Delivered', accessorKey: 'deliveredOrders', align: 'center', format: 'number', widthMm: 18 },
+        { header: 'Success %', accessorKey: 'deliveryRate', align: 'center', format: 'text', widthMm: 22 },
+        { header: 'Gross Booked', accessorKey: 'totalSales', align: 'right', format: 'currency', widthMm: 32 },
+        { header: 'Realized Revenue', accessorKey: 'deliveredRevenue', align: 'right', format: 'currency', widthMm: 34 },
+        { header: 'COGS', accessorKey: 'cogs', align: 'right', format: 'currency', widthMm: 26 },
+        { header: 'Gross Profit', accessorKey: 'grossProfit', align: 'right', format: 'currency', widthMm: 25 },
+        { header: 'Margin %', accessorKey: 'marginPct', align: 'right', format: 'text', widthMm: 20 },
+      ],
+      summaryLines: (data) => {
+        const rev = data.reduce((s: number, m: any) => s + (Number(m.deliveredRevenue) || 0), 0);
+        const cogs = data.reduce((s: number, m: any) => s + (Number(m.cogs) || 0), 0);
+        const gp = data.reduce((s: number, m: any) => s + (Number(m.grossProfit) || 0), 0);
+        const totOrders = data.reduce((s: number, m: any) => s + (Number(m.totalOrders) || 0), 0);
+        const delOrders = data.reduce((s: number, m: any) => s + (Number(m.deliveredOrders) || 0), 0);
+        const overallRate = totOrders > 0 ? `${((delOrders / totOrders) * 100).toFixed(1)}%` : '0.0%';
+        const overallMargin = rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%';
+        return [
+          { label: 'Active Sales Representatives:', value: `${data.filter((m: any) => (Number(m.totalOrders) || 0) > 0).length} of ${data.length} members`, isBold: true },
+          { label: 'Total Consignments Delivered:', value: `${delOrders.toLocaleString()} of ${totOrders.toLocaleString()} booked (${overallRate})` },
+          { label: 'Total Direct Inventory COGS:', value: formatCurrency(cogs) },
+          { label: 'Total Realized Gross Margin:', value: `${formatCurrency(gp)} (${overallMargin})`, isBold: true },
+          { label: 'Cumulative Realized Revenue:', value: formatCurrency(rev), isBold: true, isHighlight: true },
+        ];
+      },
+    },
+    getData: (allData, filters) => {
+      const raw = allData && allData.members ? allData.members : (Array.isArray(allData) ? allData : []);
+      return raw.map((m: any) => {
+        const rev = Number(m.deliveredRevenue) || 0;
+        const gp = Number(m.grossProfit) || 0;
+        const marginPct = m.marginPct || (rev > 0 ? `${((gp / rev) * 100).toFixed(1)}%` : '0.0%');
+        const totOrders = Number(m.totalOrders) || 0;
+        const delOrders = Number(m.deliveredOrders) || 0;
+        const deliveryRate = m.deliveryRate || (totOrders > 0 ? `${((delOrders / totOrders) * 100).toFixed(1)}%` : '0.0%');
+        return {
+          ...m,
+          marginPct,
+          deliveryRate,
+        };
+      }).filter((m: any) => {
+        if (filters.teamId && filters.teamId !== 'ALL' && m.teamId !== filters.teamId) return false;
+        if (filters.search && filters.search.trim()) {
+          const q = filters.search.toLowerCase().trim();
+          const matchName = (m.memberName || '').toLowerCase().includes(q);
+          const matchUser = (m.username || '').toLowerCase().includes(q);
+          const matchTeam = (m.teamName || '').toLowerCase().includes(q);
+          return matchName || matchUser || matchTeam;
         }
         return true;
       });

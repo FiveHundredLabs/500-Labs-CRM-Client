@@ -220,6 +220,7 @@ export interface IFinanceRepository {
   getSalesReport(period: 'daily' | 'weekly' | 'monthly', startDate?: string, endDate?: string): Promise<any>;
   getCityDeliveryReport(startDate?: string, endDate?: string): Promise<any>;
   getSalesAnalysisMembers(): Promise<SalesAnalysisMember[]>;
+  getTeamMemberSalesReport(startDate?: string, endDate?: string, teamId?: string): Promise<any>;
 }
 
 export interface ISalesTargetRepository {

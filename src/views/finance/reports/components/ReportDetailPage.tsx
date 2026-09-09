@@ -24,6 +24,7 @@ const LIVE_DATA_REPORTS = [
   'monthly-sales',
   'city-delivery',
   'consignment-sales',
+  'team-member-sales',
 ];
 
 /** Normalise a date value from the backend to a plain YYYY-MM-DD string */
@@ -317,6 +318,25 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
         } catch (err) {
           console.error('Failed to fetch consignment sales report from backend:', err);
           if (active) setLiveReportData([]);
+        } finally {
+          if (active) setIsLoadingLive(false);
+        }
+
+      // ── Team Member Wise Sales Report ──────────────────────────────────────
+      } else if (report.id === 'team-member-sales') {
+        setIsLoadingLive(true);
+        try {
+          const res = await financeRepository.getTeamMemberSalesReport(
+            filters.dateRange.startDate || undefined,
+            filters.dateRange.endDate || undefined,
+            filters.teamId !== 'ALL' ? filters.teamId : undefined
+          );
+          if (active) {
+            setLiveReportData(res || { members: [] });
+          }
+        } catch (err) {
+          console.error('Failed to fetch team member sales report from backend:', err);
+          if (active) setLiveReportData({ members: [] });
         } finally {
           if (active) setIsLoadingLive(false);
         }
