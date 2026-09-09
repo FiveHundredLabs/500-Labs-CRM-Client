@@ -71,11 +71,80 @@ export const ReportChart: React.FC<ReportChartProps> = ({
     );
   }
 
-  const formatTooltipValue = (value: any) => {
+  const formatTooltipValue = (value: any, name: any, item: any) => {
+    const series = config.series.find(
+      (s) => s.name === name || s.key === name || s.key === item?.dataKey
+    );
+    const displayName = series?.name || name;
+
     if (typeof value === 'number') {
-      return [formatCurrency(value), ''];
+      if (series?.format === 'number') {
+        const unit = series.unit ? ` ${series.unit}` : '';
+        return [`${value.toLocaleString()}${unit}`, displayName];
+      }
+      if (series?.format === 'percentage') {
+        return [`${value}%`, displayName];
+      }
+      if (series?.format === 'currency') {
+        return [formatCurrency(value), displayName];
+      }
+
+      const lowerName = (displayName || '').toLowerCase();
+      const lowerKey = (series?.key || item?.dataKey || '').toLowerCase();
+
+      const isQtyOrCount =
+        lowerName.includes('package') ||
+        lowerName.includes('order') ||
+        lowerName.includes('contact') ||
+        lowerName.includes('lead') ||
+        lowerName.includes('qty') ||
+        lowerName.includes('quantity') ||
+        lowerName.includes('count') ||
+        lowerName.includes('hub') ||
+        lowerName.includes('member') ||
+        lowerKey.includes('count') ||
+        lowerKey.includes('qty') ||
+        lowerKey.includes('delivered') ||
+        lowerKey.includes('total');
+
+      if (isQtyOrCount && !lowerName.includes('(lkr)') && !lowerKey.includes('revenue')) {
+        const unit = series?.unit || '';
+        return [unit ? `${value.toLocaleString()} ${unit}` : `${value.toLocaleString()}`, displayName];
+      }
+
+      return [formatCurrency(value), displayName];
     }
-    return [value, ''];
+
+    return [value, displayName];
+  };
+
+  const hasCurrencySeries = config.series.some((s) => {
+    if (s.format === 'currency') return true;
+    if (s.format === 'number' || s.format === 'percentage') return false;
+    const lower = (s.name || '').toLowerCase();
+    return (
+      lower.includes('(lkr)') ||
+      lower.includes('revenue') ||
+      lower.includes('sales') ||
+      lower.includes('margin') ||
+      lower.includes('cost') ||
+      lower.includes('price') ||
+      lower.includes('disbursement') ||
+      lower.includes('voucher') ||
+      lower.includes('collection') ||
+      lower.includes('inflow') ||
+      lower.includes('outflow')
+    );
+  });
+
+  const formatYAxis = (v: number) => {
+    if (hasCurrencySeries) {
+      if (Math.abs(v) >= 1000000) return `Rs. ${(v / 1000000).toFixed(1)}M`;
+      if (Math.abs(v) >= 1000) return `Rs. ${(v / 1000).toFixed(0)}k`;
+      return `Rs. ${v}`;
+    }
+    if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}k`;
+    return `${v}`;
   };
 
   const renderChart = () => {
@@ -98,7 +167,7 @@ export const ReportChart: React.FC<ReportChartProps> = ({
                 tick={{ fontSize: 11, fill: '#64748B' }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => `Rs. ${(v / 1000).toFixed(0)}k`}
+                tickFormatter={formatYAxis}
               />
               <Tooltip formatter={formatTooltipValue} />
               <Legend />
@@ -137,7 +206,7 @@ export const ReportChart: React.FC<ReportChartProps> = ({
                 tick={{ fontSize: 11, fill: '#64748B' }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => `Rs. ${(v / 1000).toFixed(0)}k`}
+                tickFormatter={formatYAxis}
               />
               <Tooltip formatter={formatTooltipValue} />
               <Legend />
@@ -165,7 +234,7 @@ export const ReportChart: React.FC<ReportChartProps> = ({
                 tick={{ fontSize: 11, fill: '#64748B' }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => `Rs. ${(v / 1000).toFixed(0)}k`}
+                tickFormatter={formatYAxis}
               />
               <Tooltip formatter={formatTooltipValue} />
               <Legend />
