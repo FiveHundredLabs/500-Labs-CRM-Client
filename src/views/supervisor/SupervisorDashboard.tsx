@@ -354,6 +354,58 @@ export const SupervisorDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* KPI Metric Cards Scoped to Date Filter */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5 xl:gap-3">
+        <StatCard
+          size="compact"
+          title="Gross Sales"
+          value={formatCurrency(totalGrossSales)}
+          subtitle={`${totalOrders} Booked Orders`}
+          icon={<DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />}
+          accentColor="green"
+        />
+        <StatCard
+          size="compact"
+          title="Delivered"
+          value={formatCurrency(totalDeliveredSales)}
+          subtitle={`${deliveredOrders} Delivered (${deliveryRate}%)`}
+          icon={<CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />}
+          accentColor="blue"
+        />
+        <StatCard
+          size="compact"
+          title="Dispatched"
+          value={`${dispatchedOrders} Orders`}
+          subtitle="In courier transit"
+          icon={<Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />}
+          accentColor="amber"
+        />
+        <StatCard
+          size="compact"
+          title="Interested"
+          value={scopedInterestedContacts.length}
+          subtitle="Qualified prospect leads"
+          icon={<Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />}
+          accentColor="purple"
+        />
+        <StatCard
+          size="compact"
+          title="Calls Handled"
+          value={scopedCalls.length}
+          subtitle="Customer calls logged"
+          icon={<PhoneCall className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />}
+          accentColor="blue"
+        />
+        <StatCard
+          size="compact"
+          title="Rejected / Ret."
+          value={rejectedOrders}
+          subtitle="Customer rejected / returned"
+          icon={<XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600" />}
+          accentColor="red"
+        />
+      </div>
+
       {/* Supervisor Team Goal & Incentive Widget */}
       {supervisorTarget && (() => {
         const pct = Number(supervisorTarget.achievementPercentage || 0);
@@ -430,58 +482,6 @@ export const SupervisorDashboard: React.FC = () => {
           </div>
         );
       })()}
-
-      {/* KPI Metric Cards Scoped to Date Filter */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5 xl:gap-3">
-        <StatCard
-          size="compact"
-          title="Gross Sales"
-          value={formatCurrency(totalGrossSales)}
-          subtitle={`${totalOrders} Booked Orders`}
-          icon={<DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />}
-          accentColor="green"
-        />
-        <StatCard
-          size="compact"
-          title="Delivered"
-          value={formatCurrency(totalDeliveredSales)}
-          subtitle={`${deliveredOrders} Delivered (${deliveryRate}%)`}
-          icon={<CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />}
-          accentColor="blue"
-        />
-        <StatCard
-          size="compact"
-          title="Dispatched"
-          value={`${dispatchedOrders} Orders`}
-          subtitle="In courier transit"
-          icon={<Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />}
-          accentColor="amber"
-        />
-        <StatCard
-          size="compact"
-          title="Interested"
-          value={scopedInterestedContacts.length}
-          subtitle="Qualified prospect leads"
-          icon={<Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />}
-          accentColor="purple"
-        />
-        <StatCard
-          size="compact"
-          title="Calls Handled"
-          value={scopedCalls.length}
-          subtitle="Customer calls logged"
-          icon={<PhoneCall className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />}
-          accentColor="blue"
-        />
-        <StatCard
-          size="compact"
-          title="Rejected / Ret."
-          value={rejectedOrders}
-          subtitle="Customer rejected / returned"
-          icon={<XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600" />}
-          accentColor="red"
-        />
-      </div>
 
       {/* Main Grid: Team Leaderboard & Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
