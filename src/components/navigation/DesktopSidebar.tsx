@@ -579,6 +579,23 @@
               placement="top"
             />
           </div>
+
+          {/* Developed & Maintained by 500 Labs Attribution Tag */}
+          {!isCollapsed ? (
+            <div className="px-3 pb-2 pt-0.5 text-center text-[10px] text-slate-400 font-medium border-t border-slate-50 flex flex-col items-center justify-center leading-tight">
+              <span>© 2026 500 Labs. All Rights Reserved.</span>
+              <span className="font-semibold text-slate-600 hover:text-slate-800 transition-colors mt-0.5">
+                Developed &amp; Maintained by 500 Labs.
+              </span>
+            </div>
+          ) : (
+            <div
+              className="pb-2 pt-0.5 text-center text-[9px] text-slate-400 font-extrabold tracking-tighter cursor-help select-none"
+              title="© 2026 500 Labs. All Rights Reserved. Developed & Maintained by 500 Labs."
+            >
+              500L
+            </div>
+          )}
         </div>
       </aside>
     );
