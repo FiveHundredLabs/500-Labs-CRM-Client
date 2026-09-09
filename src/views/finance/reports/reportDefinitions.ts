@@ -911,9 +911,9 @@ export const SALES_REPORTS: ReportDefinition[] = [
       type: 'GROUPED_BAR',
       xAxisKey: 'batchCode',
       series: [
-        { key: 'totalContacts', name: 'Total Contacts', color: '#01A8F3' },
-        { key: 'interestedContacts', name: 'Interested Stage', color: '#F59E0B' },
-        { key: 'deliveredContacts', name: 'Delivered Orders', color: '#80BD2B' },
+        { key: 'totalContacts', name: 'Total Contacts', color: '#01A8F3', format: 'number' },
+        { key: 'interestedContacts', name: 'Interested Stage', color: '#F59E0B', format: 'number' },
+        { key: 'deliveredContacts', name: 'Delivered Orders', color: '#80BD2B', format: 'number' },
       ],
       getChartData: (data) => {
         if (!Array.isArray(data)) return [];
@@ -1297,8 +1297,8 @@ export const SALES_REPORTS: ReportDefinition[] = [
       type: 'BAR',
       xAxisKey: 'city',
       series: [
-        { key: 'revenue', name: 'COD Collections (LKR)', color: '#01A8F3' },
-        { key: 'delivered', name: 'Delivered Packages', color: '#80BD2B' },
+        { key: 'revenue', name: 'COD Collections (LKR)', color: '#01A8F3', format: 'currency' },
+        { key: 'delivered', name: 'Delivered Packages', color: '#80BD2B', format: 'number' },
       ],
       getChartData: (data) => Array.isArray(data) ? data.slice(0, 10).map((c: any) => ({
         city: c.city,
