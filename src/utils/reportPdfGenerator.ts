@@ -210,15 +210,7 @@ export const generateExecutiveA4Pdf = (payload: ReportPdfPayload): jsPDF => {
         colWidths = payload.columnWidths;
       }
     } else {
-      if (numCols <= 3) {
-        colWidths = Array(numCols).fill(contentWidth / numCols);
-      } else {
-        const col0 = contentWidth * 0.20;
-        const col1 = contentWidth * 0.30;
-        const remaining = contentWidth - (col0 + col1);
-        const restColWidth = remaining / (numCols - 2);
-        colWidths = [col0, col1, ...Array(numCols - 2).fill(restColWidth)];
-      }
+      colWidths = Array(numCols).fill(contentWidth / numCols);
     }
 
     // Safe text fitting function: prevents cell text from overflowing column width
@@ -243,8 +235,8 @@ export const generateExecutiveA4Pdf = (payload: ReportPdfPayload): jsPDF => {
     let curColX = margin;
     payload.tableHeaders.forEach((header, i) => {
       const align = payload.columnAlignments?.[i] || (i === 0 ? 'left' : i === numCols - 1 ? 'right' : 'left');
-      const textX = align === 'right' ? curColX + colWidths[i] - 3 : align === 'center' ? curColX + colWidths[i] / 2 : curColX + 3;
-      const safeHeader = fitText(header.toUpperCase(), colWidths[i] - 5);
+      const textX = align === 'right' ? curColX + colWidths[i] - 2.5 : align === 'center' ? curColX + colWidths[i] / 2 : curColX + 2.5;
+      const safeHeader = fitText(header.toUpperCase(), colWidths[i] - 3);
       doc.text(safeHeader, textX, currentY + 4.8, { align });
       curColX += colWidths[i];
     });
@@ -266,7 +258,7 @@ export const generateExecutiveA4Pdf = (payload: ReportPdfPayload): jsPDF => {
       curColX = margin;
       row.forEach((cell, cellIdx) => {
         const align = payload.columnAlignments?.[cellIdx] || (cellIdx === 0 ? 'left' : cellIdx === numCols - 1 ? 'right' : 'left');
-        const textX = align === 'right' ? curColX + colWidths[cellIdx] - 3 : align === 'center' ? curColX + colWidths[cellIdx] / 2 : curColX + 3;
+        const textX = align === 'right' ? curColX + colWidths[cellIdx] - 2.5 : align === 'center' ? curColX + colWidths[cellIdx] / 2 : curColX + 2.5;
 
         // Bold first column or currency columns
         if (cellIdx === 0) {
@@ -278,7 +270,7 @@ export const generateExecutiveA4Pdf = (payload: ReportPdfPayload): jsPDF => {
         }
         doc.setFontSize(6.8);
 
-        const safeCellText = fitText(String(cell ?? '-'), colWidths[cellIdx] - 5);
+        const safeCellText = fitText(String(cell ?? '-'), colWidths[cellIdx] - 3);
         doc.text(safeCellText, textX, currentY + 4.5, { align });
         curColX += colWidths[cellIdx];
       });

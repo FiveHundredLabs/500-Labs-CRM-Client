@@ -1,8 +1,8 @@
 import { LucideIcon } from 'lucide-react';
 
-export type ReportCategoryId = 'ALL' | 'SUMMARY' | 'EXPENSE' | 'INCOME' | 'EXECUTIVE' | 'ASSETS';
+export type ReportCategoryId = 'ALL' | 'SUMMARY' | 'EXPENSE' | 'INCOME' | 'EXECUTIVE' | 'ASSETS' | 'FINANCE' | 'SALES';
 
-export type SupportedFilterType = 'dateRange' | 'team' | 'category' | 'paymentMethod';
+export type SupportedFilterType = 'dateRange' | 'team' | 'category' | 'paymentMethod' | 'search';
 
 export interface DateRangeFilter {
   preset: 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'THIS_QUARTER' | 'THIS_YEAR' | 'CUSTOM' | 'ALL';
@@ -80,6 +80,7 @@ export interface ReportDefinition {
   name: string;
   description: string;
   category: ReportCategoryId;
+  groupCategory?: 'FINANCE' | 'SALES';
   badgeText: string;
   badgeType?: 'default' | 'standard' | 'executive' | 'analytical';
   icon: LucideIcon;

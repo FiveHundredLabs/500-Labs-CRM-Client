@@ -49,6 +49,13 @@ export const ExportActions: React.FC<ExportActionsProps> = ({
       filteredData.forEach((row) => {
         const line = report.columns.map((col) => {
           let val = col.accessorKey ? row[col.accessorKey] : '';
+          if ((val === null || val === undefined || val === '') && (col.accessorKey === 'marginPct' || col.accessorKey === 'margin' || col.header?.toLowerCase().includes('margin'))) {
+            const rev = Number(row.revenue ?? row.totalAmount) || 0;
+            const gp = Number(row.grossProfit) || 0;
+            if (rev > 0) {
+              val = `${((gp / rev) * 100).toFixed(1)}%`;
+            }
+          }
           if (val === null || val === undefined) val = '';
           if (typeof val === 'number') {
             return `"${val}"`;
@@ -139,8 +146,20 @@ export const ExportActions: React.FC<ExportActionsProps> = ({
 
       const tableRows: (string | number)[][] = filteredData.slice(0, 250).map((row) => {
         return pdfCols.map((col) => {
-          const val = col.accessorKey ? row[col.accessorKey] : '';
-          if (val === null || val === undefined) return '-';
+          let val = col.accessorKey ? row[col.accessorKey] : '';
+          
+          // Fallback: auto-calculate margin percentage if column represents margin %
+          if ((val === null || val === undefined || val === '') && (col.accessorKey === 'marginPct' || col.accessorKey === 'margin' || col.header?.toLowerCase().includes('margin'))) {
+            const rev = Number(row.revenue ?? row.totalAmount) || 0;
+            const gp = Number(row.grossProfit) || 0;
+            if (rev > 0) {
+              val = `${((gp / rev) * 100).toFixed(1)}%`;
+            } else if (row.margin) {
+              val = String(row.margin);
+            }
+          }
+
+          if (val === null || val === undefined || val === '') return '-';
           if (col.format === 'currency') return formatCurrency(Number(val));
           if (col.format === 'number') return Number(val).toLocaleString();
           if (col.format === 'date') {

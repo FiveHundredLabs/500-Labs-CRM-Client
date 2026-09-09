@@ -19,6 +19,11 @@ const LIVE_DATA_REPORTS = [
   'operating-expense',
   'cash-flow',
   'petty-cash',
+  'daily-sales',
+  'weekly-sales',
+  'monthly-sales',
+  'city-delivery',
+  'consignment-sales',
 ];
 
 /** Normalise a date value from the backend to a plain YYYY-MM-DD string */
@@ -259,6 +264,63 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
           if (active) setIsLoadingLive(false);
         }
 
+      // ── Daily, Weekly & Monthly Sales Reports ──────────────────────────────
+      } else if (report.id === 'daily-sales' || report.id === 'weekly-sales' || report.id === 'monthly-sales') {
+        setIsLoadingLive(true);
+        try {
+          const period = report.id === 'daily-sales' ? 'daily' : report.id === 'weekly-sales' ? 'weekly' : 'monthly';
+          const salesData = await financeRepository.getSalesReport(
+            period,
+            filters.dateRange.startDate || undefined,
+            filters.dateRange.endDate || undefined
+          );
+          if (active) {
+            setLiveReportData(salesData || { periodData: [] });
+          }
+        } catch (err) {
+          console.error(`Failed to fetch ${report.id} from backend:`, err);
+          if (active) setLiveReportData({ periodData: [] });
+        } finally {
+          if (active) setIsLoadingLive(false);
+        }
+
+      // ── City Delivery Report ───────────────────────────────────────────────
+      } else if (report.id === 'city-delivery') {
+        setIsLoadingLive(true);
+        try {
+          const deliveryData = await financeRepository.getCityDeliveryReport(
+            filters.dateRange.startDate || undefined,
+            filters.dateRange.endDate || undefined
+          );
+          if (active) {
+            setLiveReportData(deliveryData || { cityData: [] });
+          }
+        } catch (err) {
+          console.error('Failed to fetch city delivery report from backend:', err);
+          if (active) setLiveReportData({ cityData: [] });
+        } finally {
+          if (active) setIsLoadingLive(false);
+        }
+
+      // ── Consignment Realized Sales Ledger ──────────────────────────────────
+      } else if (report.id === 'consignment-sales') {
+        setIsLoadingLive(true);
+        try {
+          const orders = await financeRepository.getRealizedSalesReport(
+            filters.dateRange.startDate || undefined,
+            filters.dateRange.endDate || undefined,
+            filters.teamId !== 'ALL' ? filters.teamId : undefined
+          );
+          if (active) {
+            setLiveReportData(orders || []);
+          }
+        } catch (err) {
+          console.error('Failed to fetch consignment sales report from backend:', err);
+          if (active) setLiveReportData([]);
+        } finally {
+          if (active) setIsLoadingLive(false);
+        }
+
       } else {
         setLiveReportData(null);
       }
@@ -307,7 +369,7 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
           className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0188C7] transition-colors cursor-pointer group"
         >
           <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
-          <span>Back to Finance Reports Directory</span>
+          <span>Back to Reports Directory</span>
         </button>
 
         {/* Title and Badge */}
