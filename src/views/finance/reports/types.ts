@@ -47,6 +47,9 @@ export interface ChartSeriesConfig {
   name: string;
   color: string;
   type?: 'bar' | 'line' | 'area';
+  format?: 'currency' | 'number' | 'percentage';
+  yAxisId?: 'left' | 'right';
+  unit?: string;
 }
 
 export interface ReportChartConfig {
