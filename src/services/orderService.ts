@@ -138,6 +138,7 @@ export class OrderService {
     try {
       const customer = await customerRepository.getById(order.customerId);
       const contactStatusMap: Partial<Record<OrderStatus, any>> = {
+        PREPARED: 'INTERESTED',
         DELIVERED: 'DELIVERED',
         REJECTED: 'REJECTED',
         CANCELLED: 'CANCELLED',
@@ -147,10 +148,6 @@ export class OrderService {
       if (customer && newContactStatus) {
         if (customer.contactId) {
           await contactRepository.update(customer.contactId, { status: newContactStatus });
-          const callLogs = await callLogRepository.getByContactId(customer.contactId);
-          for (const cl of callLogs) {
-            await callLogRepository.update(cl.id, { status: newContactStatus });
-          }
         }
       }
     } catch {

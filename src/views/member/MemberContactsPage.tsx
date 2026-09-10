@@ -53,13 +53,23 @@ const TABS: TabConfig[] = [
   { key: 'SAVED_CONTACTS', label: 'Saved Contacts' },
 ];
 
+import { useSearchParams } from 'react-router-dom';
+
 export const MemberContactsPage: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<TabCategory>('NEW'); // Default is New
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as TabCategory | null;
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [selectedDirection, setSelectedDirection] = useState<'OUTBOUND' | 'INBOUND'>('OUTBOUND');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);

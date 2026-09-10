@@ -25,7 +25,9 @@ import {
   Mail,
   Truck,
   FileText,
-  Edit3
+  Edit3,
+  PhoneIncoming,
+  PhoneOutgoing
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
@@ -522,13 +524,18 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                       <div className="flex items-center gap-2 flex-wrap">
                         <StatusBadge type="contact" status={log.status} />
                         <span
-                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider ${
+                          title={log.direction === 'INBOUND' ? 'Inbound Call' : 'Outbound Call'}
+                          className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${
                             log.direction === 'INBOUND'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-blue-100 text-blue-800 border border-blue-200'
+                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                              : 'bg-blue-100 text-blue-700 border border-blue-200'
                           }`}
                         >
-                          {log.direction === 'INBOUND' ? 'Inbound' : 'Outbound'}
+                          {log.direction === 'INBOUND' ? (
+                            <PhoneIncoming className="w-3 h-3" />
+                          ) : (
+                            <PhoneOutgoing className="w-3 h-3" />
+                          )}
                         </span>
                         <span className="font-mono text-slate-400 text-[11px]">
                           {format(new Date(log.calledAt), 'MMM dd, yyyy • hh:mm a')}

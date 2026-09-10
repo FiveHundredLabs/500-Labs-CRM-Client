@@ -20,12 +20,7 @@ export class LeadService {
       const customer = await customerRepository.getById(customerId);
       if (!customer) continue;
 
-      // 1. Update Contact status to DISPATCHED
-      if (customer.contactId) {
-        await contactRepository.update(customer.contactId, { status: 'DISPATCHED' });
-      }
-
-      // 2. Check existing order or create new order with status DISPATCHED
+      // 1. Check existing order or create new order with status DISPATCHED
       const existingOrders = await orderRepository.getByCustomerId(customerId);
       if (existingOrders.length > 0) {
         const latestOrder = existingOrders[existingOrders.length - 1];
@@ -47,6 +42,9 @@ export class LeadService {
           currency: 'LKR',
           remarks: 'Auto-generated order upon Interested Lead billing dispatch',
         });
+        if (customer.contactId) {
+          await contactRepository.update(customer.contactId, { status: 'DISPATCHED' });
+        }
       }
 
       // 3. Log Activity
@@ -78,13 +76,9 @@ export class LeadService {
     const customer = await customerRepository.getById(customerId);
     if (!customer) return false;
 
-    // 1. Update Contact status to CANCELLED
-    if (customer.contactId) {
-      await contactRepository.update(customer.contactId, { status: 'CANCELLED' });
-    }
-
-    // 2. Update any existing active Orders for this customer to CANCELLED
+    // 1. Update any existing active Orders for this customer to CANCELLED
     const existingOrders = await orderRepository.getByCustomerId(customerId);
+    let orderCancelled = false;
     for (const ord of existingOrders) {
       if (['DRAFT', 'PREPARED', 'DISPATCHED'].includes(ord.status)) {
         await OrderService.updateOrderStatus(
@@ -93,7 +87,13 @@ export class LeadService {
           actor,
           reason || 'Cancelled duplicate/unwanted lead by supervisor'
         );
+        orderCancelled = true;
       }
+    }
+
+    // 2. If no active orders were cancelled, update contact directly
+    if (!orderCancelled && customer.contactId) {
+      await contactRepository.update(customer.contactId, { status: 'CANCELLED' });
     }
 
     // 3. Log Activity

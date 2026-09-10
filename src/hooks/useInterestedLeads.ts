@@ -70,18 +70,19 @@ export function useInterestedLeads(overrideTeamId?: string) {
         const custOrders = ordMap[cust.id] || [];
         const latestOrder = custOrders[custOrders.length - 1];
 
-        // Contact status must be INTERESTED (if contact record exists)
-        const isContactInterested = !cnt || cnt.status === 'INTERESTED';
+        // Contact status must be INTERESTED, or latest active order must be PREPARED
+        const isLeadInterested = !cnt || cnt.status === 'INTERESTED' || latestOrder?.status === 'PREPARED';
 
-        // Order status must NOT be DISPATCHED, DELIVERED, REJECTED, or RETURNED
+        // Order status must NOT be DISPATCHED, DELIVERED, REJECTED, CANCELLED, or RETURNED
         const isOrderFinishedOrDispatched =
           latestOrder &&
           (latestOrder.status === 'DISPATCHED' ||
             latestOrder.status === 'DELIVERED' ||
             latestOrder.status === 'REJECTED' ||
+            latestOrder.status === 'CANCELLED' ||
             latestOrder.status === 'RETURNED');
 
-        return isContactInterested && !isOrderFinishedOrDispatched;
+        return isLeadInterested && !isOrderFinishedOrDispatched;
       });
 
       // ── Build phone-to-orders index for early duplicate & conflict detection ──

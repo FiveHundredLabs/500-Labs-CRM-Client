@@ -13,6 +13,8 @@ import { LoadingState } from '../../components/shared/LoadingState';
 import { PostCallModal } from '../../components/calling/PostCallModal';
 import {
   PhoneCall,
+  PhoneIncoming,
+  PhoneOutgoing,
   Clock,
   ChevronDown,
   ChevronUp,
@@ -30,19 +32,7 @@ import { format } from 'date-fns';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
-type LogFilterTab =
-  | 'ALL'
-  | 'FOLLOW_UP'
-  | 'ANSWERED'
-  | 'NOT_ANSWERED'
-  | 'PHONE_OFF'
-  | 'INTERESTED'
-  | 'NOT_INTERESTED'
-  | 'DISPATCHED'
-  | 'REJECTED'
-  | 'DELIVERED'
-  | 'CANCELLED'
-  | 'SAVED_CONTACTS';
+type LogFilterTab = 'ALL' | 'INBOUND' | 'OUTBOUND' | 'SAVED_CONTACTS';
 
 interface FilterConfig {
   key: LogFilterTab;
@@ -51,17 +41,9 @@ interface FilterConfig {
 
 const FILTER_TABS: FilterConfig[] = [
   { key: 'ALL', label: 'All Calls' },
-  { key: 'FOLLOW_UP', label: 'Follow Up' },
-  { key: 'ANSWERED', label: 'Answered' },
-  { key: 'NOT_ANSWERED', label: 'Not Answered' },
-  { key: 'PHONE_OFF', label: 'Phone Off' },
-  { key: 'INTERESTED', label: 'Interested' },
-  { key: 'NOT_INTERESTED', label: 'Not Interested' },
-  { key: 'DISPATCHED', label: 'Dispatch' },
-  { key: 'REJECTED', label: 'Rejected' },
-  { key: 'DELIVERED', label: 'Delivered' },
-  { key: 'CANCELLED', label: 'Cancelled' },
-  { key: 'SAVED_CONTACTS', label: 'Saved' },
+  { key: 'INBOUND', label: 'Inbound' },
+  { key: 'OUTBOUND', label: 'Outbound' },
+  { key: 'SAVED_CONTACTS', label: 'Saved Contacts' },
 ];
 
 export const MemberFollowUpsPage: React.FC = () => {
@@ -90,11 +72,15 @@ export const MemberFollowUpsPage: React.FC = () => {
   const [isReactivationMode, setIsReactivationMode] = useState(false);
   const [selectedRejectedOrder, setSelectedRejectedOrder] = useState<Order | null>(null);
 
-  // Read URL tab parameter (e.g., /member/follow-ups?tab=FOLLOW_UP)
+  // Read URL tab parameter (e.g., /member/follow-ups?tab=SAVED_CONTACTS)
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'FOLLOW_UP') {
-      setActiveTab('FOLLOW_UP');
+    if (tabParam === 'SAVED_CONTACTS') {
+      setActiveTab('SAVED_CONTACTS');
+    } else if (tabParam === 'INBOUND') {
+      setActiveTab('INBOUND');
+    } else if (tabParam === 'OUTBOUND') {
+      setActiveTab('OUTBOUND');
     }
   }, [searchParams]);
 
@@ -248,16 +234,8 @@ export const MemberFollowUpsPage: React.FC = () => {
   // Compute count for each filter tab
   const countMap: Record<LogFilterTab, number> = {
     ALL: callLogs.length,
-    FOLLOW_UP: callLogs.filter((l) => Boolean(l.isFollowUp || contactsMap[l.contactId]?.isFollowUp)).length,
-    ANSWERED: callLogs.filter((l) => l.status === 'ANSWERED' || contactsMap[l.contactId]?.status === 'ANSWERED').length,
-    NOT_ANSWERED: callLogs.filter((l) => l.status === 'NOT_ANSWERED' || contactsMap[l.contactId]?.status === 'NOT_ANSWERED').length,
-    PHONE_OFF: callLogs.filter((l) => l.status === 'PHONE_OFF' || contactsMap[l.contactId]?.status === 'PHONE_OFF').length,
-    INTERESTED: callLogs.filter((l) => l.status === 'INTERESTED' || contactsMap[l.contactId]?.status === 'INTERESTED').length,
-    NOT_INTERESTED: callLogs.filter((l) => l.status === 'NOT_INTERESTED' || contactsMap[l.contactId]?.status === 'NOT_INTERESTED').length,
-    DISPATCHED: callLogs.filter((l) => l.status === 'DISPATCHED' || contactsMap[l.contactId]?.status === 'DISPATCHED').length,
-    REJECTED: callLogs.filter((l) => l.status === 'REJECTED' || contactsMap[l.contactId]?.status === 'REJECTED').length,
-    DELIVERED: callLogs.filter((l) => l.status === 'DELIVERED' || contactsMap[l.contactId]?.status === 'DELIVERED').length,
-    CANCELLED: callLogs.filter((l) => l.status === 'CANCELLED' || contactsMap[l.contactId]?.status === 'CANCELLED').length,
+    INBOUND: callLogs.filter((l) => l.direction === 'INBOUND').length,
+    OUTBOUND: callLogs.filter((l) => l.direction === 'OUTBOUND' || !l.direction).length,
     SAVED_CONTACTS: callLogs.filter((l) => Boolean(l.customerName && l.customerAddress) || contactsMap[l.contactId]?.isSelfAdded).length,
   };
 
@@ -278,11 +256,13 @@ export const MemberFollowUpsPage: React.FC = () => {
     if (activeTab === 'SAVED_CONTACTS') {
       return Boolean(log.customerName && log.customerAddress) || Boolean(contact?.isSelfAdded);
     }
-    if (activeTab === 'FOLLOW_UP') {
-      return Boolean(log.isFollowUp || contact?.isFollowUp);
+    if (activeTab === 'INBOUND') {
+      return log.direction === 'INBOUND';
     }
-    if (activeTab === 'ALL') return true;
-    return log.status === activeTab || contact?.status === activeTab;
+    if (activeTab === 'OUTBOUND') {
+      return log.direction === 'OUTBOUND' || !log.direction;
+    }
+    return true;
   });
 
   // Saved contacts unique list
@@ -297,64 +277,50 @@ export const MemberFollowUpsPage: React.FC = () => {
         description="View past call history, manage follow-up star lists, and update call remarks"
       />
 
-      {/* Top Filter Bar (Ordered without 'New' + Yellow Follow-Up, Red Rejected, Green Delivered) */}
+      {/* Top Filter Bar */}
       <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
         <div className="flex flex-wrap gap-2">
           {FILTER_TABS.map((tab) => {
             const count = countMap[tab.key];
             const isActive = activeTab === tab.key;
             const isSavedTab = tab.key === 'SAVED_CONTACTS';
-            const isFollowUpTab = tab.key === 'FOLLOW_UP';
-            const isDelivered = tab.key === 'DELIVERED';
-            const isRejected = tab.key === 'REJECTED';
+            const isInboundTab = tab.key === 'INBOUND';
+            const isOutboundTab = tab.key === 'OUTBOUND';
+
+            let activeColors = 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs';
+            let badgeActiveColors = 'bg-[#01A8F3] text-white font-bold';
+
+            if (isSavedTab) {
+              activeColors = 'bg-teal-50 text-teal-700 font-bold border border-teal-300 shadow-2xs';
+              badgeActiveColors = 'bg-teal-600 text-white font-bold';
+            } else if (isInboundTab) {
+              activeColors = 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-300 shadow-2xs';
+              badgeActiveColors = 'bg-emerald-600 text-white font-bold';
+            } else if (isOutboundTab) {
+              activeColors = 'bg-blue-50 text-blue-700 font-bold border border-blue-300 shadow-2xs';
+              badgeActiveColors = 'bg-blue-600 text-white font-bold';
+            }
 
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex-1 sm:flex-initial min-w-[115px] sm:min-w-0 ${
+                className={`flex items-center justify-between gap-2.5 px-4 py-2 rounded-lg text-xs transition-all cursor-pointer min-w-[120px] ${
                   isActive
-                    ? isFollowUpTab
-                      ? 'bg-amber-100/90 text-amber-900 font-bold border border-amber-300 shadow-2xs'
-                      : isRejected
-                      ? 'bg-rose-50 text-rose-800 font-bold border border-rose-300 shadow-2xs'
-                      : isDelivered
-                      ? 'bg-emerald-50 text-emerald-800 font-bold border border-emerald-300 shadow-2xs'
-                      : isSavedTab
-                      ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-300 shadow-2xs'
-                      : 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs'
-                    : isFollowUpTab
-                    ? 'bg-amber-50/70 hover:bg-amber-100/80 text-amber-800 border border-amber-200/80 font-medium'
-                    : isRejected
-                    ? 'bg-rose-50/50 hover:bg-rose-100/70 text-rose-700 border border-rose-200/60 font-medium'
-                    : isDelivered
-                    ? 'bg-emerald-50/50 hover:bg-emerald-100/70 text-emerald-700 border border-emerald-200/60 font-medium'
-                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/60'
+                    ? activeColors
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/60 font-medium'
                 }`}
               >
-                <span className="whitespace-nowrap flex items-center gap-1.5">
-                  {isFollowUpTab && <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />}
-                  {isSavedTab && <BookmarkCheck className="w-3.5 h-3.5 text-emerald-600" />}
+                <span className="whitespace-nowrap flex items-center gap-1.5 font-medium">
+                  {isSavedTab && <BookmarkCheck className="w-3.5 h-3.5 text-teal-600" />}
+                  {isInboundTab && <PhoneIncoming className="w-3.5 h-3.5 text-emerald-600" />}
+                  {isOutboundTab && <PhoneOutgoing className="w-3.5 h-3.5 text-blue-600" />}
                   <span>{tab.label}</span>
                 </span>
                 <span
                   className={`px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0 ${
                     isActive
-                      ? isFollowUpTab
-                        ? 'bg-amber-500 text-white font-bold'
-                        : isRejected
-                        ? 'bg-rose-600 text-white'
-                        : isDelivered
-                        ? 'bg-emerald-600 text-white'
-                        : isSavedTab
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-[#01A8F3] text-white'
-                      : isFollowUpTab
-                      ? 'bg-amber-200 text-amber-900 font-bold'
-                      : isRejected
-                      ? 'bg-rose-100 text-rose-800'
-                      : isDelivered
-                      ? 'bg-emerald-100 text-emerald-800'
+                      ? badgeActiveColors
                       : 'bg-slate-200 text-slate-600'
                   }`}
                 >
@@ -375,8 +341,6 @@ export const MemberFollowUpsPage: React.FC = () => {
             placeholder={`Search ${
               activeTab === 'SAVED_CONTACTS'
                 ? 'saved contacts by name or phone'
-                : activeTab === 'FOLLOW_UP'
-                ? 'follow-up list by phone or notes'
                 : 'call logs by phone or notes'
             }...`}
           />
@@ -476,19 +440,11 @@ export const MemberFollowUpsPage: React.FC = () => {
         /* SECTION 2: CALL LOGS DEFAULT COLLAPSED VIEW (Phone, Call Time, Status + Star & Expand Icon & Update Remarks) */
         filteredLogs.length === 0 ? (
           <EmptyState
-            title={`No ${
-              activeTab === 'FOLLOW_UP'
-                ? 'Follow-Up'
-                : activeTab === 'ALL'
-                ? ''
-                : activeTab.toLowerCase().replace('_', ' ')
-            } call logs found`}
+            title="No call logs found"
             description={
               search
                 ? `No call logs match "${search}".`
-                : activeTab === 'FOLLOW_UP'
-                ? 'No numbers have been added to the Follow-Up list yet. Click the star icon next to any call log to add it!'
-                : 'You currently have no call history in this status category.'
+                : 'You currently have no call history.'
             }
           />
         ) : (
@@ -556,14 +512,20 @@ export const MemberFollowUpsPage: React.FC = () => {
 
                     {/* Right side: Status Badge + Edit Lead + Update Remarks Button */}
                     <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                      {/* Call Direction: Compact icon-only badge */}
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        title={log.direction === 'INBOUND' ? 'Inbound Call' : 'Outbound Call'}
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                           log.direction === 'INBOUND'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            : 'bg-blue-100 text-blue-800 border border-blue-200'
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            : 'bg-blue-100 text-blue-700 border border-blue-200'
                         }`}
                       >
-                        {log.direction === 'INBOUND' ? 'Inbound' : 'Outbound'}
+                        {log.direction === 'INBOUND' ? (
+                          <PhoneIncoming className="w-3.5 h-3.5" />
+                        ) : (
+                          <PhoneOutgoing className="w-3.5 h-3.5" />
+                        )}
                       </span>
                       <StatusBadge type="contact" status={log.status} />
 
