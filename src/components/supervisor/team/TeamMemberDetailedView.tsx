@@ -11,7 +11,7 @@ import { Input } from '../../ui/Input';
 import { Dialog } from '../../ui/Dialog';
 import { DollarSign, CheckCircle2, XCircle, PhoneCall, Sparkles, Truck, Calendar, Filter, Clock, Package, Eye, MapPin, User as UserIcon, Phone } from 'lucide-react';
 import { formatCurrency } from '../../../utils/currency';
-import { getProductSalesValue } from '../../../utils/orderAmounts';
+import { getProductSalesValue, getAmountToCollect } from '../../../utils/orderAmounts';
 
 export interface TeamMemberDetailedViewProps {
   member: User;
@@ -121,6 +121,41 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
     });
     return map;
   }, [contacts]);
+
+  const normalizePhone = (p?: string | null) => {
+    if (!p) return '';
+    const digits = p.replace(/\D/g, '');
+    return digits.length >= 9 ? digits.slice(-9) : digits;
+  };
+
+  // Lookup map for orders by contactId and customer phone
+  const ordersByContactId = useMemo(() => {
+    const map = new Map<string, Order>();
+    orders.forEach((o) => {
+      const cid = o.customer?.contactId;
+      if (cid && !map.has(cid)) map.set(cid, o);
+    });
+    return map;
+  }, [orders]);
+
+  const ordersByPhone = useMemo(() => {
+    const map = new Map<string, Order>();
+    orders.forEach((o) => {
+      const p = o.customer?.phone;
+      if (p) {
+        if (!map.has(p)) map.set(p, o);
+        const norm = normalizePhone(p);
+        if (norm && !map.has(norm)) map.set(norm, o);
+      }
+      const s = o.customer?.secondaryMobile;
+      if (s) {
+        if (!map.has(s)) map.set(s, o);
+        const normS = normalizePhone(s);
+        if (normS && !map.has(normS)) map.set(normS, o);
+      }
+    });
+    return map;
+  }, [orders]);
 
   // Filtered Calls Table Data
   const filteredCallLogs = useMemo(() => {
@@ -325,21 +360,92 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
               ) : (
                 filteredCallLogs.map((log) => {
                   const phoneDisplay = log.contactPhone || log.contact?.phone || contactsMap.get(log.contactId) || log.contactId;
-                  const totalQty = (log.adultQty || 0) + (log.kidsQty || 0);
-                  const hasPackage = Boolean(log.selectedPackage && log.selectedPackage !== 'NONE' && totalQty > 0);
+                  const normPhone = normalizePhone(phoneDisplay);
+                  const normSec = normalizePhone(log.secondaryMobile);
 
+                  const matchingOrder =
+                    (log.contactId ? ordersByContactId.get(log.contactId) : undefined) ||
+                    (phoneDisplay ? ordersByPhone.get(phoneDisplay) : undefined) ||
+                    (normPhone ? ordersByPhone.get(normPhone) : undefined) ||
+                    (log.secondaryMobile ? ordersByPhone.get(log.secondaryMobile) : undefined) ||
+                    (normSec ? ordersByPhone.get(normSec) : undefined);
+
+                  let totalQty = 0;
                   let packageSummary = '-';
-                  if (hasPackage) {
-                    if (log.selectedPackage === 'BOTH') {
-                      packageSummary = `BOTH (${log.adultQty || 0}A + ${log.kidsQty || 0}K)`;
-                    } else if (log.selectedPackage === 'ADULT') {
-                      packageSummary = `Adult (${log.adultQty || totalQty})`;
-                    } else if (log.selectedPackage === 'KIDS') {
-                      packageSummary = `Kids (${log.kidsQty || totalQty})`;
-                    } else {
-                      packageSummary = `${log.selectedPackage} (${totalQty})`;
+
+                  if (matchingOrder) {
+                    if (matchingOrder.items && matchingOrder.items.length > 0) {
+                      totalQty = matchingOrder.items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+                      packageSummary = matchingOrder.items
+                        .map((it) => `${it.productName} (${it.quantity})`)
+                        .join(', ');
+                    } else if ((Number(matchingOrder.adultQty) || 0) + (Number(matchingOrder.kidsQty) || 0) > 0) {
+                      totalQty = (Number(matchingOrder.adultQty) || 0) + (Number(matchingOrder.kidsQty) || 0);
+                    }
+
+                    if (packageSummary === '-' && matchingOrder.itemsDescription && matchingOrder.itemsDescription.trim() !== '') {
+                      packageSummary = matchingOrder.itemsDescription;
+                    } else if (packageSummary === '-' && matchingOrder.selectedPackage && matchingOrder.selectedPackage !== 'NONE') {
+                      if (matchingOrder.selectedPackage === 'BOTH') {
+                        packageSummary = `BOTH (${matchingOrder.adultQty || 0}A + ${matchingOrder.kidsQty || 0}K)`;
+                      } else if (matchingOrder.selectedPackage === 'ADULT') {
+                        packageSummary = `Adult (${matchingOrder.adultQty || totalQty || 1})`;
+                      } else if (matchingOrder.selectedPackage === 'KIDS') {
+                        packageSummary = `Kids (${matchingOrder.kidsQty || totalQty || 1})`;
+                      } else {
+                        packageSummary = `${matchingOrder.selectedPackage} (${totalQty || 1})`;
+                      }
                     }
                   }
+
+                  // Fallback to call log's legacy package fields if order didn't specify
+                  if (packageSummary === '-' || totalQty === 0) {
+                    const legacyQty = (Number(log.adultQty) || 0) + (Number(log.kidsQty) || 0);
+                    if (legacyQty > 0) totalQty = legacyQty;
+
+                    if (log.selectedPackage && log.selectedPackage !== 'NONE') {
+                      if (log.selectedPackage === 'BOTH') {
+                        packageSummary = `BOTH (${log.adultQty || 0}A + ${log.kidsQty || 0}K)`;
+                      } else if (log.selectedPackage === 'ADULT') {
+                        packageSummary = `Adult (${log.adultQty || totalQty || 1})`;
+                      } else if (log.selectedPackage === 'KIDS') {
+                        packageSummary = `Kids (${log.kidsQty || totalQty || 1})`;
+                      } else {
+                        packageSummary = `${log.selectedPackage} (${totalQty || 1})`;
+                      }
+                    }
+                  }
+
+                  // Fallback for leads with COD amount or INTERESTED status
+                  if (packageSummary === '-' && (log.status === 'INTERESTED' || Number(log.codAmount) > 0 || Number(log.totalPackageValue) > 0)) {
+                    packageSummary = 'Package Order';
+                    if (totalQty === 0) totalQty = 1;
+                  }
+
+                  if (packageSummary !== '-' && totalQty === 0) {
+                    totalQty = 1;
+                  }
+
+                  const hasPackage = Boolean(packageSummary !== '-' && totalQty > 0);
+                  const codVal = matchingOrder ? getAmountToCollect(matchingOrder) : (Number(log.codAmount) || 0);
+                  const codDisplay = codVal > 0 ? `LKR ${codVal.toLocaleString()}` : '-';
+
+                  const formatBadgeText = (text: string) => {
+                    if (!text || text === '-') return '-';
+                    const parts = text.split(',').map((p) => p.trim()).filter(Boolean);
+                    const formattedParts = parts.map((part) => {
+                      const m = part.match(/^(.*?)(?:\s+x\s+|\s*\()(\d+)\)?$/i);
+                      if (m) {
+                        let name = m[1].trim();
+                        const qty = m[2];
+                        if (/^adult\s+package$/i.test(name)) name = 'Adult';
+                        else if (/^kids?\s+package$/i.test(name)) name = 'Kids';
+                        return `${name} (${qty})`;
+                      }
+                      return part;
+                    });
+                    return formattedParts.join(', ');
+                  };
 
                   return (
                     <tr key={log.id} className="hover:bg-slate-50 transition-colors">
@@ -347,7 +453,7 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
                         {log.secondaryMobile ? `${phoneDisplay} (${log.secondaryMobile})` : phoneDisplay}
                       </td>
                       <td className="py-2.5 px-3 font-medium text-slate-900">
-                        {log.customerName || 'N/A'}
+                        {log.customerName || matchingOrder?.customer?.fullName || 'N/A'}
                       </td>
                       <td className="py-2.5 px-3 text-slate-500">
                         {format(new Date(log.calledAt), 'MMM dd, yyyy HH:mm')}
@@ -360,12 +466,12 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
                           <button
                             type="button"
                             onClick={() => setSelectedCallDetails(log)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md cursor-pointer transition-colors"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md cursor-pointer transition-colors max-w-[200px] truncate"
                             title="Click to view full package order & customer details"
                           >
-                            <Package className="w-3 h-3 text-blue-600" />
-                            <span>{packageSummary}</span>
-                            <Eye className="w-3 h-3 text-blue-500 opacity-60 ml-0.5" />
+                            <Package className="w-3 h-3 text-blue-600 shrink-0" />
+                            <span className="truncate">{formatBadgeText(packageSummary)}</span>
+                            <Eye className="w-3 h-3 text-blue-500 opacity-60 ml-0.5 shrink-0" />
                           </button>
                         ) : (
                           <span className="text-slate-400 font-mono text-xs">-</span>
@@ -375,7 +481,7 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
                         {hasPackage ? totalQty : 0}
                       </td>
                       <td className="py-2.5 px-3 font-mono text-slate-900 font-bold">
-                        {log.codAmount && Number(log.codAmount) > 0 ? `LKR ${Number(log.codAmount).toLocaleString()}` : '-'}
+                        {codDisplay}
                       </td>
                     </tr>
                   );
@@ -455,104 +561,165 @@ export const TeamMemberDetailedView: React.FC<TeamMemberDetailedViewProps> = ({ 
         description={`Logged call details for ${selectedCallDetails?.contactPhone || contactsMap.get(selectedCallDetails?.contactId || '') || selectedCallDetails?.contactId}`}
         maxWidth="lg"
       >
-        {selectedCallDetails && (
-          <div className="space-y-4">
-            {/* Customer & Call Meta */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-              <div>
-                <span className="text-slate-400 text-[11px] block">Customer Name</span>
-                <strong className="text-slate-900 text-sm mt-0.5 block">{selectedCallDetails.customerName || 'N/A'}</strong>
-              </div>
-              <div>
-                <span className="text-slate-400 text-[11px] block">Contact Number</span>
-                <strong className="text-slate-900 font-mono text-sm mt-0.5 block">
-                  {selectedCallDetails.contactPhone || contactsMap.get(selectedCallDetails.contactId) || selectedCallDetails.contactId}
-                  {selectedCallDetails.secondaryMobile ? ` (${selectedCallDetails.secondaryMobile})` : ''}
-                </strong>
-              </div>
-              <div>
-                <span className="text-slate-400 text-[11px] block">Call Status</span>
-                <div className="mt-1">
-                  <StatusBadge type="contact" status={selectedCallDetails.status} />
+        {selectedCallDetails && (() => {
+          const selectedPhone = selectedCallDetails.contactPhone || selectedCallDetails.contact?.phone || contactsMap.get(selectedCallDetails.contactId) || selectedCallDetails.contactId;
+          const normPhone = normalizePhone(selectedPhone);
+          const normSec = normalizePhone(selectedCallDetails.secondaryMobile);
+          const selectedOrder =
+            (selectedCallDetails.contactId ? ordersByContactId.get(selectedCallDetails.contactId) : undefined) ||
+            (selectedPhone ? ordersByPhone.get(selectedPhone) : undefined) ||
+            (normPhone ? ordersByPhone.get(normPhone) : undefined) ||
+            (selectedCallDetails.secondaryMobile ? ordersByPhone.get(selectedCallDetails.secondaryMobile) : undefined) ||
+            (normSec ? ordersByPhone.get(normSec) : undefined);
+
+          const displayPackageName = selectedOrder?.itemsDescription || selectedCallDetails.selectedPackage || 'Package Order';
+          const effectiveCodAmount = selectedOrder ? getAmountToCollect(selectedOrder) : (Number(selectedCallDetails.codAmount) || 0);
+          const effectiveProductValue = selectedOrder?.totalPackageValue || selectedCallDetails.totalPackageValue || effectiveCodAmount;
+
+          return (
+            <div className="space-y-4">
+              {/* Customer & Call Meta */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Customer Name</span>
+                  <strong className="text-slate-900 text-sm mt-0.5 block">{selectedCallDetails.customerName || selectedOrder?.customer?.fullName || 'N/A'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Contact Number</span>
+                  <strong className="text-slate-900 font-mono text-sm mt-0.5 block">
+                    {selectedPhone}
+                    {selectedCallDetails.secondaryMobile ? ` (${selectedCallDetails.secondaryMobile})` : ''}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Call Status</span>
+                  <div className="mt-1">
+                    <StatusBadge type="contact" status={selectedCallDetails.status} />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[11px] block">Call Date & Time</span>
+                  <span className="text-slate-700 font-mono mt-0.5 block">
+                    {format(new Date(selectedCallDetails.calledAt), 'MMM dd, yyyy HH:mm:ss')}
+                  </span>
                 </div>
               </div>
-              <div>
-                <span className="text-slate-400 text-[11px] block">Call Date & Time</span>
-                <span className="text-slate-700 font-mono mt-0.5 block">
-                  {format(new Date(selectedCallDetails.calledAt), 'MMM dd, yyyy HH:mm:ss')}
-                </span>
-              </div>
-            </div>
 
-            {/* Delivery Address & Location */}
-            {(selectedCallDetails.customerAddress || selectedCallDetails.city) && (
-              <div className="p-3 bg-white border border-slate-200 rounded-xl text-xs space-y-1">
-                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Delivery Address</span>
+              {/* Delivery Address & Location */}
+              {(selectedCallDetails.customerAddress || selectedCallDetails.city || selectedOrder?.customer?.address || selectedOrder?.customer?.city) && (
+                <div className="p-3 bg-white border border-slate-200 rounded-xl text-xs space-y-1">
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Delivery Address</span>
+                  </div>
+                  <p className="text-slate-800 font-medium">
+                    {selectedCallDetails.customerAddress || selectedOrder?.customer?.address || ''}
+                    {(selectedCallDetails.city || selectedOrder?.customer?.city) ? `, ${selectedCallDetails.city || selectedOrder?.customer?.city}` : ''}
+                  </p>
                 </div>
-                <p className="text-slate-800 font-medium">
-                  {selectedCallDetails.customerAddress || ''}
-                  {selectedCallDetails.city ? `, ${selectedCallDetails.city}` : ''}
-                </p>
+              )}
+
+              {/* Package & Pricing Breakdown */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Selected Package: {displayPackageName}</span>
+                  </span>
+                  <span className="font-mono font-bold text-emerald-700">
+                    COD: {effectiveCodAmount > 0 ? formatCurrency(effectiveCodAmount) : '-'}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-white text-xs space-y-2 font-mono">
+                  {/* Order Items list if present */}
+                  {selectedOrder?.items && selectedOrder.items.length > 0 ? (
+                    selectedOrder.items.map((it, idx) => (
+                      <div key={it.id || idx} className="flex items-center justify-between py-1 border-b border-slate-100 font-sans">
+                        <span className="text-slate-700">{it.productName} ({it.quantity} units)</span>
+                        <span className="font-mono font-semibold text-slate-900">
+                          {it.subtotal ? formatCurrency(it.subtotal) : `${it.quantity} qty`}
+                        </span>
+                      </div>
+                    ))
+                  ) : selectedOrder?.itemsDescription && selectedOrder.itemsDescription.trim() !== '' && selectedOrder.itemsDescription !== 'Package Order' ? (
+                    selectedOrder.itemsDescription.split(',').map((part, idx) => {
+                      const m = part.trim().match(/^(.*?)(?:\s+x\s+|\s*\()(\d+)\)?$/i);
+                      const itName = m ? m[1].trim() : part.trim();
+                      const itQty = m ? m[2] : '1';
+                      return (
+                        <div key={idx} className="flex items-center justify-between py-1 border-b border-slate-100 font-sans">
+                          <span className="text-slate-700">{itName} ({itQty} units)</span>
+                          <span className="font-mono font-semibold text-slate-900">{itQty} qty</span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <>
+                      {((selectedCallDetails.adultQty && selectedCallDetails.adultQty > 0) || (selectedOrder?.adultQty && selectedOrder.adultQty > 0)) ? (
+                        <div className="flex items-center justify-between py-1 border-b border-slate-100 font-sans">
+                          <span className="text-slate-700">Adult Package ({selectedCallDetails.adultQty || selectedOrder?.adultQty} units)</span>
+                          <span className="font-mono font-semibold text-slate-900">
+                            {selectedCallDetails.adultSubtotal || selectedOrder?.adultSubtotal
+                              ? formatCurrency(selectedCallDetails.adultSubtotal || selectedOrder?.adultSubtotal || 0)
+                              : `${selectedCallDetails.adultQty || selectedOrder?.adultQty} qty`}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {((selectedCallDetails.kidsQty && selectedCallDetails.kidsQty > 0) || (selectedOrder?.kidsQty && selectedOrder.kidsQty > 0)) ? (
+                        <div className="flex items-center justify-between py-1 border-b border-slate-100 font-sans">
+                          <span className="text-slate-700">Kids Package ({selectedCallDetails.kidsQty || selectedOrder?.kidsQty} units)</span>
+                          <span className="font-mono font-semibold text-slate-900">
+                            {selectedCallDetails.kidsSubtotal || selectedOrder?.kidsSubtotal
+                              ? formatCurrency(selectedCallDetails.kidsSubtotal || selectedOrder?.kidsSubtotal || 0)
+                              : `${selectedCallDetails.kidsQty || selectedOrder?.kidsQty} qty`}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {Boolean(selectedCallDetails.selectedPackage && selectedCallDetails.selectedPackage !== 'NONE' && selectedCallDetails.selectedPackage !== 'ADULT' && selectedCallDetails.selectedPackage !== 'KIDS' && selectedCallDetails.selectedPackage !== 'BOTH' && !selectedCallDetails.adultQty && !selectedCallDetails.kidsQty) ? (
+                        <div className="flex items-center justify-between py-1 border-b border-slate-100 font-sans">
+                          <span className="text-slate-700">{selectedCallDetails.selectedPackage}</span>
+                          <span className="font-mono font-semibold text-slate-900">1 qty</span>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+
+                  {/* Delivery / COD Charge if present */}
+                  {selectedOrder?.codCharge && Number(selectedOrder.codCharge) > 0 ? (
+                    <div className="flex items-center justify-between py-1 border-b border-slate-100 font-sans text-slate-600">
+                      <span>Delivery / COD Charge:</span>
+                      <span className="font-mono font-semibold">{formatCurrency(selectedOrder.codCharge)}</span>
+                    </div>
+                  ) : null}
+
+                  {effectiveProductValue > 0 && (
+                    <div className="flex items-center justify-between pt-1 font-sans font-bold">
+                      <span className="text-slate-900">Total Order Value:</span>
+                      <span className="font-mono text-emerald-700 text-sm">{formatCurrency(effectiveProductValue)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
 
-            {/* Package & Pricing Breakdown */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                  <Package className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Selected Package: {selectedCallDetails.selectedPackage || 'Custom Order'}</span>
-                </span>
-                <span className="font-mono font-bold text-emerald-700">
-                  COD: {selectedCallDetails.codAmount ? formatCurrency(selectedCallDetails.codAmount) : '-'}
-                </span>
-              </div>
+              {/* Remarks */}
+              {(selectedCallDetails.remarks || selectedOrder?.remarks) && (
+                <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-xs space-y-1">
+                  <span className="text-amber-800 font-bold uppercase tracking-wider text-[10px]">Call Remarks & Customer Notes</span>
+                  <p className="text-slate-800">{selectedCallDetails.remarks || selectedOrder?.remarks}</p>
+                </div>
+              )}
 
-              <div className="p-3 bg-white text-xs space-y-2 font-mono">
-                {selectedCallDetails.adultQty && selectedCallDetails.adultQty > 0 ? (
-                  <div className="flex items-center justify-between py-1 border-b border-slate-100 font-sans">
-                    <span className="text-slate-700">Adult Package ({selectedCallDetails.adultQty} units)</span>
-                    <span className="font-mono font-semibold text-slate-900">
-                      {selectedCallDetails.adultSubtotal ? formatCurrency(selectedCallDetails.adultSubtotal) : `${selectedCallDetails.adultQty} qty`}
-                    </span>
-                  </div>
-                ) : null}
-
-                {selectedCallDetails.kidsQty && selectedCallDetails.kidsQty > 0 ? (
-                  <div className="flex items-center justify-between py-1 border-b border-slate-100 font-sans">
-                    <span className="text-slate-700">Kids Package ({selectedCallDetails.kidsQty} units)</span>
-                    <span className="font-mono font-semibold text-slate-900">
-                      {selectedCallDetails.kidsSubtotal ? formatCurrency(selectedCallDetails.kidsSubtotal) : `${selectedCallDetails.kidsQty} qty`}
-                    </span>
-                  </div>
-                ) : null}
-
-                {selectedCallDetails.totalPackageValue && (
-                  <div className="flex items-center justify-between pt-1 font-sans font-bold">
-                    <span className="text-slate-900">Total Order Value:</span>
-                    <span className="font-mono text-emerald-700 text-sm">{formatCurrency(selectedCallDetails.totalPackageValue)}</span>
-                  </div>
-                )}
+              <div className="flex justify-end pt-2 border-t border-slate-100">
+                <Button type="button" variant="secondary" onClick={() => setSelectedCallDetails(null)}>
+                  Close
+                </Button>
               </div>
             </div>
-
-            {/* Remarks */}
-            {selectedCallDetails.remarks && (
-              <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-xs space-y-1">
-                <span className="text-amber-800 font-bold uppercase tracking-wider text-[10px]">Call Remarks & Customer Notes</span>
-                <p className="text-slate-800">{selectedCallDetails.remarks}</p>
-              </div>
-            )}
-
-            <div className="flex justify-end pt-2 border-t border-slate-100">
-              <Button type="button" variant="secondary" onClick={() => setSelectedCallDetails(null)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </Dialog>
     </div>
   );

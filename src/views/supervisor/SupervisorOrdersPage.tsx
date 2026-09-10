@@ -335,17 +335,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         selectedOrders={orders.filter((o) => selectedOrderIds.includes(o.id))}
         onClose={() => setIsBulkModalOpen(false)}
         onConfirm={async (bulkTargetStatus, damagedPayload) => {
-          const success = await bulkUpdateOrderStatus(selectedOrderIds, bulkTargetStatus);
-          // If damaged payload was reported, report damage for each selected item
-          if (damagedPayload && damagedPayload.length > 0) {
-            for (const item of damagedPayload) {
-              if (item.productId) {
-                try {
-                  await productRepository.reportDamage(item.productId, item.quantity, item.reason);
-                } catch {}
-              }
-            }
-          }
+          const success = await bulkUpdateOrderStatus(selectedOrderIds, bulkTargetStatus, damagedPayload);
           if (success) clearSelection();
           return success;
         }}
