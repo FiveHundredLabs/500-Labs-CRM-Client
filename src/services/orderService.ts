@@ -98,32 +98,7 @@ export class OrderService {
       ?.filter((item) => item.productId)
       .map((item) => item.productId as string);
 
-    const updatedOrder = await orderRepository.updateStatus(orderId, newStatus, remarks, damagedProductIds);
-
-    // If damaged items are reported on status update (e.g. rejection/return), report into product damagedStock
-    if (damagedItems && damagedItems.length > 0) {
-      for (const item of damagedItems) {
-        try {
-          let targetProdId = item.productId;
-          if (!targetProdId) {
-            const teamProducts = await productRepository.getByTeamId(order.teamId);
-            const matched = teamProducts.find(
-              (p) =>
-                p.name.toLowerCase().includes(item.productName.toLowerCase()) ||
-                item.productName.toLowerCase().includes(p.name.toLowerCase())
-            ) || teamProducts[0];
-            targetProdId = matched?.id;
-          }
-
-          if (targetProdId) {
-            const damageReason = item.reason || `Returned damaged from Order #${order.orderNumber} (${newStatus})`;
-            await productRepository.reportDamage(targetProdId, item.quantity, damageReason);
-          }
-        } catch {
-          // Non-fatal damage reporting
-        }
-      }
-    }
+    const updatedOrder = await orderRepository.updateStatus(orderId, newStatus, remarks, damagedProductIds, damagedItems);
 
     // Save DeliveryStatusHistory
     await deliveryStatusHistoryRepository.create({
@@ -214,11 +189,20 @@ export class OrderService {
     orderIds: string[],
     newStatus: OrderStatus,
     actor: User,
-    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
+    damagedItems?: { orderId?: string; productId?: string; productName: string; quantity: number; reason?: string }[]
   ): Promise<number> {
     let count = 0;
     for (const orderId of orderIds) {
-      await this.updateOrderStatus(orderId, newStatus, actor, undefined, damagedItems);
+      const orderSpecificDamaged = damagedItems
+        ? damagedItems.filter((d) => !d.orderId || d.orderId === orderId)
+        : undefined;
+      await this.updateOrderStatus(
+        orderId,
+        newStatus,
+        actor,
+        undefined,
+        orderSpecificDamaged && orderSpecificDamaged.length > 0 ? orderSpecificDamaged : undefined
+      );
       count++;
     }
     return count;

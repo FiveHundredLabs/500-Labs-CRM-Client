@@ -379,8 +379,21 @@ export class ApiOrderRepository implements IOrderRepository {
   ): Promise<Order> {
     return unwrap(await apiClient.post<{ data: Order }>('/orders', order));
   }
-  async updateStatus(id: string, status: any, remarks?: string, damagedProductIds?: string[]): Promise<Order> {
-    return unwrap(await apiClient.patch<{ data: Order }>(`/orders/${id}/status`, { status, remarks, damagedProductIds }));
+  async updateStatus(
+    id: string,
+    status: any,
+    remarks?: string,
+    damagedProductIds?: string[],
+    damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[]
+  ): Promise<Order> {
+    return unwrap(
+      await apiClient.patch<{ data: Order }>(`/orders/${id}/status`, {
+        status,
+        remarks,
+        damagedProductIds,
+        damagedItems,
+      })
+    );
   }
   async updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order> {
     return unwrap(await apiClient.patch<{ data: Order }>(`/orders/${id}/delivery-charge`, { codCharge, remarks }));

@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { AlertTriangle, Package, ShieldAlert } from 'lucide-react';
 
 export interface BulkDamagedItemEntry {
+  orderId: string;
   productId?: string;
   productName: string;
   orderNumber: string;
@@ -23,7 +24,7 @@ export interface BulkStatusChangeDialogProps {
   onClose: () => void;
   onConfirm: (
     bulkTargetStatus: OrderStatus,
-    damagedPayload?: { productId?: string; productName: string; quantity: number; reason?: string }[]
+    damagedPayload?: { orderId?: string; productId?: string; productName: string; quantity: number; reason?: string }[]
   ) => Promise<boolean>;
 }
 
@@ -59,9 +60,11 @@ export const BulkStatusChangeDialog: React.FC<BulkStatusChangeDialogProps> = ({
 
           if (order.items && order.items.length > 0) {
             order.items.forEach((item) => {
+              const matched = teamProds.find(p => p.id === item.productId || p.name.toLowerCase() === (item.productName || '').toLowerCase());
               entries.push({
-                productId: item.productId,
-                productName: item.productName || 'Team Product',
+                orderId: order.id,
+                productId: item.productId || matched?.id,
+                productName: item.productName || matched?.name || 'Team Product',
                 orderNumber: order.orderNumber,
                 orderedQuantity: item.quantity,
                 damagedQuantity: item.quantity,
@@ -75,6 +78,7 @@ export const BulkStatusChangeDialog: React.FC<BulkStatusChangeDialogProps> = ({
                 (p) => p.name.toLowerCase().includes('adult') || p.category?.toLowerCase().includes('adult')
               );
               entries.push({
+                orderId: order.id,
                 productId: matched?.id,
                 productName: matched?.name || 'Adult Package',
                 orderNumber: order.orderNumber,
@@ -90,6 +94,7 @@ export const BulkStatusChangeDialog: React.FC<BulkStatusChangeDialogProps> = ({
                 (p) => p.name.toLowerCase().includes('kid') || p.category?.toLowerCase().includes('kid')
               );
               entries.push({
+                orderId: order.id,
                 productId: matched?.id,
                 productName: matched?.name || 'Kids Package',
                 orderNumber: order.orderNumber,
@@ -103,6 +108,7 @@ export const BulkStatusChangeDialog: React.FC<BulkStatusChangeDialogProps> = ({
             const fallbackName = order.itemsDescription || teamProds[0]?.name || 'Product';
             const matched = teamProds.find((p) => p.name.toLowerCase() === fallbackName.toLowerCase()) || teamProds[0];
             entries.push({
+              orderId: order.id,
               productId: matched?.id,
               productName: matched?.name || fallbackName,
               orderNumber: order.orderNumber,
@@ -147,6 +153,7 @@ export const BulkStatusChangeDialog: React.FC<BulkStatusChangeDialogProps> = ({
           ? damageEntries
               .filter((item) => item.isDamaged && item.damagedQuantity > 0)
               .map((item) => ({
+                orderId: item.orderId,
                 productId: item.productId,
                 productName: item.productName,
                 quantity: item.damagedQuantity,
@@ -230,35 +237,53 @@ export const BulkStatusChangeDialog: React.FC<BulkStatusChangeDialogProps> = ({
                     {damageEntries.map((item, idx) => (
                       <div
                         key={idx}
-                        className={`flex items-center justify-between p-2 rounded border text-xs ${
+                        className={`p-2 rounded border text-xs ${
                           item.isDamaged ? 'bg-rose-50/50 border-rose-300' : 'bg-slate-50 border-slate-200 opacity-60'
                         }`}
                       >
-                        <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-800">
-                          <input
-                            type="checkbox"
-                            checked={item.isDamaged}
-                            onChange={() => handleToggleEntry(idx)}
-                            className="w-3.5 h-3.5 rounded text-rose-600 focus:ring-rose-500"
-                          />
-                          <Package className="w-3.5 h-3.5 text-slate-400" />
-                          <span>
-                            {item.productName} (Qty: {item.orderedQuantity})
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">#{item.orderNumber}</span>
-                        </label>
-
-                        {item.isDamaged && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] text-slate-500">Damage Qty:</span>
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-800">
                             <input
-                              type="number"
-                              min={1}
-                              max={item.orderedQuantity}
-                              value={item.damagedQuantity}
-                              onChange={(e) => handleEntryQtyChange(idx, parseInt(e.target.value) || 1)}
-                              className="w-12 px-1.5 py-0.5 bg-white border border-rose-300 rounded font-mono font-bold text-xs text-rose-900 text-center"
+                              type="checkbox"
+                              checked={item.isDamaged}
+                              onChange={() => handleToggleEntry(idx)}
+                              className="w-3.5 h-3.5 rounded text-rose-600 focus:ring-rose-500"
                             />
+                            <Package className="w-3.5 h-3.5 text-slate-400" />
+                            <span>
+                              {item.productName} (Qty: {item.orderedQuantity})
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">#{item.orderNumber}</span>
+                          </label>
+
+                          {item.isDamaged && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-slate-500">Damage Qty:</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={item.orderedQuantity}
+                                value={item.damagedQuantity}
+                                onChange={(e) => handleEntryQtyChange(idx, parseInt(e.target.value) || 1)}
+                                className="w-12 px-1.5 py-0.5 bg-white border border-rose-300 rounded font-mono font-bold text-xs text-rose-900 text-center"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {item.isDamaged ? (
+                          <div className="mt-1 pl-5 flex items-center gap-1.5 text-[10px]">
+                            <span className="font-semibold text-rose-700 bg-rose-100/80 px-1.5 py-0.5 rounded">
+                              {item.damagedQuantity} to Damaged
+                            </span>
+                            <span className="text-slate-400">•</span>
+                            <span className="font-semibold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded">
+                              {item.orderedQuantity - item.damagedQuantity} to Available
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="mt-1 pl-5 text-[10px] text-slate-500">
+                            All {item.orderedQuantity} units returning to Available Stock
                           </div>
                         )}
                       </div>

@@ -276,15 +276,30 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
                         )}
                       </div>
 
-                      {item.isDamaged && (
-                        <div className="mt-2 pl-6">
-                          <input
-                            type="text"
-                            placeholder="Damage reason (e.g. Courier dropped, broken seal, bottle leaking)..."
-                            value={item.reason}
-                            onChange={(e) => handleDamageReasonChange(idx, e.target.value)}
-                            className="w-full text-[11px] px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-rose-500 text-slate-800"
-                          />
+                      {item.isDamaged ? (
+                        <>
+                          <div className="mt-1.5 pl-6 flex flex-wrap items-center gap-2 text-[11px]">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-semibold font-mono">
+                              {item.damagedQuantity} to Damaged Stock
+                            </span>
+                            <span className="text-slate-400">•</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold font-mono">
+                              {item.orderedQuantity - item.damagedQuantity} to Available Stock
+                            </span>
+                          </div>
+                          <div className="mt-2 pl-6">
+                            <input
+                              type="text"
+                              placeholder="Damage reason (e.g. Courier dropped, broken seal, bottle leaking)..."
+                              value={item.reason}
+                              onChange={(e) => handleDamageReasonChange(idx, e.target.value)}
+                              className="w-full text-[11px] px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-rose-500 text-slate-800"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="mt-1 pl-6 text-[11px] text-slate-500 font-medium">
+                          All {item.orderedQuantity} units will return to Available Stock
                         </div>
                       )}
                     </div>
