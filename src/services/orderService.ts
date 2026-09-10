@@ -227,4 +227,12 @@ export class OrderService {
   static async getOrderHistory(orderId: string) {
     return deliveryStatusHistoryRepository.getByOrderId(orderId);
   }
+
+  static async updateDeliveryCharge(
+    orderId: string,
+    codCharge: number,
+    remarks?: string
+  ): Promise<Order> {
+    return orderRepository.updateDeliveryCharge(orderId, codCharge, remarks);
+  }
 }

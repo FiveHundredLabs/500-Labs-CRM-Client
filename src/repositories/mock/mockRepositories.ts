@@ -546,6 +546,27 @@ export class MockOrderRepository implements IOrderRepository {
     setStoredItem(STORAGE_KEYS.ORDERS, orders);
     return updated;
   }
+
+  async updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order> {
+    await delay();
+    const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
+    const idx = orders.findIndex((o) => o.id === id);
+    if (idx === -1) throw new Error('Order not found');
+    const order = orders[idx];
+    const pkgVal = order.totalPackageValue || order.totalAmount;
+    const newTotal = pkgVal + codCharge;
+    const updated: Order = {
+      ...order,
+      codCharge,
+      codAmount: newTotal,
+      totalAmount: newTotal,
+      remarks: remarks !== undefined ? remarks : order.remarks,
+      updatedAt: new Date().toISOString(),
+    };
+    orders[idx] = updated;
+    setStoredItem(STORAGE_KEYS.ORDERS, orders);
+    return updated;
+  }
 }
 
 export class MockDeliveryStatusHistoryRepository implements IDeliveryStatusHistoryRepository {

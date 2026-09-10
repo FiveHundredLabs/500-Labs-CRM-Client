@@ -5,7 +5,7 @@ import { EmptyState } from '../shared/EmptyState';
 import { Sparkles, Truck, AlertTriangle, Info, FileText, Mail, Edit3 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DuplicateOrderConflictInfo } from '../orders/DuplicateOrderConflictDialog';
-import { getAmountToCollect } from '../../utils/orderAmounts';
+import { getAmountToCollect, getProductSalesValue, getCodCharge } from '../../utils/orderAmounts';
 
 export interface InterestedListProps {
   filteredCustomers: Customer[];
@@ -15,6 +15,7 @@ export interface InterestedListProps {
   selectedIds: string[];
   onToggleSelectCard: (id: string) => void;
   onInspectDuplicateOrders?: (conflictInfo: DuplicateOrderConflictInfo) => void;
+  onEditDeliveryCharge?: (order: Order, customer: Customer) => void;
 }
 
 export const InterestedList: React.FC<InterestedListProps> = ({
@@ -25,6 +26,7 @@ export const InterestedList: React.FC<InterestedListProps> = ({
   selectedIds,
   onToggleSelectCard,
   onInspectDuplicateOrders,
+  onEditDeliveryCharge,
 }) => {
   if (filteredCustomers.length === 0) {
     return (
@@ -71,17 +73,50 @@ export const InterestedList: React.FC<InterestedListProps> = ({
 
         const previousDispatchContent = (
           <div className="space-y-1 mt-1">
-            {/* Interested Order Items & COD Amount Summary */}
-            {currentOrder && (
-              <div className="flex items-center justify-between gap-1 text-[10px] bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 min-w-0">
-                <span className="font-semibold text-slate-800 truncate" title={currentOrder.itemsDescription}>
-                  📦 {currentOrder.itemsDescription || 'Package Order'}
-                </span>
-                <span className="font-mono font-bold text-emerald-700 shrink-0">
-                  COD: LKR {getAmountToCollect(currentOrder).toLocaleString()}
-                </span>
-              </div>
-            )}
+            {/* Interested Order Items & Delivery Fee Breakdown with Edit Action */}
+            {currentOrder && (() => {
+              const pkgValue = getProductSalesValue(currentOrder);
+              const deliveryCharge = getCodCharge(currentOrder);
+              const totalCod = getAmountToCollect(currentOrder);
+
+              return (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-1.5 space-y-1 text-[10px]">
+                  <div className="flex items-center justify-between gap-1 min-w-0">
+                    <span className="font-semibold text-slate-800 truncate" title={currentOrder.itemsDescription}>
+                      📦 {currentOrder.itemsDescription || 'Package Order'}
+                    </span>
+                    <span className="font-mono text-slate-600 shrink-0 font-medium">
+                      LKR {pkgValue.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-1 border-t border-slate-200/80 pt-1">
+                    <div className="flex items-center gap-1 text-slate-500">
+                      <span>Delivery:</span>
+                      <span className="font-mono font-medium text-slate-700">
+                        LKR {deliveryCharge.toLocaleString()}
+                      </span>
+                      {onEditDeliveryCharge && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditDeliveryCharge(currentOrder, customer);
+                          }}
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition-colors cursor-pointer border border-emerald-300/80 ml-0.5"
+                          title="Edit Delivery Charge"
+                        >
+                          <Edit3 className="w-2.5 h-2.5 text-emerald-700" />
+                          <span>Edit</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="font-mono font-bold text-emerald-700">
+                      COD: LKR {totalCod.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Compact Highlighted Delivery Note */}
             {deliveryNote && (

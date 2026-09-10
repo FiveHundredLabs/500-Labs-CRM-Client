@@ -198,6 +198,18 @@ export function useInterestedLeads(overrideTeamId?: string) {
     }
   };
 
+  const updateDeliveryCharge = async (orderId: string, codCharge: number, remarks?: string) => {
+    try {
+      const updated = await orderRepository.updateDeliveryCharge(orderId, codCharge, remarks);
+      toast.success('Delivery charge updated successfully!');
+      await loadData();
+      return updated;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update delivery charge.');
+      throw err;
+    }
+  };
+
   return {
     user,
     effectiveTeamId,
@@ -211,5 +223,6 @@ export function useInterestedLeads(overrideTeamId?: string) {
     loadData,
     dispatchInterestedLeads,
     cancelInterestedLead,
+    updateDeliveryCharge,
   };
 }
