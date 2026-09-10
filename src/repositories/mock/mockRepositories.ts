@@ -531,7 +531,7 @@ export class MockOrderRepository implements IOrderRepository {
     return newOrder;
   }
 
-  async updateStatus(id: string, status: OrderStatus, remarks?: string): Promise<Order> {
+  async updateStatus(id: string, status: OrderStatus, remarks?: string, damagedProductIds?: string[]): Promise<Order> {
     await delay();
     const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
     const idx = orders.findIndex((o) => o.id === id);

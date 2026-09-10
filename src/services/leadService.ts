@@ -140,4 +140,34 @@ export class LeadService {
       return null;
     }
   }
+
+  /**
+   * Find a rejected order to reactivate for a contact.
+   * Returns the order only if:
+   * - order.teamMemberId === memberId
+   * - order.status === 'REJECTED'
+   * - Matches contactId or phone
+   */
+  static async getRejectedOrderForReactivation(
+    contactId: string,
+    memberId: string,
+    phone?: string
+  ): Promise<Order | null> {
+    try {
+      const orders = await orderRepository.getAll();
+      const match = orders.find((o) => {
+        const isMember = o.teamMemberId === memberId;
+        const isRejected = o.status === 'REJECTED';
+        const isContactMatch =
+          o.customer?.contactId === contactId ||
+          o.customer?.contact?.id === contactId ||
+          (phone && o.customer?.phone === phone);
+        return isMember && isRejected && isContactMatch;
+      });
+      return match || null;
+    } catch (err) {
+      console.error('Failed to get rejected order for reactivation:', err);
+      return null;
+    }
+  }
 }

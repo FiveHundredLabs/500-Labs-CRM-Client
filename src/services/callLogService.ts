@@ -35,6 +35,9 @@ export interface SubmitCallResultInput {
   isFollowUp?: boolean;
   editMode?: boolean;
   existingOrderId?: string;
+  /** When true, the backend reactivates the existing rejected order instead of creating a new one */
+  reactivationMode?: boolean;
+  existingRejectedOrderId?: string;
 }
 
 export class CallLogService {

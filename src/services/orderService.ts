@@ -94,7 +94,11 @@ export class OrderService {
     const previousStatus = order.status;
     if (previousStatus === newStatus && (!damagedItems || damagedItems.length === 0)) return order;
 
-    const updatedOrder = await orderRepository.updateStatus(orderId, newStatus, remarks);
+    const damagedProductIds = damagedItems
+      ?.filter((item) => item.productId)
+      .map((item) => item.productId as string);
+
+    const updatedOrder = await orderRepository.updateStatus(orderId, newStatus, remarks, damagedProductIds);
 
     // If damaged items are reported on status update (e.g. rejection/return), report into product damagedStock
     if (damagedItems && damagedItems.length > 0) {
@@ -212,11 +216,12 @@ export class OrderService {
   static async bulkUpdateOrderStatus(
     orderIds: string[],
     newStatus: OrderStatus,
-    actor: User
+    actor: User,
+    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
   ): Promise<number> {
     let count = 0;
     for (const orderId of orderIds) {
-      await this.updateOrderStatus(orderId, newStatus, actor);
+      await this.updateOrderStatus(orderId, newStatus, actor, undefined, damagedItems);
       count++;
     }
     return count;

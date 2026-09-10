@@ -86,6 +86,9 @@ export const MemberFollowUpsPage: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
+  // Reactivation mode state (for rejected leads)
+  const [isReactivationMode, setIsReactivationMode] = useState(false);
+  const [selectedRejectedOrder, setSelectedRejectedOrder] = useState<Order | null>(null);
 
   // Read URL tab parameter (e.g., /member/follow-ups?tab=FOLLOW_UP)
   useEffect(() => {
@@ -198,9 +201,45 @@ export const MemberFollowUpsPage: React.FC = () => {
       }
       setSelectedOrder(order);
       setIsEditMode(true);
+      setIsReactivationMode(false);
+      setSelectedRejectedOrder(null);
       setSelectedCallContact(contact);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load lead details');
+    } finally {
+      setLoadingOrderId(null);
+    }
+  };
+
+  const handleReactivateRejectedLog = async (log: CallLog) => {
+    if (!user) return;
+    setLoadingOrderId(`reject-${log.id}`);
+    try {
+      let contact = contactsMap[log.contactId];
+      if (!contact) {
+        contact = (await contactRepository.getById(log.contactId).catch(() => null)) as any;
+      }
+      if (!contact) {
+        toast.error('Contact not found');
+        return;
+      }
+      const order = await LeadService.getRejectedOrderForReactivation(contact.id, user.id, contact.phone);
+      if (!order) {
+        // No rejected order found — open normal call flow
+        setIsReactivationMode(false);
+        setSelectedRejectedOrder(null);
+        setIsEditMode(false);
+        setSelectedOrder(null);
+        setSelectedCallContact(contact);
+        return;
+      }
+      setSelectedRejectedOrder(order);
+      setIsReactivationMode(true);
+      setIsEditMode(false);
+      setSelectedOrder(null);
+      setSelectedCallContact(contact);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load rejected lead details');
     } finally {
       setLoadingOrderId(null);
     }
@@ -542,6 +581,20 @@ export const MemberFollowUpsPage: React.FC = () => {
                         </Button>
                       )}
 
+                      {/* Re-call Button for REJECTED leads */}
+                      {log.status === 'REJECTED' && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          leftIcon={<PhoneCall className="w-3.5 h-3.5 text-amber-600" />}
+                          onClick={() => handleReactivateRejectedLog(log)}
+                          isLoading={loadingOrderId === `reject-${log.id}`}
+                          className="border-amber-200 hover:border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold h-8 text-xs px-2.5"
+                        >
+                          Re-call
+                        </Button>
+                      )}
+
                       {/* Update Remarks Icon Button */}
                       <button
                         type="button"
@@ -691,12 +744,16 @@ export const MemberFollowUpsPage: React.FC = () => {
           onClose={() => {
             setSelectedCallContact(null);
             setSelectedOrder(null);
+            setSelectedRejectedOrder(null);
             setIsEditMode(false);
+            setIsReactivationMode(false);
           }}
           contact={selectedCallContact}
           onSuccess={loadData}
           editMode={isEditMode}
           existingOrder={selectedOrder}
+          reactivationMode={isReactivationMode}
+          rejectedOrder={selectedRejectedOrder}
         />
       )}
     </div>

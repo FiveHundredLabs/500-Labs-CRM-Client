@@ -38,6 +38,10 @@ export interface PostCallModalProps {
   initialDirection?: 'OUTBOUND' | 'INBOUND';
   editMode?: boolean;
   existingOrder?: Order | null;
+  /** When true, we are re-calling a rejected lead and will reactivate the existing rejected order */
+  reactivationMode?: boolean;
+  /** The rejected order to reactivate (pre-fill) */
+  rejectedOrder?: Order | null;
 }
 
 export const PostCallModal: React.FC<PostCallModalProps> = ({
@@ -48,6 +52,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   initialDirection = 'OUTBOUND',
   editMode = false,
   existingOrder = null,
+  reactivationMode = false,
+  rejectedOrder = null,
 }) => {
   const { user } = useAuth();
 
@@ -94,14 +100,17 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
   // Calculate items and total order value dynamically
   const selectedItems = useMemo(() => {
+    // For editMode: items are still allocated, so add them back to show correct available stock
+    // For reactivationMode: items were returned to currentStock when rejected, so DON'T add them back
+    const prefillRef = editMode ? existingOrder : null;
     return teamProducts
       .filter((p) => (selectedQuantities[p.id] || 0) > 0)
       .map((p) => {
         const qty = Number(selectedQuantities[p.id]) || 0;
         const price = Number(p.sellingPrice) || 0;
         const subtotal = qty * price;
-        const prevAllocated = (editMode && existingOrder?.items)
-          ? (existingOrder.items.find((it) => it.productId === p.id)?.quantity || 0)
+        const prevAllocated = prefillRef?.items
+          ? (prefillRef.items.find((it) => it.productId === p.id)?.quantity || 0)
           : 0;
         return {
           productId: p.id,
@@ -112,7 +121,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           availableStock: (Number(p.currentStock) || 0) + prevAllocated,
         };
       });
-  }, [teamProducts, selectedQuantities, editMode, existingOrder]);
+  }, [teamProducts, selectedQuantities, editMode, existingOrder, reactivationMode, rejectedOrder]);
 
   const totalOrderValue = useMemo(() => {
     return selectedItems.reduce((acc, item) => acc + item.subtotal, 0);
@@ -146,28 +155,31 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
     setDirection(initialDirection);
 
-    // If inbound callback or in edit mode, auto-activate form without launching native dialer
-    if (initialDirection === 'INBOUND' || editMode) {
+    // If inbound callback, edit mode, or reactivation mode — auto-activate form without launching native dialer
+    if (initialDirection === 'INBOUND' || editMode || reactivationMode) {
       setHasDialed(true);
     } else {
       window.location.href = `tel:${contact.phone.replace(/[^0-9+]/g, '')}`;
       setHasDialed(true);
     }
 
-    if (editMode && existingOrder) {
-      setStatus('INTERESTED');
+    const prefillOrder = editMode ? existingOrder : reactivationMode ? rejectedOrder : null;
+
+    if (prefillOrder) {
+      // Pre-fill from existing order (editMode or reactivationMode)
+      setStatus(reactivationMode ? 'INTERESTED' : 'INTERESTED');
       setIsFollowUp(Boolean(contact.isFollowUp));
-      setCustomerName(existingOrder.customer?.fullName || '');
-      setCustomerAddress(existingOrder.customer?.address || '');
-      setCity(existingOrder.customer?.city || contact.city || '');
-      setSecondaryMobile(existingOrder.customer?.secondaryMobile || contact.secondaryMobile || '');
-      setCustomerEmail(existingOrder.customer?.email || '');
-      setDeliveryMethod((existingOrder.deliveryMethod as DeliveryMethod) || 'POST');
-      setDeliveryNote(existingOrder.deliveryNote || '');
-      setRemarks(existingOrder.remarks || '');
+      setCustomerName(prefillOrder.customer?.fullName || '');
+      setCustomerAddress(prefillOrder.customer?.address || '');
+      setCity(prefillOrder.customer?.city || contact.city || '');
+      setSecondaryMobile(prefillOrder.customer?.secondaryMobile || contact.secondaryMobile || '');
+      setCustomerEmail(prefillOrder.customer?.email || '');
+      setDeliveryMethod((prefillOrder.deliveryMethod as DeliveryMethod) || 'POST');
+      setDeliveryNote(prefillOrder.deliveryNote || '');
+      setRemarks(prefillOrder.remarks || '');
       setCodCharge(
-        existingOrder.codCharge !== undefined && existingOrder.codCharge !== null
-          ? String(existingOrder.codCharge)
+        prefillOrder.codCharge !== undefined && prefillOrder.codCharge !== null
+          ? String(prefillOrder.codCharge)
           : ''
       );
     } else {
@@ -218,23 +230,24 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
         setProducts(resolvedProds);
 
         // Pre-fill quantities
-        if (editMode && existingOrder) {
+        const prefillOrderForQty = editMode ? existingOrder : reactivationMode ? rejectedOrder : null;
+        if (prefillOrderForQty) {
           const initialQty: Record<string, number> = {};
-          if (existingOrder.items && existingOrder.items.length > 0) {
-            existingOrder.items.forEach((item: any) => {
+          if (prefillOrderForQty.items && prefillOrderForQty.items.length > 0) {
+            prefillOrderForQty.items.forEach((item: any) => {
               if (item.productId && Number(item.quantity) > 0) {
                 initialQty[item.productId] = Number(item.quantity);
               }
             });
           } else {
             // Fallback to legacy adultQty / kidsQty
-            if (existingOrder.adultQty) {
+            if (prefillOrderForQty.adultQty) {
               const adultProd = resolvedProds.find((p) => /adult/i.test(p.name));
-              if (adultProd) initialQty[adultProd.id] = existingOrder.adultQty;
+              if (adultProd) initialQty[adultProd.id] = prefillOrderForQty.adultQty;
             }
-            if (existingOrder.kidsQty) {
+            if (prefillOrderForQty.kidsQty) {
               const kidsProd = resolvedProds.find((p) => /kid|child/i.test(p.name));
-              if (kidsProd) initialQty[kidsProd.id] = existingOrder.kidsQty;
+              if (kidsProd) initialQty[kidsProd.id] = prefillOrderForQty.kidsQty;
             }
           }
           setSelectedQuantities(initialQty);
@@ -269,7 +282,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     };
 
     loadData();
-  }, [contact, isOpen, user, editMode, existingOrder]);
+  }, [contact, isOpen, user, editMode, existingOrder, reactivationMode, rejectedOrder]);
 
   if (!contact || !user) return null;
 
@@ -356,6 +369,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           callDurationSeconds: Math.floor(Math.random() * 120) + 30,
           editMode: Boolean(editMode),
           existingOrderId: editMode && existingOrder ? existingOrder.id : undefined,
+          reactivationMode: Boolean(reactivationMode),
+          existingRejectedOrderId: reactivationMode && rejectedOrder ? rejectedOrder.id : undefined,
         },
         user
       );
@@ -363,6 +378,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
       toast.success(
         editMode
           ? `Lead updated for ${customerName}!`
+          : reactivationMode
+          ? `Rejected lead reactivated for ${customerName}!`
           : isInterested
           ? `Lead recorded for ${customerName} (Amount to collect: ${formatCurrency(totalOrderValue + (chargeToSubmit || 0))})!`
           : `Call outcome saved as ${status}`
@@ -380,13 +397,13 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title={editMode ? "Edit Interested Lead" : "Complete Call"}
-      description={`Contact Phone: ${contact.phone}${editMode && existingOrder ? ` • Order #${existingOrder.orderNumber}` : ''}`}
+      title={editMode ? "Edit Interested Lead" : reactivationMode ? "Re-call Rejected Lead" : "Complete Call"}
+      description={`Contact Phone: ${contact.phone}${editMode && existingOrder ? ` • Order #${existingOrder.orderNumber}` : ''}${reactivationMode && rejectedOrder ? ` • Reactivating Order #${rejectedOrder.orderNumber}` : ''}`}
       maxWidth="lg"
     >
       <div className="space-y-4">
-        {/* Launch Dialer Bar (Only relevant for Outbound when NOT in edit mode) */}
-        {direction === 'OUTBOUND' && !editMode && (
+        {/* Launch Dialer Bar (Only relevant for Outbound when NOT in edit mode and NOT in reactivation mode) */}
+        {direction === 'OUTBOUND' && !editMode && !reactivationMode && (
           <div className="bg-blue-50/60 border border-blue-100 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-xs">
@@ -406,6 +423,41 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
               className="w-full sm:w-auto"
             >
               Launch Dialer
+            </Button>
+          </div>
+        )}
+
+        {/* Reactivation Mode Banner */}
+        {reactivationMode && rejectedOrder && (
+          <div className="bg-amber-50/80 border border-amber-300 p-3.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-amber-500 text-white rounded-lg flex items-center justify-center shadow-xs">
+                <Phone className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-800">
+                  Re-calling Rejected Lead • #{rejectedOrder.orderNumber}
+                </div>
+                <div className="text-sm font-bold text-slate-900 font-mono flex items-center gap-2">
+                  <span>{contact.phone}</span>
+                  {rejectedOrder.customer?.fullName && (
+                    <span className="text-slate-500 font-sans font-normal text-xs">({rejectedOrder.customer.fullName})</span>
+                  )}
+                </div>
+                <div className="text-[11px] text-amber-700 mt-0.5">
+                  Previous details pre-filled. Update as needed and save to reactivate.
+                </div>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              leftIcon={<Phone className="w-3.5 h-3.5 text-slate-600" />}
+              onClick={triggerNativeDialer}
+              className="text-xs shrink-0"
+            >
+              Call Customer (Optional)
             </Button>
           </div>
         )}
@@ -541,6 +593,19 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                   Edit Mode
                 </span>
               </div>
+            ) : reactivationMode ? (
+              <Select
+                label="Call Outcome / Status *"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as ContactStatus)}
+                options={[
+                  { value: 'INTERESTED', label: 'Interested (Reactivate Lead)' },
+                  { value: 'ANSWERED', label: 'Answered (No change to order)' },
+                  { value: 'NOT_ANSWERED', label: 'Not Answered' },
+                  { value: 'PHONE_OFF', label: 'Phone Switched Off' },
+                  { value: 'NOT_INTERESTED', label: 'Not Interested' },
+                ]}
+              />
             ) : (
               <Select
                 label="Call Outcome / Status *"

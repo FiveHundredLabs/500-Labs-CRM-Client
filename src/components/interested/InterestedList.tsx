@@ -56,6 +56,14 @@ export const InterestedList: React.FC<InterestedListProps> = ({
               /edited/i.test(h.remarks || '')
           )
         );
+        const isReactivated = Boolean(
+          (currentOrder as any)?.deliveryStatusHistory?.some(
+            (h: any) =>
+              h.previousStatus === 'REJECTED' &&
+              h.newStatus === 'PREPARED' &&
+              /reactivated/i.test(h.remarks || '')
+          )
+        );
 
         const previousOrder = custOrders.find((o) =>
           ['DISPATCHED', 'DELIVERED', 'REJECTED', 'RETURNED'].includes(o.status)
@@ -181,6 +189,12 @@ export const InterestedList: React.FC<InterestedListProps> = ({
                   <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
                     <Edit3 className="w-2.5 h-2.5 text-amber-600" />
                     Edited
+                  </span>
+                )}
+                {isReactivated && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-rose-50 text-rose-800 border border-rose-300">
+                    <span className="text-[8px]">↑</span>
+                    Reactivated
                   </span>
                 )}
                 {deliveryMethod === 'ROYAL_COURIER' ? (

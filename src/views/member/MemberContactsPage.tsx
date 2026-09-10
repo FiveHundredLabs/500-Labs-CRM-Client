@@ -67,6 +67,9 @@ export const MemberContactsPage: React.FC = () => {
   const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isInboundModalOpen, setIsInboundModalOpen] = useState(false);
+  // Reactivation mode state (for rejected leads)
+  const [isReactivationMode, setIsReactivationMode] = useState(false);
+  const [selectedRejectedOrder, setSelectedRejectedOrder] = useState<Order | null>(null);
 
   const loadContacts = async () => {
     if (!user) return;
@@ -114,10 +117,38 @@ export const MemberContactsPage: React.FC = () => {
       }
       setSelectedOrder(order);
       setIsEditMode(true);
+      setIsReactivationMode(false);
+      setSelectedRejectedOrder(null);
       setSelectedDirection('OUTBOUND');
       setSelectedContact(contact);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load lead details');
+    } finally {
+      setLoadingOrderId(null);
+    }
+  };
+
+  const handleReactivateRejectedLead = async (contact: Contact) => {
+    if (!user) return;
+    setLoadingOrderId(`reject-${contact.id}`);
+    try {
+      const order = await LeadService.getRejectedOrderForReactivation(contact.id, user.id, contact.phone);
+      if (!order) {
+        // No rejected order found — allow normal call flow
+        setIsReactivationMode(false);
+        setSelectedRejectedOrder(null);
+        setSelectedDirection('OUTBOUND');
+        setSelectedContact(contact);
+        return;
+      }
+      setSelectedRejectedOrder(order);
+      setIsReactivationMode(true);
+      setIsEditMode(false);
+      setSelectedOrder(null);
+      setSelectedDirection('OUTBOUND');
+      setSelectedContact(contact);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load rejected lead details');
     } finally {
       setLoadingOrderId(null);
     }
@@ -394,11 +425,18 @@ export const MemberContactsPage: React.FC = () => {
                   size="sm"
                   leftIcon={<PhoneCall className="w-3.5 h-3.5" />}
                   onClick={() => {
-                    setSelectedDirection('OUTBOUND');
-                    setIsEditMode(false);
-                    setSelectedOrder(null);
-                    setSelectedContact(contact);
+                    if (contact.status === 'REJECTED') {
+                      handleReactivateRejectedLead(contact);
+                    } else {
+                      setSelectedDirection('OUTBOUND');
+                      setIsEditMode(false);
+                      setIsReactivationMode(false);
+                      setSelectedRejectedOrder(null);
+                      setSelectedOrder(null);
+                      setSelectedContact(contact);
+                    }
                   }}
+                  isLoading={loadingOrderId === `reject-${contact.id}`}
                   className="shrink-0"
                 >
                   Call
@@ -416,13 +454,17 @@ export const MemberContactsPage: React.FC = () => {
           onClose={() => {
             setSelectedContact(null);
             setSelectedOrder(null);
+            setSelectedRejectedOrder(null);
             setIsEditMode(false);
+            setIsReactivationMode(false);
           }}
           contact={selectedContact}
           onSuccess={loadContacts}
           initialDirection={selectedDirection}
           editMode={isEditMode}
           existingOrder={selectedOrder}
+          reactivationMode={isReactivationMode}
+          rejectedOrder={selectedRejectedOrder}
         />
       )}
 
