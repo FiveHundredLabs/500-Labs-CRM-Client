@@ -13,7 +13,8 @@ export interface SubmitCallResultInput {
   customerEmail?: string;
   deliveryMethod?: DeliveryMethod;
   deliveryNote?: string;
-  selectedPackage?: 'ADULT' | 'KIDS' | 'BOTH' | 'NONE' | string;
+  selectedPackage?: string;
+  selectedProductId?: string;
   adultQty?: number;
   adultUnitPrice?: number;
   adultSubtotal?: number;
@@ -57,6 +58,8 @@ export class CallLogService {
     let kidsUnitPrice = input.kidsUnitPrice;
     let kidsSubtotal = input.kidsSubtotal;
     let selectedPackage = input.selectedPackage;
+    const selectedProductId =
+      input.selectedProductId || (input.items && input.items.length > 0 ? input.items[0].productId : undefined);
 
     if (input.items && input.items.length > 0) {
       const adultItem = input.items.find((i) => i.productName && /adult/i.test(i.productName));
@@ -73,22 +76,18 @@ export class CallLogService {
         kidsSubtotal = kidsSubtotal ?? kidsItem.subtotal;
       }
 
-      if (!selectedPackage) {
-        if ((adultQty || 0) > 0 && (kidsQty || 0) > 0) {
-          selectedPackage = 'BOTH';
-        } else if ((adultQty || 0) > 0) {
-          selectedPackage = 'ADULT';
-        } else if ((kidsQty || 0) > 0) {
-          selectedPackage = 'KIDS';
-        } else {
-          selectedPackage = 'NONE';
-        }
+      if (!selectedPackage || selectedPackage === 'NONE') {
+        selectedPackage = input.items
+          .map((i) => (i.productName ? `${i.productName} x ${i.quantity}` : null))
+          .filter(Boolean)
+          .join(', ') || undefined;
       }
     }
 
     const payload: SubmitCallResultInput = {
       ...input,
-      selectedPackage: selectedPackage || (input.status === 'INTERESTED' ? 'ADULT' : undefined),
+      selectedProductId,
+      selectedPackage: selectedPackage || (input.status === 'INTERESTED' ? 'Package Order' : undefined),
       adultQty,
       adultUnitPrice,
       adultSubtotal,

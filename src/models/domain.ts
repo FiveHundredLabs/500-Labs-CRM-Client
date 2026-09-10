@@ -164,6 +164,7 @@ export interface CallLog {
   deliveryMethod?: DeliveryMethod;
   deliveryNote?: string;
   selectedPackage?: 'ADULT' | 'KIDS' | 'BOTH' | 'NONE' | string;
+  selectedProductId?: string;
   adultQty?: number;
   adultUnitPrice?: number;
   adultSubtotal?: number;
@@ -251,6 +252,7 @@ export interface Order {
   deliveryNote?: string;
   itemsDescription: string;
   selectedPackage?: 'ADULT' | 'KIDS' | 'BOTH' | string;
+  selectedProductId?: string;
   adultQty?: number;
   adultUnitPrice?: number;
   adultSubtotal?: number;
