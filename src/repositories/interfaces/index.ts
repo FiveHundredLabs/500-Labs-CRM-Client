@@ -134,7 +134,8 @@ export interface IOrderRepository {
   getBySupervisorId(supervisorId: string): Promise<Order[]>;
   getByMemberId(memberId: string): Promise<Order[]>;
   create(order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order>;
-  updateStatus(id: string, status: any, remarks?: string): Promise<Order>;
+  updateStatus(id: string, status: any, remarks?: string, damagedProductIds?: string[]): Promise<Order>;
+  updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order>;
 }
 
 export interface IDeliveryStatusHistoryRepository {

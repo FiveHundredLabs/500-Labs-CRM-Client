@@ -2,10 +2,10 @@ import React from 'react';
 import type { Customer, User, Order } from '../../models/domain';
 import { CustomerCard } from '../customer/CustomerCard';
 import { EmptyState } from '../shared/EmptyState';
-import { Sparkles, Truck, AlertTriangle, Info, FileText, Mail } from 'lucide-react';
+import { Sparkles, Truck, AlertTriangle, Info, FileText, Mail, Edit3 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DuplicateOrderConflictInfo } from '../orders/DuplicateOrderConflictDialog';
-import { getAmountToCollect } from '../../utils/orderAmounts';
+import { getAmountToCollect, getProductSalesValue, getCodCharge } from '../../utils/orderAmounts';
 
 export interface InterestedListProps {
   filteredCustomers: Customer[];
@@ -15,6 +15,7 @@ export interface InterestedListProps {
   selectedIds: string[];
   onToggleSelectCard: (id: string) => void;
   onInspectDuplicateOrders?: (conflictInfo: DuplicateOrderConflictInfo) => void;
+  onEditDeliveryCharge?: (order: Order, customer: Customer) => void;
 }
 
 export const InterestedList: React.FC<InterestedListProps> = ({
@@ -25,6 +26,7 @@ export const InterestedList: React.FC<InterestedListProps> = ({
   selectedIds,
   onToggleSelectCard,
   onInspectDuplicateOrders,
+  onEditDeliveryCharge,
 }) => {
   if (filteredCustomers.length === 0) {
     return (
@@ -48,6 +50,22 @@ export const InterestedList: React.FC<InterestedListProps> = ({
         const currentOrder = custOrders[0];
         const deliveryMethod = currentOrder?.deliveryMethod || customer.deliveryMethod || 'POST';
         const deliveryNote = currentOrder?.deliveryNote || customer.deliveryNote;
+        const isEdited = Boolean(
+          (currentOrder as any)?.deliveryStatusHistory?.some(
+            (h: any) =>
+              h.previousStatus === 'PREPARED' &&
+              h.newStatus === 'PREPARED' &&
+              /edited/i.test(h.remarks || '')
+          )
+        );
+        const isReactivated = Boolean(
+          (currentOrder as any)?.deliveryStatusHistory?.some(
+            (h: any) =>
+              h.previousStatus === 'REJECTED' &&
+              h.newStatus === 'PREPARED' &&
+              /reactivated/i.test(h.remarks || '')
+          )
+        );
 
         const previousOrder = custOrders.find((o) =>
           ['DISPATCHED', 'DELIVERED', 'REJECTED', 'RETURNED'].includes(o.status)
@@ -55,17 +73,50 @@ export const InterestedList: React.FC<InterestedListProps> = ({
 
         const previousDispatchContent = (
           <div className="space-y-1 mt-1">
-            {/* Interested Order Items & COD Amount Summary */}
-            {currentOrder && (
-              <div className="flex items-center justify-between gap-1 text-[10px] bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 min-w-0">
-                <span className="font-semibold text-slate-800 truncate" title={currentOrder.itemsDescription}>
-                  📦 {currentOrder.itemsDescription || 'Package Order'}
-                </span>
-                <span className="font-mono font-bold text-emerald-700 shrink-0">
-                  COD: LKR {getAmountToCollect(currentOrder).toLocaleString()}
-                </span>
-              </div>
-            )}
+            {/* Interested Order Items & Delivery Fee Breakdown with Edit Action */}
+            {currentOrder && (() => {
+              const pkgValue = getProductSalesValue(currentOrder);
+              const deliveryCharge = getCodCharge(currentOrder);
+              const totalCod = getAmountToCollect(currentOrder);
+
+              return (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-1.5 space-y-1 text-[10px]">
+                  <div className="flex items-center justify-between gap-1 min-w-0">
+                    <span className="font-semibold text-slate-800 truncate" title={currentOrder.itemsDescription}>
+                      📦 {currentOrder.itemsDescription || 'Package Order'}
+                    </span>
+                    <span className="font-mono text-slate-600 shrink-0 font-medium">
+                      LKR {pkgValue.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-1 border-t border-slate-200/80 pt-1">
+                    <div className="flex items-center gap-1 text-slate-500">
+                      <span>Delivery:</span>
+                      <span className="font-mono font-medium text-slate-700">
+                        LKR {deliveryCharge.toLocaleString()}
+                      </span>
+                      {onEditDeliveryCharge && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditDeliveryCharge(currentOrder, customer);
+                          }}
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition-colors cursor-pointer border border-emerald-300/80 ml-0.5"
+                          title="Edit Delivery Charge"
+                        >
+                          <Edit3 className="w-2.5 h-2.5 text-emerald-700" />
+                          <span>Edit</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="font-mono font-bold text-emerald-700">
+                      COD: LKR {totalCod.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Compact Highlighted Delivery Note */}
             {deliveryNote && (
@@ -169,6 +220,18 @@ export const InterestedList: React.FC<InterestedListProps> = ({
             orderNumber={currentOrder?.orderNumber}
             badge={
               <div className="flex items-center gap-1">
+                {isEdited && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
+                    <Edit3 className="w-2.5 h-2.5 text-amber-600" />
+                    Edited
+                  </span>
+                )}
+                {isReactivated && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-rose-50 text-rose-800 border border-rose-300">
+                    <span className="text-[8px]">↑</span>
+                    Reactivated
+                  </span>
+                )}
                 {deliveryMethod === 'ROYAL_COURIER' ? (
                   <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
                     <Truck className="w-2.5 h-2.5 text-purple-600" />

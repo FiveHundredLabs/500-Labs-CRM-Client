@@ -4,7 +4,7 @@ import {
   orderRepository,
   deliveryStatusHistoryRepository,
 } from '../repositories';
-import { User } from '../models/domain';
+import { User, Order } from '../models/domain';
 import { ActivityLogService } from './activityLogService';
 import { OrderService } from './orderService';
 
@@ -20,12 +20,7 @@ export class LeadService {
       const customer = await customerRepository.getById(customerId);
       if (!customer) continue;
 
-      // 1. Update Contact status to DISPATCHED
-      if (customer.contactId) {
-        await contactRepository.update(customer.contactId, { status: 'DISPATCHED' });
-      }
-
-      // 2. Check existing order or create new order with status DISPATCHED
+      // 1. Check existing order or create new order with status DISPATCHED
       const existingOrders = await orderRepository.getByCustomerId(customerId);
       if (existingOrders.length > 0) {
         const latestOrder = existingOrders[existingOrders.length - 1];
@@ -47,6 +42,9 @@ export class LeadService {
           currency: 'LKR',
           remarks: 'Auto-generated order upon Interested Lead billing dispatch',
         });
+        if (customer.contactId) {
+          await contactRepository.update(customer.contactId, { status: 'DISPATCHED' });
+        }
       }
 
       // 3. Log Activity
@@ -78,13 +76,9 @@ export class LeadService {
     const customer = await customerRepository.getById(customerId);
     if (!customer) return false;
 
-    // 1. Update Contact status to CANCELLED
-    if (customer.contactId) {
-      await contactRepository.update(customer.contactId, { status: 'CANCELLED' });
-    }
-
-    // 2. Update any existing active Orders for this customer to CANCELLED
+    // 1. Update any existing active Orders for this customer to CANCELLED
     const existingOrders = await orderRepository.getByCustomerId(customerId);
+    let orderCancelled = false;
     for (const ord of existingOrders) {
       if (['DRAFT', 'PREPARED', 'DISPATCHED'].includes(ord.status)) {
         await OrderService.updateOrderStatus(
@@ -93,7 +87,13 @@ export class LeadService {
           actor,
           reason || 'Cancelled duplicate/unwanted lead by supervisor'
         );
+        orderCancelled = true;
       }
+    }
+
+    // 2. If no active orders were cancelled, update contact directly
+    if (!orderCancelled && customer.contactId) {
+      await contactRepository.update(customer.contactId, { status: 'CANCELLED' });
     }
 
     // 3. Log Activity
@@ -109,5 +109,65 @@ export class LeadService {
     });
 
     return true;
+  }
+
+  /**
+   * Find an editable interested lead order for a contact.
+   * Returns the order only if:
+   * - order.teamMemberId === memberId
+   * - order.status === 'PREPARED'
+   * - Matches contactId or phone
+   */
+  static async getEditableInterestedOrder(
+    contactId: string,
+    memberId: string,
+    phone?: string
+  ): Promise<Order | null> {
+    try {
+      const orders = await orderRepository.getAll();
+      const match = orders.find((o) => {
+        const isMember = o.teamMemberId === memberId;
+        const isPrepared = o.status === 'PREPARED';
+        const isContactMatch =
+          o.customer?.contactId === contactId ||
+          o.customer?.contact?.id === contactId ||
+          (phone && o.customer?.phone === phone);
+        return isMember && isPrepared && isContactMatch;
+      });
+      return match || null;
+    } catch (err) {
+      console.error('Failed to get editable interested order:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Find a rejected order to reactivate for a contact.
+   * Returns the order only if:
+   * - order.teamMemberId === memberId
+   * - order.status === 'REJECTED'
+   * - Matches contactId or phone
+   */
+  static async getRejectedOrderForReactivation(
+    contactId: string,
+    memberId: string,
+    phone?: string
+  ): Promise<Order | null> {
+    try {
+      const orders = await orderRepository.getAll();
+      const match = orders.find((o) => {
+        const isMember = o.teamMemberId === memberId;
+        const isRejected = o.status === 'REJECTED';
+        const isContactMatch =
+          o.customer?.contactId === contactId ||
+          o.customer?.contact?.id === contactId ||
+          (phone && o.customer?.phone === phone);
+        return isMember && isRejected && isContactMatch;
+      });
+      return match || null;
+    } catch (err) {
+      console.error('Failed to get rejected order for reactivation:', err);
+      return null;
+    }
   }
 }

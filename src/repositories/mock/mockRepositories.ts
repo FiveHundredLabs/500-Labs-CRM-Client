@@ -531,7 +531,7 @@ export class MockOrderRepository implements IOrderRepository {
     return newOrder;
   }
 
-  async updateStatus(id: string, status: OrderStatus, remarks?: string): Promise<Order> {
+  async updateStatus(id: string, status: OrderStatus, remarks?: string, damagedProductIds?: string[]): Promise<Order> {
     await delay();
     const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
     const idx = orders.findIndex((o) => o.id === id);
@@ -540,6 +540,27 @@ export class MockOrderRepository implements IOrderRepository {
       ...orders[idx],
       status,
       remarks: remarks !== undefined ? remarks : orders[idx].remarks,
+      updatedAt: new Date().toISOString(),
+    };
+    orders[idx] = updated;
+    setStoredItem(STORAGE_KEYS.ORDERS, orders);
+    return updated;
+  }
+
+  async updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order> {
+    await delay();
+    const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
+    const idx = orders.findIndex((o) => o.id === id);
+    if (idx === -1) throw new Error('Order not found');
+    const order = orders[idx];
+    const pkgVal = order.totalPackageValue || order.totalAmount;
+    const newTotal = pkgVal + codCharge;
+    const updated: Order = {
+      ...order,
+      codCharge,
+      codAmount: newTotal,
+      totalAmount: newTotal,
+      remarks: remarks !== undefined ? remarks : order.remarks,
       updatedAt: new Date().toISOString(),
     };
     orders[idx] = updated;

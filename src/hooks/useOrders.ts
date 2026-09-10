@@ -138,14 +138,16 @@ export function useOrders(overrideTeamId?: string) {
 
   const bulkUpdateOrderStatus = async (
     selectedOrderIds: string[],
-    bulkTargetStatus: OrderStatus
+    bulkTargetStatus: OrderStatus,
+    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
   ) => {
     if (!user || selectedOrderIds.length === 0) return false;
     try {
       const count = await OrderService.bulkUpdateOrderStatus(
         selectedOrderIds,
         bulkTargetStatus,
-        user
+        user,
+        damagedItems
       );
       toast.success(`Updated status of ${count} selected order(s) to ${bulkTargetStatus}`);
       await loadData();
