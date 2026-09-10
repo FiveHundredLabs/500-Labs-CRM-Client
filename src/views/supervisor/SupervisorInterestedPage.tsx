@@ -10,6 +10,7 @@ import { InterestedCancelConfirmDialog } from '../../components/interested/Inter
 import { RoyalCourierDispatchConfirmDialog } from '../../components/interested/RoyalCourierDispatchConfirmDialog';
 import { CircularProgressPdfModal } from '../../components/printing/CircularProgressPdfModal';
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
+import { EditDeliveryChargeDialog } from '../../components/orders/EditDeliveryChargeDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
 import { downloadParcelSlipPDF, printParcelSlipPDF } from '../../utils/parcelPdfGenerator';
@@ -20,7 +21,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { XCircle, Mail, Truck, FileSpreadsheet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { teamRepository } from '../../repositories';
-import { Team, DeliveryMethod } from '../../models/domain';
+import { Team, DeliveryMethod, Order, Customer } from '../../models/domain';
 
 export const SupervisorInterestedPage: React.FC = () => {
   const { user } = useAuth();
@@ -36,6 +37,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     loading,
     dispatchInterestedLeads,
     cancelInterestedLead,
+    updateDeliveryCharge,
   } = useInterestedLeads(user?.role === 'ADMIN' ? adminTeamId : undefined);
 
   // Delivery Method Tab State ('POST' vs 'ROYAL_COURIER')
@@ -53,6 +55,10 @@ export const SupervisorInterestedPage: React.FC = () => {
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
   const [isDownloadingPostExcel, setIsDownloadingPostExcel] = useState(false);
   const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
+
+  // Edit Delivery Charge State
+  const [editDeliveryOrder, setEditDeliveryOrder] = useState<Order | null>(null);
+  const [editDeliveryCustomer, setEditDeliveryCustomer] = useState<Customer | null>(null);
 
   // Circular Progress PDF Loading State
   const [pdfProgress, setPdfProgress] = useState({
@@ -425,6 +431,10 @@ export const SupervisorInterestedPage: React.FC = () => {
         selectedIds={selectedIds}
         onToggleSelectCard={toggleSelectCard}
         onInspectDuplicateOrders={(info) => setInspectConflictInfo(info)}
+        onEditDeliveryCharge={(ord, cust) => {
+          setEditDeliveryOrder(ord);
+          setEditDeliveryCustomer(cust);
+        }}
       />
 
       {/* TAB 1 (POST): Standard Floating Action Panel (Slips, Excel & Print) */}
@@ -541,6 +551,18 @@ export const SupervisorInterestedPage: React.FC = () => {
           await cancelInterestedLead(ord.customerId, 'Cancelled duplicate order by supervisor');
           setInspectConflictInfo(null);
         }}
+      />
+
+      {/* Edit Delivery Charge Dialog for Interested Leads */}
+      <EditDeliveryChargeDialog
+        isOpen={Boolean(editDeliveryOrder)}
+        order={editDeliveryOrder}
+        customer={editDeliveryCustomer}
+        onClose={() => {
+          setEditDeliveryOrder(null);
+          setEditDeliveryCustomer(null);
+        }}
+        onSave={updateDeliveryCharge}
       />
 
       {/* Circular Progress PDF / Print Loading Modal */}

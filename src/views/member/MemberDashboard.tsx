@@ -693,7 +693,7 @@ export const MemberDashboard: React.FC = () => {
               variant="outline"
               size="sm"
               rightIcon={<ArrowRight className="w-3.5 h-3.5 text-amber-600" />}
-              onClick={() => navigate('/member/follow-ups?tab=FOLLOW_UP')}
+              onClick={() => navigate('/member/contacts?tab=FOLLOW_UP')}
               className="border-amber-200 text-amber-800 hover:bg-amber-50"
             >
               View List

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { Contact, ContactStatus } from '../../models/domain';
+import { Contact, ContactStatus, Order } from '../../models/domain';
 import { contactRepository } from '../../repositories';
+import { LeadService } from '../../services/leadService';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SearchInput } from '../../components/shared/SearchInput';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -11,7 +12,7 @@ import { LoadingState } from '../../components/shared/LoadingState';
 import { PostCallModal } from '../../components/calling/PostCallModal';
 import { AddPersonalNumberModal } from '../../components/calling/AddPersonalNumberModal';
 import { InboundCallbackDialog } from '../../components/calling/InboundCallbackDialog';
-import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck, PlusCircle, Hash, PhoneIncoming } from 'lucide-react';
+import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck, PlusCircle, Hash, PhoneIncoming, Edit3 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -52,17 +53,33 @@ const TABS: TabConfig[] = [
   { key: 'SAVED_CONTACTS', label: 'Saved Contacts' },
 ];
 
+import { useSearchParams } from 'react-router-dom';
+
 export const MemberContactsPage: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<TabCategory>('NEW'); // Default is New
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as TabCategory | null;
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [selectedDirection, setSelectedDirection] = useState<'OUTBOUND' | 'INBOUND'>('OUTBOUND');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isInboundModalOpen, setIsInboundModalOpen] = useState(false);
+  // Reactivation mode state (for rejected leads)
+  const [isReactivationMode, setIsReactivationMode] = useState(false);
+  const [selectedRejectedOrder, setSelectedRejectedOrder] = useState<Order | null>(null);
 
   const loadContacts = async () => {
     if (!user) return;
@@ -96,6 +113,54 @@ export const MemberContactsPage: React.FC = () => {
       await loadContacts();
     } catch (err: any) {
       toast.error(err.message || 'Failed to update follow-up state');
+    }
+  };
+
+  const handleEditLead = async (contact: Contact) => {
+    if (!user) return;
+    setLoadingOrderId(contact.id);
+    try {
+      const order = await LeadService.getEditableInterestedOrder(contact.id, user.id, contact.phone);
+      if (!order) {
+        toast.error('No active editable interested order found for this contact. Lead may have already been dispatched, delivered, or rejected.');
+        return;
+      }
+      setSelectedOrder(order);
+      setIsEditMode(true);
+      setIsReactivationMode(false);
+      setSelectedRejectedOrder(null);
+      setSelectedDirection('OUTBOUND');
+      setSelectedContact(contact);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load lead details');
+    } finally {
+      setLoadingOrderId(null);
+    }
+  };
+
+  const handleReactivateRejectedLead = async (contact: Contact) => {
+    if (!user) return;
+    setLoadingOrderId(`reject-${contact.id}`);
+    try {
+      const order = await LeadService.getRejectedOrderForReactivation(contact.id, user.id, contact.phone);
+      if (!order) {
+        // No rejected order found — allow normal call flow
+        setIsReactivationMode(false);
+        setSelectedRejectedOrder(null);
+        setSelectedDirection('OUTBOUND');
+        setSelectedContact(contact);
+        return;
+      }
+      setSelectedRejectedOrder(order);
+      setIsReactivationMode(true);
+      setIsEditMode(false);
+      setSelectedOrder(null);
+      setSelectedDirection('OUTBOUND');
+      setSelectedContact(contact);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load rejected lead details');
+    } finally {
+      setLoadingOrderId(null);
     }
   };
 
@@ -351,19 +416,42 @@ export const MemberContactsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Right Action: Single-row Call Button */}
-              <Button
-                variant="primary"
-                size="sm"
-                leftIcon={<PhoneCall className="w-3.5 h-3.5" />}
-                onClick={() => {
-                  setSelectedDirection('OUTBOUND');
-                  setSelectedContact(contact);
-                }}
-                className="shrink-0"
-              >
-                Call
-              </Button>
+              {/* Right Action: Single-row Call / Edit Lead Buttons */}
+              <div className="flex items-center gap-2 shrink-0">
+                {contact.status === 'INTERESTED' && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Edit3 className="w-3.5 h-3.5 text-emerald-600" />}
+                    onClick={() => handleEditLead(contact)}
+                    isLoading={loadingOrderId === contact.id}
+                    className="border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold"
+                  >
+                    Edit Lead
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<PhoneCall className="w-3.5 h-3.5" />}
+                  onClick={() => {
+                    if (contact.status === 'REJECTED') {
+                      handleReactivateRejectedLead(contact);
+                    } else {
+                      setSelectedDirection('OUTBOUND');
+                      setIsEditMode(false);
+                      setIsReactivationMode(false);
+                      setSelectedRejectedOrder(null);
+                      setSelectedOrder(null);
+                      setSelectedContact(contact);
+                    }
+                  }}
+                  isLoading={loadingOrderId === `reject-${contact.id}`}
+                  className="shrink-0"
+                >
+                  Call
+                </Button>
+              </div>
             </div>
           ))}
         </div>
@@ -373,10 +461,20 @@ export const MemberContactsPage: React.FC = () => {
       {selectedContact && (
         <PostCallModal
           isOpen={!!selectedContact}
-          onClose={() => setSelectedContact(null)}
+          onClose={() => {
+            setSelectedContact(null);
+            setSelectedOrder(null);
+            setSelectedRejectedOrder(null);
+            setIsEditMode(false);
+            setIsReactivationMode(false);
+          }}
           contact={selectedContact}
           onSuccess={loadContacts}
           initialDirection={selectedDirection}
+          editMode={isEditMode}
+          existingOrder={selectedOrder}
+          reactivationMode={isReactivationMode}
+          rejectedOrder={selectedRejectedOrder}
         />
       )}
 

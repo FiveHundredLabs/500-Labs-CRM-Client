@@ -94,7 +94,11 @@ export class OrderService {
     const previousStatus = order.status;
     if (previousStatus === newStatus && (!damagedItems || damagedItems.length === 0)) return order;
 
-    const updatedOrder = await orderRepository.updateStatus(orderId, newStatus, remarks);
+    const damagedProductIds = damagedItems
+      ?.filter((item) => item.productId)
+      .map((item) => item.productId as string);
+
+    const updatedOrder = await orderRepository.updateStatus(orderId, newStatus, remarks, damagedProductIds);
 
     // If damaged items are reported on status update (e.g. rejection/return), report into product damagedStock
     if (damagedItems && damagedItems.length > 0) {
@@ -134,6 +138,7 @@ export class OrderService {
     try {
       const customer = await customerRepository.getById(order.customerId);
       const contactStatusMap: Partial<Record<OrderStatus, any>> = {
+        PREPARED: 'INTERESTED',
         DELIVERED: 'DELIVERED',
         REJECTED: 'REJECTED',
         CANCELLED: 'CANCELLED',
@@ -143,10 +148,6 @@ export class OrderService {
       if (customer && newContactStatus) {
         if (customer.contactId) {
           await contactRepository.update(customer.contactId, { status: newContactStatus });
-          const callLogs = await callLogRepository.getByContactId(customer.contactId);
-          for (const cl of callLogs) {
-            await callLogRepository.update(cl.id, { status: newContactStatus });
-          }
         }
       }
     } catch {
@@ -212,11 +213,12 @@ export class OrderService {
   static async bulkUpdateOrderStatus(
     orderIds: string[],
     newStatus: OrderStatus,
-    actor: User
+    actor: User,
+    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
   ): Promise<number> {
     let count = 0;
     for (const orderId of orderIds) {
-      await this.updateOrderStatus(orderId, newStatus, actor);
+      await this.updateOrderStatus(orderId, newStatus, actor, undefined, damagedItems);
       count++;
     }
     return count;
@@ -224,5 +226,13 @@ export class OrderService {
 
   static async getOrderHistory(orderId: string) {
     return deliveryStatusHistoryRepository.getByOrderId(orderId);
+  }
+
+  static async updateDeliveryCharge(
+    orderId: string,
+    codCharge: number,
+    remarks?: string
+  ): Promise<Order> {
+    return orderRepository.updateDeliveryCharge(orderId, codCharge, remarks);
   }
 }
