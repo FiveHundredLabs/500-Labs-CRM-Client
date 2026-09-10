@@ -2,7 +2,7 @@ import React from 'react';
 import type { Customer, User, Order } from '../../models/domain';
 import { CustomerCard } from '../customer/CustomerCard';
 import { EmptyState } from '../shared/EmptyState';
-import { Sparkles, Truck, AlertTriangle, Info, FileText, Mail } from 'lucide-react';
+import { Sparkles, Truck, AlertTriangle, Info, FileText, Mail, Edit3 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DuplicateOrderConflictInfo } from '../orders/DuplicateOrderConflictDialog';
 import { getAmountToCollect } from '../../utils/orderAmounts';
@@ -48,6 +48,14 @@ export const InterestedList: React.FC<InterestedListProps> = ({
         const currentOrder = custOrders[0];
         const deliveryMethod = currentOrder?.deliveryMethod || customer.deliveryMethod || 'POST';
         const deliveryNote = currentOrder?.deliveryNote || customer.deliveryNote;
+        const isEdited = Boolean(
+          (currentOrder as any)?.deliveryStatusHistory?.some(
+            (h: any) =>
+              h.previousStatus === 'PREPARED' &&
+              h.newStatus === 'PREPARED' &&
+              /edited/i.test(h.remarks || '')
+          )
+        );
 
         const previousOrder = custOrders.find((o) =>
           ['DISPATCHED', 'DELIVERED', 'REJECTED', 'RETURNED'].includes(o.status)
@@ -169,6 +177,12 @@ export const InterestedList: React.FC<InterestedListProps> = ({
             orderNumber={currentOrder?.orderNumber}
             badge={
               <div className="flex items-center gap-1">
+                {isEdited && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
+                    <Edit3 className="w-2.5 h-2.5 text-amber-600" />
+                    Edited
+                  </span>
+                )}
                 {deliveryMethod === 'ROYAL_COURIER' ? (
                   <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
                     <Truck className="w-2.5 h-2.5 text-purple-600" />

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { CallLog, Contact, ContactStatus } from '../../models/domain';
+import { CallLog, Contact, ContactStatus, Order } from '../../models/domain';
 import { callLogRepository, contactRepository } from '../../repositories';
+import { LeadService } from '../../services/leadService';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SearchInput } from '../../components/shared/SearchInput';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -82,6 +83,9 @@ export const MemberFollowUpsPage: React.FC = () => {
 
   // Call Modal State
   const [selectedCallContact, setSelectedCallContact] = useState<Contact | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
 
   // Read URL tab parameter (e.g., /member/follow-ups?tab=FOLLOW_UP)
   useEffect(() => {
@@ -172,6 +176,33 @@ export const MemberFollowUpsPage: React.FC = () => {
       toast.error(err.message || 'Failed to update remarks.');
     } finally {
       setIsSavingRemarks(false);
+    }
+  };
+
+  const handleEditLead = async (log: CallLog) => {
+    if (!user) return;
+    setLoadingOrderId(log.id);
+    try {
+      let contact = contactsMap[log.contactId];
+      if (!contact) {
+        contact = (await contactRepository.getById(log.contactId).catch(() => null)) as any;
+      }
+      if (!contact) {
+        toast.error('Contact not found');
+        return;
+      }
+      const order = await LeadService.getEditableInterestedOrder(contact.id, user.id, contact.phone);
+      if (!order) {
+        toast.error('No active editable interested order found for this lead. Order may have already been dispatched, delivered, or rejected.');
+        return;
+      }
+      setSelectedOrder(order);
+      setIsEditMode(true);
+      setSelectedCallContact(contact);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load lead details');
+    } finally {
+      setLoadingOrderId(null);
     }
   };
 
@@ -387,7 +418,11 @@ export const MemberFollowUpsPage: React.FC = () => {
                         variant="primary"
                         size="sm"
                         leftIcon={<PhoneCall className="w-3.5 h-3.5" />}
-                        onClick={() => setSelectedCallContact(contact)}
+                        onClick={() => {
+                          setIsEditMode(false);
+                          setSelectedOrder(null);
+                          setSelectedCallContact(contact);
+                        }}
                       >
                         Call Again
                       </Button>
@@ -480,8 +515,8 @@ export const MemberFollowUpsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Right side: Status Badge + Update Remarks Button */}
-                    <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                    {/* Right side: Status Badge + Edit Lead + Update Remarks Button */}
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                           log.direction === 'INBOUND'
@@ -492,6 +527,20 @@ export const MemberFollowUpsPage: React.FC = () => {
                         {log.direction === 'INBOUND' ? 'Inbound' : 'Outbound'}
                       </span>
                       <StatusBadge type="contact" status={log.status} />
+
+                      {/* Edit Lead Button for INTERESTED leads */}
+                      {log.status === 'INTERESTED' && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          leftIcon={<Edit3 className="w-3.5 h-3.5 text-emerald-600" />}
+                          onClick={() => handleEditLead(log)}
+                          isLoading={loadingOrderId === log.id}
+                          className="border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold h-8 text-xs px-2.5"
+                        >
+                          Edit Lead
+                        </Button>
+                      )}
 
                       {/* Update Remarks Icon Button */}
                       <button
@@ -635,13 +684,19 @@ export const MemberFollowUpsPage: React.FC = () => {
         </Dialog>
       )}
 
-      {/* MODAL 2: Post Call Modal for Saved Contacts Re-calling */}
+      {/* MODAL 2: Post Call Modal for Saved Contacts Re-calling & Editing */}
       {selectedCallContact && (
         <PostCallModal
           isOpen={!!selectedCallContact}
-          onClose={() => setSelectedCallContact(null)}
+          onClose={() => {
+            setSelectedCallContact(null);
+            setSelectedOrder(null);
+            setIsEditMode(false);
+          }}
           contact={selectedCallContact}
           onSuccess={loadData}
+          editMode={isEditMode}
+          existingOrder={selectedOrder}
         />
       )}
     </div>

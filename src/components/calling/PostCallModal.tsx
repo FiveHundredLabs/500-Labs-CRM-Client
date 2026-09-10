@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { StatusBadge } from '../shared/StatusBadge';
-import { Contact, ContactStatus, CallLog, Product, DeliveryMethod } from '../../models/domain';
+import { Contact, ContactStatus, CallLog, Product, DeliveryMethod, Order } from '../../models/domain';
 import { CallLogService } from '../../services/callLogService';
 import { callLogRepository, productRepository } from '../../repositories';
 import { useAuth } from '../../hooks/useAuth';
@@ -24,7 +24,8 @@ import {
   ShoppingBag,
   Mail,
   Truck,
-  FileText
+  FileText,
+  Edit3
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
@@ -35,6 +36,8 @@ export interface PostCallModalProps {
   contact: Contact | null;
   onSuccess: () => void;
   initialDirection?: 'OUTBOUND' | 'INBOUND';
+  editMode?: boolean;
+  existingOrder?: Order | null;
 }
 
 export const PostCallModal: React.FC<PostCallModalProps> = ({
@@ -43,6 +46,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   contact,
   onSuccess,
   initialDirection = 'OUTBOUND',
+  editMode = false,
+  existingOrder = null,
 }) => {
   const { user } = useAuth();
 
@@ -95,16 +100,19 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
         const qty = Number(selectedQuantities[p.id]) || 0;
         const price = Number(p.sellingPrice) || 0;
         const subtotal = qty * price;
+        const prevAllocated = (editMode && existingOrder?.items)
+          ? (existingOrder.items.find((it) => it.productId === p.id)?.quantity || 0)
+          : 0;
         return {
           productId: p.id,
           productName: p.name,
           unitPrice: price,
           quantity: qty,
           subtotal,
-          availableStock: Number(p.currentStock) || 0,
+          availableStock: (Number(p.currentStock) || 0) + prevAllocated,
         };
       });
-  }, [teamProducts, selectedQuantities]);
+  }, [teamProducts, selectedQuantities, editMode, existingOrder]);
 
   const totalOrderValue = useMemo(() => {
     return selectedItems.reduce((acc, item) => acc + item.subtotal, 0);
@@ -138,26 +146,44 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
 
     setDirection(initialDirection);
 
-    // If inbound callback, auto-activate form without launching native dialer
-    if (initialDirection === 'INBOUND') {
+    // If inbound callback or in edit mode, auto-activate form without launching native dialer
+    if (initialDirection === 'INBOUND' || editMode) {
       setHasDialed(true);
     } else {
       window.location.href = `tel:${contact.phone.replace(/[^0-9+]/g, '')}`;
       setHasDialed(true);
     }
 
-    setStatus(contact.status === 'NEW' ? 'ANSWERED' : contact.status);
-    setIsFollowUp(Boolean(contact.isFollowUp));
-    setCustomerName('');
-    setCustomerAddress('');
-    setCity(contact.city || '');
-    setSecondaryMobile(contact.secondaryMobile || '');
-    setCustomerEmail('');
-    setDeliveryMethod('POST');
-    setDeliveryNote('');
-    setRemarks('');
-    setSelectedQuantities({});
-    setCodCharge('');
+    if (editMode && existingOrder) {
+      setStatus('INTERESTED');
+      setIsFollowUp(Boolean(contact.isFollowUp));
+      setCustomerName(existingOrder.customer?.fullName || '');
+      setCustomerAddress(existingOrder.customer?.address || '');
+      setCity(existingOrder.customer?.city || contact.city || '');
+      setSecondaryMobile(existingOrder.customer?.secondaryMobile || contact.secondaryMobile || '');
+      setCustomerEmail(existingOrder.customer?.email || '');
+      setDeliveryMethod((existingOrder.deliveryMethod as DeliveryMethod) || 'POST');
+      setDeliveryNote(existingOrder.deliveryNote || '');
+      setRemarks(existingOrder.remarks || '');
+      setCodCharge(
+        existingOrder.codCharge !== undefined && existingOrder.codCharge !== null
+          ? String(existingOrder.codCharge)
+          : ''
+      );
+    } else {
+      setStatus(contact.status === 'NEW' ? 'ANSWERED' : contact.status);
+      setIsFollowUp(Boolean(contact.isFollowUp));
+      setCustomerName('');
+      setCustomerAddress('');
+      setCity(contact.city || '');
+      setSecondaryMobile(contact.secondaryMobile || '');
+      setCustomerEmail('');
+      setDeliveryMethod('POST');
+      setDeliveryNote('');
+      setRemarks('');
+      setSelectedQuantities({});
+      setCodCharge('');
+    }
 
     const loadData = async () => {
       setLoadingHistory(true);
@@ -191,11 +217,34 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
         const resolvedProds = activeTeamProds.length > 0 ? activeTeamProds : activeProds;
         setProducts(resolvedProds);
 
-        // Pre-select 1 unit of first in-stock product by default if available
-        if (resolvedProds.length > 0) {
-          const firstInStock = resolvedProds.find((p) => p.currentStock > 0);
-          if (firstInStock) {
-            setSelectedQuantities({ [firstInStock.id]: 1 });
+        // Pre-fill quantities
+        if (editMode && existingOrder) {
+          const initialQty: Record<string, number> = {};
+          if (existingOrder.items && existingOrder.items.length > 0) {
+            existingOrder.items.forEach((item: any) => {
+              if (item.productId && Number(item.quantity) > 0) {
+                initialQty[item.productId] = Number(item.quantity);
+              }
+            });
+          } else {
+            // Fallback to legacy adultQty / kidsQty
+            if (existingOrder.adultQty) {
+              const adultProd = resolvedProds.find((p) => /adult/i.test(p.name));
+              if (adultProd) initialQty[adultProd.id] = existingOrder.adultQty;
+            }
+            if (existingOrder.kidsQty) {
+              const kidsProd = resolvedProds.find((p) => /kid|child/i.test(p.name));
+              if (kidsProd) initialQty[kidsProd.id] = existingOrder.kidsQty;
+            }
+          }
+          setSelectedQuantities(initialQty);
+        } else {
+          // Pre-select 1 unit of first in-stock product by default if available
+          if (resolvedProds.length > 0) {
+            const firstInStock = resolvedProds.find((p) => p.currentStock > 0);
+            if (firstInStock) {
+              setSelectedQuantities({ [firstInStock.id]: 1 });
+            }
           }
         }
 
@@ -220,7 +269,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     };
 
     loadData();
-  }, [contact, isOpen, user]);
+  }, [contact, isOpen, user, editMode, existingOrder]);
 
   if (!contact || !user) return null;
 
@@ -305,12 +354,16 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           codCharge: isInterested ? chargeToSubmit : undefined,
           remarks: remarks.trim() || undefined,
           callDurationSeconds: Math.floor(Math.random() * 120) + 30,
+          editMode: Boolean(editMode),
+          existingOrderId: editMode && existingOrder ? existingOrder.id : undefined,
         },
         user
       );
 
       toast.success(
-        isInterested
+        editMode
+          ? `Lead updated for ${customerName}!`
+          : isInterested
           ? `Lead recorded for ${customerName} (Amount to collect: ${formatCurrency(totalOrderValue + (chargeToSubmit || 0))})!`
           : `Call outcome saved as ${status}`
       );
@@ -327,13 +380,13 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Complete Call"
-      description={`Contact Phone: ${contact.phone}`}
+      title={editMode ? "Edit Interested Lead" : "Complete Call"}
+      description={`Contact Phone: ${contact.phone}${editMode && existingOrder ? ` • Order #${existingOrder.orderNumber}` : ''}`}
       maxWidth="lg"
     >
       <div className="space-y-4">
-        {/* Launch Dialer Bar (Only relevant for Outbound) */}
-        {direction === 'OUTBOUND' && (
+        {/* Launch Dialer Bar (Only relevant for Outbound when NOT in edit mode) */}
+        {direction === 'OUTBOUND' && !editMode && (
           <div className="bg-blue-50/60 border border-blue-100 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-xs">
@@ -353,6 +406,38 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
               className="w-full sm:w-auto"
             >
               Launch Dialer
+            </Button>
+          </div>
+        )}
+
+        {/* Edit Mode Lead Header (Clean info banner without auto-dialing) */}
+        {editMode && existingOrder && (
+          <div className="bg-emerald-50/70 border border-emerald-200 p-3.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-emerald-600 text-white rounded-lg flex items-center justify-center shadow-xs">
+                <Edit3 className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800">
+                  Editing Interested Lead • #{existingOrder.orderNumber}
+                </div>
+                <div className="text-sm font-bold text-slate-900 font-mono flex items-center gap-2">
+                  <span>{contact.phone}</span>
+                  {existingOrder.customer?.fullName && (
+                    <span className="text-slate-500 font-sans font-normal text-xs">({existingOrder.customer.fullName})</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              leftIcon={<Phone className="w-3.5 h-3.5 text-slate-600" />}
+              onClick={triggerNativeDialer}
+              className="text-xs shrink-0"
+            >
+              Call Customer (Optional)
             </Button>
           </div>
         )}
@@ -443,18 +528,33 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
         {/* Form Fields */}
         {hasDialed && (
           <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in duration-150">
-            <Select
-              label="Call Outcome / Status *"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as ContactStatus)}
-              options={[
-                { value: 'ANSWERED', label: 'Answered' },
-                { value: 'NOT_ANSWERED', label: 'Not Answered' },
-                { value: 'PHONE_OFF', label: 'Phone Switched Off' },
-                { value: 'INTERESTED', label: 'Interested (Creates Customer & Order Record)' },
-                { value: 'NOT_INTERESTED', label: 'Not Interested' },
-              ]}
-            />
+            {editMode ? (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">Status (Locked)</div>
+                  <div className="text-sm font-bold text-emerald-900 flex items-center gap-1.5 mt-0.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Interested (Updating Lead #{existingOrder?.orderNumber})</span>
+                  </div>
+                </div>
+                <span className="text-xs bg-emerald-200/80 text-emerald-800 font-semibold px-2.5 py-1 rounded-md">
+                  Edit Mode
+                </span>
+              </div>
+            ) : (
+              <Select
+                label="Call Outcome / Status *"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as ContactStatus)}
+                options={[
+                  { value: 'ANSWERED', label: 'Answered' },
+                  { value: 'NOT_ANSWERED', label: 'Not Answered' },
+                  { value: 'PHONE_OFF', label: 'Phone Switched Off' },
+                  { value: 'INTERESTED', label: 'Interested (Creates Customer & Order Record)' },
+                  { value: 'NOT_INTERESTED', label: 'Not Interested' },
+                ]}
+              />
+            )}
 
             {/* Follow-Up Star Option */}
             <div className="bg-amber-50/70 border border-amber-200 p-3 rounded-xl flex items-center justify-between gap-3">
@@ -689,7 +789,11 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {teamProducts.map((prod) => {
                         const qty = selectedQuantities[prod.id] || 0;
-                        const isOutOfStock = prod.currentStock <= 0;
+                        const prevAllocated = (editMode && existingOrder?.items)
+                          ? (existingOrder.items.find((it: any) => it.productId === prod.id)?.quantity || 0)
+                          : 0;
+                        const effectiveStock = prod.currentStock + prevAllocated;
+                        const isOutOfStock = effectiveStock <= 0;
                         const subtotal = qty * prod.sellingPrice;
 
                         return (
@@ -709,7 +813,12 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                                   {isOutOfStock ? (
                                     <span className="text-rose-600 font-semibold">Out of Stock</span>
                                   ) : (
-                                    <span>Stock: {prod.currentStock} units</span>
+                                    <span>
+                                      Stock: {effectiveStock} units
+                                      {prevAllocated > 0 && (
+                                        <span className="text-emerald-600 ml-1 font-medium">({prevAllocated} in lead)</span>
+                                      )}
+                                    </span>
                                   )}
                                 </div>
                               </div>
@@ -717,7 +826,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                                 <button
                                   type="button"
                                   disabled={qty <= 0}
-                                  onClick={() => handleQtyChange(prod.id, qty - 1, prod.currentStock)}
+                                  onClick={() => handleQtyChange(prod.id, qty - 1, effectiveStock)}
                                   className="w-6 h-6 rounded flex items-center justify-center bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 shadow-2xs cursor-pointer"
                                 >
                                   <Minus className="w-3 h-3" />
@@ -725,8 +834,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                                 <span className="w-6 text-center font-bold text-xs text-slate-900">{qty}</span>
                                 <button
                                   type="button"
-                                  disabled={isOutOfStock || qty >= prod.currentStock}
-                                  onClick={() => handleQtyChange(prod.id, qty + 1, prod.currentStock)}
+                                  disabled={isOutOfStock || qty >= effectiveStock}
+                                  onClick={() => handleQtyChange(prod.id, qty + 1, effectiveStock)}
                                   className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 disabled:opacity-30 disabled:cursor-not-allowed text-white shadow-2xs cursor-pointer"
                                 >
                                   <Plus className="w-3 h-3" />
@@ -816,7 +925,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary" isLoading={isLoading}>
-                  Save Call
+                  {editMode ? 'Update Lead' : 'Save Call'}
                 </Button>
               </div>
             </div>

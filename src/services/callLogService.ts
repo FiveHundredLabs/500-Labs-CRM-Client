@@ -33,6 +33,8 @@ export interface SubmitCallResultInput {
   remarks?: string;
   callDurationSeconds?: number;
   isFollowUp?: boolean;
+  editMode?: boolean;
+  existingOrderId?: string;
 }
 
 export class CallLogService {

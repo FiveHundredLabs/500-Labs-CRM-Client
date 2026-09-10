@@ -4,7 +4,7 @@ import {
   orderRepository,
   deliveryStatusHistoryRepository,
 } from '../repositories';
-import { User } from '../models/domain';
+import { User, Order } from '../models/domain';
 import { ActivityLogService } from './activityLogService';
 import { OrderService } from './orderService';
 
@@ -109,5 +109,35 @@ export class LeadService {
     });
 
     return true;
+  }
+
+  /**
+   * Find an editable interested lead order for a contact.
+   * Returns the order only if:
+   * - order.teamMemberId === memberId
+   * - order.status === 'PREPARED'
+   * - Matches contactId or phone
+   */
+  static async getEditableInterestedOrder(
+    contactId: string,
+    memberId: string,
+    phone?: string
+  ): Promise<Order | null> {
+    try {
+      const orders = await orderRepository.getAll();
+      const match = orders.find((o) => {
+        const isMember = o.teamMemberId === memberId;
+        const isPrepared = o.status === 'PREPARED';
+        const isContactMatch =
+          o.customer?.contactId === contactId ||
+          o.customer?.contact?.id === contactId ||
+          (phone && o.customer?.phone === phone);
+        return isMember && isPrepared && isContactMatch;
+      });
+      return match || null;
+    } catch (err) {
+      console.error('Failed to get editable interested order:', err);
+      return null;
+    }
   }
 }
