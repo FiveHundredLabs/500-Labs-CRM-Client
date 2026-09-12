@@ -18,7 +18,7 @@ import { downloadRoyalCourierExcel, RoyalCourierExportItem } from '../../utils/r
 import { downloadPostLeadExcel, PostLeadExportItem } from '../../utils/postLeadExcel';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
-import { XCircle, Mail, Truck, FileSpreadsheet } from 'lucide-react';
+import { XCircle, Mail, Truck, FileSpreadsheet, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { teamRepository } from '../../repositories';
 import { Team, DeliveryMethod, Order, Customer } from '../../models/domain';
@@ -35,10 +35,25 @@ export const SupervisorInterestedPage: React.FC = () => {
     allCustomersMap,
     interestedConflictMap,
     loading,
+    loadData,
     dispatchInterestedLeads,
     cancelInterestedLead,
     updateDeliveryCharge,
   } = useInterestedLeads(user?.role === 'ADMIN' ? adminTeamId : undefined);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await loadData(true);
+      toast.success('Interested leads refreshed!');
+    } catch {
+      toast.error('Failed to refresh interested leads.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Delivery Method Tab State ('POST' vs 'ROYAL_COURIER')
   const [activeDeliveryTab, setActiveDeliveryTab] = useState<DeliveryMethod>('POST');
@@ -55,6 +70,17 @@ export const SupervisorInterestedPage: React.FC = () => {
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
   const [isDownloadingPostExcel, setIsDownloadingPostExcel] = useState(false);
   const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
+
+  // Derive current selected order for conflict inspector modal
+  const conflictCurrentOrder = useMemo(() => {
+    if (!inspectConflictInfo) return null;
+    const cust = customers.find((c) => {
+      const norm = (c.phone || '').trim();
+      return norm === inspectConflictInfo.phone || norm.includes(inspectConflictInfo.phone);
+    });
+    if (!cust) return null;
+    return ordersMap[cust.id]?.[0] || null;
+  }, [inspectConflictInfo, customers, ordersMap]);
 
   // Edit Delivery Charge State
   const [editDeliveryOrder, setEditDeliveryOrder] = useState<Order | null>(null);
@@ -358,6 +384,18 @@ export const SupervisorInterestedPage: React.FC = () => {
       <PageHeader
         title="Interested Leads"
         description="Review captured interested orders, choose delivery method workflow, and process dispatch."
+        actions={
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+            title="Refresh interested leads"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#01A8F3] ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        }
       />
 
       {/* Two Delivery Method Tabs */}
@@ -543,12 +581,12 @@ export const SupervisorInterestedPage: React.FC = () => {
       <DuplicateOrderConflictDialog
         isOpen={!!inspectConflictInfo}
         onClose={() => setInspectConflictInfo(null)}
-        currentOrder={null}
+        currentOrder={conflictCurrentOrder}
         conflictInfo={inspectConflictInfo}
         customersMap={allCustomersMap}
         membersMap={membersMap}
         onCancelOrder={async (ord) => {
-          await cancelInterestedLead(ord.customerId, 'Cancelled duplicate order by supervisor');
+          await cancelInterestedLead(ord.customerId, 'Cancelled duplicate order by supervisor', ord.id);
           setInspectConflictInfo(null);
         }}
       />

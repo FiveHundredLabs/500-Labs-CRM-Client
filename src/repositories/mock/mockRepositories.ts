@@ -518,7 +518,31 @@ export class MockOrderRepository implements IOrderRepository {
   async create(orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order> {
     await delay();
     const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
+    const customers = getStoredItem<Customer>(STORAGE_KEYS.CUSTOMERS, []);
+    const targetCust = customers.find((c) => c.id === orderData.customerId);
     const now = new Date().toISOString();
+
+    const existingIdx = orders.findIndex((o) => {
+      if (o.status !== 'PREPARED') return false;
+      if (o.customerId === orderData.customerId) return true;
+      const c = customers.find((cust) => cust.id === o.customerId);
+      return Boolean(targetCust?.phone && c?.phone && c.phone.trim() === targetCust.phone.trim());
+    });
+
+    if (existingIdx !== -1 && (orderData.status === 'PREPARED' || !orderData.status)) {
+      const existing = orders[existingIdx];
+      const updated: Order = {
+        ...existing,
+        ...orderData,
+        orderNumber: existing.orderNumber,
+        id: existing.id,
+        updatedAt: now,
+      };
+      orders[existingIdx] = updated;
+      setStoredItem(STORAGE_KEYS.ORDERS, orders);
+      return updated;
+    }
+
     const newOrder: Order = {
       ...orderData,
       orderNumber: orderData.orderNumber || `ORD-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`,
