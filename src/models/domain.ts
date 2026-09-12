@@ -273,6 +273,9 @@ export interface Order {
   items?: OrderItem[];
   dispatchHistory?: OrderDispatchRecord[];
   previousDispatchInfo?: PreviousDispatchInfo;
+  orderHistory?: Order[];
+  hasPreviousOrders?: boolean;
+  previousOrdersCount?: number;
   createdAt: string;
   updatedAt: string;
   customer?: Customer;

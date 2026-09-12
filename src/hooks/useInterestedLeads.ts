@@ -19,7 +19,7 @@ export function useInterestedLeads(overrideTeamId?: string) {
   const [interestedConflictMap, setInterestedConflictMap] = useState<Record<string, DuplicateOrderConflictInfo>>({});
   const [loading, setLoading] = useState(true);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (silent = false) => {
     if (!user) return;
     if (!effectiveTeamId) {
       setCustomers([]);
@@ -28,10 +28,10 @@ export function useInterestedLeads(overrideTeamId?: string) {
       setOrdersMap({});
       setAllCustomersMap({});
       setInterestedConflictMap({});
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const [cList, contactList, teamUsers, oList, allOrders, allCusts] = await Promise.all([
         customerRepository.getByTeamId(effectiveTeamId),
@@ -45,10 +45,58 @@ export function useInterestedLeads(overrideTeamId?: string) {
       const cntMap: Record<string, Contact> = {};
       contactList.forEach((cnt) => (cntMap[cnt.id] = cnt));
 
+      // Sort orders descending by createdAt (guarantee index 0 is always newest)
+      const sortedOList = [...oList].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      const sortedAllOrders = [...allOrders].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      const globalCustMap: Record<string, Customer> = {};
+      allCusts.forEach((c) => (globalCustMap[c.id] = c));
+      cList.forEach((c) => (globalCustMap[c.id] = c));
+      setAllCustomersMap(globalCustMap);
+
+      // ── Build phone-to-orders index for early duplicate & history detection ──
+      const phoneToOrdersMap: Record<string, Order[]> = {};
+      sortedAllOrders.forEach((ord) => {
+        const c = globalCustMap[ord.customerId] || (ord as any).customer;
+        if (c?.phone) {
+          const norm = normalizeSriLankanPhone(c.phone) || c.phone.trim();
+          if (!phoneToOrdersMap[norm]) {
+            phoneToOrdersMap[norm] = [];
+          }
+          phoneToOrdersMap[norm].push(ord);
+        }
+      });
+
       const ordMap: Record<string, Order[]> = {};
-      oList.forEach((o) => {
+      sortedOList.forEach((o) => {
         if (!ordMap[o.customerId]) ordMap[o.customerId] = [];
         ordMap[o.customerId].push(o);
+      });
+
+      // Ensure each customer's primary order is the active PREPARED order and attach orderHistory
+      Object.keys(ordMap).forEach((custId) => {
+        const custOrders = ordMap[custId];
+        const primaryOrder = custOrders.find((o) => o.status === 'PREPARED') || custOrders[0];
+        if (primaryOrder) {
+          const cust = globalCustMap[custId];
+          const norm = cust?.phone ? (normalizeSriLankanPhone(cust.phone) || cust.phone.trim()) : '';
+          const phoneOrders = norm ? (phoneToOrdersMap[norm] || []) : custOrders;
+          // Order history contains strictly previous/completed/dispatched/delivered/cancelled orders
+          const historyOrders = phoneOrders.filter((o) =>
+            o.id !== primaryOrder.id &&
+            ['DISPATCHED', 'DELIVERED', 'REJECTED', 'CANCELLED', 'RETURNED'].includes(o.status)
+          );
+          primaryOrder.orderHistory = historyOrders;
+          primaryOrder.hasPreviousOrders = historyOrders.length > 0;
+          primaryOrder.previousOrdersCount = historyOrders.length;
+
+          // Place primaryOrder first
+          ordMap[custId] = [primaryOrder, ...custOrders.filter((o) => o.id !== primaryOrder.id)];
+        }
       });
       setOrdersMap(ordMap);
 
@@ -59,43 +107,27 @@ export function useInterestedLeads(overrideTeamId?: string) {
       teamUsers.forEach((u) => (uMap[u.id] = u));
       setMembersMap(uMap);
 
-      const globalCustMap: Record<string, Customer> = {};
-      allCusts.forEach((c) => (globalCustMap[c.id] = c));
-      cList.forEach((c) => (globalCustMap[c.id] = c));
-      setAllCustomersMap(globalCustMap);
-
-      // Filter ONLY customers with status = INTERESTED
+      // Filter ONLY customers that currently have an active PREPARED order or contact is INTERESTED
       const interestedOnlyCustomers = cList.filter((cust) => {
         const cnt = cntMap[cust.contactId];
         const custOrders = ordMap[cust.id] || [];
-        const latestOrder = custOrders[custOrders.length - 1];
+        const latestOrder = custOrders[0];
+        const hasActivePrepared = custOrders.some((o) => o.status === 'PREPARED');
 
-        // Contact status must be INTERESTED, or latest active order must be PREPARED
-        const isLeadInterested = !cnt || cnt.status === 'INTERESTED' || latestOrder?.status === 'PREPARED';
+        // Contact status must be INTERESTED, or active order must be PREPARED
+        const isLeadInterested = hasActivePrepared || !cnt || cnt.status === 'INTERESTED' || latestOrder?.status === 'PREPARED';
 
-        // Order status must NOT be DISPATCHED, DELIVERED, REJECTED, CANCELLED, or RETURNED
-        const isOrderFinishedOrDispatched =
+        // Only exclude if latest order is finished and there is no active PREPARED order
+        const isLatestOrderFinished =
           latestOrder &&
+          !hasActivePrepared &&
           (latestOrder.status === 'DISPATCHED' ||
             latestOrder.status === 'DELIVERED' ||
             latestOrder.status === 'REJECTED' ||
             latestOrder.status === 'CANCELLED' ||
             latestOrder.status === 'RETURNED');
 
-        return isLeadInterested && !isOrderFinishedOrDispatched;
-      });
-
-      // ── Build phone-to-orders index for early duplicate & conflict detection ──
-      const phoneToOrdersMap: Record<string, Order[]> = {};
-      allOrders.forEach((ord) => {
-        const c = globalCustMap[ord.customerId] || (ord as any).customer;
-        if (c?.phone) {
-          const norm = normalizeSriLankanPhone(c.phone) || c.phone.trim();
-          if (!phoneToOrdersMap[norm]) {
-            phoneToOrdersMap[norm] = [];
-          }
-          phoneToOrdersMap[norm].push(ord);
-        }
+        return isLeadInterested && !isLatestOrderFinished;
       });
 
       // Map normalized phone to all interested leads
@@ -162,7 +194,7 @@ export function useInterestedLeads(overrideTeamId?: string) {
       setInterestedConflictMap(conflictMap);
       setCustomers(interestedOnlyCustomers);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [user, effectiveTeamId]);
 
@@ -183,12 +215,16 @@ export function useInterestedLeads(overrideTeamId?: string) {
     }
   };
 
-  const cancelInterestedLead = async (customerId: string, reason: string = 'Duplicate review') => {
+  const cancelInterestedLead = async (
+    customerId: string,
+    reason: string = 'Duplicate review',
+    specificOrderId?: string
+  ) => {
     if (!user) return false;
     try {
-      const success = await LeadService.cancelInterestedLead(customerId, reason, user);
+      const success = await LeadService.cancelInterestedLead(customerId, reason, user, specificOrderId);
       if (success) {
-        toast.success('Interested lead / order cancelled.');
+        toast.success(specificOrderId ? 'Duplicate order cancelled.' : 'Interested lead / order cancelled.');
         await loadData();
       }
       return success;

@@ -12,7 +12,7 @@ import { LoadingState } from '../../components/shared/LoadingState';
 import { PostCallModal } from '../../components/calling/PostCallModal';
 import { AddPersonalNumberModal } from '../../components/calling/AddPersonalNumberModal';
 import { InboundCallbackDialog } from '../../components/calling/InboundCallbackDialog';
-import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck, PlusCircle, Hash, PhoneIncoming, Edit3 } from 'lucide-react';
+import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck, PlusCircle, Hash, PhoneIncoming, Edit3, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -81,14 +81,28 @@ export const MemberContactsPage: React.FC = () => {
   const [isReactivationMode, setIsReactivationMode] = useState(false);
   const [selectedRejectedOrder, setSelectedRejectedOrder] = useState<Order | null>(null);
 
-  const loadContacts = async () => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadContacts = async (silent = false) => {
     if (!user) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const data = await contactRepository.getByMemberId(user.id);
       setContacts(data);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await loadContacts(true);
+      toast.success('Contacts refreshed!');
+    } catch {
+      toast.error('Failed to refresh contacts.');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -221,15 +235,28 @@ export const MemberContactsPage: React.FC = () => {
         title="Contacts & Leads"
         description="Browse assigned leads by status category, filter follow-ups, and launch calling queue"
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<PhoneIncoming className="w-4 h-4 text-emerald-600" />}
-            onClick={() => setIsInboundModalOpen(true)}
-            className="border-emerald-200 hover:bg-emerald-50 text-emerald-800 font-semibold"
-          >
-            Inbound Callback
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              title="Refresh contacts and leads"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#01A8F3] ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<PhoneIncoming className="w-4 h-4 text-emerald-600" />}
+              onClick={() => setIsInboundModalOpen(true)}
+              className="border-emerald-200 hover:bg-emerald-50 text-emerald-800 font-semibold"
+            >
+              Inbound Callback
+            </Button>
+          </div>
         }
       />
 
@@ -295,7 +322,7 @@ export const MemberContactsPage: React.FC = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <div className="flex-1">
           <SearchInput
             value={search}
@@ -312,6 +339,16 @@ export const MemberContactsPage: React.FC = () => {
             Clear
           </Button>
         )}
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50 active:scale-95 shadow-2xs shrink-0"
+          title="Refresh contacts"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#01A8F3]' : 'text-slate-500'}`} />
+          <span className="hidden sm:inline">Refresh</span>
+        </button>
       </div>
 
       {/* Contact Cards List */}
