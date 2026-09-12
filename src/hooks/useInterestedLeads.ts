@@ -19,7 +19,7 @@ export function useInterestedLeads(overrideTeamId?: string) {
   const [interestedConflictMap, setInterestedConflictMap] = useState<Record<string, DuplicateOrderConflictInfo>>({});
   const [loading, setLoading] = useState(true);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (silent = false) => {
     if (!user) return;
     if (!effectiveTeamId) {
       setCustomers([]);
@@ -28,10 +28,10 @@ export function useInterestedLeads(overrideTeamId?: string) {
       setOrdersMap({});
       setAllCustomersMap({});
       setInterestedConflictMap({});
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const [cList, contactList, teamUsers, oList, allOrders, allCusts] = await Promise.all([
         customerRepository.getByTeamId(effectiveTeamId),
@@ -194,7 +194,7 @@ export function useInterestedLeads(overrideTeamId?: string) {
       setInterestedConflictMap(conflictMap);
       setCustomers(interestedOnlyCustomers);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [user, effectiveTeamId]);
 
