@@ -23,9 +23,12 @@ export class LeadService {
       // 1. Check existing order or create new order with status DISPATCHED
       const existingOrders = await orderRepository.getByCustomerId(customerId);
       if (existingOrders.length > 0) {
-        const latestOrder = existingOrders[existingOrders.length - 1];
-        if (latestOrder.status !== 'DISPATCHED' && latestOrder.status !== 'DELIVERED') {
-          await OrderService.updateOrderStatus(latestOrder.id, 'DISPATCHED', actor, 'Dispatched via Interested Leads billing print');
+        const sorted = [...existingOrders].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        const targetOrder = sorted.find((o) => o.status === 'PREPARED') || sorted[0];
+        if (targetOrder.status !== 'DISPATCHED' && targetOrder.status !== 'DELIVERED') {
+          await OrderService.updateOrderStatus(targetOrder.id, 'DISPATCHED', actor, 'Dispatched via Interested Leads billing print');
         }
       } else {
         const allOrders = await orderRepository.getAll();
@@ -66,34 +69,45 @@ export class LeadService {
   }
 
   /**
-   * Cancel an Interested Lead and any associated orders.
+   * Cancel an Interested Lead and any associated orders (or a specific duplicate order).
    */
   static async cancelInterestedLead(
     customerId: string,
     reason: string,
-    actor: User
+    actor: User,
+    specificOrderId?: string
   ): Promise<boolean> {
     const customer = await customerRepository.getById(customerId);
     if (!customer) return false;
 
-    // 1. Update any existing active Orders for this customer to CANCELLED
-    const existingOrders = await orderRepository.getByCustomerId(customerId);
-    let orderCancelled = false;
-    for (const ord of existingOrders) {
-      if (['DRAFT', 'PREPARED', 'DISPATCHED'].includes(ord.status)) {
-        await OrderService.updateOrderStatus(
-          ord.id,
-          'CANCELLED',
-          actor,
-          reason || 'Cancelled duplicate/unwanted lead by supervisor'
-        );
-        orderCancelled = true;
+    // 1. If specificOrderId is given, cancel only that order
+    if (specificOrderId) {
+      await OrderService.updateOrderStatus(
+        specificOrderId,
+        'CANCELLED',
+        actor,
+        reason || 'Cancelled duplicate order by supervisor'
+      );
+    } else {
+      // Update any existing active Orders for this customer to CANCELLED
+      const existingOrders = await orderRepository.getByCustomerId(customerId);
+      let orderCancelled = false;
+      for (const ord of existingOrders) {
+        if (['DRAFT', 'PREPARED', 'DISPATCHED'].includes(ord.status)) {
+          await OrderService.updateOrderStatus(
+            ord.id,
+            'CANCELLED',
+            actor,
+            reason || 'Cancelled duplicate/unwanted lead by supervisor'
+          );
+          orderCancelled = true;
+        }
       }
-    }
 
-    // 2. If no active orders were cancelled, update contact directly
-    if (!orderCancelled && customer.contactId) {
-      await contactRepository.update(customer.contactId, { status: 'CANCELLED' });
+      // 2. If no active orders were cancelled, update contact directly
+      if (!orderCancelled && customer.contactId) {
+        await contactRepository.update(customer.contactId, { status: 'CANCELLED' });
+      }
     }
 
     // 3. Log Activity

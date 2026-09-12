@@ -64,6 +64,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   const [history, setHistory] = useState<CallLog[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [dupIntelligence, setDupIntelligence] = useState<any>(null);
+  const [autoDetectedOrder, setAutoDetectedOrder] = useState<Order | null>(null);
 
   const [status, setStatus] = useState<ContactStatus>('ANSWERED');
   const [isFollowUp, setIsFollowUp] = useState(false);
@@ -231,25 +232,53 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
         const resolvedProds = activeTeamProds.length > 0 ? activeTeamProds : activeProds;
         setProducts(resolvedProds);
 
-        // Pre-fill quantities
-        const prefillOrderForQty = editMode ? existingOrder : reactivationMode ? rejectedOrder : null;
-        if (prefillOrderForQty) {
+        // Pre-fill quantities and order details
+        let effectivePrefill = editMode ? existingOrder : reactivationMode ? rejectedOrder : null;
+
+        if (!effectivePrefill && !reactivationMode && user) {
+          try {
+            const { LeadService } = await import('../../services/leadService');
+            const foundOrder = await LeadService.getEditableInterestedOrder(contact.id, user.id, contact.phone);
+            if (foundOrder) {
+              effectivePrefill = foundOrder;
+              setAutoDetectedOrder(foundOrder);
+              setStatus('INTERESTED');
+              setCustomerName(foundOrder.customer?.fullName || '');
+              setCustomerAddress(foundOrder.customer?.address || '');
+              setCity(foundOrder.customer?.city || contact.city || '');
+              setSecondaryMobile(foundOrder.customer?.secondaryMobile || contact.secondaryMobile || '');
+              setCustomerEmail(foundOrder.customer?.email || '');
+              setDeliveryMethod((foundOrder.deliveryMethod as DeliveryMethod) || 'POST');
+              setDeliveryNote(foundOrder.deliveryNote || '');
+              setRemarks(foundOrder.remarks || '');
+              setCodCharge(
+                foundOrder.codCharge !== undefined && foundOrder.codCharge !== null
+                  ? String(foundOrder.codCharge)
+                  : ''
+              );
+            }
+          } catch (e) {
+            console.warn('Could not auto-detect existing order:', e);
+          }
+        }
+
+        if (effectivePrefill) {
           const initialQty: Record<string, number> = {};
-          if (prefillOrderForQty.items && prefillOrderForQty.items.length > 0) {
-            prefillOrderForQty.items.forEach((item: any) => {
+          if (effectivePrefill.items && effectivePrefill.items.length > 0) {
+            effectivePrefill.items.forEach((item: any) => {
               if (item.productId && Number(item.quantity) > 0) {
                 initialQty[item.productId] = Number(item.quantity);
               }
             });
           } else {
             // Fallback to legacy adultQty / kidsQty
-            if (prefillOrderForQty.adultQty) {
+            if (effectivePrefill.adultQty) {
               const adultProd = resolvedProds.find((p) => /adult/i.test(p.name));
-              if (adultProd) initialQty[adultProd.id] = prefillOrderForQty.adultQty;
+              if (adultProd) initialQty[adultProd.id] = effectivePrefill.adultQty;
             }
-            if (prefillOrderForQty.kidsQty) {
+            if (effectivePrefill.kidsQty) {
               const kidsProd = resolvedProds.find((p) => /kid|child/i.test(p.name));
-              if (kidsProd) initialQty[kidsProd.id] = prefillOrderForQty.kidsQty;
+              if (kidsProd) initialQty[kidsProd.id] = effectivePrefill.kidsQty;
             }
           }
           setSelectedQuantities(initialQty);
@@ -369,8 +398,8 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           codCharge: isInterested ? chargeToSubmit : undefined,
           remarks: remarks.trim() || undefined,
           callDurationSeconds: Math.floor(Math.random() * 120) + 30,
-          editMode: Boolean(editMode),
-          existingOrderId: editMode && existingOrder ? existingOrder.id : undefined,
+          editMode: Boolean(editMode || autoDetectedOrder),
+          existingOrderId: (editMode && existingOrder ? existingOrder.id : autoDetectedOrder?.id) || undefined,
           reactivationMode: Boolean(reactivationMode),
           existingRejectedOrderId: reactivationMode && rejectedOrder ? rejectedOrder.id : undefined,
         },
@@ -378,7 +407,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
       );
 
       toast.success(
-        editMode
+        editMode || autoDetectedOrder
           ? `Lead updated for ${customerName}!`
           : reactivationMode
           ? `Rejected lead reactivated for ${customerName}!`
@@ -395,12 +424,15 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
     }
   };
 
+  const isEditingLead = Boolean(editMode || autoDetectedOrder);
+  const activeExistingOrder = existingOrder || autoDetectedOrder;
+
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title={editMode ? "Edit Interested Lead" : reactivationMode ? "Re-call Rejected Lead" : "Complete Call"}
-      description={`Contact Phone: ${contact.phone}${editMode && existingOrder ? ` • Order #${existingOrder.orderNumber}` : ''}${reactivationMode && rejectedOrder ? ` • Reactivating Order #${rejectedOrder.orderNumber}` : ''}`}
+      title={isEditingLead ? "Edit Interested Lead" : reactivationMode ? "Re-call Rejected Lead" : "Complete Call"}
+      description={`Contact Phone: ${contact.phone}${isEditingLead && activeExistingOrder ? ` • Order #${activeExistingOrder.orderNumber}` : ''}${reactivationMode && rejectedOrder ? ` • Reactivating Order #${rejectedOrder.orderNumber}` : ''}`}
       maxWidth="lg"
     >
       <div className="space-y-4">

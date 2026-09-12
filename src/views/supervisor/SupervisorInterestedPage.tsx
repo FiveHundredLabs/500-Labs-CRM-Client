@@ -56,6 +56,17 @@ export const SupervisorInterestedPage: React.FC = () => {
   const [isDownloadingPostExcel, setIsDownloadingPostExcel] = useState(false);
   const [inspectConflictInfo, setInspectConflictInfo] = useState<DuplicateOrderConflictInfo | null>(null);
 
+  // Derive current selected order for conflict inspector modal
+  const conflictCurrentOrder = useMemo(() => {
+    if (!inspectConflictInfo) return null;
+    const cust = customers.find((c) => {
+      const norm = (c.phone || '').trim();
+      return norm === inspectConflictInfo.phone || norm.includes(inspectConflictInfo.phone);
+    });
+    if (!cust) return null;
+    return ordersMap[cust.id]?.[0] || null;
+  }, [inspectConflictInfo, customers, ordersMap]);
+
   // Edit Delivery Charge State
   const [editDeliveryOrder, setEditDeliveryOrder] = useState<Order | null>(null);
   const [editDeliveryCustomer, setEditDeliveryCustomer] = useState<Customer | null>(null);
@@ -543,12 +554,12 @@ export const SupervisorInterestedPage: React.FC = () => {
       <DuplicateOrderConflictDialog
         isOpen={!!inspectConflictInfo}
         onClose={() => setInspectConflictInfo(null)}
-        currentOrder={null}
+        currentOrder={conflictCurrentOrder}
         conflictInfo={inspectConflictInfo}
         customersMap={allCustomersMap}
         membersMap={membersMap}
         onCancelOrder={async (ord) => {
-          await cancelInterestedLead(ord.customerId, 'Cancelled duplicate order by supervisor');
+          await cancelInterestedLead(ord.customerId, 'Cancelled duplicate order by supervisor', ord.id);
           setInspectConflictInfo(null);
         }}
       />
