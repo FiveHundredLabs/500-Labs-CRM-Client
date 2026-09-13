@@ -199,7 +199,20 @@ export const InterestedList: React.FC<InterestedListProps> = ({
               </div>
             )}
 
-            {previousOrder && !conflictInfo && (
+            {/* Past Order History Indicator */}
+            {currentOrder?.orderHistory && currentOrder.orderHistory.length > 0 && !conflictInfo && (
+              <div className="p-1 rounded bg-slate-100 border border-slate-200 text-[9.5px] flex items-center justify-between text-slate-700">
+                <span className="flex items-center gap-1 font-semibold text-slate-700">
+                  <FileText className="w-3 h-3 text-slate-500 shrink-0" />
+                  <span>Order History: {currentOrder.orderHistory.length} past order{currentOrder.orderHistory.length === 1 ? '' : 's'}</span>
+                </span>
+                <span className="font-mono text-slate-500">
+                  Prev #{currentOrder.orderHistory[0].orderNumber} ({currentOrder.orderHistory[0].status})
+                </span>
+              </div>
+            )}
+
+            {!currentOrder?.orderHistory?.length && previousOrder && !conflictInfo && (
               <div className="p-1 rounded bg-amber-50/90 border border-amber-200 text-[9.5px] flex items-center justify-between text-slate-700">
                 <span className="flex items-center gap-1 font-semibold text-amber-900">
                   <Truck className="w-3 h-3 text-amber-600 shrink-0" />
