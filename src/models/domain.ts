@@ -280,6 +280,8 @@ export interface Order {
   updatedAt: string;
   customer?: Customer;
   team?: Team;
+  rejectionRequests?: OrderRejectionRequest[];
+  activeRejectionRequest?: OrderRejectionRequest | null;
 }
 
 export interface ParcelSlipTeam {
@@ -363,7 +365,10 @@ export type ActivityAction =
   | 'PRICE_CHANGE_APPROVED'
   | 'PRICE_CHANGE_REJECTED'
   | 'PETTY_CASH_ALLOCATED'
-  | 'PETTY_CASH_EXPENSE';
+  | 'PETTY_CASH_EXPENSE'
+  | 'ORDER_REJECTION_REQUESTED'
+  | 'ORDER_REJECTION_APPROVED'
+  | 'ORDER_REJECTION_REJECTED';
 
 export interface ActivityLog {
   id: string; // e.g., 'act_001'
@@ -372,7 +377,7 @@ export interface ActivityLog {
   userName: string;
   teamId?: string;
   action: ActivityAction;
-  entityType: 'User' | 'Contact' | 'Allocation' | 'CallLog' | 'Customer' | 'Order' | 'Expense' | 'Email' | 'Product' | 'Approval' | 'PettyCash';
+  entityType: 'User' | 'Contact' | 'Allocation' | 'CallLog' | 'Customer' | 'Order' | 'Expense' | 'Email' | 'Product' | 'Approval' | 'PettyCash' | 'OrderRejection';
   entityId: string;
   description: string;
   metadata?: Record<string, any>;
@@ -573,6 +578,50 @@ export interface ApprovalRequest {
   reviewedDate?: string;
   rejectionReason?: string;
   createdAt: string;
+}
+
+export interface OrderRejectionDamagedItem {
+  productId?: string;
+  productName: string;
+  quantity: number;
+  reason?: string;
+}
+
+export interface OrderRejectionRequest {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  teamId: string;
+  requestedById: string;
+  requestedByName: string;
+  reason: string;
+  damagedItems?: OrderRejectionDamagedItem[] | null;
+  status: ApprovalStatus;
+  fromStatus?: OrderStatus;
+  toStatus?: OrderStatus;
+  reviewedById?: string | null;
+  reviewedByName?: string | null;
+  reviewedAt?: string | null;
+  adminNotes?: string | null;
+  deliveredAt: string;
+  createdAt: string;
+  updatedAt?: string;
+  order?: Order;
+  team?: Team;
+  requestedBy?: Partial<User>;
+  reviewedBy?: Partial<User>;
+}
+
+export interface CreateOrderRejectionPayload {
+  fromStatus?: OrderStatus;
+  toStatus?: OrderStatus;
+  reason: string;
+  damagedItems?: OrderRejectionDamagedItem[];
+}
+
+export interface ReviewOrderRejectionPayload {
+  status: 'APPROVED' | 'REJECTED';
+  adminNotes?: string;
 }
 
 export interface PettyCashWallet {

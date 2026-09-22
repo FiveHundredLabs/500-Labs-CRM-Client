@@ -1,7 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import type { ApprovalRequest, ApprovalStatus, Team, Product } from '../../models/domain';
-import { approvalRequestRepository, teamRepository, productRepository } from '../../repositories';
+import type {
+  ApprovalRequest,
+  ApprovalStatus,
+  Team,
+  Product,
+  OrderRejectionRequest,
+  OrderRejectionDamagedItem,
+} from '../../models/domain';
+import {
+  approvalRequestRepository,
+  teamRepository,
+  productRepository,
+  orderRejectionRepository,
+} from '../../repositories';
 import { ActivityLogService } from '../../services/activityLogService';
 import { getTeamBranding } from '../../config/branding';
 import { formatCurrency } from '../../utils/currency';
@@ -30,40 +42,62 @@ import {
   FileText,
   User,
   Calendar,
+  RotateCcw,
+  Check,
+  AlertTriangle,
+  Lock,
+  Truck,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const AdminApprovalsPage: React.FC = () => {
   const { user } = useAuth();
 
+  const [activeTab, setActiveTab] = useState<'STOCK_PRICE' | 'ORDER_REJECTIONS'>('STOCK_PRICE');
+
+  // Stock & Pricing Requests State
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<ApprovalStatus | 'ALL'>('PENDING');
 
-  // View Details Modal State
+  // Order Rejection Requests State
+  const [orderRejections, setOrderRejections] = useState<OrderRejectionRequest[]>([]);
+  const [rejectionStatusFilter, setRejectionStatusFilter] = useState<ApprovalStatus | 'ALL'>('PENDING');
+
+  // View Details Modal State (Stock & Pricing)
   const [viewingRequest, setViewingRequest] = useState<ApprovalRequest | null>(null);
 
-  // Approval Confirm Dialog State
+  // Approval Confirm Dialog State (Stock & Pricing)
   const [approvingRequest, setApprovingRequest] = useState<ApprovalRequest | null>(null);
 
-  // Rejection Dialog State
+  // Rejection Dialog State (Stock & Pricing)
   const [rejectingRequest, setRejectingRequest] = useState<ApprovalRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Order Rejection Modals State
+  const [viewingOrderRejection, setViewingOrderRejection] = useState<OrderRejectionRequest | null>(null);
+  const [approvingOrderRejection, setApprovingOrderRejection] = useState<OrderRejectionRequest | null>(null);
+  const [approveAdminNotes, setApproveAdminNotes] = useState('');
+  const [decliningOrderRejection, setDecliningOrderRejection] = useState<OrderRejectionRequest | null>(null);
+  const [declineAdminNotes, setDeclineAdminNotes] = useState('');
+  const [isSubmittingRejection, setIsSubmittingRejection] = useState(false);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [allRequests, allTeams, allProducts] = await Promise.all([
+      const [allRequests, allTeams, allProducts, allOrderRejections] = await Promise.all([
         approvalRequestRepository.getAll(),
         teamRepository.getAll(),
         productRepository.getAll(),
+        orderRejectionRepository.getAll(),
       ]);
       setRequests(allRequests);
       setTeams(allTeams);
       setProducts(allProducts);
+      setOrderRejections(allOrderRejections);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load approval requests.');
     } finally {
@@ -135,6 +169,118 @@ export const AdminApprovalsPage: React.FC = () => {
     }
   };
 
+  // Render Status Transition Badge
+  const renderTransitionBadge = (fromStatus?: string, toStatus?: string) => {
+    const from = fromStatus || 'DELIVERED';
+    const to = toStatus || 'REJECTED';
+    const getBadgeStyle = (status: string) => {
+      switch (status) {
+        case 'DELIVERED':
+          return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        case 'REJECTED':
+          return 'bg-rose-50 text-rose-700 border-rose-200';
+        case 'DISPATCHED':
+          return 'bg-blue-50 text-blue-700 border-blue-200';
+        default:
+          return 'bg-slate-100 text-slate-700 border-slate-200';
+      }
+    };
+
+    return (
+      <div className="inline-flex items-center gap-1.5 font-mono text-[11px]">
+        <span className={`px-2 py-0.5 rounded border font-semibold ${getBadgeStyle(from)}`}>
+          {from}
+        </span>
+        <ArrowRight className="w-3 h-3 text-slate-400" />
+        <span className={`px-2 py-0.5 rounded border font-bold ${getBadgeStyle(to)}`}>
+          {to}
+        </span>
+      </div>
+    );
+  };
+
+  // Order Rejection Handlers
+  const handleConfirmApproveOrderRejection = async () => {
+    if (!approvingOrderRejection || !user) return;
+    setIsSubmittingRejection(true);
+    const originStatus = approvingOrderRejection.fromStatus || 'DELIVERED';
+    const targetStatus = approvingOrderRejection.toStatus || 'REJECTED';
+    try {
+      await orderRejectionRepository.review(approvingOrderRejection.id, {
+        status: 'APPROVED',
+        adminNotes: approveAdminNotes.trim() || undefined,
+      });
+
+      await ActivityLogService.logAction({
+        userId: user.id,
+        userRole: user.role,
+        userName: user.fullName,
+        action: 'ORDER_REJECTION_APPROVED',
+        entityType: 'Order',
+        entityId: approvingOrderRejection.orderId,
+        description: `Approved status transition (${originStatus} ➔ ${targetStatus}) for order #${approvingOrderRejection.orderNumber}. Inventory updated.`,
+      });
+
+      toast.success(
+        `Approved transition for Order #${approvingOrderRejection.orderNumber}. Order status set to ${targetStatus} and inventory updated.`,
+      );
+      setApprovingOrderRejection(null);
+      setApproveAdminNotes('');
+      if (viewingOrderRejection?.id === approvingOrderRejection.id) {
+        setViewingOrderRejection(null);
+      }
+      loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to approve status transition.');
+    } finally {
+      setIsSubmittingRejection(false);
+    }
+  };
+
+  const handleConfirmDeclineOrderRejection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!decliningOrderRejection || !user) return;
+    if (!declineAdminNotes.trim()) {
+      toast.error('Please provide an admin reason / note for declining the transition request.');
+      return;
+    }
+
+    setIsSubmittingRejection(true);
+    const originStatus = decliningOrderRejection.fromStatus || 'DELIVERED';
+    const targetStatus = decliningOrderRejection.toStatus || 'REJECTED';
+    try {
+      await orderRejectionRepository.review(decliningOrderRejection.id, {
+        status: 'REJECTED',
+        adminNotes: declineAdminNotes.trim(),
+      });
+
+      await ActivityLogService.logAction({
+        userId: user.id,
+        userRole: user.role,
+        userName: user.fullName,
+        action: 'ORDER_REJECTION_REJECTED',
+        entityType: 'Order',
+        entityId: decliningOrderRejection.orderId,
+        description: `Declined transition request (${originStatus} ➔ ${targetStatus}) for order #${decliningOrderRejection.orderNumber}. Reason: ${declineAdminNotes}`,
+      });
+
+      toast.success(
+        `Declined transition request for Order #${decliningOrderRejection.orderNumber}. Order remains ${originStatus}.`,
+      );
+      setDecliningOrderRejection(null);
+      setDeclineAdminNotes('');
+      if (viewingOrderRejection?.id === decliningOrderRejection.id) {
+        setViewingOrderRejection(null);
+      }
+      loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to decline status transition.');
+    } finally {
+      setIsSubmittingRejection(false);
+    }
+  };
+
+
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => statusFilter === 'ALL' || r.status === statusFilter);
   }, [requests, statusFilter]);
@@ -143,17 +289,68 @@ export const AdminApprovalsPage: React.FC = () => {
   const approvedCount = requests.filter((r) => r.status === 'APPROVED').length;
   const rejectedCount = requests.filter((r) => r.status === 'REJECTED').length;
 
+  const filteredOrderRejections = useMemo(() => {
+    return orderRejections.filter(
+      (r) => rejectionStatusFilter === 'ALL' || r.status === rejectionStatusFilter,
+    );
+  }, [orderRejections, rejectionStatusFilter]);
+
+  const pendingRejectionCount = orderRejections.filter((r) => r.status === 'PENDING').length;
+  const approvedRejectionCount = orderRejections.filter((r) => r.status === 'APPROVED').length;
+  const declinedRejectionCount = orderRejections.filter((r) => r.status === 'REJECTED').length;
+
   if (loading) return <LoadingState rows={6} />;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Centralized Approvals Center"
-        description="Review, inspect, and approve supervisor stock replenishment and product price change requests"
+        description="Review, inspect, and approve supervisor stock replenishment, price changes, and delivered order rejections"
       />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      {/* Top-Level Navigation Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('STOCK_PRICE')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'STOCK_PRICE'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <Boxes className="w-4 h-4" />
+          <span>Stock &amp; Price Approvals</span>
+          {pendingCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+              {pendingCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('ORDER_REJECTIONS')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'ORDER_REJECTIONS'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span>Status Transitions</span>
+          {pendingRejectionCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+              {pendingRejectionCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'STOCK_PRICE' && (
+        <>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard
           title="Pending Approvals"
           value={pendingCount}
@@ -344,6 +541,287 @@ export const AdminApprovalsPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
+
+      {activeTab === 'ORDER_REJECTIONS' && (
+        <>
+          {/* Order Status Transition Stat Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <StatCard
+              title="Pending Transitions"
+              value={pendingRejectionCount}
+              subtitle="Orders awaiting admin review"
+              icon={<Clock className="w-4 h-4 text-amber-600" />}
+              accentColor={pendingRejectionCount > 0 ? 'amber' : 'green'}
+            />
+            <StatCard
+              title="Approved Transitions"
+              value={approvedRejectionCount}
+              subtitle="Transitions applied & stock adjusted"
+              icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+              accentColor="green"
+            />
+            <StatCard
+              title="Declined Transitions"
+              value={declinedRejectionCount}
+              subtitle="Turned down (Original status kept)"
+              icon={<XCircle className="w-4 h-4 text-rose-600" />}
+              accentColor="red"
+            />
+            <StatCard
+              title="Total Requests"
+              value={orderRejections.length}
+              subtitle="7-day transition audit trail"
+              icon={<RotateCcw className="w-4 h-4 text-blue-600" />}
+              accentColor="blue"
+            />
+          </div>
+
+          {/* Order Status Transitions Table Card */}
+          <Card>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <RotateCcw className="w-5 h-5 text-indigo-600" />
+                  Order Status Transition Queue
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-1">
+                  Review supervisor requests to transition Delivered and Rejected orders within the 7-day review window.
+                </p>
+              </div>
+
+              {/* Status Filter Tabs */}
+              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => {
+                  const count =
+                    status === 'ALL'
+                      ? orderRejections.length
+                      : orderRejections.filter((r) => r.status === status).length;
+                  return (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setRejectionStatusFilter(status)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        rejectionStatusFilter === status
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>
+                        {status === 'ALL' ? 'All' : status === 'PENDING' ? 'Pending' : status === 'APPROVED' ? 'Approved' : 'Declined'}
+                      </span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                          rejectionStatusFilter === status
+                            ? 'bg-slate-100 text-slate-700'
+                            : 'bg-slate-200/70 text-slate-600'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/75 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                    <tr>
+                      <th className="py-3 px-4">Order # & Team</th>
+                      <th className="py-3 px-4">Requested Transition</th>
+                      <th className="py-3 px-4">Customer</th>
+                      <th className="py-3 px-4">Base Event Date</th>
+                      <th className="py-3 px-4">Supervisor & Reason</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredOrderRejections.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-12 text-center text-slate-500">
+                          <RotateCcw className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                          <p className="font-medium text-slate-600">No status transition requests found</p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {rejectionStatusFilter !== 'ALL'
+                              ? `No requests match the ${rejectionStatusFilter} filter.`
+                              : 'When supervisors submit transition requests for Delivered or Rejected orders, they will appear here.'}
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOrderRejections.map((req) => {
+                        const team = teams.find((t) => t.id === req.teamId);
+                        const branding = getTeamBranding(team);
+                        const originStatus = req.fromStatus || 'DELIVERED';
+                        const targetStatus = req.toStatus || 'REJECTED';
+                        const baseDateStr = originStatus === 'REJECTED'
+                          ? (req.order?.rejectedAt || req.deliveredAt)
+                          : (req.deliveredAt || req.order?.deliveredAt);
+                        const eventDate = baseDateStr ? new Date(baseDateStr) : null;
+                        const daysAgo = eventDate
+                          ? Math.floor((Date.now() - eventDate.getTime()) / (1000 * 60 * 60 * 24))
+                          : null;
+                        const damagedCount = Array.isArray(req.damagedItems)
+                          ? req.damagedItems.reduce((sum, item) => sum + (item.quantity || 0), 0)
+                          : 0;
+
+                        return (
+                          <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
+                            {/* 1. Order # & Team */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                                <span>#{req.orderNumber}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                {team && (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border"
+                                    style={{
+                                      backgroundColor: `${branding.brandColor}15`,
+                                      borderColor: `${branding.brandColor}40`,
+                                      color: branding.brandColor,
+                                    }}
+                                  >
+                                    <Building2 className="w-2.5 h-2.5" />
+                                    {team.name}
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  ID: {req.id.slice(0, 8)}...
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 2. Requested Transition */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              {renderTransitionBadge(originStatus, targetStatus)}
+                            </td>
+
+                            {/* 3. Customer */}
+                            <td className="py-3.5 px-4">
+                              <div className="font-medium text-slate-800">
+                                {req.order?.customer?.fullName || 'Customer'}
+                              </div>
+                              {req.order?.customer?.phone && (
+                                <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                                  {req.order.customer.phone}
+                                </div>
+                              )}
+                              {req.order?.totalAmount !== undefined && (
+                                <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
+                                  {formatCurrency(req.order.totalAmount)}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* 4. Base Event Date */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <div className="text-slate-700 font-medium flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-slate-400" />
+                                {eventDate ? format(eventDate, 'MMM dd, yyyy') : '—'}
+                              </div>
+                              {daysAgo !== null && (
+                                <div className="text-[10px] text-slate-500 mt-0.5">
+                                  {originStatus === 'REJECTED' ? 'Rejected' : 'Delivered'} {daysAgo === 0 ? 'today' : `${daysAgo} day${daysAgo > 1 ? 's' : ''} ago`}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* 5. Supervisor & Reason */}
+                            <td className="py-3.5 px-4 max-w-[280px]">
+                              <div className="flex items-center gap-1 text-slate-800 font-medium">
+                                <User className="w-3 h-3 text-slate-400" />
+                                <span>{req.requestedByName}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 line-clamp-1 mt-0.5 font-normal italic" title={req.reason}>
+                                "{req.reason}"
+                              </p>
+                              {damagedCount > 0 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 mt-1">
+                                  <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+                                  {damagedCount} Damaged Unit{damagedCount > 1 ? 's' : ''} Reported
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 6. Status */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                  req.status === 'APPROVED'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : req.status === 'REJECTED'
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
+                                }`}
+                              >
+                                {req.status === 'APPROVED' ? (
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                ) : req.status === 'REJECTED' ? (
+                                  <XCircle className="w-3 h-3 text-rose-600" />
+                                ) : (
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                )}
+                                {req.status === 'REJECTED' ? 'DECLINED' : req.status}
+                              </span>
+                            </td>
+
+                            {/* 7. Actions */}
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  leftIcon={<Eye className="w-3.5 h-3.5 text-blue-600" />}
+                                  onClick={() => setViewingOrderRejection(req)}
+                                  className="text-xs px-2.5 py-1 font-semibold border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
+                                >
+                                  View
+                                </Button>
+                                {req.status === 'PENDING' && (
+                                  <>
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      leftIcon={<Check className="w-3.5 h-3.5 text-emerald-600" />}
+                                      onClick={() => setApprovingOrderRejection(req)}
+                                      className="text-xs px-2.5 py-1 font-semibold border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                    >
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      leftIcon={<XCircle className="w-3.5 h-3.5 text-rose-600" />}
+                                      onClick={() => {
+                                        setDecliningOrderRejection(req);
+                                        setDeclineAdminNotes('');
+                                      }}
+                                      className="text-xs px-2.5 py-1 font-semibold border-rose-200 text-rose-700 hover:bg-rose-50"
+                                    >
+                                      Decline
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Comprehensive View Details Modal */}
       <Dialog
@@ -776,6 +1254,320 @@ export const AdminApprovalsPage: React.FC = () => {
           </div>
         </form>
       </Dialog>
+
+      {/* Order Status Transition Dossier Modal */}
+      <Dialog
+        isOpen={!!viewingOrderRejection}
+        onClose={() => setViewingOrderRejection(null)}
+        title="Order Status Transition Dossier"
+        description="Comprehensive review of the supervisor's status transition request, base timeline, and inventory impact."
+        maxWidth="2xl"
+      >
+        {viewingOrderRejection && (
+          <div className="space-y-4">
+            {/* Top Overview KPI Card */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+                <div>
+                  <span className="text-[11px] font-mono text-slate-400">Request ID: {viewingOrderRejection.id}</span>
+                  <h4 className="text-base font-bold text-slate-900 mt-0.5">
+                    Order #{viewingOrderRejection.orderNumber}
+                  </h4>
+                  <div className="mt-1">
+                    {renderTransitionBadge(viewingOrderRejection.fromStatus, viewingOrderRejection.toStatus)}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      viewingOrderRejection.status === 'APPROVED'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : viewingOrderRejection.status === 'REJECTED'
+                        ? 'bg-rose-100 text-rose-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {viewingOrderRejection.status === 'REJECTED' ? 'DECLINED' : viewingOrderRejection.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Customer</span>
+                  <span className="font-bold text-slate-900">
+                    {viewingOrderRejection.order?.customer?.fullName || 'Customer'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Base Event Date</span>
+                  <span className="font-semibold text-slate-800">
+                    {(() => {
+                      const baseDateStr = viewingOrderRejection.fromStatus === 'REJECTED'
+                        ? (viewingOrderRejection.order?.rejectedAt || viewingOrderRejection.deliveredAt)
+                        : (viewingOrderRejection.deliveredAt || viewingOrderRejection.order?.deliveredAt);
+                      return baseDateStr ? format(new Date(baseDateStr), 'MMM dd, yyyy') : '—';
+                    })()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Requested By</span>
+                  <span className="font-semibold text-slate-800">{viewingOrderRejection.requestedByName}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Request Date</span>
+                  <span className="font-semibold text-slate-800">
+                    {viewingOrderRejection.createdAt
+                      ? format(new Date(viewingOrderRejection.createdAt), 'MMM dd, yyyy')
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Supervisor Rationale */}
+            <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl space-y-1">
+              <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-amber-700" />
+                Supervisor's Transition Rationale
+              </span>
+              <p className="text-xs text-amber-950 font-medium leading-relaxed">
+                "{viewingOrderRejection.reason}"
+              </p>
+            </div>
+
+            {/* Damaged Goods Breakdown if reported */}
+            {Array.isArray(viewingOrderRejection.damagedItems) && viewingOrderRejection.damagedItems.length > 0 && (
+              <div className="space-y-2">
+                <h5 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-600" />
+                  Reported Damaged Items ({viewingOrderRejection.damagedItems.length})
+                </h5>
+                <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-[11px]">
+                      <tr>
+                        <th className="py-2 px-3">Product</th>
+                        <th className="py-2 px-3 text-center">Damaged Units</th>
+                        <th className="py-2 px-3">Specific Damage Note</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {viewingOrderRejection.damagedItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="py-2 px-3 font-medium text-slate-900">{item.productName}</td>
+                          <td className="py-2 px-3 text-center">
+                            <span className="px-2 py-0.5 bg-rose-50 text-rose-700 font-bold rounded-full text-[11px] border border-rose-200">
+                              {item.quantity} units
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-slate-600 italic">{item.reason || 'No specific note'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[11px] text-slate-500 italic">
+                  * Note: Damaged units will be segregated into Damaged Stock (quarantine), while non-damaged order items will be restored to Current Stock.
+                </p>
+              </div>
+            )}
+
+            {/* Admin Review Audit Trail (if already reviewed) */}
+            {viewingOrderRejection.reviewedAt && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs">
+                <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-slate-600" />
+                  Admin Review Details
+                </div>
+                <div className="text-slate-600">
+                  Reviewed by <span className="font-semibold text-slate-900">{viewingOrderRejection.reviewedByName || 'Admin'}</span> on{' '}
+                  <span className="font-semibold">{format(new Date(viewingOrderRejection.reviewedAt), 'MMM dd, yyyy HH:mm')}</span>
+                </div>
+                {viewingOrderRejection.adminNotes && (
+                  <div className="mt-1 text-slate-700 bg-white p-2 rounded-lg border border-slate-200 text-xs">
+                    <span className="font-bold text-slate-900">Admin Note: </span>
+                    {viewingOrderRejection.adminNotes}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              {viewingOrderRejection.status === 'PENDING' ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="border-rose-200 text-rose-700 hover:bg-rose-50"
+                    onClick={() => {
+                      setDecliningOrderRejection(viewingOrderRejection);
+                      setDeclineAdminNotes('');
+                    }}
+                  >
+                    Decline Request
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => setApprovingOrderRejection(viewingOrderRejection)}
+                  >
+                    Approve Transition
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" variant="secondary" onClick={() => setViewingOrderRejection(null)}>
+                  Close
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* Confirmation Dialog for Approving Order Status Transition */}
+      <Dialog
+        isOpen={!!approvingOrderRejection}
+        onClose={() => setApprovingOrderRejection(null)}
+        title="Approve Order Status Transition"
+        description={`Confirm approval to transition order #${approvingOrderRejection?.orderNumber} from ${approvingOrderRejection?.fromStatus || 'DELIVERED'} to ${approvingOrderRejection?.toStatus || 'REJECTED'}`}
+      >
+        {approvingOrderRejection && (
+          <div className="space-y-4">
+            {(() => {
+              const originStatus = approvingOrderRejection.fromStatus || 'DELIVERED';
+              const targetStatus = approvingOrderRejection.toStatus || 'REJECTED';
+
+              return (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-950 space-y-1.5">
+                  <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-700" />
+                    Inventory &amp; Status Impact:
+                  </div>
+                  <ul className="list-disc pl-4 space-y-1 text-amber-900">
+                    <li>
+                      Order <strong>#{approvingOrderRejection.orderNumber}</strong> status will be changed from{' '}
+                      <span className="font-bold">{originStatus}</span> to{' '}
+                      <span className="font-bold text-indigo-700">{targetStatus}</span>.
+                    </li>
+                    {originStatus === 'DELIVERED' && targetStatus === 'REJECTED' && (
+                      <>
+                        <li><strong>Sold stock</strong> will be decremented for all products in this order.</li>
+                        <li>Clean items will be restored to <strong>Current Stock</strong>.</li>
+                        {Array.isArray(approvingOrderRejection.damagedItems) && approvingOrderRejection.damagedItems.length > 0 && (
+                          <li>
+                            Reported damaged items ({approvingOrderRejection.damagedItems.reduce((s, it) => s + (it.quantity || 0), 0)} units) will be transferred to <strong>Damaged Stock</strong> (quarantine).
+                          </li>
+                        )}
+                      </>
+                    )}
+                    {originStatus === 'DELIVERED' && targetStatus === 'DISPATCHED' && (
+                      <li>
+                        <strong>Sold stock</strong> will be decremented and converted back to <strong>Dispatched Stock</strong>.
+                      </li>
+                    )}
+                    {originStatus === 'REJECTED' && targetStatus === 'DELIVERED' && (
+                      <li>
+                        Items from <strong>Current Stock</strong> will be converted to <strong>Sold Stock</strong>.
+                      </li>
+                    )}
+                    {originStatus === 'REJECTED' && targetStatus === 'DISPATCHED' && (
+                      <li>
+                        Items from <strong>Current Stock</strong> will be converted to <strong>Dispatched Stock</strong>.
+                      </li>
+                    )}
+                    <li>This action is final and recorded in the audit log.</li>
+                  </ul>
+                </div>
+              );
+            })()}
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Optional Admin Notes
+              </label>
+              <Input
+                placeholder="e.g. Approved status transition per supervisor inspection."
+                value={approveAdminNotes}
+                onChange={(e) => setApproveAdminNotes(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setApprovingOrderRejection(null)}
+                disabled={isSubmittingRejection}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                className="bg-emerald-600 hover:bg-emerald-700"
+                onClick={handleConfirmApproveOrderRejection}
+                isLoading={isSubmittingRejection}
+              >
+                Confirm &amp; Approve Transition
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* Dialog for Declining Order Status Transition */}
+      <Dialog
+        isOpen={!!decliningOrderRejection}
+        onClose={() => setDecliningOrderRejection(null)}
+        title="Decline Status Transition Request"
+        description={`Decline supervisor request to transition order #${decliningOrderRejection?.orderNumber}`}
+      >
+        <form onSubmit={handleConfirmDeclineOrderRejection} className="space-y-4">
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 space-y-1">
+            <div className="font-bold text-slate-900">
+              Order #{decliningOrderRejection?.orderNumber} will remain {decliningOrderRejection?.fromStatus || 'DELIVERED'}
+            </div>
+            <div className="text-slate-500">
+              The supervisor will be notified of this decline and the order status will remain unchanged.
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Decline Reason / Explanation *
+            </label>
+            <Input
+              placeholder="e.g. Proof of delivery confirmed, invalid reason, or status transition rejected."
+              value={declineAdminNotes}
+              onChange={(e) => setDeclineAdminNotes(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setDecliningOrderRejection(null)}
+              disabled={isSubmittingRejection}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              className="bg-rose-600 hover:bg-rose-700"
+              isLoading={isSubmittingRejection}
+            >
+              Confirm Decline
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 };
+

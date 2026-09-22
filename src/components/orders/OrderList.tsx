@@ -17,6 +17,7 @@ export interface OrderListProps {
   onPrintSlip: (order: Order) => void;
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
   onInspectDamages?: (order: Order) => void;
+  onOpenRejectionModal?: (order: Order) => void;
 }
 
 export const OrderList: React.FC<OrderListProps> = ({
@@ -32,6 +33,7 @@ export const OrderList: React.FC<OrderListProps> = ({
   onPrintSlip,
   onInspectDuplicateOrders,
   onInspectDamages,
+  onOpenRejectionModal,
 }) => {
   if (filteredOrders.length === 0) {
     return (
@@ -65,6 +67,7 @@ export const OrderList: React.FC<OrderListProps> = ({
             onPrintSlip={onPrintSlip}
             onInspectDuplicateOrders={onInspectDuplicateOrders}
             onInspectDamages={onInspectDamages}
+            onOpenRejectionModal={onOpenRejectionModal}
           />
         );
       })}

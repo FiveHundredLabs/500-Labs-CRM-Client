@@ -4,7 +4,7 @@ import { CustomerCard } from '../customer/CustomerCard';
 import { StatusBadge } from '../shared/StatusBadge';
 import { OrderExpandedDetails } from './OrderExpandedDetails';
 import type { DuplicateOrderConflictInfo } from './DuplicateOrderConflictDialog';
-import { ChevronDown, ChevronUp, AlertTriangle, Info, FileText, Mail, Truck } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertTriangle, Info, FileText, Mail, Truck, Clock, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
 
 export interface OrderCardProps {
@@ -20,6 +20,7 @@ export interface OrderCardProps {
   onPrintSlip: (order: Order) => void;
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
   onInspectDamages?: (order: Order) => void;
+  onOpenRejectionModal?: (order: Order) => void;
 }
 
 export const OrderCard: React.FC<OrderCardProps> = ({
@@ -35,8 +36,33 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onPrintSlip,
   onInspectDuplicateOrders,
   onInspectDamages,
+  onOpenRejectionModal,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const activeRejection =
+    order.rejectionRequests?.find((r) => r.status === 'PENDING') ||
+    (order.activeRejectionRequest?.status === 'PENDING' ? order.activeRejectionRequest : null);
+  const latestRejection = order.rejectionRequests?.[0] || order.activeRejectionRequest;
+  const orderDamagedItems = Array.isArray(order.damagedItems)
+    ? order.damagedItems
+    : Array.isArray(order.rejectionRequests?.[0]?.damagedItems)
+    ? (order.rejectionRequests?.[0]?.damagedItems as any[])
+    : [];
+
+  const isDeliveredOrRejected = order.status === 'DELIVERED' || order.status === 'REJECTED';
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const statusTime = order.status === 'DELIVERED'
+    ? (order.deliveredAt ? new Date(order.deliveredAt).getTime() : new Date(order.updatedAt).getTime())
+    : order.status === 'REJECTED'
+    ? (order.rejectedAt ? new Date(order.rejectedAt).getTime() : new Date(order.updatedAt).getTime())
+    : 0;
+  const remainingReviewMs = isDeliveredOrRejected ? statusTime + SEVEN_DAYS_MS - Date.now() : 0;
+  const isPast7Days = isDeliveredOrRejected ? remainingReviewMs <= 0 : false;
+  const daysRemaining = Math.floor(remainingReviewMs / (24 * 60 * 60 * 1000));
+  const hoursRemaining = Math.floor((remainingReviewMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  const reviewRemainingText =
+    daysRemaining > 0 ? `${daysRemaining}d ${hoursRemaining}h` : `${hoursRemaining}h`;
 
   const formattedDate = format(
     new Date(order.updatedAt || order.createdAt),
@@ -144,7 +170,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           )}
 
           {/* Damaged Return / Transit Damage Logged Banner */}
-          {((order.damagedItems && order.damagedItems.length > 0) || (order.remarks && order.remarks.toLowerCase().includes('damage'))) && (
+          {((orderDamagedItems && orderDamagedItems.length > 0) || (order.remarks && order.remarks.toLowerCase().includes('damage'))) && (
             <div
               onClick={(e) => {
                 e.stopPropagation();
@@ -156,12 +182,38 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               <div className="flex items-center gap-1.5 min-w-0">
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                 <span className="truncate">
-                  ⚠️ {order.damagedItems && order.damagedItems.length > 0 ? `${order.damagedItems.reduce((s, i) => s + i.quantity, 0)} Item(s) Damaged` : 'Damaged Goods Reported'}
+                  ⚠️ {orderDamagedItems.length > 0 ? `${orderDamagedItems.reduce((s, i) => s + (i.quantity || 0), 0)} Item(s) Damaged` : 'Damaged Goods Reported'}
                 </span>
               </div>
               <span className="text-[10px] text-rose-700 underline font-bold shrink-0 ml-1">
                 View Damage &gt;
               </span>
+            </div>
+          )}
+
+          {/* Delivered & Rejected Status Transition Approval Banners */}
+          {isDeliveredOrRejected && activeRejection && (
+            <div className="p-1.5 bg-amber-50 border border-amber-300 rounded-lg flex items-center justify-between text-[10px] sm:text-[11px] text-amber-950 font-semibold shadow-2xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <span className="truncate">⏳ Status Change ({activeRejection.fromStatus || order.status} → {activeRejection.toStatus || 'REJECTED'}) Pending Admin Approval</span>
+              </div>
+            </div>
+          )}
+
+          {isDeliveredOrRejected && !activeRejection && latestRejection?.status === 'REJECTED' && (
+            <div className="p-1.5 bg-slate-100 border border-slate-300 rounded-lg flex items-center justify-between text-[10px] sm:text-[11px] text-slate-700 font-semibold shadow-2xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <ShieldAlert className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="truncate">Status Change Request Declined by Admin</span>
+              </div>
+            </div>
+          )}
+
+          {isDeliveredOrRejected && !activeRejection && latestRejection?.status !== 'REJECTED' && (
+            <div className="flex items-center gap-1 px-1 text-[10px] text-amber-800 font-medium">
+              <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+              <span>{isPast7Days ? 'Review period expired' : `${reviewRemainingText} review window`}</span>
             </div>
           )}
 
@@ -173,6 +225,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               onOpenRemarkModal={onOpenRemarkModal}
               onPrintSlip={onPrintSlip}
               onInspectDamages={onInspectDamages}
+              onOpenRejectionModal={onOpenRejectionModal}
             />
           )}
         </div>
