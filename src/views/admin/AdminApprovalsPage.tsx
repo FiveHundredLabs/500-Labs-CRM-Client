@@ -3,10 +3,12 @@ import { useAuth } from '../../hooks/useAuth';
 import type {
   ApprovalRequest,
   ApprovalStatus,
+  ApprovalType,
   Team,
   Product,
   OrderRejectionRequest,
   OrderRejectionDamagedItem,
+  OrderStatus,
 } from '../../models/domain';
 import {
   approvalRequestRepository,
@@ -47,13 +49,12 @@ import {
   AlertTriangle,
   Lock,
   Truck,
+  Search,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const AdminApprovalsPage: React.FC = () => {
   const { user } = useAuth();
-
-  const [activeTab, setActiveTab] = useState<'STOCK_PRICE' | 'ORDER_REJECTIONS'>('STOCK_PRICE');
 
   // Stock & Pricing Requests State
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
@@ -62,9 +63,11 @@ export const AdminApprovalsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<ApprovalStatus | 'ALL'>('PENDING');
 
-  // Order Rejection Requests State
+  // Order Rejection & Transition Requests State
   const [orderRejections, setOrderRejections] = useState<OrderRejectionRequest[]>([]);
   const [rejectionStatusFilter, setRejectionStatusFilter] = useState<ApprovalStatus | 'ALL'>('PENDING');
+
+
 
   // View Details Modal State (Stock & Pricing)
   const [viewingRequest, setViewingRequest] = useState<ApprovalRequest | null>(null);
@@ -299,529 +302,448 @@ export const AdminApprovalsPage: React.FC = () => {
   const approvedRejectionCount = orderRejections.filter((r) => r.status === 'APPROVED').length;
   const declinedRejectionCount = orderRejections.filter((r) => r.status === 'REJECTED').length;
 
+  const totalPending = pendingCount + pendingRejectionCount;
+  const totalApproved = approvedCount + approvedRejectionCount;
+  const totalDeclined = rejectedCount + declinedRejectionCount;
+  const totalSubmissions = requests.length + orderRejections.length;
+
   if (loading) return <LoadingState rows={6} />;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Centralized Approvals Center"
-        description="Review, inspect, and approve supervisor stock replenishment, price changes, and delivered order rejections"
+        description="Review, inspect, and approve supervisor stock replenishment, price changes, and order status transitions all in one place"
       />
 
-      {/* Top-Level Navigation Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
-        <button
-          type="button"
-          onClick={() => setActiveTab('STOCK_PRICE')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'STOCK_PRICE'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          <Boxes className="w-4 h-4" />
-          <span>Stock &amp; Price Approvals</span>
-          {pendingCount > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
-              {pendingCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('ORDER_REJECTIONS')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'ORDER_REJECTIONS'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>Status Transitions</span>
-          {pendingRejectionCount > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
-              {pendingRejectionCount}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {activeTab === 'STOCK_PRICE' && (
-        <>
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      {/* Common 4 Stat Cards Top of Page */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard
-          title="Pending Approvals"
-          value={pendingCount}
-          subtitle="Requests awaiting action"
+          title="Total Pending Approvals"
+          value={totalPending}
+          subtitle={`${pendingCount} stock/price, ${pendingRejectionCount} transitions`}
           icon={<Clock className="w-4 h-4 text-amber-600" />}
-          accentColor={pendingCount > 0 ? 'amber' : 'green'}
+          accentColor={totalPending > 0 ? 'amber' : 'green'}
         />
         <StatCard
-          title="Approved Requests"
-          value={approvedCount}
-          subtitle="Stock & prices active in CRM"
+          title="Total Approved"
+          value={totalApproved}
+          subtitle={`${approvedCount} stock/price, ${approvedRejectionCount} transitions`}
           icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
           accentColor="green"
         />
         <StatCard
-          title="Rejected Requests"
-          value={rejectedCount}
-          subtitle="Declined submissions"
+          title="Total Rejected / Declined"
+          value={totalDeclined}
+          subtitle={`${rejectedCount} stock/price, ${declinedRejectionCount} transitions`}
           icon={<XCircle className="w-4 h-4 text-rose-600" />}
           accentColor="red"
         />
         <StatCard
-          title="Total Requests"
-          value={requests.length}
-          subtitle="System-wide audit trail"
+          title="Total Submissions"
+          value={totalSubmissions}
+          subtitle="Combined approval audit trail"
           icon={<Package className="w-4 h-4 text-blue-600" />}
           accentColor="blue"
         />
       </div>
 
-      {/* Approvals Table Card */}
+      {/* Table 1: Stock & Price Approvals */}
       <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-blue-600" />
-            <CardTitle className="text-base font-bold text-slate-900">
-              Approval Requests Queue
-            </CardTitle>
-          </div>
-
-          {/* Filter Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              { key: 'PENDING', label: `Pending (${pendingCount})` },
-              { key: 'APPROVED', label: `Approved (${approvedCount})` },
-              { key: 'REJECTED', label: `Rejected (${rejectedCount})` },
-              { key: 'ALL', label: `All (${requests.length})` },
-            ].map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setStatusFilter(item.key as any)}
-                className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  statusFilter === item.key
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Type</th>
-                  <th className="py-3 px-4">Requested By</th>
-                  <th className="py-3 px-4">Team</th>
-                  <th className="py-3 px-4">Target Product</th>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredRequests.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-10 text-center text-slate-400 text-xs italic font-sans">
-                      No approval requests found matching filter "{statusFilter}".
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRequests.map((req) => {
-                    const teamInfo = teams.find((t) => t.id === req.teamId);
-                    const brand = getTeamBranding(teamInfo);
-
-                    return (
-                      <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                        {/* 1. Type */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                              req.requestType === 'STOCK_ADDITION'
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                : 'bg-purple-50 text-purple-700 border border-purple-200'
-                            }`}
-                          >
-                            {req.requestType === 'STOCK_ADDITION' ? (
-                              <Boxes className="w-3 h-3 text-blue-600" />
-                            ) : (
-                              <DollarSign className="w-3 h-3 text-purple-600" />
-                            )}
-                            {req.requestType.replace(/_/g, ' ')}
-                          </span>
-                        </td>
-
-                        {/* 2. Requested By */}
-                        <td className="py-3.5 px-4 font-semibold text-slate-900 whitespace-nowrap">
-                          {req.requestedByName}
-                        </td>
-
-                        {/* 3. Team */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md border"
-                            style={{
-                              backgroundColor: `${brand.brandColor}15`,
-                              borderColor: `${brand.brandColor}40`,
-                              color: brand.brandColor,
-                            }}
-                          >
-                            <Building2 className="w-3 h-3" />
-                            {teamInfo?.name || brand.name}
-                          </span>
-                        </td>
-
-                        {/* 4. Target Product (Single line title) */}
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 line-clamp-1 max-w-[280px]" title={req.productName}>
-                            {req.productName}
-                          </div>
-                          {req.items && req.items.length > 0 && (
-                            <div className="text-[11px] text-blue-600 font-medium mt-0.5">
-                              {req.items.length} Products Included in Batch
-                            </div>
-                          )}
-                        </td>
-
-                        {/* 5. Date */}
-                        <td className="py-3.5 px-4 font-sans text-slate-500 text-[11px] whitespace-nowrap">
-                          {req.createdAt ? format(new Date(req.createdAt), 'MMM dd, yyyy HH:mm') : '—'}
-                        </td>
-
-                        {/* 6. Status */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                              req.status === 'APPROVED'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : req.status === 'REJECTED'
-                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
-                            }`}
-                          >
-                            {req.status === 'APPROVED' ? (
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            ) : req.status === 'REJECTED' ? (
-                              <XCircle className="w-3 h-3 text-rose-600" />
-                            ) : (
-                              <Clock className="w-3 h-3 text-amber-600" />
-                            )}
-                            {req.status}
-                          </span>
-                        </td>
-
-                        {/* 7. Actions (View Details Button) */}
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            leftIcon={<Eye className="w-3.5 h-3.5 text-blue-600" />}
-                            onClick={() => setViewingRequest(req)}
-                            className="text-xs px-2.5 py-1 font-semibold border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
-                          >
-                            View
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-        </>
-      )}
-
-      {activeTab === 'ORDER_REJECTIONS' && (
-        <>
-          {/* Order Status Transition Stat Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <StatCard
-              title="Pending Transitions"
-              value={pendingRejectionCount}
-              subtitle="Orders awaiting admin review"
-              icon={<Clock className="w-4 h-4 text-amber-600" />}
-              accentColor={pendingRejectionCount > 0 ? 'amber' : 'green'}
-            />
-            <StatCard
-              title="Approved Transitions"
-              value={approvedRejectionCount}
-              subtitle="Transitions applied & stock adjusted"
-              icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-              accentColor="green"
-            />
-            <StatCard
-              title="Declined Transitions"
-              value={declinedRejectionCount}
-              subtitle="Turned down (Original status kept)"
-              icon={<XCircle className="w-4 h-4 text-rose-600" />}
-              accentColor="red"
-            />
-            <StatCard
-              title="Total Requests"
-              value={orderRejections.length}
-              subtitle="7-day transition audit trail"
-              icon={<RotateCcw className="w-4 h-4 text-blue-600" />}
-              accentColor="blue"
-            />
-          </div>
-
-          {/* Order Status Transitions Table Card */}
-          <Card>
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-2">
+              <Boxes className="w-5 h-5 text-blue-600" />
               <div>
-                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <RotateCcw className="w-5 h-5 text-indigo-600" />
+                <CardTitle className="text-base font-bold text-slate-900">
+                  Stock &amp; Price Approvals Queue
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Review supervisor requests for product stock additions and catalog price modifications.
+                </p>
+              </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { key: 'PENDING', label: `Pending (${pendingCount})` },
+                { key: 'APPROVED', label: `Approved (${approvedCount})` },
+                { key: 'REJECTED', label: `Rejected (${rejectedCount})` },
+                { key: 'ALL', label: `All (${requests.length})` },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setStatusFilter(item.key as any)}
+                  className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    statusFilter === item.key
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Type</th>
+                    <th className="py-3 px-4">Requested By</th>
+                    <th className="py-3 px-4">Team</th>
+                    <th className="py-3 px-4">Target Product</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-slate-400 text-xs italic font-sans">
+                        No stock or price requests found matching filter "{statusFilter}".
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRequests.map((req) => {
+                      const teamInfo = teams.find((t) => t.id === req.teamId);
+                      const brand = getTeamBranding(teamInfo);
+
+                      return (
+                        <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
+                          {/* 1. Type */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                req.requestType === 'STOCK_ADDITION'
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                  : 'bg-purple-50 text-purple-700 border border-purple-200'
+                              }`}
+                            >
+                              {req.requestType === 'STOCK_ADDITION' ? (
+                                <Boxes className="w-3 h-3 text-blue-600" />
+                              ) : (
+                                <DollarSign className="w-3 h-3 text-purple-600" />
+                              )}
+                              {req.requestType === 'STOCK_ADDITION'
+                                ? 'STOCK ADDITION'
+                                : req.requestType === 'PRODUCT_COST_PRICE_CHANGE'
+                                ? 'COST PRICE'
+                                : 'SELLING PRICE'}
+                            </span>
+                          </td>
+
+                          {/* 2. Requested By */}
+                          <td className="py-3.5 px-4 font-semibold text-slate-900 whitespace-nowrap">
+                            {req.requestedByName}
+                          </td>
+
+                          {/* 3. Team */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md border"
+                              style={{
+                                backgroundColor: `${brand.brandColor}15`,
+                                borderColor: `${brand.brandColor}40`,
+                                color: brand.brandColor,
+                              }}
+                            >
+                              <Building2 className="w-3 h-3" />
+                              {teamInfo?.name || brand.name}
+                            </span>
+                          </td>
+
+                          {/* 4. Target Product */}
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-slate-900 line-clamp-1 max-w-[280px]" title={req.productName}>
+                              {req.productName}
+                            </div>
+                            {req.items && req.items.length > 0 && (
+                              <div className="text-[11px] text-blue-600 font-medium mt-0.5">
+                                {req.items.length} Products Included in Batch
+                              </div>
+                            )}
+                          </td>
+
+                          {/* 5. Date */}
+                          <td className="py-3.5 px-4 font-sans text-slate-500 text-[11px] whitespace-nowrap">
+                            {req.createdAt ? format(new Date(req.createdAt), 'MMM dd, yyyy HH:mm') : '—'}
+                          </td>
+
+                          {/* 6. Status */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                req.status === 'APPROVED'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : req.status === 'REJECTED'
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
+                              }`}
+                            >
+                              {req.status === 'APPROVED' ? (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              ) : req.status === 'REJECTED' ? (
+                                <XCircle className="w-3 h-3 text-rose-600" />
+                              ) : (
+                                <Clock className="w-3 h-3 text-amber-600" />
+                              )}
+                              {req.status}
+                            </span>
+                          </td>
+
+                          {/* 7. Actions */}
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              leftIcon={<Eye className="w-3.5 h-3.5 text-blue-600" />}
+                              onClick={() => setViewingRequest(req)}
+                              className="text-xs px-2.5 py-1 font-semibold border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
+                            >
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Table 2: Order Status Transitions */}
+        <Card>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-indigo-600" />
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900">
                   Order Status Transition Queue
                 </CardTitle>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Review supervisor requests to transition Delivered and Rejected orders within the 7-day review window.
                 </p>
               </div>
+            </div>
 
-              {/* Status Filter Tabs */}
-              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => {
-                  const count =
-                    status === 'ALL'
-                      ? orderRejections.length
-                      : orderRejections.filter((r) => r.status === status).length;
-                  return (
-                    <button
-                      key={status}
-                      type="button"
-                      onClick={() => setRejectionStatusFilter(status)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        rejectionStatusFilter === status
-                          ? 'bg-white text-slate-900 shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <span>
-                        {status === 'ALL' ? 'All' : status === 'PENDING' ? 'Pending' : status === 'APPROVED' ? 'Approved' : 'Declined'}
-                      </span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                          rejectionStatusFilter === status
-                            ? 'bg-slate-100 text-slate-700'
-                            : 'bg-slate-200/70 text-slate-600'
-                        }`}
-                      >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </CardHeader>
+            {/* Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { key: 'PENDING', label: `Pending (${pendingRejectionCount})` },
+                { key: 'APPROVED', label: `Approved (${approvedRejectionCount})` },
+                { key: 'REJECTED', label: `Declined (${declinedRejectionCount})` },
+                { key: 'ALL', label: `All (${orderRejections.length})` },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setRejectionStatusFilter(item.key as any)}
+                  className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    rejectionStatusFilter === item.key
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </CardHeader>
 
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/75 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Order # &amp; Team</th>
+                    <th className="py-3 px-4">Requested Transition</th>
+                    <th className="py-3 px-4">Customer</th>
+                    <th className="py-3 px-4">Base Event Date</th>
+                    <th className="py-3 px-4">Supervisor &amp; Reason</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredOrderRejections.length === 0 ? (
                     <tr>
-                      <th className="py-3 px-4">Order # & Team</th>
-                      <th className="py-3 px-4">Requested Transition</th>
-                      <th className="py-3 px-4">Customer</th>
-                      <th className="py-3 px-4">Base Event Date</th>
-                      <th className="py-3 px-4">Supervisor & Reason</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
+                      <td colSpan={7} className="py-10 text-center text-slate-400 text-xs italic font-sans">
+                        No status transition requests found matching filter "{rejectionStatusFilter === 'REJECTED' ? 'DECLINED' : rejectionStatusFilter}".
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredOrderRejections.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-500">
-                          <RotateCcw className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                          <p className="font-medium text-slate-600">No status transition requests found</p>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {rejectionStatusFilter !== 'ALL'
-                              ? `No requests match the ${rejectionStatusFilter} filter.`
-                              : 'When supervisors submit transition requests for Delivered or Rejected orders, they will appear here.'}
-                          </p>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredOrderRejections.map((req) => {
-                        const team = teams.find((t) => t.id === req.teamId);
-                        const branding = getTeamBranding(team);
-                        const originStatus = req.fromStatus || 'DELIVERED';
-                        const targetStatus = req.toStatus || 'REJECTED';
-                        const baseDateStr = originStatus === 'REJECTED'
-                          ? (req.order?.rejectedAt || req.deliveredAt)
-                          : (req.deliveredAt || req.order?.deliveredAt);
-                        const eventDate = baseDateStr ? new Date(baseDateStr) : null;
-                        const daysAgo = eventDate
-                          ? Math.floor((Date.now() - eventDate.getTime()) / (1000 * 60 * 60 * 24))
-                          : null;
-                        const damagedCount = Array.isArray(req.damagedItems)
-                          ? req.damagedItems.reduce((sum, item) => sum + (item.quantity || 0), 0)
-                          : 0;
+                  ) : (
+                    filteredOrderRejections.map((req) => {
+                      const team = teams.find((t) => t.id === req.teamId);
+                      const branding = getTeamBranding(team);
+                      const originStatus = req.fromStatus || 'DELIVERED';
+                      const targetStatus = req.toStatus || 'REJECTED';
+                      const baseDateStr = originStatus === 'REJECTED'
+                        ? (req.order?.rejectedAt || req.deliveredAt)
+                        : (req.deliveredAt || req.order?.deliveredAt);
+                      const eventDate = baseDateStr ? new Date(baseDateStr) : null;
+                      const daysAgo = eventDate
+                        ? Math.floor((Date.now() - eventDate.getTime()) / (1000 * 60 * 60 * 24))
+                        : null;
+                      const damagedCount = Array.isArray(req.damagedItems)
+                        ? req.damagedItems.reduce((sum, item) => sum + (item.quantity || 0), 0)
+                        : 0;
 
-                        return (
-                          <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
-                            {/* 1. Order # & Team */}
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                                <span>#{req.orderNumber}</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                {team && (
-                                  <span
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border"
-                                    style={{
-                                      backgroundColor: `${branding.brandColor}15`,
-                                      borderColor: `${branding.brandColor}40`,
-                                      color: branding.brandColor,
-                                    }}
-                                  >
-                                    <Building2 className="w-2.5 h-2.5" />
-                                    {team.name}
-                                  </span>
-                                )}
-                                <span className="text-[10px] text-slate-400 font-mono">
-                                  ID: {req.id.slice(0, 8)}...
-                                </span>
-                              </div>
-                            </td>
-
-                            {/* 2. Requested Transition */}
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              {renderTransitionBadge(originStatus, targetStatus)}
-                            </td>
-
-                            {/* 3. Customer */}
-                            <td className="py-3.5 px-4">
-                              <div className="font-medium text-slate-800">
-                                {req.order?.customer?.fullName || 'Customer'}
-                              </div>
-                              {req.order?.customer?.phone && (
-                                <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                                  {req.order.customer.phone}
-                                </div>
-                              )}
-                              {req.order?.totalAmount !== undefined && (
-                                <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
-                                  {formatCurrency(req.order.totalAmount)}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* 4. Base Event Date */}
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <div className="text-slate-700 font-medium flex items-center gap-1">
-                                <Calendar className="w-3 h-3 text-slate-400" />
-                                {eventDate ? format(eventDate, 'MMM dd, yyyy') : '—'}
-                              </div>
-                              {daysAgo !== null && (
-                                <div className="text-[10px] text-slate-500 mt-0.5">
-                                  {originStatus === 'REJECTED' ? 'Rejected' : 'Delivered'} {daysAgo === 0 ? 'today' : `${daysAgo} day${daysAgo > 1 ? 's' : ''} ago`}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* 5. Supervisor & Reason */}
-                            <td className="py-3.5 px-4 max-w-[280px]">
-                              <div className="flex items-center gap-1 text-slate-800 font-medium">
-                                <User className="w-3 h-3 text-slate-400" />
-                                <span>{req.requestedByName}</span>
-                              </div>
-                              <p className="text-[11px] text-slate-600 line-clamp-1 mt-0.5 font-normal italic" title={req.reason}>
-                                "{req.reason}"
-                              </p>
-                              {damagedCount > 0 && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 mt-1">
-                                  <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
-                                  {damagedCount} Damaged Unit{damagedCount > 1 ? 's' : ''} Reported
-                                </span>
-                              )}
-                            </td>
-
-                            {/* 6. Status */}
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                                  req.status === 'APPROVED'
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    : req.status === 'REJECTED'
-                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                    : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
-                                }`}
-                              >
-                                {req.status === 'APPROVED' ? (
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                ) : req.status === 'REJECTED' ? (
-                                  <XCircle className="w-3 h-3 text-rose-600" />
-                                ) : (
-                                  <Clock className="w-3 h-3 text-amber-600" />
-                                )}
-                                {req.status === 'REJECTED' ? 'DECLINED' : req.status}
-                              </span>
-                            </td>
-
-                            {/* 7. Actions */}
-                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  leftIcon={<Eye className="w-3.5 h-3.5 text-blue-600" />}
-                                  onClick={() => setViewingOrderRejection(req)}
-                                  className="text-xs px-2.5 py-1 font-semibold border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
+                      return (
+                        <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
+                          {/* 1. Order # & Team */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                              <span>#{req.orderNumber}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              {team && (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border"
+                                  style={{
+                                    backgroundColor: `${branding.brandColor}15`,
+                                    borderColor: `${branding.brandColor}40`,
+                                    color: branding.brandColor,
+                                  }}
                                 >
-                                  View
-                                </Button>
-                                {req.status === 'PENDING' && (
-                                  <>
-                                    <Button
-                                      variant="secondary"
-                                      size="sm"
-                                      leftIcon={<Check className="w-3.5 h-3.5 text-emerald-600" />}
-                                      onClick={() => setApprovingOrderRejection(req)}
-                                      className="text-xs px-2.5 py-1 font-semibold border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                                    >
-                                      Approve
-                                    </Button>
-                                    <Button
-                                      variant="secondary"
-                                      size="sm"
-                                      leftIcon={<XCircle className="w-3.5 h-3.5 text-rose-600" />}
-                                      onClick={() => {
-                                        setDecliningOrderRejection(req);
-                                        setDeclineAdminNotes('');
-                                      }}
-                                      className="text-xs px-2.5 py-1 font-semibold border-rose-200 text-rose-700 hover:bg-rose-50"
-                                    >
-                                      Decline
-                                    </Button>
-                                  </>
-                                )}
+                                  <Building2 className="w-2.5 h-2.5" />
+                                  {team.name}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                ID: {req.id.slice(0, 8)}...
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 2. Requested Transition */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {renderTransitionBadge(originStatus, targetStatus)}
+                          </td>
+
+                          {/* 3. Customer */}
+                          <td className="py-3.5 px-4">
+                            <div className="font-medium text-slate-800">
+                              {req.order?.customer?.fullName || 'Customer'}
+                            </div>
+                            {req.order?.customer?.phone && (
+                              <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                                {req.order.customer.phone}
                               </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+                            )}
+                            {req.order?.totalAmount !== undefined && (
+                              <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
+                                {formatCurrency(req.order.totalAmount)}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* 4. Base Event Date */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="text-slate-700 font-medium flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-slate-400" />
+                              {eventDate ? format(eventDate, 'MMM dd, yyyy') : '—'}
+                            </div>
+                            {daysAgo !== null && (
+                              <div className="text-[10px] text-slate-500 mt-0.5">
+                                {originStatus === 'REJECTED' ? 'Rejected' : 'Delivered'} {daysAgo === 0 ? 'today' : `${daysAgo} day${daysAgo > 1 ? 's' : ''} ago`}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* 5. Supervisor & Reason */}
+                          <td className="py-3.5 px-4 max-w-[280px]">
+                            <div className="flex items-center gap-1 text-slate-800 font-medium">
+                              <User className="w-3 h-3 text-slate-400" />
+                              <span>{req.requestedByName}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 line-clamp-1 mt-0.5 font-normal italic" title={req.reason}>
+                              "{req.reason}"
+                            </p>
+                            {damagedCount > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 mt-1">
+                                <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+                                {damagedCount} Damaged Unit{damagedCount > 1 ? 's' : ''} Reported
+                              </span>
+                            )}
+                          </td>
+
+                          {/* 6. Status */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                req.status === 'APPROVED'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : req.status === 'REJECTED'
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
+                              }`}
+                            >
+                              {req.status === 'APPROVED' ? (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              ) : req.status === 'REJECTED' ? (
+                                <XCircle className="w-3 h-3 text-rose-600" />
+                              ) : (
+                                <Clock className="w-3 h-3 text-amber-600" />
+                              )}
+                              {req.status === 'REJECTED' ? 'DECLINED' : req.status}
+                            </span>
+                          </td>
+
+                          {/* 7. Actions */}
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                leftIcon={<Eye className="w-3.5 h-3.5 text-blue-600" />}
+                                onClick={() => setViewingOrderRejection(req)}
+                                className="text-xs px-2.5 py-1 font-semibold border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
+                              >
+                                View
+                              </Button>
+                              {req.status === 'PENDING' && (
+                                <>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    leftIcon={<Check className="w-3.5 h-3.5 text-emerald-600" />}
+                                    onClick={() => setApprovingOrderRejection(req)}
+                                    className="text-xs px-2.5 py-1 font-semibold border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    leftIcon={<XCircle className="w-3.5 h-3.5 text-rose-600" />}
+                                    onClick={() => {
+                                      setDecliningOrderRejection(req);
+                                      setDeclineAdminNotes('');
+                                    }}
+                                    className="text-xs px-2.5 py-1 font-semibold border-rose-200 text-rose-700 hover:bg-rose-50"
+                                  >
+                                    Decline
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
 
       {/* Comprehensive View Details Modal */}
       <Dialog
