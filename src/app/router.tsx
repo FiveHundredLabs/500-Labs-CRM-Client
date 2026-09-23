@@ -28,6 +28,7 @@ import { SupervisorReportsPage } from "../views/supervisor/SupervisorReportsPage
 import { SupervisorTeamMembersPage } from "../views/supervisor/SupervisorTeamMembersPage";
 import { SupervisorProfilePage } from "../views/supervisor/SupervisorProfilePage";
 import { SupervisorStockPage } from "../views/supervisor/SupervisorStockPage";
+import { SupervisorCashOnHandPage } from "../views/supervisor/SupervisorCashOnHandPage";
 
 // Admin Views
 import { AdminDashboard } from "../views/admin/AdminDashboard";
@@ -128,6 +129,7 @@ export const router = createBrowserRouter([
                     path: "customers/:id",
                     element: <Navigate to="/supervisor/interested" replace />,
                   },
+                  { path: "cash-on-hand", element: <SupervisorCashOnHandPage /> },
                   { path: "orders", element: <SupervisorOrdersPage /> },
                   { path: "profile", element: <SupervisorProfilePage /> },
                 ],
@@ -146,6 +148,7 @@ export const router = createBrowserRouter([
                   { path: "users", element: <AdminUsersPage /> },
                   { path: "users/:id", element: <AdminEmployeeDetailPage /> },
                   { path: "customers", element: <SupervisorInterestedPage /> },
+                  { path: "cash-on-hand", element: <SupervisorCashOnHandPage /> },
                   { path: "reports", element: <AdminReportsPage /> },
                   { path: "reports/:reportId", element: <AdminReportsPage /> },
                   { path: "leaderboards", element: <AdminLeaderboardsPage /> },

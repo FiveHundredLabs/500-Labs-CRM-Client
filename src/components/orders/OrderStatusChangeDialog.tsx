@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Order, Customer, OrderStatus, Product } from '../../models/domain';
-import { productRepository } from '../../repositories';
+import { productRepository, orderRejectionRepository } from '../../repositories';
+import { useAuth } from '../../hooks/useAuth';
 import { Dialog } from '../ui/Dialog';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { AlertTriangle, Package, Check, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Package, Check, ShieldAlert, Clock, Info } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export interface OrderItemDamageReport {
   productId?: string;
@@ -26,7 +28,10 @@ export interface OrderStatusChangeDialogProps {
     remark: string,
     damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
   ) => Promise<boolean>;
+  onRejectionSubmitted?: () => void;
 }
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = ({
   order,
@@ -34,8 +39,47 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
   customersMap,
   onClose,
   onConfirm,
+  onRejectionSubmitted,
 }) => {
-  const [targetNewStatus, setTargetNewStatus] = useState<OrderStatus>(defaultNewStatus);
+  const { user } = useAuth();
+  const isSupervisor = user?.role === 'SUPERVISOR';
+  const isCurrentlyDelivered = order?.status === 'DELIVERED';
+  const isCurrentlyRejected = order?.status === 'REJECTED';
+  const isCurrentlyDispatched = order?.status === 'DISPATCHED';
+
+  const reviewWindow = useMemo(() => {
+    if (!order || (!isCurrentlyDelivered && !isCurrentlyRejected)) return { isExpired: false, text: '' };
+    const statusTime = isCurrentlyDelivered
+      ? (order.deliveredAt ? new Date(order.deliveredAt).getTime() : new Date(order.updatedAt).getTime())
+      : (order.rejectedAt ? new Date(order.rejectedAt).getTime() : new Date(order.updatedAt).getTime());
+    const remainingMs = statusTime + SEVEN_DAYS_MS - Date.now();
+    if (remainingMs <= 0) {
+      return { isExpired: true, text: '7-day review period expired' };
+    }
+    const days = Math.floor(remainingMs / (24 * 60 * 60 * 1000));
+    const hours = Math.floor((remainingMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+    return {
+      isExpired: false,
+      text: days > 0 ? `${days}d ${hours}h remaining` : `${hours}h remaining`,
+    };
+  }, [order, isCurrentlyDelivered, isCurrentlyRejected]);
+
+  const activeRejection =
+    order?.rejectionRequests?.find((r) => r.status === 'PENDING') ||
+    (order?.activeRejectionRequest?.status === 'PENDING' ? order.activeRejectionRequest : null);
+  const latestRejection = order?.rejectionRequests?.[0] || order?.activeRejectionRequest;
+  const isRejectionDeclined = !activeRejection && latestRejection?.status === 'REJECTED';
+
+  const initialTargetStatus = useMemo<OrderStatus>(() => {
+    if (!order) return defaultNewStatus;
+    if (defaultNewStatus && defaultNewStatus !== order.status) return defaultNewStatus;
+    if (order.status === 'DISPATCHED') return 'DELIVERED';
+    if (order.status === 'DELIVERED') return 'REJECTED';
+    if (order.status === 'REJECTED') return 'DELIVERED';
+    return defaultNewStatus;
+  }, [order, defaultNewStatus]);
+
+  const [targetNewStatus, setTargetNewStatus] = useState<OrderStatus>(initialTargetStatus);
   const [statusRemark, setStatusRemark] = useState(order?.remarks || '');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
@@ -44,10 +88,84 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
   const [orderDamageItems, setOrderDamageItems] = useState<OrderItemDamageReport[]>([]);
   const [teamProducts, setTeamProducts] = useState<Product[]>([]);
 
+  const requiresAdminApproval = useMemo(() => {
+    if (!order) return false;
+    if (isCurrentlyDelivered && (targetNewStatus === 'REJECTED' || targetNewStatus === 'DISPATCHED')) return true;
+    if (isCurrentlyRejected && (targetNewStatus === 'DELIVERED' || targetNewStatus === 'DISPATCHED')) return true;
+    return false;
+  }, [order, isCurrentlyDelivered, isCurrentlyRejected, targetNewStatus]);
+
+  const availableStatusOptions = useMemo(() => {
+    if (!order) return [];
+    if (order.status === 'DISPATCHED') {
+      return [
+        { value: 'DELIVERED', label: '✅ Mark as DELIVERED (Direct)' },
+        { value: 'REJECTED', label: '❌ Mark as REJECTED (Direct)' },
+      ];
+    }
+    if (order.status === 'DELIVERED') {
+      return [
+        {
+          value: 'REJECTED',
+          label: isSupervisor
+            ? reviewWindow.isExpired
+              ? '❌ Move to REJECTED (Locked - 7 Days Expired)'
+              : activeRejection
+              ? '❌ Move to REJECTED (Pending Admin Approval)'
+              : '❌ Move to REJECTED (Requires Admin Approval)'
+            : '❌ Mark as REJECTED',
+        },
+        {
+          value: 'DISPATCHED',
+          label: isSupervisor
+            ? reviewWindow.isExpired
+              ? '🚚 Move to DISPATCH (Locked - 7 Days Expired)'
+              : activeRejection
+              ? '🚚 Move to DISPATCH (Pending Admin Approval)'
+              : '🚚 Move to DISPATCH (Requires Admin Approval)'
+            : '🚚 Mark as DISPATCHED',
+        },
+      ];
+    }
+    if (order.status === 'REJECTED') {
+      return [
+        {
+          value: 'DELIVERED',
+          label: isSupervisor
+            ? reviewWindow.isExpired
+              ? '✅ Move to DELIVERED (Locked - 7 Days Expired)'
+              : activeRejection
+              ? '✅ Move to DELIVERED (Pending Admin Approval)'
+              : '✅ Move to DELIVERED (Requires Admin Approval)'
+            : '✅ Mark as DELIVERED',
+        },
+        {
+          value: 'DISPATCHED',
+          label: isSupervisor
+            ? reviewWindow.isExpired
+              ? '🚚 Move to DISPATCH (Locked - 7 Days Expired)'
+              : activeRejection
+              ? '🚚 Move to DISPATCH (Pending Admin Approval)'
+              : '🚚 Move to DISPATCH (Requires Admin Approval)'
+            : '🚚 Mark as DISPATCHED',
+        },
+      ];
+    }
+    return [
+      { value: 'DELIVERED', label: 'Mark as DELIVERED' },
+      { value: 'REJECTED', label: 'Mark as REJECTED' },
+      { value: 'DISPATCHED', label: 'Mark as DISPATCHED' },
+    ];
+  }, [order, isSupervisor, reviewWindow.isExpired, activeRejection]);
+
   useEffect(() => {
     if (!order) return;
-    setTargetNewStatus(defaultNewStatus);
-    setStatusRemark(order.remarks || '');
+    setTargetNewStatus(initialTargetStatus);
+    if ((isCurrentlyDelivered || isCurrentlyRejected) && requiresAdminApproval) {
+      setStatusRemark('');
+    } else {
+      setStatusRemark(order.remarks || '');
+    }
     // Default unchecked
     setHasDamagedItems(false);
 
@@ -122,7 +240,7 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
     };
 
     fetchProducts();
-  }, [order, defaultNewStatus]);
+  }, [order, initialTargetStatus]);
 
   if (!order) return null;
 
@@ -149,9 +267,9 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
     e.preventDefault();
     setIsUpdatingStatus(true);
     try {
-      // Only include damage payload when status is REJECTED and checkbox is checked
+      // Only include damage payload when target or origin is REJECTED and checkbox is checked
       const damagedPayload =
-        targetNewStatus === 'REJECTED' && hasDamagedItems
+        (targetNewStatus === 'REJECTED' || order.status === 'REJECTED') && hasDamagedItems
           ? orderDamageItems
               .filter((item) => item.isDamaged && item.damagedQuantity > 0)
               .map((item) => ({
@@ -162,10 +280,44 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
               }))
           : undefined;
 
+      // Intercept for Supervisor modifying a DELIVERED or REJECTED order requiring Admin Approval
+      if (isSupervisor && requiresAdminApproval) {
+        if (reviewWindow.isExpired) {
+          toast.error(
+            `The 7-day review period for this ${order.status.toLowerCase()} order has expired. Modifications or status changes are locked.`,
+          );
+          return;
+        }
+
+        if (activeRejection) {
+          toast.error('A status change request is already pending review for this order.');
+          return;
+        }
+
+        if (!statusRemark.trim()) {
+          toast.error('Please provide a reason for the status change request.');
+          return;
+        }
+
+        await orderRejectionRepository.create(order.id, {
+          fromStatus: order.status,
+          toStatus: targetNewStatus,
+          reason: statusRemark.trim(),
+          damagedItems: damagedPayload,
+        });
+
+        toast.success(`Order status change request (${order.status} → ${targetNewStatus}) submitted to Admin for approval!`);
+        onRejectionSubmitted?.();
+        onClose();
+        return;
+      }
+
       const success = await onConfirm(order, targetNewStatus, statusRemark, damagedPayload);
       if (success) {
         onClose();
       }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Status transition failed.');
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -182,16 +334,66 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center justify-between">
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <div className="text-slate-500 font-medium">Order Number:</div>
             <div className="font-bold text-slate-900 font-mono text-sm">#{order.orderNumber}</div>
+            <div className="text-slate-500 text-[11px] mt-0.5">
+              Current Status: <span className="font-bold text-slate-800">{order.status}</span>
+            </div>
           </div>
-          <div className="text-right">
+          <div className="sm:text-right">
             <div className="text-slate-500 font-medium">Customer:</div>
             <div className="font-bold text-slate-900">{customer?.fullName || 'Customer'}</div>
+            {(isCurrentlyDelivered || isCurrentlyRejected) && (
+              <div className="mt-1 flex items-center gap-1 sm:justify-end">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span
+                  className={`text-[11px] font-bold ${
+                    reviewWindow.isExpired ? 'text-rose-600' : 'text-amber-700'
+                  }`}
+                >
+                  {reviewWindow.text}
+                </span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Informative Banners for Supervisor Modifying Delivered / Rejected Orders */}
+        {(isCurrentlyDelivered || isCurrentlyRejected) && isSupervisor && (
+          reviewWindow.isExpired ? (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold">Review Period Expired (Locked)</div>
+                <p className="text-[11px] text-rose-800 mt-0.5">
+                  The 7-day review period for this {order.status.toLowerCase()} order has expired. Modifications and status transitions are locked.
+                </p>
+              </div>
+            </div>
+          ) : activeRejection ? (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold">Status Change Pending Admin Approval</div>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  A status transition request ({activeRejection.fromStatus || order.status} → {activeRejection.toStatus || 'REJECTED'}) is already pending Admin review. The order remains {order.status} until Admin approval.
+                </p>
+              </div>
+            </div>
+          ) : requiresAdminApproval ? (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold">Moving this {order.status.toLowerCase()} order to {targetNewStatus} requires Admin approval</div>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  Submitting will create an approval request sent to the Admin review queue. The order will remain {order.status} until the Admin approves the request.
+                </p>
+              </div>
+            </div>
+          ) : null
+        )}
 
         <Select
           label="New Target Status *"
@@ -199,14 +401,18 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
           onChange={(e) => {
             const nextStatus = e.target.value as OrderStatus;
             setTargetNewStatus(nextStatus);
-            if (nextStatus !== 'REJECTED') {
+            if (nextStatus === 'REJECTED') {
+              if ((isCurrentlyDelivered || isCurrentlyRejected) && isSupervisor && statusRemark === (order.remarks || '')) {
+                setStatusRemark('');
+              }
+            } else {
               setHasDamagedItems(false);
+              if ((isCurrentlyDelivered || isCurrentlyRejected) && isSupervisor && statusRemark === '') {
+                setStatusRemark(order.remarks || '');
+              }
             }
           }}
-          options={[
-            { value: 'DELIVERED', label: '✅ Mark as DELIVERED' },
-            { value: 'REJECTED', label: '❌ Mark as REJECTED (Courier Return / Refused)' },
-          ]}
+          options={availableStatusOptions}
         />
 
         {/* Damaged Product Items in Order Selection Section - ONLY shown when status is REJECTED */}
@@ -312,13 +518,24 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
 
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">
-            General Order Remarks / Courier Note
+            {requiresAdminApproval && isSupervisor ? (
+              <>
+                Reason for Status Change Request <span className="text-rose-500">*</span>
+              </>
+            ) : (
+              'General Order Remarks / Courier Note'
+            )}
           </label>
           <textarea
             rows={2}
             value={statusRemark}
             onChange={(e) => setStatusRemark(e.target.value)}
-            placeholder="e.g. Returned to hub due to broken item, or delivered successfully..."
+            placeholder={
+              requiresAdminApproval && isSupervisor
+                ? `Explain why this ${order.status.toLowerCase()} order should be moved to ${targetNewStatus} (requires Admin review)...`
+                : 'e.g. Returned to hub due to broken item, or delivered successfully...'
+            }
+            required={requiresAdminApproval && isSupervisor}
             className="w-full text-xs p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
           />
         </div>
@@ -338,13 +555,25 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
             variant="primary"
             size="sm"
             isLoading={isUpdatingStatus}
+            disabled={
+              isUpdatingStatus ||
+              (isSupervisor &&
+                requiresAdminApproval &&
+                (reviewWindow.isExpired || Boolean(activeRejection) || !statusRemark.trim()))
+            }
             className={
               targetNewStatus === 'DELIVERED'
                 ? 'bg-emerald-600 hover:bg-emerald-700 font-bold'
+                : requiresAdminApproval && isSupervisor
+                ? 'bg-amber-600 hover:bg-amber-700 font-bold'
+                : targetNewStatus === 'DISPATCHED'
+                ? 'bg-blue-600 hover:bg-blue-700 font-bold'
                 : 'bg-rose-600 hover:bg-rose-700 font-bold'
             }
           >
-            Confirm Status Update
+            {requiresAdminApproval && isSupervisor
+              ? 'Submit for Admin Approval'
+              : 'Confirm Status Update'}
           </Button>
         </div>
       </form>
