@@ -17,7 +17,8 @@ import {
   Wallet,
   Boxes,
   Target,
-  TrendingUp
+  TrendingUp,
+  Banknote
 } from 'lucide-react';
 
 export interface NavItem {
@@ -44,6 +45,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
   SUPERVISOR: [
     { label: 'Home', path: '/supervisor/dashboard', icon: Home, isBottomNav: true },
     { label: 'Interested', path: '/supervisor/interested', icon: FileCheck, isBottomNav: true },
+    { label: 'Cash on Hand', path: '/supervisor/cash-on-hand', icon: Banknote, isBottomNav: false },
     { label: 'Orders', path: '/supervisor/orders', icon: Package, isBottomNav: true },
     { label: 'Stock', path: '/supervisor/stock', icon: Boxes, isBottomNav: true },
     { label: 'Import', path: '/supervisor/import', icon: Upload, isBottomNav: false },
@@ -78,6 +80,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
       children: [
         { label: 'Import Contacts', path: '/admin/import', icon: Upload },
         { label: 'Interested', path: '/admin/customers', icon: FileCheck },
+        { label: 'Cash on Hand', path: '/admin/cash-on-hand', icon: Banknote },
         { label: 'Orders', path: '/admin/orders', icon: Package },
         { label: 'Stock Management', path: '/admin/stock', icon: Boxes },
         { label: 'Allocation', path: '/admin/allocation', icon: Layers },

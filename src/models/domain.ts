@@ -25,7 +25,8 @@ export type OrderStatus =
 
 export type EmailNotificationStatus = 'SENT' | 'SKIPPED' | 'FAILED';
 
-export type DeliveryMethod = 'POST' | 'ROYAL_COURIER';
+export type DeliveryMethod = 'POST' | 'ROYAL_COURIER' | 'CASH_ON_HAND';
+export type CashOnHandStatus = 'PENDING' | 'APPROVED' | 'DECLINED';
 
 export interface Team {
   id: string;
@@ -194,6 +195,9 @@ export interface Customer {
   fullName: string;
   phone: string;
   secondaryMobile?: string;
+  phoneAlt?: string;
+  assignedMember?: Partial<User>;
+  responsibleMember?: Partial<User>;
   city?: string;
   address: string;
   email?: string;
@@ -282,6 +286,9 @@ export interface Order {
   team?: Team;
   rejectionRequests?: OrderRejectionRequest[];
   activeRejectionRequest?: OrderRejectionRequest | null;
+  isCashOnHand?: boolean;
+  cashOnHandStatus?: CashOnHandStatus | null;
+  cashOnHandHandovers?: CashOnHandHandover[];
 }
 
 export interface ParcelSlipTeam {
@@ -368,7 +375,10 @@ export type ActivityAction =
   | 'PETTY_CASH_EXPENSE'
   | 'ORDER_REJECTION_REQUESTED'
   | 'ORDER_REJECTION_APPROVED'
-  | 'ORDER_REJECTION_REJECTED';
+  | 'ORDER_REJECTION_REJECTED'
+  | 'CASH_ON_HAND_COLLECTED'
+  | 'CASH_ON_HAND_APPROVED'
+  | 'CASH_ON_HAND_DECLINED';
 
 export interface ActivityLog {
   id: string; // e.g., 'act_001'
@@ -377,7 +387,7 @@ export interface ActivityLog {
   userName: string;
   teamId?: string;
   action: ActivityAction;
-  entityType: 'User' | 'Contact' | 'Allocation' | 'CallLog' | 'Customer' | 'Order' | 'Expense' | 'Email' | 'Product' | 'Approval' | 'PettyCash' | 'OrderRejection';
+  entityType: 'User' | 'Contact' | 'Allocation' | 'CallLog' | 'Customer' | 'Order' | 'Expense' | 'Email' | 'Product' | 'Approval' | 'PettyCash' | 'OrderRejection' | 'CashOnHandHandover';
   entityId: string;
   description: string;
   metadata?: Record<string, any>;
@@ -621,6 +631,47 @@ export interface CreateOrderRejectionPayload {
 
 export interface ReviewOrderRejectionPayload {
   status: 'APPROVED' | 'REJECTED';
+  adminNotes?: string;
+}
+
+export interface CashOnHandHandover {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  teamId: string;
+  supervisorId: string;
+  supervisorName: string;
+  amountCollected: number;
+  productValue: number;
+  deliveryCharge: number;
+  outcomeStatus: OrderStatus;
+  rejectionReason?: string | null;
+  damagedItems?: OrderRejectionDamagedItem[] | null;
+  status: CashOnHandStatus;
+  reviewedById?: string | null;
+  reviewedByName?: string | null;
+  reviewedAt?: string | null;
+  adminNotes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  order?: Order;
+  team?: Team;
+  supervisor?: Partial<User>;
+  reviewedBy?: Partial<User>;
+}
+
+export interface ProcessCashOnHandPayload {
+  outcomeStatus: OrderStatus;
+  deliveryCharge: number;
+  rejectionReason?: string;
+  damagedItems?: OrderRejectionDamagedItem[];
+}
+
+export interface ReviewCashOnHandPayload {
+  status: CashOnHandStatus;
   adminNotes?: string;
 }
 
