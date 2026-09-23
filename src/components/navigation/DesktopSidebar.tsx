@@ -20,7 +20,7 @@
     onToggle: () => void;
   }
 
-  export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
+  export const DesktopSidebar: React.FC<DesktopSidebarProps> = React.memo(({
     isCollapsed,
     onToggle,
   }) => {
@@ -599,4 +599,4 @@
         </div>
       </aside>
     );
-  };
+  });

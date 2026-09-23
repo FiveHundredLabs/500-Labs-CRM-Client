@@ -25,7 +25,7 @@ export interface CustomerCardProps {
   actionButtons?: React.ReactNode;
 }
 
-export const CustomerCard: React.FC<CustomerCardProps> = ({
+export const CustomerCard: React.FC<CustomerCardProps> = React.memo(({
   isSelected,
   onToggleSelect,
   customerName,
@@ -148,4 +148,4 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
       )}
     </div>
   );
-};
+});

@@ -3,6 +3,8 @@ import React, {
   useEffect,
   createContext,
   useContext,
+  useCallback,
+  useMemo,
   ReactNode,
 } from "react";
 import { User, UserRole } from "../models/domain";
@@ -64,32 +66,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const login = async (
-    emailOrUsername: string,
-    password: string,
-  ): Promise<User> => {
-    setStatus("checking");
-    try {
-      const loggedUser = await AuthService.login(emailOrUsername, password);
-      setUser(loggedUser);
-      setStatus("authenticated");
-      toast.success(`Welcome back, ${loggedUser.fullName}!`);
-      return loggedUser;
-    } catch (err: any) {
-      setUser(null);
-      setStatus("unauthenticated");
-      const message =
-        err instanceof SessionCookieNotEstablishedError
-          ? "Login was accepted, but this browser did not keep the secure session. Please refresh and try again."
-          : err?.response?.data?.message ||
-            err?.message ||
-            "Login failed. Check your credentials.";
-      toast.error(message);
-      throw err;
-    }
-  };
+  const login = useCallback(
+    async (
+      emailOrUsername: string,
+      password: string,
+    ): Promise<User> => {
+      setStatus("checking");
+      try {
+        const loggedUser = await AuthService.login(emailOrUsername, password);
+        setUser(loggedUser);
+        setStatus("authenticated");
+        toast.success(`Welcome back, ${loggedUser.fullName}!`);
+        return loggedUser;
+      } catch (err: any) {
+        setUser(null);
+        setStatus("unauthenticated");
+        const message =
+          err instanceof SessionCookieNotEstablishedError
+            ? "Login was accepted, but this browser did not keep the secure session. Please refresh and try again."
+            : err?.response?.data?.message ||
+              err?.message ||
+              "Login failed. Check your credentials.";
+        toast.error(message);
+        throw err;
+      }
+    },
+    []
+  );
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await AuthService.logout();
     } catch {
@@ -98,25 +103,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setStatus("unauthenticated");
     toast.success("Logged out successfully.");
-  };
+  }, []);
 
-  const updateCurrentUser = (updatedUser: User) => {
+  const updateCurrentUser = useCallback((updatedUser: User) => {
     setUser(updatedUser);
-  };
+  }, []);
 
-  const value: AuthContextType = {
-    user,
-    role: user ? user.role : null,
-    status,
-    loading: status === "checking",
-    login,
-    logout,
-    updateCurrentUser,
-    isAdmin: user?.role === "ADMIN",
-    isSupervisor: user?.role === "SUPERVISOR",
-    isTeamMember: user?.role === "TEAM_MEMBER",
-    isFinance: user?.role === "FINANCE",
-  };
+  const value: AuthContextType = useMemo(
+    () => ({
+      user,
+      role: user ? user.role : null,
+      status,
+      loading: status === "checking",
+      login,
+      logout,
+      updateCurrentUser,
+      isAdmin: user?.role === "ADMIN",
+      isSupervisor: user?.role === "SUPERVISOR",
+      isTeamMember: user?.role === "TEAM_MEMBER",
+      isFinance: user?.role === "FINANCE",
+    }),
+    [user, status, login, logout, updateCurrentUser]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

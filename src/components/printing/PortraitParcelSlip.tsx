@@ -153,7 +153,7 @@ export const SlipSectionHeader: React.FC<{
 
 export const PortraitParcelSlip: React.FC<
   PortraitParcelSlipProps
-> = ({
+> = React.memo(({
   data,
   qrImageDataUrl,
   className = '',
@@ -1013,4 +1013,4 @@ export const PortraitParcelSlip: React.FC<
       </footer>
     </article>
   );
-};
+});
