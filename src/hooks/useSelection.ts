@@ -1,15 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
 export function useSelection(allAvailableIds: string[]) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const selectAllCheckboxRef = useRef<HTMLInputElement | null>(null);
 
-  const allSelected =
-    allAvailableIds.length > 0 &&
-    allAvailableIds.every((id) => selectedIds.includes(id));
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
-  const someSelected =
-    allAvailableIds.some((id) => selectedIds.includes(id)) && !allSelected;
+  const allSelected = useMemo(() => {
+    if (allAvailableIds.length === 0) return false;
+    return allAvailableIds.every((id) => selectedSet.has(id));
+  }, [allAvailableIds, selectedSet]);
+
+  const someSelected = useMemo(() => {
+    if (allSelected || allAvailableIds.length === 0) return false;
+    return allAvailableIds.some((id) => selectedSet.has(id));
+  }, [allAvailableIds, selectedSet, allSelected]);
 
   useEffect(() => {
     if (selectAllCheckboxRef.current) {
@@ -17,7 +22,7 @@ export function useSelection(allAvailableIds: string[]) {
     }
   }, [someSelected]);
 
-  const toggleSelectAll = () => {
+  const toggleSelectAll = useCallback(() => {
     if (allSelected) {
       const setOfAvailable = new Set(allAvailableIds);
       setSelectedIds((prev) => prev.filter((id) => !setOfAvailable.has(id)));
@@ -25,20 +30,21 @@ export function useSelection(allAvailableIds: string[]) {
       const newSelected = new Set([...selectedIds, ...allAvailableIds]);
       setSelectedIds(Array.from(newSelected));
     }
-  };
+  }, [allSelected, allAvailableIds, selectedIds]);
 
-  const toggleSelectCard = (id: string) => {
+  const toggleSelectCard = useCallback((id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
-  };
+  }, []);
 
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectedIds([]);
-  };
+  }, []);
 
   return {
     selectedIds,
+    selectedSet,
     setSelectedIds,
     selectAllCheckboxRef,
     allSelected,

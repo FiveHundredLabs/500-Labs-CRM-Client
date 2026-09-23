@@ -20,7 +20,61 @@ export interface OrderListProps {
   onOpenRejectionModal?: (order: Order) => void;
 }
 
-export const OrderList: React.FC<OrderListProps> = ({
+interface OrderListItemProps {
+  order: Order;
+  customer?: Customer;
+  handledByMember?: User;
+  conflictInfo?: DuplicateOrderConflictInfo;
+  isSelected: boolean;
+  onToggleSelectCard: (id: string) => void;
+  onViewHistory: (order: Order) => void;
+  onOpenStatusModal: (order: Order, defaultNewStatus: OrderStatus) => void;
+  onOpenRemarkModal: (order: Order) => void;
+  onPrintSlip: (order: Order) => void;
+  onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
+  onInspectDamages?: (order: Order) => void;
+  onOpenRejectionModal?: (order: Order) => void;
+}
+
+const OrderListItem = React.memo<OrderListItemProps>(({
+  order,
+  customer,
+  handledByMember,
+  conflictInfo,
+  isSelected,
+  onToggleSelectCard,
+  onViewHistory,
+  onOpenStatusModal,
+  onOpenRemarkModal,
+  onPrintSlip,
+  onInspectDuplicateOrders,
+  onInspectDamages,
+  onOpenRejectionModal,
+}) => {
+  const handleToggle = React.useCallback(() => {
+    onToggleSelectCard(order.id);
+  }, [onToggleSelectCard, order.id]);
+
+  return (
+    <OrderCard
+      order={order}
+      customer={customer}
+      handledByMember={handledByMember}
+      conflictInfo={conflictInfo}
+      isSelected={isSelected}
+      onToggleSelect={handleToggle}
+      onViewHistory={onViewHistory}
+      onOpenStatusModal={onOpenStatusModal}
+      onOpenRemarkModal={onOpenRemarkModal}
+      onPrintSlip={onPrintSlip}
+      onInspectDuplicateOrders={onInspectDuplicateOrders}
+      onInspectDamages={onInspectDamages}
+      onOpenRejectionModal={onOpenRejectionModal}
+    />
+  );
+});
+
+export const OrderList: React.FC<OrderListProps> = React.memo(({
   filteredOrders,
   customersMap,
   membersMap,
@@ -35,6 +89,8 @@ export const OrderList: React.FC<OrderListProps> = ({
   onInspectDamages,
   onOpenRejectionModal,
 }) => {
+  const selectedSet = React.useMemo(() => new Set(selectedOrderIds), [selectedOrderIds]);
+
   if (filteredOrders.length === 0) {
     return (
       <EmptyState
@@ -49,18 +105,18 @@ export const OrderList: React.FC<OrderListProps> = ({
       {filteredOrders.map((order) => {
         const customer = customersMap[order.customerId];
         const member = membersMap[order.teamMemberId];
-        const isSelected = selectedOrderIds.includes(order.id);
+        const isSelected = selectedSet.has(order.id);
         const conflictInfo = orderConflictMap ? orderConflictMap[order.id] : undefined;
 
         return (
-          <OrderCard
+          <OrderListItem
             key={order.id}
             order={order}
             customer={customer}
             handledByMember={member}
             conflictInfo={conflictInfo}
             isSelected={isSelected}
-            onToggleSelect={() => onToggleSelectCard(order.id)}
+            onToggleSelectCard={onToggleSelectCard}
             onViewHistory={onViewHistory}
             onOpenStatusModal={onOpenStatusModal}
             onOpenRemarkModal={onOpenRemarkModal}
@@ -73,4 +129,4 @@ export const OrderList: React.FC<OrderListProps> = ({
       })}
     </div>
   );
-};
+});

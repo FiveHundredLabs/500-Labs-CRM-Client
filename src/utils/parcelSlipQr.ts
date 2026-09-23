@@ -6,8 +6,13 @@ export const buildPublicParcelSlipUrl = (token: string, origin?: string): string
   return `${resolvedOrigin.replace(/\/$/, '')}/parcel/${token}`;
 };
 
-export const generateParcelSlipQrDataUrl = (value: string): Promise<string> => {
-  return QRCode.toDataURL(value, {
+const qrCache = new Map<string, string>();
+
+export const generateParcelSlipQrDataUrl = async (value: string): Promise<string> => {
+  const cached = qrCache.get(value);
+  if (cached) return cached;
+
+  const dataUrl = await QRCode.toDataURL(value, {
     errorCorrectionLevel: 'M',
     margin: 2,
     width: 512,
@@ -16,4 +21,7 @@ export const generateParcelSlipQrDataUrl = (value: string): Promise<string> => {
       light: '#ffffff',
     },
   });
+
+  qrCache.set(value, dataUrl);
+  return dataUrl;
 };

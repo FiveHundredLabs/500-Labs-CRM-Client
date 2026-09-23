@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   teamRepository,
@@ -100,90 +100,109 @@ export const AdminDashboard: React.FC = () => {
     loadAll();
   }, []);
 
-  // Date Range Matcher Helper
-  const isDateInFilter = (dateStr?: string | null) => {
-    if (!dateStr) return false;
-    if (dateFilter === 'ALL') return true;
-
-    const date = new Date(dateStr);
+  // Date Range Matcher Helper with precomputed interval
+  const filterInterval = useMemo(() => {
+    if (dateFilter === 'ALL') return null;
     const now = new Date();
-
     if (dateFilter === 'TODAY') {
-      return isWithinInterval(date, { start: startOfDay(now), end: endOfDay(now) });
+      return { start: startOfDay(now).getTime(), end: endOfDay(now).getTime() };
     }
     if (dateFilter === 'THIS_WEEK') {
-      return isWithinInterval(date, { start: startOfWeek(now), end: endOfWeek(now) });
+      return { start: startOfWeek(now).getTime(), end: endOfWeek(now).getTime() };
     }
     if (dateFilter === 'THIS_MONTH') {
-      return isWithinInterval(date, { start: startOfMonth(now), end: endOfMonth(now) });
+      return { start: startOfMonth(now).getTime(), end: endOfMonth(now).getTime() };
     }
     if (dateFilter === 'LAST_MONTH') {
       const lastMonth = subMonths(now, 1);
-      return isWithinInterval(date, { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) });
+      return { start: startOfMonth(lastMonth).getTime(), end: endOfMonth(lastMonth).getTime() };
     }
     if (dateFilter === 'CUSTOM') {
-      const s = new Date(startDate);
+      const s = new Date(startDate).getTime();
       const e = new Date(endDate);
       e.setHours(23, 59, 59, 999);
-      return date >= s && date <= e;
+      return { start: s, end: e.getTime() };
     }
-    return true;
-  };
+    return null;
+  }, [dateFilter, startDate, endDate]);
+
+  const isDateInFilter = useCallback((dateStr?: string | null) => {
+    if (!dateStr) return false;
+    if (!filterInterval) return true;
+    const time = new Date(dateStr).getTime();
+    return !Number.isNaN(time) && time >= filterInterval.start && time <= filterInterval.end;
+  }, [filterInterval]);
 
   // Filtered Datasets based on selected date range
   const scopedOrders = useMemo(
     () => orders.filter((o) => isDateInFilter(o.createdAt)),
-    [orders, dateFilter, startDate, endDate]
+    [orders, isDateInFilter]
   );
 
   const scopedContacts = useMemo(
     () => contacts.filter((c) => isDateInFilter(c.updatedAt || c.importedAt)),
-    [contacts, dateFilter, startDate, endDate]
+    [contacts, isDateInFilter]
   );
 
   const scopedExpenses = useMemo(
     () => expenses.filter((e: any) => isDateInFilter(e.expenseDate || e.createdAt || e.date)),
-    [expenses, dateFilter, startDate, endDate]
+    [expenses, isDateInFilter]
   );
 
-  // Dynamic KPI Metrics with explicit Number() casting
-  const totalGrossSales = scopedOrders.reduce(
-    (acc, curr) => acc + getAmountToCollect(curr),
-    0
+  // Dynamic KPI Metrics with explicit Number() casting (memoized)
+  const { totalGrossSales, lastDispatchedCount, totalDeliveredOrders } = useMemo(() => {
+    let sales = 0;
+    let dispatched = 0;
+    let delivered = 0;
+    for (let i = 0; i < scopedOrders.length; i++) {
+      const o = scopedOrders[i];
+      sales += getAmountToCollect(o);
+      if (o.status === 'DISPATCHED') dispatched++;
+      else if (o.status === 'DELIVERED') delivered++;
+    }
+    return { totalGrossSales: sales, lastDispatchedCount: dispatched, totalDeliveredOrders: delivered };
+  }, [scopedOrders]);
+
+  const todayInterestedCount = useMemo(
+    () => scopedContacts.filter((c) => c.status === 'INTERESTED').length,
+    [scopedContacts]
   );
-  const lastDispatchedCount = scopedOrders.filter((o) => o.status === 'DISPATCHED').length;
-  const totalDeliveredOrders = scopedOrders.filter((o) => o.status === 'DELIVERED').length;
-  const todayInterestedCount = scopedContacts.filter((c) => c.status === 'INTERESTED').length;
-  const totalMonthlyExpenses = scopedExpenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
-  // Dynamic Per-Team Leaderboards based on loaded teams and scoped orders
-  const teamLeaderboards = teams.map((team) => {
-    const teamMembers = users.filter((u) => u.teamId === team.id && u.role === 'TEAM_MEMBER');
-    const list = teamMembers.map((m) => {
-      const memberOrders = scopedOrders.filter((o) => o.teamMemberId === m.id);
-      const deliveredOrders = memberOrders.filter((o) => o.status === 'DELIVERED');
-      const deliveredSalesAmount = deliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
-      const deliveredCount = deliveredOrders.length;
-      return {
-        id: m.id,
-        rank: 0,
-        name: m.fullName,
-        avatarUrl: m.avatarUrl,
-        primaryValue: deliveredSalesAmount,
-        secondaryValue: deliveredCount,
-        primaryLabel: 'Delivered Sales',
-        secondaryLabel: 'Delivered Orders',
-        unitLabel: 'orders',
-      };
-    });
-    list.sort((a, b) => b.primaryValue - a.primaryValue || b.secondaryValue - a.secondaryValue);
-    list.forEach((item, idx) => {
-      item.rank = idx + 1;
-    });
-    return { team, items: list.slice(0, 5) };
-  });
+  const totalMonthlyExpenses = useMemo(
+    () => scopedExpenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0),
+    [scopedExpenses]
+  );
 
-  const recentActivities: ActivityLog[] = activities.slice(0, 6);
+  // Dynamic Per-Team Leaderboards based on loaded teams and scoped orders (memoized)
+  const teamLeaderboards = useMemo(() => {
+    return teams.map((team) => {
+      const teamMembers = users.filter((u) => u.teamId === team.id && u.role === 'TEAM_MEMBER');
+      const list = teamMembers.map((m) => {
+        const memberOrders = scopedOrders.filter((o) => o.teamMemberId === m.id);
+        const deliveredOrders = memberOrders.filter((o) => o.status === 'DELIVERED');
+        const deliveredSalesAmount = deliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
+        const deliveredCount = deliveredOrders.length;
+        return {
+          id: m.id,
+          rank: 0,
+          name: m.fullName,
+          avatarUrl: m.avatarUrl,
+          primaryValue: deliveredSalesAmount,
+          secondaryValue: deliveredCount,
+          primaryLabel: 'Delivered Sales',
+          secondaryLabel: 'Delivered Orders',
+          unitLabel: 'orders',
+        };
+      });
+      list.sort((a, b) => b.primaryValue - a.primaryValue || b.secondaryValue - a.secondaryValue);
+      list.forEach((item, idx) => {
+        item.rank = idx + 1;
+      });
+      return { team, items: list.slice(0, 5) };
+    });
+  }, [teams, users, scopedOrders]);
+
+  const recentActivities: ActivityLog[] = useMemo(() => activities.slice(0, 6), [activities]);
 
   if (loading) return <LoadingState rows={8} />;
 

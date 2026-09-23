@@ -23,7 +23,7 @@ export interface OrderCardProps {
   onOpenRejectionModal?: (order: Order) => void;
 }
 
-export const OrderCard: React.FC<OrderCardProps> = ({
+export const OrderCard: React.FC<OrderCardProps> = React.memo(({
   order,
   customer,
   handledByMember,
@@ -259,4 +259,4 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       }
     />
   );
-};
+});

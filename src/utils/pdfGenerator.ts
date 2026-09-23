@@ -125,17 +125,32 @@ const createCaptureContainer = () => {
   return container;
 };
 
+let sharedColorCanvas: HTMLCanvasElement | null = null;
+let sharedColorCtx: CanvasRenderingContext2D | null = null;
+const oklchColorCache = new Map<string, string>();
+
 const convertOklchToRgb = (colorStr: string): string => {
   if (!colorStr || !colorStr.includes('oklch')) return colorStr;
 
-  return colorStr.replace(/oklch\([^)]+\)/g, (match) => {
+  const cached = oklchColorCache.get(colorStr);
+  if (cached !== undefined) return cached;
+
+  const result = colorStr.replace(/oklch\([^)]+\)/g, (match) => {
+    const matchCached = oklchColorCache.get(match);
+    if (matchCached !== undefined) return matchCached;
+
     try {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = match;
-        const resolved = ctx.fillStyle;
+      if (!sharedColorCanvas) {
+        sharedColorCanvas = document.createElement('canvas');
+        sharedColorCanvas.width = 1;
+        sharedColorCanvas.height = 1;
+        sharedColorCtx = sharedColorCanvas.getContext('2d');
+      }
+      if (sharedColorCtx) {
+        sharedColorCtx.fillStyle = match;
+        const resolved = sharedColorCtx.fillStyle;
         if (resolved && !resolved.includes('oklch')) {
+          oklchColorCache.set(match, resolved);
           return resolved;
         }
       }
@@ -151,14 +166,28 @@ const convertOklchToRgb = (colorStr: string): string => {
       const L = parseFloat(parts[0]);
       const alpha = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
       
-      if (L <= 0.1) return `rgba(0, 0, 0, ${alpha})`;
-      if (L >= 0.95) return `rgba(255, 255, 255, ${alpha})`;
+      if (L <= 0.1) {
+        const res = `rgba(0, 0, 0, ${alpha})`;
+        oklchColorCache.set(match, res);
+        return res;
+      }
+      if (L >= 0.95) {
+        const res = `rgba(255, 255, 255, ${alpha})`;
+        oklchColorCache.set(match, res);
+        return res;
+      }
       
       const grayVal = Math.round(L * 255);
-      return `rgba(${grayVal}, ${grayVal}, ${grayVal}, ${alpha})`;
+      const res = `rgba(${grayVal}, ${grayVal}, ${grayVal}, ${alpha})`;
+      oklchColorCache.set(match, res);
+      return res;
     }
+    oklchColorCache.set(match, match);
     return match;
   });
+
+  oklchColorCache.set(colorStr, result);
+  return result;
 };
 
 const replaceOklchStyles = (element: HTMLElement) => {
@@ -256,6 +285,7 @@ export const generateBillingPdf = async (
   const slipImages: string[] = [];
 
   onProgress?.(0, printItems.length, 0);
+  await waitForFonts();
 
   for (let i = 0; i < printItems.length; i++) {
     const item = printItems[i];
