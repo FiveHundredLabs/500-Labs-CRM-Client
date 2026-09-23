@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { User, Contact, Order, ActivityLog, Product, CallLog } from '../../models/domain';
 import {
@@ -134,70 +134,98 @@ export const SupervisorDashboard: React.FC = () => {
       .catch(() => setSupervisorTarget(null));
   }, [user]);
 
-  // Date Range Matcher Helper
-  const isDateInFilter = (dateStr?: string | null) => {
-    if (!dateStr) return false;
-    if (dateFilter === 'ALL') return true;
-
-    const date = new Date(dateStr);
+  // Date Range Matcher Helper with precomputed interval
+  const filterInterval = useMemo(() => {
+    if (dateFilter === 'ALL') return null;
     const now = new Date();
-
     if (dateFilter === 'TODAY') {
-      return isWithinInterval(date, { start: startOfDay(now), end: endOfDay(now) });
+      return { start: startOfDay(now).getTime(), end: endOfDay(now).getTime() };
     }
     if (dateFilter === 'THIS_WEEK') {
-      return isWithinInterval(date, { start: startOfWeek(now), end: endOfWeek(now) });
+      return { start: startOfWeek(now).getTime(), end: endOfWeek(now).getTime() };
     }
     if (dateFilter === 'THIS_MONTH') {
-      return isWithinInterval(date, { start: startOfMonth(now), end: endOfMonth(now) });
+      return { start: startOfMonth(now).getTime(), end: endOfMonth(now).getTime() };
     }
     if (dateFilter === 'LAST_MONTH') {
       const lastMonth = subMonths(now, 1);
-      return isWithinInterval(date, { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) });
+      return { start: startOfMonth(lastMonth).getTime(), end: endOfMonth(lastMonth).getTime() };
     }
     if (dateFilter === 'LAST_6_MONTHS') {
       const sixMonthsAgo = subMonths(now, 6);
-      return date >= sixMonthsAgo && date <= now;
+      return { start: sixMonthsAgo.getTime(), end: now.getTime() };
     }
     if (dateFilter === 'CUSTOM') {
-      const s = new Date(startDate);
+      const s = new Date(startDate).getTime();
       const e = new Date(endDate);
       e.setHours(23, 59, 59, 999);
-      return date >= s && date <= e;
+      return { start: s, end: e.getTime() };
     }
-    return true;
-  };
+    return null;
+  }, [dateFilter, startDate, endDate]);
+
+  const isDateInFilter = useCallback((dateStr?: string | null) => {
+    if (!dateStr) return false;
+    if (!filterInterval) return true;
+    const time = new Date(dateStr).getTime();
+    return !Number.isNaN(time) && time >= filterInterval.start && time <= filterInterval.end;
+  }, [filterInterval]);
 
   // Filtered Datasets based on selected date range
   const scopedOrders = useMemo(
     () => orders.filter((o) => isDateInFilter(o.createdAt)),
-    [orders, dateFilter, startDate, endDate]
+    [orders, isDateInFilter]
   );
   const scopedCalls = useMemo(
     () => callLogs.filter((cl) => isDateInFilter(cl.calledAt)),
-    [callLogs, dateFilter, startDate, endDate]
+    [callLogs, isDateInFilter]
   );
   const scopedInterestedContacts = useMemo(
     () => contacts.filter((c) => c.status === 'INTERESTED' && isDateInFilter(c.updatedAt || c.importedAt)),
-    [contacts, dateFilter, startDate, endDate]
+    [contacts, isDateInFilter]
   );
 
-  // Status Metrics
-  const totalOrders = scopedOrders.length;
-  const dispatchedOrders = scopedOrders.filter((o) => o.status === 'DISPATCHED').length;
-  const deliveredOrders = scopedOrders.filter((o) => o.status === 'DELIVERED').length;
-  const rejectedOrders = scopedOrders.filter((o) => o.status === 'REJECTED' || o.status === 'RETURNED').length;
-  
-  const totalGrossSales = scopedOrders.reduce(
-    (sum, o) => sum + getAmountToCollect(o),
-    0
-  );
+  // Status Metrics (memoized single pass)
+  const {
+    totalOrders,
+    dispatchedOrders,
+    deliveredOrders,
+    rejectedOrders,
+    totalGrossSales,
+    totalDeliveredSales,
+    deliveryRate,
+  } = useMemo(() => {
+    const total = scopedOrders.length;
+    let dispatched = 0;
+    let delivered = 0;
+    let rejected = 0;
+    let gross = 0;
+    let deliveredSales = 0;
 
-  const totalDeliveredSales = scopedOrders
-    .filter((o) => o.status === 'DELIVERED')
-    .reduce((sum, o) => sum + getProductSalesValue(o), 0);
+    for (let i = 0; i < scopedOrders.length; i++) {
+      const o = scopedOrders[i];
+      gross += getAmountToCollect(o);
+      if (o.status === 'DISPATCHED') {
+        dispatched++;
+      } else if (o.status === 'DELIVERED') {
+        delivered++;
+        deliveredSales += getProductSalesValue(o);
+      } else if (o.status === 'REJECTED' || o.status === 'RETURNED') {
+        rejected++;
+      }
+    }
 
-  const deliveryRate = totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0;
+    const rate = total > 0 ? Math.round((delivered / total) * 100) : 0;
+    return {
+      totalOrders: total,
+      dispatchedOrders: dispatched,
+      deliveredOrders: delivered,
+      rejectedOrders: rejected,
+      totalGrossSales: gross,
+      totalDeliveredSales: deliveredSales,
+      deliveryRate: rate,
+    };
+  }, [scopedOrders]);
 
   // Low Stock Alerts (Requirement 2.13)
   const lowStockProducts = useMemo(() => {
@@ -209,9 +237,12 @@ export const SupervisorDashboard: React.FC = () => {
     return SupervisorAnalyticsService.computeLeaderboard(teamMembers, scopedOrders);
   }, [teamMembers, scopedOrders]);
 
-  if (loading) return <LoadingState rows={6} />;
+  const unallocatedContacts = useMemo(
+    () => contacts.filter((c) => !c.isAllocated && c.status === 'NEW').length,
+    [contacts]
+  );
 
-  const unallocatedContacts = contacts.filter((c) => !c.isAllocated && c.status === 'NEW').length;
+  if (loading) return <LoadingState rows={6} />;
 
   return (
     <div className="space-y-6 pb-16">

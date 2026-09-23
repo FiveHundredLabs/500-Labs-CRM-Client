@@ -1,23 +1,24 @@
 import { UserRole } from '../models/domain';
-import { 
-  Home, 
-  PhoneCall, 
-  Clock, 
-  Trophy, 
-  User, 
-  Users, 
-  FileCheck, 
-  Package, 
-  PieChart, 
-  DollarSign, 
-  Activity, 
-  Upload, 
+import {
+  Home,
+  PhoneCall,
+  Clock,
+  Trophy,
+  User,
+  Users,
+  FileCheck,
+  Package,
+  PieChart,
+  DollarSign,
+  Activity,
+  Upload,
   Layers,
   MoreHorizontal,
   Wallet,
   Boxes,
   Target,
-  TrendingUp
+  TrendingUp,
+  Banknote
 } from 'lucide-react';
 
 export interface NavItem {
@@ -46,6 +47,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Interested', path: '/supervisor/interested', icon: FileCheck, isBottomNav: true },
     { label: 'Orders', path: '/supervisor/orders', icon: Package, isBottomNav: true },
     { label: 'Stock', path: '/supervisor/stock', icon: Boxes, isBottomNav: true },
+    { label: 'Cash on Hand', path: '/supervisor/cash-on-hand', icon: Banknote, isBottomNav: false },
     { label: 'Import', path: '/supervisor/import', icon: Upload, isBottomNav: false },
     { label: 'Allocation', path: '/supervisor/allocation', icon: Layers, isBottomNav: false },
     { label: 'Allocation History', path: '/supervisor/allocation/history', icon: Clock, isBottomNav: false },
@@ -80,6 +82,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
         { label: 'Interested', path: '/admin/customers', icon: FileCheck },
         { label: 'Orders', path: '/admin/orders', icon: Package },
         { label: 'Stock Management', path: '/admin/stock', icon: Boxes },
+        { label: 'Cash on Hand', path: '/admin/cash-on-hand', icon: Banknote },
         { label: 'Allocation', path: '/admin/allocation', icon: Layers },
         { label: 'Allocation History', path: '/admin/allocation/history', icon: Clock },
         { label: 'Team Specialists', path: '/admin/team', icon: Users },

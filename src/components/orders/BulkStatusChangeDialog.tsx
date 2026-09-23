@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Order, OrderStatus, Product } from '../../models/domain';
 import { productRepository } from '../../repositories';
+import { useAuth } from '../../hooks/useAuth';
 import { Dialog } from '../ui/Dialog';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
@@ -35,6 +36,13 @@ export const BulkStatusChangeDialog: React.FC<BulkStatusChangeDialogProps> = ({
   onClose,
   onConfirm,
 }) => {
+  const { user } = useAuth();
+  const isSupervisor = user?.role === 'SUPERVISOR';
+  const deliveredOrdersCount = selectedOrders.filter((o) => o.status === 'DELIVERED').length;
+  const rejectedOrdersCount = selectedOrders.filter((o) => o.status === 'REJECTED').length;
+  const restrictedOrdersCount = deliveredOrdersCount + rejectedOrdersCount;
+  const hasRestrictedOrders = restrictedOrdersCount > 0;
+
   const [bulkTargetStatus, setBulkTargetStatus] = useState<OrderStatus>('DELIVERED');
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
@@ -146,6 +154,9 @@ export const BulkStatusChangeDialog: React.FC<BulkStatusChangeDialogProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSupervisor && hasRestrictedOrders) {
+      return;
+    }
     setIsBulkUpdating(true);
     try {
       const damagedPayload =
@@ -188,6 +199,18 @@ export const BulkStatusChangeDialog: React.FC<BulkStatusChangeDialogProps> = ({
             Note: Select damaged items if products were returned broken or damaged in courier transit.
           </span>
         </div>
+
+        {isSupervisor && hasRestrictedOrders && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 font-medium flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold">Delivered &amp; Rejected Orders Cannot Be Bulk Modified</div>
+              <p className="text-[11px] text-rose-800 mt-0.5">
+                {restrictedOrdersCount} of the selected orders are currently in DELIVERED or REJECTED status ({deliveredOrdersCount} delivered, {rejectedOrdersCount} rejected). Status changes from Delivered or Rejected require individual submission for Admin approval. Please deselect these orders to continue.
+              </p>
+            </div>
+          </div>
+        )}
 
         <Select
           label="New Status for Selected Orders *"
@@ -323,6 +346,7 @@ export const BulkStatusChangeDialog: React.FC<BulkStatusChangeDialogProps> = ({
             variant="primary"
             size="sm"
             isLoading={isBulkUpdating}
+            disabled={isBulkUpdating || (isSupervisor && hasRestrictedOrders)}
           >
             Apply Status Change
           </Button>

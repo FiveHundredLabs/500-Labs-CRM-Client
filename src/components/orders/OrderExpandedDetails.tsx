@@ -2,8 +2,22 @@ import React from 'react';
 import type { Order, OrderStatus } from '../../models/domain';
 import { formatCurrency } from '../../utils/currency';
 import { getAmountToCollect, getCodCharge, getProductSalesValue } from '../../utils/orderAmounts';
+import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
-import { MessageSquare, History, CheckCheck, XCircle, Edit3, PlusCircle, Printer, ShieldAlert } from 'lucide-react';
+import {
+  MessageSquare,
+  History,
+  CheckCheck,
+  XCircle,
+  Edit3,
+  PlusCircle,
+  Printer,
+  ShieldAlert,
+  Clock,
+  Lock,
+  RotateCcw,
+  Truck,
+} from 'lucide-react';
 
 export interface OrderExpandedDetailsProps {
   order: Order;
@@ -12,7 +26,10 @@ export interface OrderExpandedDetailsProps {
   onOpenRemarkModal: (order: Order) => void;
   onPrintSlip: (order: Order) => void;
   onInspectDamages?: (order: Order) => void;
+  onOpenRejectionModal?: (order: Order) => void;
 }
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
   order,
@@ -21,10 +38,44 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
   onOpenRemarkModal,
   onPrintSlip,
   onInspectDamages,
+  onOpenRejectionModal,
 }) => {
+  const { user } = useAuth();
+  const isSupervisor = user?.role === 'SUPERVISOR';
+  const isAdmin = user?.role === 'ADMIN';
+
   const productSalesValue = getProductSalesValue(order);
   const codCharge = getCodCharge(order);
   const amountToCollect = getAmountToCollect(order);
+
+  const isDelivered = order.status === 'DELIVERED';
+  const isRejected = order.status === 'REJECTED';
+  const statusTime = isDelivered
+    ? (order.deliveredAt ? new Date(order.deliveredAt).getTime() : new Date(order.updatedAt).getTime())
+    : isRejected
+    ? (order.rejectedAt ? new Date(order.rejectedAt).getTime() : new Date(order.updatedAt).getTime())
+    : 0;
+  const remainingReviewMs = (isDelivered || isRejected) ? statusTime + SEVEN_DAYS_MS - Date.now() : 0;
+  const isPast7Days = (isDelivered || isRejected) ? remainingReviewMs <= 0 : false;
+  const isWithin7Days = !isPast7Days;
+
+  const days = Math.floor(remainingReviewMs / (24 * 60 * 60 * 1000));
+  const hours = Math.floor((remainingReviewMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  const reviewWindowText = isPast7Days
+    ? '7-Day Review Period Expired'
+    : days > 0
+    ? `${days}d ${hours}h review window remaining`
+    : `${hours}h review window remaining`;
+
+  const activeRejection =
+    order.rejectionRequests?.find((r) => r.status === 'PENDING') ||
+    (order.activeRejectionRequest?.status === 'PENDING' ? order.activeRejectionRequest : null);
+  const latestRejection = order.rejectionRequests?.[0] || order.activeRejectionRequest;
+  const orderDamagedItems = Array.isArray(order.damagedItems)
+    ? order.damagedItems
+    : Array.isArray(order.rejectionRequests?.[0]?.damagedItems)
+    ? (order.rejectionRequests?.[0]?.damagedItems as any[])
+    : [];
 
   return (
     <div
@@ -55,6 +106,34 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
           </div>
         )}
       </div>
+
+      {/* 7-Day Review Window & Approval Status Banner */}
+      {(isDelivered || isRejected) && (
+        <div className="flex flex-wrap items-center justify-between gap-1.5 p-2 bg-amber-50/70 border border-amber-200/80 rounded-lg text-xs">
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span className="font-semibold text-amber-900">{reviewWindowText}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {activeRejection && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                ⏳ Status Change ({activeRejection.fromStatus || order.status} → {activeRejection.toStatus || 'REJECTED'}) Pending Admin Approval
+              </span>
+            )}
+            {!activeRejection && latestRejection?.status === 'REJECTED' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300">
+                Status Change Request Declined by Admin
+              </span>
+            )}
+            {isPast7Days && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 font-medium">
+                <Lock className="w-3 h-3 text-slate-400" />
+                Review Period Closed (7 Days Expired)
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Action Buttons Slot */}
       <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-slate-100">
@@ -102,7 +181,59 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
             </>
           )}
 
-          {((order.damagedItems && order.damagedItems.length > 0) || (order.remarks && order.remarks.toLowerCase().includes('damage'))) && (
+          {/* Delivered Order Transitions: Move to Rejected / Move to Dispatch (Within 7 Days) */}
+          {isDelivered && isWithin7Days && !activeRejection && (isSupervisor || isAdmin) && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<RotateCcw className="w-3.5 h-3.5 text-amber-600" />}
+                onClick={() => onOpenStatusModal(order, 'REJECTED')}
+                className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
+                title="Move delivered order to Rejected (requires Admin approval)"
+              >
+                Move to Rejected
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<Truck className="w-3.5 h-3.5 text-blue-600" />}
+                onClick={() => onOpenStatusModal(order, 'DISPATCHED')}
+                className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold text-blue-800 bg-blue-50 hover:bg-blue-100 border-blue-300"
+                title="Move delivered order back to Dispatch (requires Admin approval)"
+              >
+                Move to Dispatch
+              </Button>
+            </>
+          )}
+
+          {/* Rejected Order Transitions: Move to Delivered / Move to Dispatch (Within 7 Days) */}
+          {isRejected && isWithin7Days && !activeRejection && (isSupervisor || isAdmin) && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<CheckCheck className="w-3.5 h-3.5 text-emerald-600" />}
+                onClick={() => onOpenStatusModal(order, 'DELIVERED')}
+                className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border-emerald-300"
+                title="Move rejected order to Delivered (requires Admin approval)"
+              >
+                Move to Delivered
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<Truck className="w-3.5 h-3.5 text-blue-600" />}
+                onClick={() => onOpenStatusModal(order, 'DISPATCHED')}
+                className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold text-blue-800 bg-blue-50 hover:bg-blue-100 border-blue-300"
+                title="Move rejected order to Dispatch (requires Admin approval)"
+              >
+                Move to Dispatch
+              </Button>
+            </>
+          )}
+
+          {((orderDamagedItems && orderDamagedItems.length > 0) || (order.remarks && order.remarks.toLowerCase().includes('damage'))) && (
             <Button
               variant="secondary"
               size="sm"
@@ -115,21 +246,31 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
           )}
 
           {(order.status === 'DELIVERED' || order.status === 'REJECTED') && (
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={
-                order.remarks && order.remarks.trim() !== '' ? (
-                  <Edit3 className="w-3.5 h-3.5 text-blue-600" />
-                ) : (
-                  <PlusCircle className="w-3.5 h-3.5 text-emerald-600" />
-                )
-              }
-              onClick={() => onOpenRemarkModal(order)}
-              className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300 cursor-pointer h-7"
-            >
-              {order.remarks && order.remarks.trim() !== '' ? 'Edit Remark' : 'Add Remark'}
-            </Button>
+            !(isDelivered && isPast7Days && isSupervisor) ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={
+                  order.remarks && order.remarks.trim() !== '' ? (
+                    <Edit3 className="w-3.5 h-3.5 text-blue-600" />
+                  ) : (
+                    <PlusCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  )
+                }
+                onClick={() => onOpenRemarkModal(order)}
+                className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300 cursor-pointer h-7"
+              >
+                {order.remarks && order.remarks.trim() !== '' ? 'Edit Remark' : 'Add Remark'}
+              </Button>
+            ) : (
+              <span
+                className="text-[10px] text-slate-400 font-medium flex items-center gap-1 px-2 py-1 bg-slate-100 rounded border border-slate-200 cursor-not-allowed h-7"
+                title="Remarks locked after 7 days for delivered orders"
+              >
+                <Lock className="w-3 h-3 text-slate-400" />
+                Remarks Locked
+              </span>
+            )
           )}
         </div>
       </div>

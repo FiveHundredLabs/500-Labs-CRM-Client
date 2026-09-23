@@ -18,7 +18,7 @@ export interface InterestedListProps {
   onEditDeliveryCharge?: (order: Order, customer: Customer) => void;
 }
 
-export const InterestedList: React.FC<InterestedListProps> = ({
+export const InterestedList: React.FC<InterestedListProps> = React.memo(({
   filteredCustomers,
   membersMap,
   ordersMap = {},
@@ -28,6 +28,8 @@ export const InterestedList: React.FC<InterestedListProps> = ({
   onInspectDuplicateOrders,
   onEditDeliveryCharge,
 }) => {
+  const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
+
   if (filteredCustomers.length === 0) {
     return (
       <EmptyState
@@ -41,7 +43,7 @@ export const InterestedList: React.FC<InterestedListProps> = ({
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
       {filteredCustomers.map((customer) => {
         const member = membersMap[customer.responsibleTeamMemberId];
-        const isSelected = selectedIds.includes(customer.id);
+        const isSelected = selectedSet.has(customer.id);
         const formattedDate = format(new Date(customer.createdAt), 'MMM dd');
         const conflictInfo = interestedConflictMap[customer.id];
 
@@ -273,5 +275,5 @@ export const InterestedList: React.FC<InterestedListProps> = ({
       })}
     </div>
   );
-};
+});
 

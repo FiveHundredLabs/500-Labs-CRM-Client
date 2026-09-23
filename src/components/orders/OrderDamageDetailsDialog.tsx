@@ -19,7 +19,11 @@ export const OrderDamageDetailsDialog: React.FC<OrderDamageDetailsDialogProps> =
   const markedDate = order.rejectedAt || order.updatedAt || order.createdAt;
   const formattedDate = format(new Date(markedDate), 'MMM dd, yyyy');
 
-  const damagedItems = order.damagedItems || [];
+  const damagedItems = Array.isArray(order.damagedItems)
+    ? order.damagedItems
+    : Array.isArray(order.rejectionRequests?.[0]?.damagedItems)
+    ? (order.rejectionRequests?.[0]?.damagedItems as any[])
+    : [];
 
   return (
     <Dialog
@@ -80,7 +84,7 @@ export const OrderDamageDetailsDialog: React.FC<OrderDamageDetailsDialogProps> =
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-slate-600 text-xs">
-                        {item.reason || order.remarks || 'Customer return damaged in transit'}
+                        {item.reason || order.remarks || order.rejectionRequests?.[0]?.reason || 'Customer return damaged in transit'}
                       </td>
                     </tr>
                   ))}
@@ -90,10 +94,12 @@ export const OrderDamageDetailsDialog: React.FC<OrderDamageDetailsDialogProps> =
           )}
         </div>
 
-        {order.remarks && order.remarks.trim() !== '' && (
+        {(order.remarks?.trim() || order.rejectionRequests?.[0]?.reason) && (
           <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase">Order Note:</span>
-            <p className="text-slate-700 italic">"{order.remarks}"</p>
+            <span className="text-[10px] font-semibold text-slate-500 uppercase">
+              {order.remarks?.trim() ? 'Order Note:' : 'Rejection Reason:'}
+            </span>
+            <p className="text-slate-700 italic">"{order.remarks?.trim() || order.rejectionRequests?.[0]?.reason}"</p>
           </div>
         )}
 
