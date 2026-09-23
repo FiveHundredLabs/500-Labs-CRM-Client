@@ -193,14 +193,23 @@ export class OrderService {
   ): Promise<number> {
     let count = 0;
     for (const orderId of orderIds) {
+      // Filter items for this specific order, then strip orderId before sending to API
       const orderSpecificDamaged = damagedItems
-        ? damagedItems.filter((d) => !d.orderId || d.orderId === orderId)
+        ? damagedItems
+            .filter((d) => !d.orderId || d.orderId === orderId)
+            .map(({ orderId: _oid, ...rest }) => rest)
         : undefined;
+
+      const orderRemarks =
+        orderSpecificDamaged && orderSpecificDamaged.length > 0 && orderSpecificDamaged[0].reason
+          ? orderSpecificDamaged[0].reason
+          : `Bulk status update to ${newStatus}`;
+
       await this.updateOrderStatus(
         orderId,
         newStatus,
         actor,
-        undefined,
+        orderRemarks,
         orderSpecificDamaged && orderSpecificDamaged.length > 0 ? orderSpecificDamaged : undefined
       );
       count++;
