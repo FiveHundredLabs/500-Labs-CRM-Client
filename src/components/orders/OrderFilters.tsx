@@ -166,7 +166,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
               {selectedCount} Selected
             </div>
 
-            {selectedCount > 0 && (
+            {selectedCount > 0 && statusFilter !== 'DELIVERED' && statusFilter !== 'REJECTED' && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -177,6 +177,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
               </Button>
             )}
           </div>
+
         </div>
       </CardContent>
     </Card>

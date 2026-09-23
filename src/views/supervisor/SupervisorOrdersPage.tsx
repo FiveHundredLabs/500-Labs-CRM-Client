@@ -14,6 +14,7 @@ import { OrderHistoryDialog } from '../../components/orders/OrderHistoryDialog';
 import { OrderPrintConfirmDialog } from '../../components/orders/OrderPrintConfirmDialog';
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { OrderDamageDetailsDialog } from '../../components/orders/OrderDamageDetailsDialog';
+import { OrderRejectionModal } from '../../components/orders/OrderRejectionModal';
 import { useOrders } from '../../hooks/useOrders';
 import { useOrderFilters } from '../../hooks/useOrderFilters';
 import { useSelection } from '../../hooks/useSelection';
@@ -59,6 +60,7 @@ export const SupervisorOrdersPage: React.FC = () => {
     membersMap,
     orderConflictMap,
     loading,
+    loadData,
     updateOrderStatus,
     updateOrderRemark,
     bulkUpdateOrderStatus,
@@ -99,6 +101,7 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const [remarkOrder, setRemarkOrder] = useState<Order | null>(null);
   const [damageDetailsOrder, setDamageDetailsOrder] = useState<Order | null>(null);
+  const [rejectionModalOrder, setRejectionModalOrder] = useState<Order | null>(null);
 
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
@@ -293,6 +296,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         onPrintSlip={handlePrintSlip}
         onInspectDamages={(order) => setDamageDetailsOrder(order)}
         onInspectDuplicateOrders={handleInspectDuplicateOrders}
+        onOpenRejectionModal={(order) => setRejectionModalOrder(order)}
       />
 
       {/* 4. Floating Action Panel */}
@@ -302,16 +306,23 @@ export const SupervisorOrdersPage: React.FC = () => {
         onDownloadPDF={handleDownloadPDF}
         onNativePrint={handleNativePrint}
         extraActions={
-          <button
-            type="button"
-            onClick={() => setIsBulkModalOpen(true)}
-            className="py-1 px-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-amber-400/20 cursor-pointer"
-            title="Bulk Status Change"
-          >
-            <span>Bulk</span>
-          </button>
+          statusFilter !== 'DELIVERED' &&
+          statusFilter !== 'REJECTED' &&
+          !orders.some(
+            (o) => selectedOrderIds.includes(o.id) && (o.status === 'DELIVERED' || o.status === 'REJECTED')
+          ) ? (
+            <button
+              type="button"
+              onClick={() => setIsBulkModalOpen(true)}
+              className="py-1 px-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-amber-400/20 cursor-pointer"
+              title="Bulk Status Change"
+            >
+              <span>Bulk</span>
+            </button>
+          ) : undefined
         }
       />
+
 
       {/* 5. Dialog Modals */}
       <OrderStatusChangeDialog
@@ -320,6 +331,14 @@ export const SupervisorOrdersPage: React.FC = () => {
         customersMap={customersMap}
         onClose={() => setTargetOrder(null)}
         onConfirm={updateOrderStatus}
+        onRejectionSubmitted={loadData}
+      />
+
+      <OrderRejectionModal
+        order={rejectionModalOrder}
+        customer={rejectionModalOrder ? customersMap[rejectionModalOrder.customerId] : undefined}
+        onClose={() => setRejectionModalOrder(null)}
+        onSuccess={loadData}
       />
 
       <OrderRemarkDialog
