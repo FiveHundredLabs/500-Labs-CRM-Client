@@ -1776,7 +1776,7 @@ export const AdminApprovalsPage: React.FC = () => {
                     )}
                     {originStatus === 'REJECTED' && targetStatus === 'DELIVERED' && (
                       <li>
-                        Items from <strong>Current Stock</strong> will be converted to <strong>Sold Stock</strong>.
+                        For incorrectly rejected orders, the rejection will be <strong>fully reversed</strong>: damaged stock and available stock will be deducted and restored to <strong>Sold Stock</strong>.
                       </li>
                     )}
                     {originStatus === 'REJECTED' && targetStatus === 'DISPATCHED' && (
