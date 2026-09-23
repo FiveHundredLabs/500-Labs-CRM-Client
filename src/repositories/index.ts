@@ -41,3 +41,5 @@ export const salesTargetRepository = new ApiSalesTargetRepository();
 export const financeRepository = new ApiFinanceRepository();
 export const supervisorTargetRepository = new ApiSupervisorTargetRepository();
 export { orderRejectionRepository } from './orderRejectionRepository';
+export { cashOnHandRepository } from './cashOnHandRepository';
+

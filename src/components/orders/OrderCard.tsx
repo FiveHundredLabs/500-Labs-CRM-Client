@@ -4,7 +4,7 @@ import { CustomerCard } from '../customer/CustomerCard';
 import { StatusBadge } from '../shared/StatusBadge';
 import { OrderExpandedDetails } from './OrderExpandedDetails';
 import type { DuplicateOrderConflictInfo } from './DuplicateOrderConflictDialog';
-import { ChevronDown, ChevronUp, AlertTriangle, Info, FileText, Mail, Truck, Clock, ShieldAlert } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertTriangle, Info, FileText, Mail, Truck, Clock, ShieldAlert, Banknote, CheckCircle2, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 export interface OrderCardProps {
@@ -80,7 +80,12 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       orderNumber={order.orderNumber}
       badge={
         <div className="flex items-center gap-1 shrink-0">
-          {deliveryMethod === 'ROYAL_COURIER' ? (
+          {deliveryMethod === 'CASH_ON_HAND' || order.isCashOnHand ? (
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <Banknote className="w-2.5 h-2.5 text-emerald-600" />
+              Cash On Hand
+            </span>
+          ) : deliveryMethod === 'ROYAL_COURIER' ? (
             <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
               <Truck className="w-2.5 h-2.5 text-purple-600" />
               Royal
@@ -125,6 +130,28 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               <span className="truncate italic text-slate-700">"{deliveryNote}"</span>
             </div>
           )}
+          {/* Cash on Hand Verification State Banner */}
+          {order.isCashOnHand && order.cashOnHandStatus && (
+            <div
+              className={`p-1.5 rounded-lg flex items-center justify-between text-[10px] sm:text-[11px] font-semibold border ${
+                order.cashOnHandStatus === 'APPROVED'
+                  ? 'bg-emerald-50 text-emerald-950 border-emerald-200'
+                  : order.cashOnHandStatus === 'DECLINED'
+                  ? 'bg-rose-50 text-rose-950 border-rose-200'
+                  : 'bg-amber-50 text-amber-950 border-amber-200'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Banknote className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                <span className="truncate">
+                  {order.cashOnHandStatus === 'APPROVED' && '✓ Cash Handover Verified & Approved by Admin'}
+                  {order.cashOnHandStatus === 'PENDING' && '⏳ Cash Handover Awaiting Admin Verification'}
+                  {order.cashOnHandStatus === 'DECLINED' && '✕ Cash Handover Declined - Order Reverted'}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Active Duplicate Orders Warning Banner - Only shown while order is active, hidden after delivery */}
           {order.status !== 'DELIVERED' && order.status !== 'REJECTED' && conflictInfo?.hasDuplicateActiveOrders && (
             <div
