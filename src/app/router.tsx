@@ -1,60 +1,243 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
-import { LoginPage } from "../views/auth/LoginPage";
-import { PublicParcelSlipPage } from "../views/public/PublicParcelSlipPage";
 import { AppShell } from "../components/navigation/AppShell";
 import { ProtectedRoute } from "../components/navigation/ProtectedRoute";
 import { RoleLanding } from "../components/navigation/RoleLanding";
+import { LoadingState } from "../components/shared/LoadingState";
 
-// Member Views
-import { MemberDashboard } from "../views/member/MemberDashboard";
-import { MemberSalesPage } from "../views/member/MemberSalesPage";
-import { MemberContactsPage } from "../views/member/MemberContactsPage";
-import { MemberFollowUpsPage } from "../views/member/MemberFollowUpsPage";
-import { MemberImportPage } from "../views/member/MemberImportPage";
-import { MemberLeaderboardPage } from "../views/member/MemberLeaderboardPage";
-import { MemberProfilePage } from "../views/member/MemberProfilePage";
+const SuspenseWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Suspense fallback={<LoadingState showHeader={false} showStats={false} />}>
+    {children}
+  </Suspense>
+);
 
-// Supervisor Views
-import { SupervisorDashboard } from "../views/supervisor/SupervisorDashboard";
-import { SupervisorTeamPage } from "../views/supervisor/SupervisorTeamPage";
-import { SupervisorImportPage } from "../views/supervisor/SupervisorImportPage";
-import { SupervisorAllocationPage } from "../views/supervisor/SupervisorAllocationPage";
-import { SupervisorAllocationHistoryPage } from "../views/supervisor/SupervisorAllocationHistoryPage";
-import { SupervisorInterestedPage } from "../views/supervisor/SupervisorInterestedPage";
-import { SupervisorCustomerDetailPage } from "../views/supervisor/SupervisorCustomerDetailPage";
-import { SupervisorOrdersPage } from "../views/supervisor/SupervisorOrdersPage";
-import { SupervisorReportsPage } from "../views/supervisor/SupervisorReportsPage";
-import { SupervisorTeamMembersPage } from "../views/supervisor/SupervisorTeamMembersPage";
-import { SupervisorProfilePage } from "../views/supervisor/SupervisorProfilePage";
-import { SupervisorStockPage } from "../views/supervisor/SupervisorStockPage";
-import { SupervisorCashOnHandPage } from "../views/supervisor/SupervisorCashOnHandPage";
+// Public Views (lazy)
+const LoginPage = lazy(() =>
+  import("../views/auth/LoginPage").then((m) => ({ default: m.LoginPage }))
+);
+const PublicParcelSlipPage = lazy(() =>
+  import("../views/public/PublicParcelSlipPage").then((m) => ({
+    default: m.PublicParcelSlipPage,
+  }))
+);
 
-// Admin Views
-import { AdminDashboard } from "../views/admin/AdminDashboard";
-import { AdminUsersPage } from "../views/admin/AdminUsersPage";
-import { AdminEmployeeDetailPage } from "../views/admin/AdminEmployeeDetailPage";
-import { AdminReportsPage } from "../views/admin/AdminReportsPage";
-import { AdminActivityPage } from "../views/admin/AdminActivityPage";
-import { AdminLeaderboardsPage } from "../views/admin/AdminLeaderboardsPage";
-import { AdminProfilePage } from "../views/admin/AdminProfilePage";
-import { AdminApprovalsPage } from "../views/admin/AdminApprovalsPage";
-import { AdminProductsPage } from "../views/admin/AdminProductsPage";
-import { AdminSalesGoalsPage } from "../views/admin/AdminSalesGoalsPage";
-import { AdminSupervisorGoalsPage } from "../views/admin/AdminSupervisorGoalsPage";
-import { AdminTeamsPage } from "../views/admin/AdminTeamsPage";
+// Member Views (lazy)
+const MemberDashboard = lazy(() =>
+  import("../views/member/MemberDashboard").then((m) => ({
+    default: m.MemberDashboard,
+  }))
+);
+const MemberSalesPage = lazy(() =>
+  import("../views/member/MemberSalesPage").then((m) => ({
+    default: m.MemberSalesPage,
+  }))
+);
+const MemberContactsPage = lazy(() =>
+  import("../views/member/MemberContactsPage").then((m) => ({
+    default: m.MemberContactsPage,
+  }))
+);
+const MemberFollowUpsPage = lazy(() =>
+  import("../views/member/MemberFollowUpsPage").then((m) => ({
+    default: m.MemberFollowUpsPage,
+  }))
+);
+const MemberImportPage = lazy(() =>
+  import("../views/member/MemberImportPage").then((m) => ({
+    default: m.MemberImportPage,
+  }))
+);
+const MemberLeaderboardPage = lazy(() =>
+  import("../views/member/MemberLeaderboardPage").then((m) => ({
+    default: m.MemberLeaderboardPage,
+  }))
+);
+const MemberProfilePage = lazy(() =>
+  import("../views/member/MemberProfilePage").then((m) => ({
+    default: m.MemberProfilePage,
+  }))
+);
 
-// Finance Views
-import { FinanceDashboard } from "../views/finance/FinanceDashboard";
-import { FinanceSalesAnalysisPage } from "../views/finance/FinanceSalesAnalysisPage";
-import { FinancePettyCashPage } from "../views/finance/FinancePettyCashPage";
-import { FinanceExpensesPage } from "../views/finance/FinanceExpensesPage";
-import { FinanceNewExpensePage } from "../views/finance/FinanceNewExpensePage";
-import { FinanceCategoriesPage } from "../views/finance/FinanceCategoriesPage";
-import { FinanceReportsPage } from "../views/finance/FinanceReportsPage";
-import { FinanceProfilePage } from "../views/finance/FinanceProfilePage";
-import { FinanceInventoryPage } from "../views/finance/FinanceInventoryPage";
-import { FinanceExpenseApprovalsPage } from "../views/finance/FinanceExpenseApprovalsPage";
+// Supervisor Views (lazy)
+const SupervisorDashboard = lazy(() =>
+  import("../views/supervisor/SupervisorDashboard").then((m) => ({
+    default: m.SupervisorDashboard,
+  }))
+);
+const SupervisorTeamPage = lazy(() =>
+  import("../views/supervisor/SupervisorTeamPage").then((m) => ({
+    default: m.SupervisorTeamPage,
+  }))
+);
+const SupervisorImportPage = lazy(() =>
+  import("../views/supervisor/SupervisorImportPage").then((m) => ({
+    default: m.SupervisorImportPage,
+  }))
+);
+const SupervisorAllocationPage = lazy(() =>
+  import("../views/supervisor/SupervisorAllocationPage").then((m) => ({
+    default: m.SupervisorAllocationPage,
+  }))
+);
+const SupervisorAllocationHistoryPage = lazy(() =>
+  import("../views/supervisor/SupervisorAllocationHistoryPage").then((m) => ({
+    default: m.SupervisorAllocationHistoryPage,
+  }))
+);
+const SupervisorInterestedPage = lazy(() =>
+  import("../views/supervisor/SupervisorInterestedPage").then((m) => ({
+    default: m.SupervisorInterestedPage,
+  }))
+);
+const SupervisorCustomerDetailPage = lazy(() =>
+  import("../views/supervisor/SupervisorCustomerDetailPage").then((m) => ({
+    default: m.SupervisorCustomerDetailPage,
+  }))
+);
+const SupervisorOrdersPage = lazy(() =>
+  import("../views/supervisor/SupervisorOrdersPage").then((m) => ({
+    default: m.SupervisorOrdersPage,
+  }))
+);
+const SupervisorReportsPage = lazy(() =>
+  import("../views/supervisor/SupervisorReportsPage").then((m) => ({
+    default: m.SupervisorReportsPage,
+  }))
+);
+const SupervisorTeamMembersPage = lazy(() =>
+  import("../views/supervisor/SupervisorTeamMembersPage").then((m) => ({
+    default: m.SupervisorTeamMembersPage,
+  }))
+);
+const SupervisorProfilePage = lazy(() =>
+  import("../views/supervisor/SupervisorProfilePage").then((m) => ({
+    default: m.SupervisorProfilePage,
+  }))
+);
+const SupervisorStockPage = lazy(() =>
+  import("../views/supervisor/SupervisorStockPage").then((m) => ({
+    default: m.SupervisorStockPage,
+  }))
+);
+const SupervisorCashOnHandPage = lazy(() =>
+  import("../views/supervisor/SupervisorCashOnHandPage").then((m) => ({
+    default: m.SupervisorCashOnHandPage,
+  }))
+);
+
+// Admin Views (lazy)
+const AdminDashboard = lazy(() =>
+  import("../views/admin/AdminDashboard").then((m) => ({
+    default: m.AdminDashboard,
+  }))
+);
+const AdminUsersPage = lazy(() =>
+  import("../views/admin/AdminUsersPage").then((m) => ({
+    default: m.AdminUsersPage,
+  }))
+);
+const AdminEmployeeDetailPage = lazy(() =>
+  import("../views/admin/AdminEmployeeDetailPage").then((m) => ({
+    default: m.AdminEmployeeDetailPage,
+  }))
+);
+const AdminReportsPage = lazy(() =>
+  import("../views/admin/AdminReportsPage").then((m) => ({
+    default: m.AdminReportsPage,
+  }))
+);
+const AdminActivityPage = lazy(() =>
+  import("../views/admin/AdminActivityPage").then((m) => ({
+    default: m.AdminActivityPage,
+  }))
+);
+const AdminLeaderboardsPage = lazy(() =>
+  import("../views/admin/AdminLeaderboardsPage").then((m) => ({
+    default: m.AdminLeaderboardsPage,
+  }))
+);
+const AdminProfilePage = lazy(() =>
+  import("../views/admin/AdminProfilePage").then((m) => ({
+    default: m.AdminProfilePage,
+  }))
+);
+const AdminApprovalsPage = lazy(() =>
+  import("../views/admin/AdminApprovalsPage").then((m) => ({
+    default: m.AdminApprovalsPage,
+  }))
+);
+const AdminProductsPage = lazy(() =>
+  import("../views/admin/AdminProductsPage").then((m) => ({
+    default: m.AdminProductsPage,
+  }))
+);
+const AdminSalesGoalsPage = lazy(() =>
+  import("../views/admin/AdminSalesGoalsPage").then((m) => ({
+    default: m.AdminSalesGoalsPage,
+  }))
+);
+const AdminSupervisorGoalsPage = lazy(() =>
+  import("../views/admin/AdminSupervisorGoalsPage").then((m) => ({
+    default: m.AdminSupervisorGoalsPage,
+  }))
+);
+const AdminTeamsPage = lazy(() =>
+  import("../views/admin/AdminTeamsPage").then((m) => ({
+    default: m.AdminTeamsPage,
+  }))
+);
+
+// Finance Views (lazy)
+const FinanceDashboard = lazy(() =>
+  import("../views/finance/FinanceDashboard").then((m) => ({
+    default: m.FinanceDashboard,
+  }))
+);
+const FinanceSalesAnalysisPage = lazy(() =>
+  import("../views/finance/FinanceSalesAnalysisPage").then((m) => ({
+    default: m.FinanceSalesAnalysisPage,
+  }))
+);
+const FinancePettyCashPage = lazy(() =>
+  import("../views/finance/FinancePettyCashPage").then((m) => ({
+    default: m.FinancePettyCashPage,
+  }))
+);
+const FinanceExpensesPage = lazy(() =>
+  import("../views/finance/FinanceExpensesPage").then((m) => ({
+    default: m.FinanceExpensesPage,
+  }))
+);
+const FinanceNewExpensePage = lazy(() =>
+  import("../views/finance/FinanceNewExpensePage").then((m) => ({
+    default: m.FinanceNewExpensePage,
+  }))
+);
+const FinanceCategoriesPage = lazy(() =>
+  import("../views/finance/FinanceCategoriesPage").then((m) => ({
+    default: m.FinanceCategoriesPage,
+  }))
+);
+const FinanceReportsPage = lazy(() =>
+  import("../views/finance/FinanceReportsPage").then((m) => ({
+    default: m.FinanceReportsPage,
+  }))
+);
+const FinanceProfilePage = lazy(() =>
+  import("../views/finance/FinanceProfilePage").then((m) => ({
+    default: m.FinanceProfilePage,
+  }))
+);
+const FinanceInventoryPage = lazy(() =>
+  import("../views/finance/FinanceInventoryPage").then((m) => ({
+    default: m.FinanceInventoryPage,
+  }))
+);
+const FinanceExpenseApprovalsPage = lazy(() =>
+  import("../views/finance/FinanceExpenseApprovalsPage").then((m) => ({
+    default: m.FinanceExpenseApprovalsPage,
+  }))
+);
 
 export const router = createBrowserRouter([
   {
@@ -62,11 +245,19 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/login",
-        element: <LoginPage />,
+        element: (
+          <SuspenseWrapper>
+            <LoginPage />
+          </SuspenseWrapper>
+        ),
       },
       {
         path: "/parcel/:token",
-        element: <PublicParcelSlipPage />,
+        element: (
+          <SuspenseWrapper>
+            <PublicParcelSlipPage />
+          </SuspenseWrapper>
+        ),
       },
       {
         path: "/",
