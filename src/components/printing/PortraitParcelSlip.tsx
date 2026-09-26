@@ -55,58 +55,94 @@ const formatItemName = (
   return trimmed;
 };
 
+export interface SlipPackageRow {
+  name: string;
+  priceFormatted: string;
+}
+
 /**
- * Return ALL item lines.
+ * Return ALL package rows with their formatted prices.
  *
  * Important:
  * Do not slice the list and do not replace additional products
  * with "+ X more items".
  */
-const summarizeSlipItems = (
+const resolveSlipPackages = (
   items: ParcelSlipItem[] | undefined,
   fallbackDescription: string,
-  teamCode?: string,
-  teamName?: string,
-): string[] => {
+  teamCode: string | undefined,
+  teamName: string | undefined,
+  productSalesValue: number | string | null | undefined,
+  totalAmount: number | string,
+  deliveryCharge: number,
+): SlipPackageRow[] => {
   if (items && items.length > 0) {
     return items.map((item) => {
-      const name = formatItemName(
+      const formattedName = formatItemName(
         item.productName,
         teamCode,
         teamName,
       );
+      const name =
+        item.quantity > 1
+          ? `${formattedName} × ${item.quantity}`
+          : `${formattedName} × 1`;
 
-      return `${name} × ${item.quantity}`;
+      let price = 0;
+      if (item.price !== undefined && item.price !== null) {
+        price = Number(item.price);
+      } else if (item.subtotal !== undefined && item.subtotal !== null) {
+        price = Number(item.subtotal);
+      } else if (item.unitPrice !== undefined && item.unitPrice !== null) {
+        price = Number(item.unitPrice) * (Number(item.quantity) || 1);
+      } else if (items.length === 1) {
+        price = Number(
+          productSalesValue ??
+            Math.max(0, Number(totalAmount) - deliveryCharge),
+        );
+      }
+
+      if (!Number.isFinite(price) || isNaN(price)) {
+        price = 0;
+      }
+
+      return {
+        name,
+        priceFormatted: formatCurrency(price),
+      };
     });
   }
 
   const fallback = fallbackDescription?.trim() || 'Package';
+  const name = formatItemName(fallback, teamCode, teamName);
+  let price = Number(
+    productSalesValue ??
+      Math.max(0, Number(totalAmount) - deliveryCharge),
+  );
+  if (!Number.isFinite(price) || isNaN(price)) {
+    price = 0;
+  }
 
   return [
-    formatItemName(
-      fallback,
-      teamCode,
-      teamName,
-    ),
+    {
+      name,
+      priceFormatted: formatCurrency(price),
+    },
   ];
 };
 
-const getSlipPaymentLabel = (data: ParcelSlipData): string => {
-  if (data.paymentMethod && data.paymentMethod.trim()) {
-    return data.paymentMethod.trim().toUpperCase();
+const isCashOnHandSlip = (data: ParcelSlipData): boolean => {
+  if (data.isCashOnHand === true) return true;
+  if (data.deliveryMethod === 'CASH_ON_HAND') return true;
+  const pm = (data.paymentMethod || '').trim().toUpperCase();
+  if (pm === 'CASH_ON_HAND' || pm === 'CASH ON HAND') return true;
+  if (
+    Number(data.deliveryCharge ?? data.codCharge ?? 0) === 0 &&
+    Number(data.codAmount ?? 0) === 0
+  ) {
+    return true;
   }
-
-  return 'COD';
-};
-
-const isCodPayment = (data: ParcelSlipData): boolean => {
-  const label = getSlipPaymentLabel(data);
-
-  return (
-    label === 'COD' ||
-    label.includes('COD') ||
-    label.includes('COLLECT')
-  );
+  return false;
 };
 
 export const SlipSectionHeader: React.FC<{
@@ -196,19 +232,31 @@ export const PortraitParcelSlip: React.FC<
     };
   }, [qrImageDataUrl, qrValue]);
 
-  const itemLines = summarizeSlipItems(
+  const isCashOnHand = isCashOnHandSlip(data);
+  const deliveryCharge = isCashOnHand
+    ? 0
+    : Math.max(0, Number(data.deliveryCharge ?? data.codCharge ?? 0));
+  const finalCodAmount = isCashOnHand
+    ? 0
+    : Math.max(
+        0,
+        Number(data.codAmount ?? data.amountToCollect ?? data.totalAmount ?? 0),
+      );
+
+  const packageRows = resolveSlipPackages(
     data.items,
     data.itemsDescription,
     data.team.code,
     data.team.name,
+    data.productSalesValue,
+    data.totalAmount,
+    deliveryCharge,
   );
 
-  const paymentMethodLabel = getSlipPaymentLabel(data);
-  const isCod = isCodPayment(data);
+  const deliveryChargeFormatted = formatCurrency(deliveryCharge);
+  const codAmountFormatted = formatCurrency(finalCodAmount);
 
-  const codAmount = formatCurrency(
-    data.codAmount ?? data.totalAmount,
-  );
+  const isCod = !isCashOnHand && finalCodAmount > 0;
 
   const contactCode =
     data.contactCode ||
@@ -253,30 +301,30 @@ export const PortraitParcelSlip: React.FC<
    * text/gap for larger orders gives the sender area more room
    * while remaining readable when printed.
    */
-  const itemCount = itemLines.length;
+  const rowCount = packageRows.length + 1;
 
   const itemFontSize =
-    itemCount >= 8
+    rowCount >= 8
       ? '6.5pt'
-      : itemCount >= 6
+      : rowCount >= 6
         ? '7pt'
-        : itemCount >= 4
+        : rowCount >= 4
           ? '7.5pt'
           : '8pt';
 
   const itemLineHeight =
-    itemCount >= 8
+    rowCount >= 8
       ? 1.1
-      : itemCount >= 5
+      : rowCount >= 5
         ? 1.15
         : 1.2;
 
   const itemGap =
-    itemCount >= 8
-      ? '0.7mm'
-      : itemCount >= 6
-        ? '1mm'
-        : '1.5mm';
+    rowCount >= 8
+      ? '0.6mm'
+      : rowCount >= 6
+        ? '0.8mm'
+        : '1.2mm';
 
   return (
     <article
@@ -724,88 +772,126 @@ export const PortraitParcelSlip: React.FC<
             flexShrink: 0,
           }}
         >
-          {itemLines.map((line, idx) => (
+          {packageRows.map((pkg, idx) => (
             <div
-              key={`${line}-${idx}`}
+              key={`${pkg.name}-${idx}`}
               style={{
                 width: '100%',
-
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                gap: '2mm',
                 fontSize: itemFontSize,
                 fontWeight: 600,
                 lineHeight: itemLineHeight,
-
-                whiteSpace: 'normal',
-
-                overflowWrap: 'anywhere',
-                wordBreak: 'normal',
-
                 boxSizing: 'border-box',
               }}
             >
-              {line}
+              <span
+                style={{
+                  minWidth: 0,
+                  whiteSpace: 'normal',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'normal',
+                }}
+              >
+                {pkg.name}
+              </span>
+              <span
+                style={{
+                  flexShrink: 0,
+                  fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums',
+                  textAlign: 'right',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {pkg.priceFormatted}
+              </span>
             </div>
           ))}
+
+          {/* Delivery Charge Row */}
+          <div
+            className="delivery-charge-row"
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              gap: '2mm',
+              fontSize: itemFontSize,
+              fontWeight: 700,
+              lineHeight: itemLineHeight,
+              boxSizing: 'border-box',
+            }}
+          >
+            <span
+              style={{
+                minWidth: 0,
+                whiteSpace: 'nowrap',
+                textTransform: 'uppercase',
+                letterSpacing: '0.02em',
+              }}
+            >
+              Delivery Charge
+            </span>
+            <span
+              style={{
+                flexShrink: 0,
+                fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums',
+                textAlign: 'right',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {deliveryChargeFormatted}
+            </span>
+          </div>
         </div>
 
-        {/* Payment Box */}
+        {/* Large/Final COD Amount Box */}
         <div
           className="payment-box"
           style={{
             height: '9mm',
             minHeight: '9mm',
-
-            /*
-             * Payment box always follows the final item.
-             */
-            marginTop: '3mm',
-
-            border: '0.3mm solid #000000',
-
+            marginTop: '2.5mm',
+            border: '0.35mm solid #000000',
             display: 'flex',
-
             alignItems: 'center',
             justifyContent: 'space-between',
-
             padding: '0 2.5mm',
-
             boxSizing: 'border-box',
-
             backgroundColor: '#ffffff',
-
             flexShrink: 0,
-
             printColorAdjust: 'exact',
             WebkitPrintColorAdjust: 'exact',
           }}
         >
           <span
             style={{
-              fontSize: '12pt',
+              fontSize: '11pt',
               fontWeight: 800,
               lineHeight: 1,
-
               textTransform: 'uppercase',
-
               letterSpacing: '0.04em',
-
               whiteSpace: 'nowrap',
             }}
           >
-            {paymentMethodLabel}
+            COD Amount
           </span>
-
           <span
             style={{
               fontSize: '14pt',
               fontWeight: 900,
               lineHeight: 1,
-
               whiteSpace: 'nowrap',
-
               textAlign: 'right',
+              fontVariantNumeric: 'tabular-nums',
             }}
           >
-            {codAmount}
+            {codAmountFormatted}
           </span>
         </div>
       </div>
@@ -1000,7 +1086,7 @@ export const PortraitParcelSlip: React.FC<
           ORDER REF: {data.orderNumber}
         </span>
 
-        {isCod && (
+        {isCod ? (
           <span
             style={{
               letterSpacing: '0.02em',
@@ -1009,7 +1095,16 @@ export const PortraitParcelSlip: React.FC<
           >
             COLLECT COD ON DELIVERY
           </span>
-        )}
+        ) : isCashOnHand ? (
+          <span
+            style={{
+              letterSpacing: '0.02em',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            CASH ON HAND
+          </span>
+        ) : null}
       </footer>
     </article>
   );
