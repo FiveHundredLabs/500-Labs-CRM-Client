@@ -171,6 +171,7 @@ export interface IUserRepository {
   getByEmail(email: string): Promise<User | null>;
   getByRole(role: UserRole): Promise<User[]>;
   getByTeamId(teamId: string): Promise<User[]>;
+  getLeaderboard(teamId?: string): Promise<LeaderboardUser[]>;
   getBySupervisorId(supervisorId: string): Promise<User[]>;
   create(user: Omit<User, 'id' | 'createdAt'>): Promise<User>;
   update(id: string, updates: Partial<User>): Promise<User>;
@@ -266,6 +267,7 @@ export interface IActivityLogRepository {
   getAll(): Promise<ActivityLog[]>;
   getByUserId(userId: string): Promise<ActivityLog[]>;
   getRecentWithinMonth(userId?: string): Promise<ActivityLog[]>;
+  getMyRecentWithinMonth(): Promise<ActivityLog[]>;
   getByEntity(entityType: string, entityId: string): Promise<ActivityLog[]>;
   create(log: ActivityLogWritePayload): Promise<ActivityLog>;
 }
@@ -402,7 +404,13 @@ export interface AdminDashboardSummary {
     }>;
   }>;
   recentActivities: ActivityLog[];
-  pendingApprovals: any[];
+  pendingApprovals?: ApprovalRequest[];
+}
+
+export interface LeaderboardUser extends User {
+  deliveredSalesAmount: number;
+  deliveredOrdersCount: number;
+  totalOrdersCount: number;
 }
 
 export interface SupervisorDashboardSummary {

@@ -27,7 +27,7 @@ export const MemberProfilePage: React.FC = () => {
     if (user) {
       setFullName(user.fullName || '');
       setAvatarUrl(user.avatarUrl || '');
-      activityLogRepository.getByUserId(user.id).then(setActivities);
+      activityLogRepository.getMyRecentWithinMonth().then(setActivities);
     }
   }, [user]);
 
