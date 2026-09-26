@@ -95,6 +95,7 @@ export interface IContactRepository {
   createMany(contacts: Array<Omit<Contact, 'id' | 'updatedAt'>>): Promise<Contact[]>;
   addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string; code?: string }): Promise<Contact>;
   checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult>;
+  checkDuplicatesBatch(data: { phones: string[]; memberId?: string; teamId?: string }): Promise<Record<string, DuplicatePhoneCheckResult>>;
   update(id: string, updates: Partial<Contact>): Promise<Contact>;
   updateManyStatus(ids: string[], status: ContactStatus): Promise<void>;
 }

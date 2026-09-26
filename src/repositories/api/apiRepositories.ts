@@ -249,6 +249,9 @@ export class ApiContactRepository implements IContactRepository {
   async checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult> {
     return unwrap(await apiClient.post<{ data: DuplicatePhoneCheckResult }>('/contacts/check-duplicate', data));
   }
+  async checkDuplicatesBatch(data: { phones: string[]; memberId?: string; teamId?: string }): Promise<Record<string, DuplicatePhoneCheckResult>> {
+    return unwrap(await apiClient.post<{ data: Record<string, DuplicatePhoneCheckResult> }>('/contacts/check-duplicates', data));
+  }
   async update(id: string, updates: Partial<Contact>): Promise<Contact> {
     const payload: any = { ...updates };
     delete payload.id;

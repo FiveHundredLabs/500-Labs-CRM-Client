@@ -136,6 +136,7 @@ export interface DuplicatePhoneIntelligence {
   lastCalledAt?: string | null;
   lastCallStatus?: ContactStatus | string | null;
   lastCallRemarks?: string | null;
+  notes?: string | null;
   lastCustomerName?: string | null;
   deliveryAddress?: string | null;
   city?: string | null;
