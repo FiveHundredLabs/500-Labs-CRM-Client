@@ -27,11 +27,6 @@ export class LeadService {
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         const targetOrder = sorted.find((o) => o.status === 'PREPARED') || sorted[0];
-        if (targetOrder.cashOnHandStatus === 'PENDING') {
-          // Cash On Hand is pending Admin approval. Printing/downloading the slip is permitted,
-          // while order status remains PREPARED awaiting Admin decision (Delivered vs Dispatched).
-          continue;
-        }
         if (targetOrder.status !== 'DISPATCHED' && targetOrder.status !== 'DELIVERED') {
           await OrderService.updateOrderStatus(targetOrder.id, 'DISPATCHED', actor, 'Dispatched via Interested Leads billing print');
         }
