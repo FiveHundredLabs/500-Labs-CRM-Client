@@ -79,6 +79,7 @@ export const AdminApprovalsPage: React.FC = () => {
   // Cash on Hand Modals State
   const [viewingCashHandover, setViewingCashHandover] = useState<CashOnHandHandover | null>(null);
   const [approvingCashHandover, setApprovingCashHandover] = useState<CashOnHandHandover | null>(null);
+  const [cashApproveOutcome, setCashApproveOutcome] = useState<'DELIVERED' | 'DISPATCHED' | ''>('');
   const [cashApproveNotes, setCashApproveNotes] = useState('');
   const [decliningCashHandover, setDecliningCashHandover] = useState<CashOnHandHandover | null>(null);
   const [cashDeclineNotes, setCashDeclineNotes] = useState('');
@@ -302,34 +303,45 @@ export const AdminApprovalsPage: React.FC = () => {
 
   const handleConfirmApproveCashHandover = async () => {
     if (!approvingCashHandover || !user) return;
+    if (!cashApproveOutcome) {
+      toast.error('Please choose an outcome: Mark Delivered or Keep Dispatched');
+      return;
+    }
     setIsSubmittingCashReview(true);
     try {
       await cashOnHandRepository.reviewHandover(approvingCashHandover.id, {
         status: 'APPROVED',
+        adminOutcome: cashApproveOutcome,
         adminNotes: cashApproveNotes.trim() || undefined,
       });
+
+      const action =
+        cashApproveOutcome === 'DELIVERED'
+          ? 'CASH_ON_HAND_APPROVED_DELIVERED'
+          : 'CASH_ON_HAND_APPROVED_DISPATCHED';
 
       await ActivityLogService.logAction({
         userId: user.id,
         userRole: user.role,
         userName: user.fullName,
-        action: 'CASH_ON_HAND_APPROVED',
+        action: action as any,
         entityType: 'CashOnHandHandover',
         entityId: approvingCashHandover.id,
-        description: `Verified and approved Cash on Hand handover for order #${approvingCashHandover.orderNumber}. Physical cash received: ${formatCurrency(Number(approvingCashHandover.amountCollected))}.`,
+        description: `Approved Cash on Hand request for order #${approvingCashHandover.orderNumber} with outcome ${cashApproveOutcome}. COD set to 0.`,
       });
 
       toast.success(
-        `Approved Cash on Hand handover for Order #${approvingCashHandover.orderNumber}. Physical cash receipt of ${formatCurrency(Number(approvingCashHandover.amountCollected))} verified.`,
+        `Approved Cash on Hand for Order #${approvingCashHandover.orderNumber} (${cashApproveOutcome}).`,
       );
       setApprovingCashHandover(null);
+      setCashApproveOutcome('');
       setCashApproveNotes('');
       if (viewingCashHandover?.id === approvingCashHandover.id) {
         setViewingCashHandover(null);
       }
       loadData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to approve Cash on Hand handover.');
+      toast.error(err.response?.data?.message || err.message || 'Failed to approve Cash on Hand request.');
     } finally {
       setIsSubmittingCashReview(false);
     }
@@ -347,6 +359,7 @@ export const AdminApprovalsPage: React.FC = () => {
     try {
       await cashOnHandRepository.reviewHandover(decliningCashHandover.id, {
         status: 'DECLINED',
+        rejectionReason: cashDeclineNotes.trim(),
         adminNotes: cashDeclineNotes.trim(),
       });
 
@@ -357,11 +370,11 @@ export const AdminApprovalsPage: React.FC = () => {
         action: 'CASH_ON_HAND_DECLINED',
         entityType: 'CashOnHandHandover',
         entityId: decliningCashHandover.id,
-        description: `Declined Cash on Hand handover for order #${decliningCashHandover.orderNumber}. Reverted to Interested stage. Reason: ${cashDeclineNotes}`,
+        description: `Declined Cash on Hand request for order #${decliningCashHandover.orderNumber}. Reverted to normal COD. Reason: ${cashDeclineNotes.trim()}`,
       });
 
       toast.success(
-        `Declined Cash on Hand handover for Order #${decliningCashHandover.orderNumber}. Order automatically reverted to Interested stage (PREPARED) and inventory restored.`,
+        `Declined Cash on Hand request for Order #${decliningCashHandover.orderNumber}. Order remains in Prepared state with normal COD.`,
         { duration: 5000 },
       );
       setDecliningCashHandover(null);
@@ -371,7 +384,7 @@ export const AdminApprovalsPage: React.FC = () => {
       }
       loadData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to decline Cash on Hand handover.');
+      toast.error(err.response?.data?.message || err.message || 'Failed to decline Cash on Hand request.');
     } finally {
       setIsSubmittingCashReview(false);
     }
@@ -1002,12 +1015,12 @@ export const AdminApprovalsPage: React.FC = () => {
                   <tr>
                     <th className="px-4 py-3">Date</th>
                     <th className="px-4 py-3">Order #</th>
-                    <th className="px-4 py-3">Supervisor</th>
+                    <th className="px-4 py-3">Requester & Team</th>
                     <th className="px-4 py-3">Customer</th>
-                    <th className="px-4 py-3">Outcome</th>
+                    <th className="px-4 py-3">Packages</th>
                     <th className="px-4 py-3 text-right">Delivery Fee</th>
-                    <th className="px-4 py-3 text-right font-bold text-emerald-950">Cash Collected</th>
-                    <th className="px-4 py-3">Verification Status</th>
+                    <th className="px-4 py-3 text-right font-bold text-slate-900">Current COD</th>
+                    <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -1015,11 +1028,12 @@ export const AdminApprovalsPage: React.FC = () => {
                   {filteredCashHandovers.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="text-center py-10 text-slate-400">
-                        No Cash on Hand handover records found matching filter "{cashStatusFilter}".
+                        No Cash on Hand approval records found matching filter "{cashStatusFilter}".
                       </td>
                     </tr>
                   ) : (
                     filteredCashHandovers.map((h) => {
+                      const codAmount = Number(h.amountCollected || (Number(h.productValue) + Number(h.deliveryCharge)));
                       return (
                         <tr key={h.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="px-4 py-3.5 text-slate-500 whitespace-nowrap">
@@ -1033,7 +1047,7 @@ export const AdminApprovalsPage: React.FC = () => {
                               {h.supervisorName}
                             </span>
                             {h.team && (
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-[10px] text-slate-500">
                                 {h.team.name}
                               </span>
                             )}
@@ -1042,45 +1056,60 @@ export const AdminApprovalsPage: React.FC = () => {
                             <span className="font-semibold text-slate-900 block">
                               {h.customerName}
                             </span>
-                            <span className="text-slate-400 text-[11px]">{h.customerPhone}</span>
+                            <span className="text-slate-400 text-[11px] block">{h.customerPhone}</span>
+                            {h.order?.customer?.address && (
+                              <span className="text-slate-400 text-[10px] block truncate max-w-[180px]">{h.order.customer.address}</span>
+                            )}
                           </td>
-                          <td className="px-4 py-3.5 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                                h.outcomeStatus === 'DELIVERED'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
-                              }`}
-                            >
-                              {h.outcomeStatus === 'DELIVERED' ? (
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              ) : (
-                                <XCircle className="w-3 h-3 text-rose-600" />
-                              )}
-                              {h.outcomeStatus}
-                            </span>
+                          <td className="px-4 py-3.5 max-w-[200px]">
+                            {h.order?.items && h.order.items.length > 0 ? (
+                              <div className="space-y-0.5">
+                                {h.order.items.map((it, idx) => (
+                                  <div key={it.id || idx} className="text-[11px] text-slate-700 truncate">
+                                    {it.productName} <span className="text-slate-400 font-mono">×{it.quantity}</span>
+                                  </div>
+                                ))}
+                                <span className="text-[10px] font-mono text-slate-500 block">
+                                  Total: {formatCurrency(Number(h.productValue))}
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="text-slate-800 font-medium block truncate">
+                                  {h.order?.itemsDescription || 'Package'}
+                                </span>
+                                <span className="text-[10px] font-mono text-slate-500 block">
+                                  Total: {formatCurrency(Number(h.productValue))}
+                                </span>
+                              </div>
+                            )}
+                            {h.requestNotes && (
+                              <span className="text-[10px] italic text-amber-800 bg-amber-50 rounded px-1 py-0.2 mt-1 block truncate" title={h.requestNotes}>
+                                Note: "{h.requestNotes}"
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3.5 text-right font-medium text-slate-600 whitespace-nowrap">
                             {formatCurrency(Number(h.deliveryCharge))}
                           </td>
-                          <td className="px-4 py-3.5 text-right font-black text-emerald-700 text-sm whitespace-nowrap">
-                            {formatCurrency(Number(h.amountCollected))}
+                          <td className="px-4 py-3.5 text-right font-bold text-slate-900 text-sm whitespace-nowrap">
+                            {formatCurrency(codAmount)}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap">
                             {h.status === 'APPROVED' ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                Verified &amp; Received
+                                Approved {h.outcomeStatus ? `(${h.outcomeStatus})` : ''}
                               </span>
                             ) : h.status === 'DECLINED' ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
                                 <XCircle className="w-3 h-3 text-rose-600" />
-                                Declined (Reverted)
+                                Declined
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                                 <Clock className="w-3 h-3 text-amber-600" />
-                                Pending Receipt
+                                Pending Admin Approval
                               </span>
                             )}
                           </td>
@@ -1090,20 +1119,27 @@ export const AdminApprovalsPage: React.FC = () => {
                                 <>
                                   <Button
                                     size="sm"
-                                    onClick={() => setApprovingCashHandover(h)}
+                                    onClick={() => {
+                                      setApprovingCashHandover(h);
+                                      setCashApproveOutcome('');
+                                      setCashApproveNotes('');
+                                    }}
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1 h-auto flex items-center gap-1 cursor-pointer"
                                   >
                                     <Check className="w-3.5 h-3.5" />
-                                    Confirm Received
+                                    Approve
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => setDecliningCashHandover(h)}
+                                    onClick={() => {
+                                      setDecliningCashHandover(h);
+                                      setCashDeclineNotes('');
+                                    }}
                                     className="border-rose-300 text-rose-700 hover:bg-rose-50 text-[11px] font-bold px-2.5 py-1 h-auto flex items-center gap-1 cursor-pointer"
                                   >
                                     <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                                    Decline
+                                    Reject
                                   </Button>
                                 </>
                               )}
@@ -1112,7 +1148,7 @@ export const AdminApprovalsPage: React.FC = () => {
                                 variant="outline"
                                 onClick={() => setViewingCashHandover(h)}
                                 className="text-slate-600 hover:text-slate-900 px-2 py-1 h-auto cursor-pointer"
-                                title="View Handover Details"
+                                title="View Details"
                               >
                                 <Eye className="w-3.5 h-3.5" />
                               </Button>
@@ -1874,60 +1910,122 @@ export const AdminApprovalsPage: React.FC = () => {
         </form>
       </Dialog>
 
-      {/* Dialog for Approving Cash on Hand Handover */}
+      {/* Dialog for Approving Cash on Hand Request */}
       <Dialog
         isOpen={!!approvingCashHandover}
         onClose={() => !isSubmittingCashReview && setApprovingCashHandover(null)}
-        title="Confirm Cash Received & Approve Handover"
-        description={`Confirm physical receipt of cash collected by supervisor for Order #${approvingCashHandover?.orderNumber}`}
+        title="Approve Cash On Hand Request"
+        description={`Order #${approvingCashHandover?.orderNumber} • ${approvingCashHandover?.customerName}`}
       >
         {approvingCashHandover && (
           <div className="space-y-4">
-            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 text-xs">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-600">Order Number:</span>
-                <span className="font-bold text-slate-900">#{approvingCashHandover.orderNumber}</span>
+                <span className="text-slate-500">Order Number:</span>
+                <span className="font-bold text-slate-900 font-mono">#{approvingCashHandover.orderNumber}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Supervisor:</span>
-                <span className="font-bold text-slate-900">{approvingCashHandover.supervisorName}</span>
+                <span className="text-slate-500">Requester:</span>
+                <span className="font-semibold text-slate-800">{approvingCashHandover.supervisorName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Customer:</span>
-                <span className="font-bold text-slate-900">
+                <span className="text-slate-500">Customer:</span>
+                <span className="font-medium text-slate-900">
                   {approvingCashHandover.customerName} ({approvingCashHandover.customerPhone})
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Outcome Status:</span>
-                <span className="font-bold text-emerald-800">{approvingCashHandover.outcomeStatus}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Product Value:</span>
-                <span className="font-medium text-slate-800">
+                <span className="text-slate-500">Package Total:</span>
+                <span className="font-mono text-slate-800">
                   {formatCurrency(Number(approvingCashHandover.productValue))}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Delivery Charge:</span>
-                <span className="font-medium text-slate-800">
+                <span className="text-slate-500">Delivery Charge:</span>
+                <span className="font-mono text-slate-800">
                   {formatCurrency(Number(approvingCashHandover.deliveryCharge))}
                 </span>
               </div>
-              <div className="pt-2 border-t border-emerald-200 flex justify-between items-center">
-                <span className="font-bold text-emerald-950 text-sm">Physical Cash to Receive:</span>
-                <span className="font-black text-emerald-950 text-xl">
-                  {formatCurrency(Number(approvingCashHandover.amountCollected))}
+              <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
+                <span className="font-bold text-slate-900">Approved COD to Customer:</span>
+                <span className="font-bold text-emerald-700 text-sm">
+                  LKR 0.00 (Cash on Hand)
                 </span>
+              </div>
+              {approvingCashHandover.requestNotes && (
+                <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-amber-900 bg-amber-50/70 p-2 rounded">
+                  <span className="font-bold block">Requester Note:</span>
+                  "{approvingCashHandover.requestNotes}"
+                </div>
+              )}
+            </div>
+
+            {/* Outcome Selection (Mandatory) */}
+            <div className="space-y-2 border border-slate-200 rounded-xl p-3 bg-slate-50/60">
+              <label className="block text-xs font-bold text-slate-800">
+                Select Order Outcome <span className="text-rose-600">*</span>
+              </label>
+              <div className="space-y-2">
+                <label
+                  className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition ${
+                    cashApproveOutcome === 'DELIVERED'
+                      ? 'bg-emerald-50 border-emerald-400 ring-1 ring-emerald-400'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="cohOutcome"
+                    value="DELIVERED"
+                    checked={cashApproveOutcome === 'DELIVERED'}
+                    onChange={() => setCashApproveOutcome('DELIVERED')}
+                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Mark Delivered</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Order transitions to <strong>DELIVERED</strong>. Allocated stock moves to <strong>Sold Stock</strong>. COD is set to 0.
+                    </p>
+                  </div>
+                </label>
+
+                <label
+                  className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition ${
+                    cashApproveOutcome === 'DISPATCHED'
+                      ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="cohOutcome"
+                    value="DISPATCHED"
+                    checked={cashApproveOutcome === 'DISPATCHED'}
+                    onChange={() => setCashApproveOutcome('DISPATCHED')}
+                    className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Keep Dispatched</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Order transitions to <strong>DISPATCHED</strong>. Allocated stock moves to <strong>Dispatched Stock</strong>. COD is set to 0. Enters courier workflow.
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Optional Admin Notes / Verification Remarks
+                Optional Admin Notes
               </label>
               <Input
-                placeholder="e.g. Received exact cash from supervisor at Colombo office."
+                placeholder="e.g. Handover approved by Admin; verified collection."
                 value={cashApproveNotes}
                 onChange={(e) => setCashApproveNotes(e.target.value)}
               />
@@ -1946,44 +2044,43 @@ export const AdminApprovalsPage: React.FC = () => {
                 type="button"
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
                 onClick={handleConfirmApproveCashHandover}
+                disabled={!cashApproveOutcome || isSubmittingCashReview}
                 isLoading={isSubmittingCashReview}
               >
-                Confirm Receipt &amp; Approve
+                Confirm &amp; Approve
               </Button>
             </div>
           </div>
         )}
       </Dialog>
 
-      {/* Dialog for Declining Cash on Hand Handover */}
+      {/* Dialog for Declining Cash on Hand Request */}
       <Dialog
         isOpen={!!decliningCashHandover}
         onClose={() => !isSubmittingCashReview && setDecliningCashHandover(null)}
-        title="Decline Cash on Hand Handover"
-        description={`Decline handover for Order #${decliningCashHandover?.orderNumber}`}
+        title="Reject Cash On Hand Request"
+        description={`Reject Cash On Hand request for Order #${decliningCashHandover?.orderNumber}`}
       >
         {decliningCashHandover && (
           <form onSubmit={handleConfirmDeclineCashHandover} className="space-y-4">
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-950 space-y-2">
               <div className="font-bold flex items-center gap-1.5 text-rose-900">
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                Automatic Reversion to Interested Stage
+                Preserve Normal COD Workflow
               </div>
               <p className="text-rose-800">
-                Declining this handover will <strong>automatically revert Order #{decliningCashHandover.orderNumber}</strong> back to the <strong>Interested stage (`PREPARED`)</strong>. Sold inventory will be returned to allocated stock.
+                Rejecting this request will keep <strong>Order #{decliningCashHandover.orderNumber}</strong> in its
+                valid <strong>Prepared (`PREPARED`) state</strong> as a normal COD order. Stock will not move and remains in allocated stock.
               </p>
-              <div className="text-[11px] text-rose-700 pt-1 border-t border-rose-200">
-                Expected cash amount: {formatCurrency(Number(decliningCashHandover.amountCollected))}
-              </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Decline Reason / Explanation <span className="text-rose-600">*</span>
+                Rejection Reason <span className="text-rose-600">*</span>
               </label>
               <textarea
                 rows={3}
-                placeholder="e.g. Supervisor did not hand over the collected cash, cash discrepancy of Rs. 500, customer disputed delivery, etc."
+                placeholder="e.g. Customer did not pick up, cash payment not confirmed, must proceed via postal COD..."
                 value={cashDeclineNotes}
                 onChange={(e) => setCashDeclineNotes(e.target.value)}
                 required
@@ -2005,7 +2102,7 @@ export const AdminApprovalsPage: React.FC = () => {
                 className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
                 isLoading={isSubmittingCashReview}
               >
-                Confirm Decline &amp; Revert Order
+                Confirm Rejection
               </Button>
             </div>
           </form>

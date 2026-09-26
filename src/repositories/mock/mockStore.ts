@@ -54,7 +54,6 @@ const migrateStoredTeams = () => {
           brandColor: '#2563EB',
           accentColor: '#EFF6FF',
           logoText: 'EASY METHOD ENGLISH',
-          contactEmail: 'support@easymethodenglish.com',
           contactPhone: '0741488108',
           address: 'NO 287/2/2, HAVELOCK ROAD, COLOMBO - 06',
         };

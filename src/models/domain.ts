@@ -659,8 +659,9 @@ export interface CashOnHandHandover {
   amountCollected: number;
   productValue: number;
   deliveryCharge: number;
-  outcomeStatus: OrderStatus;
+  outcomeStatus?: OrderStatus | null;
   rejectionReason?: string | null;
+  requestNotes?: string | null;
   damagedItems?: OrderRejectionDamagedItem[] | null;
   status: CashOnHandStatus;
   reviewedById?: string | null;
@@ -684,6 +685,8 @@ export interface ProcessCashOnHandPayload {
 
 export interface ReviewCashOnHandPayload {
   status: CashOnHandStatus;
+  adminOutcome?: OrderStatus;
+  rejectionReason?: string;
   adminNotes?: string;
 }
 

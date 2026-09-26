@@ -43,10 +43,12 @@ export const toParcelSlipData = (item: LeadPrintItem, index = 0): ParcelSlipData
     null;
 
   const isCashOnHand =
-    order.isCashOnHand === true ||
-    order.deliveryMethod === 'CASH_ON_HAND' ||
-    (order as any).paymentMethod === 'CASH_ON_HAND' ||
-    (order as any).paymentType === 'CASH_ON_HAND';
+    (order.isCashOnHand === true ||
+      order.deliveryMethod === 'CASH_ON_HAND' ||
+      (order as any).paymentMethod === 'CASH_ON_HAND' ||
+      (order as any).paymentType === 'CASH_ON_HAND') &&
+    order.cashOnHandStatus !== 'PENDING' &&
+    order.cashOnHandStatus !== 'DECLINED';
 
   const productSalesValue = getProductSalesValue(order);
   const codCharge = isCashOnHand ? 0 : getCodCharge(order);
