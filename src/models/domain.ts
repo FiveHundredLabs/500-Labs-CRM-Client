@@ -94,6 +94,7 @@ export interface Contact {
   allocationSource?: 'SELF_ADDED' | 'SUPERVISOR_ALLOCATED' | 'BULK_IMPORT' | string;
   isSelfAdded?: boolean;
   city?: string;
+  district?: string;
   secondaryMobile?: string;
   attemptCount: number;
   lastCalledAt: string | null;
@@ -136,9 +137,11 @@ export interface DuplicatePhoneIntelligence {
   lastCalledAt?: string | null;
   lastCallStatus?: ContactStatus | string | null;
   lastCallRemarks?: string | null;
+  notes?: string | null;
   lastCustomerName?: string | null;
   deliveryAddress?: string | null;
   city?: string | null;
+  district?: string | null;
   previousOrders: DuplicatePhoneOrderHistory[];
 }
 
@@ -161,6 +164,7 @@ export interface CallLog {
   customerAddress?: string;
   customerEmail?: string;
   city?: string;
+  district?: string;
   secondaryMobile?: string;
   deliveryMethod?: DeliveryMethod;
   deliveryNote?: string;
@@ -184,6 +188,7 @@ export interface CallLog {
     phone: string;
     secondaryMobile?: string;
     city?: string;
+    district?: string;
     status?: string;
   };
 }
@@ -199,6 +204,7 @@ export interface Customer {
   assignedMember?: Partial<User>;
   responsibleMember?: Partial<User>;
   city?: string;
+  district?: string;
   address: string;
   email?: string;
   deliveryMethod?: DeliveryMethod;

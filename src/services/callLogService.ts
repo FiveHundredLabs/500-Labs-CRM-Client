@@ -9,6 +9,7 @@ export interface SubmitCallResultInput {
   customerName?: string;
   customerAddress?: string;
   city?: string;
+  district?: string;
   secondaryMobile?: string;
   customerEmail?: string;
   deliveryMethod?: DeliveryMethod;

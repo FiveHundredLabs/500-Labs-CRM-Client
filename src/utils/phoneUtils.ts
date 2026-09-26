@@ -113,17 +113,63 @@ export function extractSriLankanPhonesFromCell(cellValue: any): string[] {
 }
 
 /**
- * Extracts all Sri Lankan mobile numbers from a raw bulk text string (textarea paste).
+ * Extracts all phone tokens and Sri Lankan mobile numbers from a raw bulk text string (textarea paste).
+ * Preserves valid Sri Lankan mobile numbers (normalized) and also preserves invalid number tokens
+ * so that they can be flagged, rejected, and audited in the "Invalid Formats" category.
  */
 export function extractPhonesFromBulkText(bulkText: string): string[] {
   if (!bulkText || !bulkText.trim()) return [];
 
   const rawLines = bulkText.split(/[\r\n]+/);
   const result: string[] = [];
+  const SRI_LANKAN_MOBILE_REGEX = /(?:(?:\+?94|0094)\s*\(?0?\)?|0)?\s*\(?7[0-8\d]\)?(?:[\s.-]*\d){7}/gi;
 
   for (const line of rawLines) {
-    const extracted = extractSriLankanPhonesFromCell(line);
-    result.push(...extracted);
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
+
+    // Split line by common non-space delimiters (commas, semicolons, tabs, pipes, slashes)
+    const segments = trimmedLine.split(/[,;\t|/]+/).map((s) => s.trim()).filter(Boolean);
+
+    for (const segment of segments) {
+      // 1. Try to extract valid Sri Lankan numbers from this segment
+      const validNumbers = extractSriLankanPhonesFromCell(segment);
+
+      if (validNumbers.length > 0) {
+        result.push(...validNumbers);
+
+        // Check if there are other tokens in this segment that were NOT part of the valid number match
+        // e.g. "0771234567 12345" or "0771234567 0112345678"
+        const remaining = segment.replace(SRI_LANKAN_MOBILE_REGEX, ' ').trim();
+        if (remaining) {
+          const leftoverTokens = remaining
+            .split(/\s+/)
+            .map((t) => t.replace(/^[^\w+]+|[^\w+]+$/g, '').trim())
+            .filter(Boolean);
+          for (const token of leftoverTokens) {
+            // Only push if it wasn't already captured as a valid number
+            if (!validNumbers.includes(token)) {
+              result.push(token);
+            }
+          }
+        }
+      } else {
+        // No valid Sri Lankan mobile number found in this segment.
+        // If segment has multiple space-separated tokens, add each token; otherwise add segment.
+        const spaceTokens = segment
+          .split(/\s+/)
+          .map((t) => t.replace(/^[^\w+]+|[^\w+]+$/g, '').trim())
+          .filter(Boolean);
+
+        if (spaceTokens.length > 1) {
+          result.push(...spaceTokens);
+        } else if (spaceTokens.length === 1) {
+          result.push(spaceTokens[0]);
+        } else if (segment.trim()) {
+          result.push(segment.trim());
+        }
+      }
+    }
   }
 
   return result;
@@ -235,13 +281,15 @@ export async function parseExcelContactSheet(file: File): Promise<ExcelContactPa
       continue;
     }
 
-    const extracted = extractSriLankanPhonesFromCell(cellValue);
+    const cellStr = String(cellValue).trim();
+    // Use extractPhonesFromBulkText to extract both valid numbers and preserve any invalid tokens
+    const extracted = extractPhonesFromBulkText(cellStr);
     if (extracted.length > 0) {
       allExtracted.push(...extracted);
       if (sampleExtracted.length < 5) {
         sampleExtracted.push({
-          originalCell: String(cellValue).trim(),
-          normalized: extracted,
+          originalCell: cellStr,
+          normalized: extracted.filter((p) => Boolean(normalizeSriLankanPhone(p))),
         });
       }
     }

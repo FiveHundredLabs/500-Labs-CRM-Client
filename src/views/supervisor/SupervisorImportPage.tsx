@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { ContactService, ImportSummary } from '../../services/contactService';
-import { parseExcelContactSheet, extractPhonesFromBulkText, ExcelContactParseResult } from '../../utils/phoneUtils';
+import { parseExcelContactSheet, extractPhonesFromBulkText, ExcelContactParseResult, normalizeSriLankanPhone } from '../../utils/phoneUtils';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -55,14 +55,46 @@ export const SupervisorImportPage: React.FC = () => {
       return;
     }
 
-    const cleanPhone = manualPhone.trim();
-    if (cleanPhone.length < 7) {
-      toast.error('Please enter a valid mobile number (at least 7 digits).');
+    const rawInput = manualPhone.trim();
+    const norm = normalizeSriLankanPhone(rawInput);
+    if (!norm) {
+      const invalidRow = {
+        id: `manual_invalid_${Date.now()}`,
+        phone: rawInput,
+        isValid: false,
+        isDuplicate: false,
+        reason: 'Invalid Sri Lankan mobile format (must be 10 digits starting with 07)',
+      };
+
+      setImportSummary((prev) => {
+        if (!prev) {
+          return {
+            batchId: `manual_${Date.now()}`,
+            totalParsed: 1,
+            validCount: 0,
+            invalidCount: 1,
+            duplicateCount: 0,
+            ownDuplicateCount: 0,
+            claimableDuplicateCount: 0,
+            rows: [invalidRow],
+          };
+        }
+        const updatedRows = [invalidRow, ...prev.rows];
+        return {
+          ...prev,
+          totalParsed: updatedRows.length,
+          invalidCount: prev.invalidCount + 1,
+          rows: updatedRows,
+        };
+      });
+
+      setPreviewTab('INVALID');
+      toast.error(`Invalid format rejected: "${rawInput}". Listed under Invalid Format.`);
       return;
     }
 
     setPendingContactInfo({
-      phone: cleanPhone,
+      phone: norm,
       assigneeName: 'Unallocated Pool',
     });
     setCodeModalOpen(true);
@@ -176,7 +208,7 @@ export const SupervisorImportPage: React.FC = () => {
       setParsedFileInfo(parseResult);
 
       if (parseResult.contactNumbers.length === 0) {
-        toast.error(`No valid contact numbers found in column "${parseResult.contactColumnName}".`);
+        toast.error(`No contact numbers found in column "${parseResult.contactColumnName}".`);
         return;
       }
 
@@ -186,9 +218,22 @@ export const SupervisorImportPage: React.FC = () => {
       );
       setImportSummary(summary);
       setExecuteFn(() => executeImport);
-      toast.success(
-        `Extracted ${parseResult.contactNumbers.length} contacts from "${parseResult.contactColumnName}" column. Normalized to 07XXXXXXXX.`
-      );
+
+      if (summary.invalidCount > 0 && summary.validCount === 0) {
+        setPreviewTab('INVALID');
+      } else {
+        setPreviewTab('ALL');
+      }
+
+      if (summary.invalidCount > 0) {
+        toast.success(
+          `Extracted ${parseResult.contactNumbers.length} contacts (${summary.validCount} valid, ${summary.invalidCount} invalid format).`
+        );
+      } else {
+        toast.success(
+          `Extracted ${parseResult.contactNumbers.length} contacts from "${parseResult.contactColumnName}" column.`
+        );
+      }
     } catch (err: any) {
       toast.error('Error parsing spreadsheet: ' + err.message);
     }
@@ -211,7 +256,7 @@ export const SupervisorImportPage: React.FC = () => {
       const extractedNumbers = extractPhonesFromBulkText(bulkText);
 
       if (extractedNumbers.length === 0) {
-        toast.error('No valid Sri Lankan mobile numbers found in input text.');
+        toast.error('No phone numbers detected in input text.');
         setIsBulkTextProcessing(false);
         return;
       }
@@ -222,7 +267,19 @@ export const SupervisorImportPage: React.FC = () => {
       );
       setImportSummary(summary);
       setExecuteFn(() => executeImport);
-      toast.success(`Extracted & normalized ${extractedNumbers.length} Sri Lankan mobile numbers!`);
+
+      if (summary.invalidCount > 0 && summary.validCount === 0) {
+        setPreviewTab('INVALID');
+        toast.error(`Rejected ${summary.invalidCount} invalid format numbers. Listed in Invalid Format.`);
+      } else if (summary.invalidCount > 0) {
+        setPreviewTab('ALL');
+        toast.success(
+          `Processed ${extractedNumbers.length} numbers (${summary.validCount} valid, ${summary.invalidCount} invalid format).`
+        );
+      } else {
+        setPreviewTab('ALL');
+        toast.success(`Extracted & normalized ${extractedNumbers.length} Sri Lankan mobile numbers!`);
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to process bulk numbers.');
     } finally {

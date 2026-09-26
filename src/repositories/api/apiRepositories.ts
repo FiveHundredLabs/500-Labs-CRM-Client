@@ -249,6 +249,9 @@ export class ApiContactRepository implements IContactRepository {
   async checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult> {
     return unwrap(await apiClient.post<{ data: DuplicatePhoneCheckResult }>('/contacts/check-duplicate', data));
   }
+  async checkDuplicatesBatch(data: { phones: string[]; memberId?: string; teamId?: string }): Promise<Record<string, DuplicatePhoneCheckResult>> {
+    return unwrap(await apiClient.post<{ data: Record<string, DuplicatePhoneCheckResult> }>('/contacts/check-duplicates', data));
+  }
   async update(id: string, updates: Partial<Contact>): Promise<Contact> {
     const payload: any = { ...updates };
     delete payload.id;
@@ -878,6 +881,14 @@ export class ApiFinanceRepository implements IFinanceRepository {
   async getCityDeliveryReport(startDate?: string, endDate?: string): Promise<any> {
     return unwrap(
       await apiClient.get<{ data: any }>('/finance/delivery-report', {
+        params: this.buildParams(startDate, endDate),
+      })
+    );
+  }
+
+  async getDistrictDeliveryReport(startDate?: string, endDate?: string): Promise<any> {
+    return unwrap(
+      await apiClient.get<{ data: any }>('/finance/district-delivery-report', {
         params: this.buildParams(startDate, endDate),
       })
     );

@@ -335,6 +335,41 @@ export class MockContactRepository implements IContactRepository {
       },
     };
   }
+
+  async checkDuplicatesBatch(data: { phones: string[]; memberId?: string; teamId?: string }): Promise<Record<string, DuplicatePhoneCheckResult>> {
+    await delay();
+    const contacts = getStoredItem<Contact>(STORAGE_KEYS.CONTACTS, []);
+    const results: Record<string, DuplicatePhoneCheckResult> = {};
+    for (const p of data.phones) {
+      const clean = p.trim();
+      const own = contacts.find((c) => c.phone === clean && c.allocatedToId === data.memberId);
+      if (own) {
+        results[clean] = { exists: true, isOwnedBySelf: true, message: 'This phone number already exists in your personal queue.' };
+        continue;
+      }
+      const other = contacts.find((c) => c.phone === clean);
+      if (!other) {
+        results[clean] = { exists: false, isOwnedBySelf: false, message: 'Number is brand new.' };
+        continue;
+      }
+      results[clean] = {
+        exists: true,
+        isOwnedBySelf: false,
+        message: 'Already exists in team.',
+        intelligence: {
+          phone: clean,
+          assignedMemberName: 'Other Sales Specialist',
+          teamName: 'CRM Team',
+          lastCallStatus: other.status,
+          lastCalledAt: other.lastCalledAt,
+          lastCallRemarks: 'Previous team notes on contact',
+          notes: 'Previous team notes on contact',
+          previousOrders: [],
+        },
+      };
+    }
+    return results;
+  }
 }
 
 export class MockAllocationRepository implements IAllocationRepository {
