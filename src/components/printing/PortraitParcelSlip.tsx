@@ -994,19 +994,6 @@ export const PortraitParcelSlip: React.FC<
               Tel: {data.team.contactPhone}
             </div>
           )}
-
-          {data.team.contactEmail && (
-            <div
-              style={{
-                fontWeight: 700,
-
-                overflowWrap: 'anywhere',
-                wordBreak: 'break-all',
-              }}
-            >
-              Email: {data.team.contactEmail}
-            </div>
-          )}
         </div>
 
         {contactCode && (

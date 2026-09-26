@@ -11,6 +11,7 @@ import { RoyalCourierDispatchConfirmDialog } from '../../components/interested/R
 import { CircularProgressPdfModal } from '../../components/printing/CircularProgressPdfModal';
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { EditDeliveryChargeDialog } from '../../components/orders/EditDeliveryChargeDialog';
+import { CashOnHandRequestDialog } from '../../components/interested/CashOnHandRequestDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
 import { downloadParcelSlipPDF, printParcelSlipPDF } from '../../utils/parcelPdfGenerator';
@@ -85,6 +86,10 @@ export const SupervisorInterestedPage: React.FC = () => {
   // Edit Delivery Charge State
   const [editDeliveryOrder, setEditDeliveryOrder] = useState<Order | null>(null);
   const [editDeliveryCustomer, setEditDeliveryCustomer] = useState<Customer | null>(null);
+
+  // Cash On Hand Approval Request State
+  const [cashOnHandOrder, setCashOnHandOrder] = useState<Order | null>(null);
+  const [cashOnHandCustomer, setCashOnHandCustomer] = useState<Customer | null>(null);
 
   // Circular Progress PDF Loading State
   const [pdfProgress, setPdfProgress] = useState({
@@ -177,7 +182,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     });
   }, [customers, ordersMap, activeDeliveryTab, search, selectedMemberId]);
 
-  const filteredCustomerIds = useMemo(
+  const selectableCustomerIds = useMemo(
     () => filteredCustomers.map((c) => c.id),
     [filteredCustomers]
   );
@@ -190,7 +195,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     toggleSelectAll,
     toggleSelectCard,
     clearSelection,
-  } = useSelection(filteredCustomerIds);
+  } = useSelection(selectableCustomerIds);
 
   // Clear selection when changing tabs
   const handleTabChange = (tab: DeliveryMethod) => {
@@ -473,6 +478,10 @@ export const SupervisorInterestedPage: React.FC = () => {
           setEditDeliveryOrder(ord);
           setEditDeliveryCustomer(cust);
         }}
+        onRequestCashOnHand={(ord, cust) => {
+          setCashOnHandOrder(ord);
+          setCashOnHandCustomer(cust);
+        }}
       />
 
       {/* TAB 1 (POST): Standard Floating Action Panel (Slips, Excel & Print) */}
@@ -601,6 +610,21 @@ export const SupervisorInterestedPage: React.FC = () => {
           setEditDeliveryCustomer(null);
         }}
         onSave={updateDeliveryCharge}
+      />
+
+      {/* Cash On Hand Request Confirmation Dialog */}
+      <CashOnHandRequestDialog
+        isOpen={Boolean(cashOnHandOrder)}
+        order={cashOnHandOrder}
+        customer={cashOnHandCustomer}
+        currentUser={user}
+        onClose={() => {
+          setCashOnHandOrder(null);
+          setCashOnHandCustomer(null);
+        }}
+        onSuccess={async () => {
+          await loadData(true);
+        }}
       />
 
       {/* Circular Progress PDF / Print Loading Modal */}

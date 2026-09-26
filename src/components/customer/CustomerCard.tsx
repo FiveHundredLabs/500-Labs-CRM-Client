@@ -23,6 +23,8 @@ export interface CustomerCardProps {
   dateString?: string;
   middleContent?: React.ReactNode;
   actionButtons?: React.ReactNode;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export const CustomerCard: React.FC<CustomerCardProps> = React.memo(({
@@ -38,16 +40,20 @@ export const CustomerCard: React.FC<CustomerCardProps> = React.memo(({
   dateString,
   middleContent,
   actionButtons,
+  disabled = false,
+  disabledReason,
 }) => {
   return (
     <div
-      onClick={onToggleSelect}
+      onClick={disabled ? undefined : onToggleSelect}
+      title={disabled ? disabledReason : undefined}
       className={`
         rounded-xl border p-2
-        transition-all cursor-pointer select-none
+        transition-all select-none
         bg-white
+        ${disabled ? 'opacity-85 cursor-not-allowed bg-slate-50/50' : 'cursor-pointer'}
         ${
-          isSelected
+          isSelected && !disabled
             ? 'border-2 border-blue-600 bg-blue-50/40 shadow-xs ring-1 ring-blue-500/20'
             : 'border-slate-200 hover:border-slate-300 shadow-2xs'
         }
@@ -58,10 +64,11 @@ export const CustomerCard: React.FC<CustomerCardProps> = React.memo(({
         <div className="flex items-center gap-1.5 min-w-0">
           <button
             type="button"
-            className="shrink-0 flex items-center justify-center cursor-pointer"
+            disabled={disabled}
+            className={`shrink-0 flex items-center justify-center ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
             onClick={(e) => {
               e.stopPropagation();
-              onToggleSelect();
+              if (!disabled) onToggleSelect();
             }}
           >
             {isSelected ? (

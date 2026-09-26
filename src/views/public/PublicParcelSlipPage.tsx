@@ -40,7 +40,6 @@ const TEST_PARCEL_SLIP: ParcelSlipData = {
     logo: null,
     address: 'No. 123, Galle Road, Colombo 03',
     contactPhone: '0112345678',
-    contactEmail: 'support@levelgrow.lk',
   },
   items: [
     { productName: 'Adult', quantity: 1, unitPrice: 4750, subtotal: 4750, price: 4750 },
