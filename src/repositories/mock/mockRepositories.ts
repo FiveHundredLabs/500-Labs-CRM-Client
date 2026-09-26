@@ -18,6 +18,7 @@ import {
   ActivityLogWritePayload,
   ExpenseWritePayload,
   PettyCashExpensePayload,
+  BulkUpdateDeliveryChargeInput,
 } from '../interfaces';
 import {
   Team,
@@ -631,6 +632,34 @@ export class MockOrderRepository implements IOrderRepository {
     orders[idx] = updated;
     setStoredItem(STORAGE_KEYS.ORDERS, orders);
     return updated;
+  }
+
+  async bulkUpdateDeliveryCharge(input: BulkUpdateDeliveryChargeInput): Promise<{ success: boolean; count: number; orders: Order[] }> {
+    await delay();
+    const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
+    const updatedOrders: Order[] = [];
+
+    for (const item of input.updates) {
+      const idx = orders.findIndex((o) => o.id === item.orderId);
+      if (idx !== -1) {
+        const order = orders[idx];
+        const pkgVal = order.totalPackageValue || order.totalAmount;
+        const newTotal = pkgVal + item.codCharge;
+        const updated: Order = {
+          ...order,
+          codCharge: item.codCharge,
+          codAmount: newTotal,
+          totalAmount: newTotal,
+          remarks: item.remarks || input.commonRemarks || order.remarks,
+          updatedAt: new Date().toISOString(),
+        };
+        orders[idx] = updated;
+        updatedOrders.push(updated);
+      }
+    }
+
+    setStoredItem(STORAGE_KEYS.ORDERS, orders);
+    return { success: true, count: updatedOrders.length, orders: updatedOrders };
   }
 }
 

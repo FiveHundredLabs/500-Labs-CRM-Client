@@ -3,6 +3,7 @@ import type { User, Customer } from '../../models/domain';
 import { Card, CardContent } from '../ui/Card';
 import { Select } from '../ui/Select';
 import { SearchInput } from '../shared/SearchInput';
+import { Truck } from 'lucide-react';
 
 export interface InterestedFiltersProps {
   selectedMemberId: string;
@@ -16,6 +17,7 @@ export interface InterestedFiltersProps {
   allFilteredSelected: boolean;
   onToggleSelectAll: () => void;
   selectAllCheckboxRef: React.RefObject<HTMLInputElement | null>;
+  onBulkEditDelivery?: () => void;
 }
 
 export const InterestedFilters: React.FC<InterestedFiltersProps> = ({
@@ -30,6 +32,7 @@ export const InterestedFilters: React.FC<InterestedFiltersProps> = ({
   allFilteredSelected,
   onToggleSelectAll,
   selectAllCheckboxRef,
+  onBulkEditDelivery,
 }) => {
   return (
     <Card>
@@ -82,8 +85,32 @@ export const InterestedFilters: React.FC<InterestedFiltersProps> = ({
             </span>
           </label>
 
-          <div className="shrink-0 font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-            {selectedCount} Selected
+          <div className="flex items-center gap-2">
+            {selectedCount > 0 && onBulkEditDelivery && (
+              <button
+                type="button"
+                onClick={onBulkEditDelivery}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                  selectedCount > 20
+                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                    : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white'
+                }`}
+                title={
+                  selectedCount > 20
+                    ? `Selected ${selectedCount} orders. Max 20 allowed for bulk edit.`
+                    : 'Bulk edit delivery amount for selected orders'
+                }
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span>
+                  Bulk Edit Delivery ({selectedCount}
+                  {selectedCount > 20 ? ' / 20 max' : ''})
+                </span>
+              </button>
+            )}
+            <div className="shrink-0 font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+              {selectedCount} Selected
+            </div>
           </div>
         </div>
       </CardContent>

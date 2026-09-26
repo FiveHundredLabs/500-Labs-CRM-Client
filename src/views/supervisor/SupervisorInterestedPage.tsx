@@ -11,6 +11,7 @@ import { RoyalCourierDispatchConfirmDialog } from '../../components/interested/R
 import { CircularProgressPdfModal } from '../../components/printing/CircularProgressPdfModal';
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { EditDeliveryChargeDialog } from '../../components/orders/EditDeliveryChargeDialog';
+import { BulkEditDeliveryChargeDialog, BulkEditOrderLeadItem } from '../../components/orders/BulkEditDeliveryChargeDialog';
 import { CashOnHandRequestDialog } from '../../components/interested/CashOnHandRequestDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
@@ -40,6 +41,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     dispatchInterestedLeads,
     cancelInterestedLead,
     updateDeliveryCharge,
+    bulkUpdateDeliveryCharge,
   } = useInterestedLeads(user?.role === 'ADMIN' ? adminTeamId : undefined);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -86,6 +88,7 @@ export const SupervisorInterestedPage: React.FC = () => {
   // Edit Delivery Charge State
   const [editDeliveryOrder, setEditDeliveryOrder] = useState<Order | null>(null);
   const [editDeliveryCustomer, setEditDeliveryCustomer] = useState<Customer | null>(null);
+  const [isBulkEditDeliveryOpen, setIsBulkEditDeliveryOpen] = useState(false);
 
   // Cash On Hand Approval Request State
   const [cashOnHandOrder, setCashOnHandOrder] = useState<Order | null>(null);
@@ -256,6 +259,32 @@ export const SupervisorInterestedPage: React.FC = () => {
         team: latestOrder?.team || teamsMap[c.teamId] || (user?.teamId === c.teamId ? user.team : undefined),
       };
     });
+
+  // Selected items for Bulk Delivery Charge Editing (strictly max 20)
+  const selectedBulkDeliveryItems: BulkEditOrderLeadItem[] = useMemo(() => {
+    return selectedIds
+      .map((id) => {
+        const customer = customers.find((c) => c.id === id);
+        const order = customer ? ordersMap[customer.id]?.[0] : null;
+        if (!customer || !order) return null;
+        // Exclude orders with pending Cash On Hand approvals
+        if (order.cashOnHandStatus === 'PENDING') return null;
+        return { customer, order };
+      })
+      .filter((it): it is BulkEditOrderLeadItem => it !== null);
+  }, [selectedIds, customers, ordersMap]);
+
+  const handleOpenBulkEditDelivery = () => {
+    if (selectedIds.length === 0) {
+      toast.error('Please select at least one interested lead to edit delivery amount.');
+      return;
+    }
+    if (selectedBulkDeliveryItems.length === 0) {
+      toast.error('Selected orders cannot be edited (e.g. pending cash on hand).');
+      return;
+    }
+    setIsBulkEditDeliveryOpen(true);
+  };
 
   // TAB 1 (POST): PDF Download Trigger
   const handleDownloadPDF = async () => {
@@ -463,6 +492,7 @@ export const SupervisorInterestedPage: React.FC = () => {
         allFilteredSelected={allFilteredSelected}
         onToggleSelectAll={toggleSelectAll}
         selectAllCheckboxRef={selectAllCheckboxRef}
+        onBulkEditDelivery={handleOpenBulkEditDelivery}
       />
 
       {/* Interested Leads List Grid */}
@@ -495,6 +525,16 @@ export const SupervisorInterestedPage: React.FC = () => {
             <>
               <button
                 type="button"
+                onClick={handleOpenBulkEditDelivery}
+                disabled={selectedIds.length === 0}
+                className="py-1 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                title="Bulk Edit Delivery Amount (Max 20 orders)"
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span>Edit Delivery</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleDownloadPostLeadExcel}
                 disabled={selectedIds.length === 0 || isDownloadingPostExcel}
                 className="py-1 px-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
@@ -524,6 +564,17 @@ export const SupervisorInterestedPage: React.FC = () => {
             <Truck className="w-4 h-4 text-purple-600" />
             <span>{selectedIds.length} Selected</span>
           </div>
+
+          <button
+            type="button"
+            onClick={handleOpenBulkEditDelivery}
+            disabled={selectedIds.length === 0}
+            className="py-2 px-3 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            title="Bulk Edit Delivery Amount (Max 20 orders)"
+          >
+            <Truck className="w-4 h-4" />
+            <span>Edit Delivery</span>
+          </button>
 
           <button
             type="button"
@@ -600,7 +651,7 @@ export const SupervisorInterestedPage: React.FC = () => {
         }}
       />
 
-      {/* Edit Delivery Charge Dialog for Interested Leads */}
+      {/* Edit Delivery Charge Dialog for Interested Leads (Single) */}
       <EditDeliveryChargeDialog
         isOpen={Boolean(editDeliveryOrder)}
         order={editDeliveryOrder}
@@ -610,6 +661,17 @@ export const SupervisorInterestedPage: React.FC = () => {
           setEditDeliveryCustomer(null);
         }}
         onSave={updateDeliveryCharge}
+      />
+
+      {/* Bulk Edit Delivery Charge Dialog for Multiple Selected Orders (Strictly <= 20) */}
+      <BulkEditDeliveryChargeDialog
+        isOpen={isBulkEditDeliveryOpen}
+        items={selectedBulkDeliveryItems}
+        onClose={() => setIsBulkEditDeliveryOpen(false)}
+        onSave={async (updates, commonRemarks) => {
+          await bulkUpdateDeliveryCharge(updates, commonRemarks);
+          clearSelection();
+        }}
       />
 
       {/* Cash On Hand Request Confirmation Dialog */}

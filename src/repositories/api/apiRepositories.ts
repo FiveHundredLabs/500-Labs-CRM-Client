@@ -23,6 +23,7 @@ import {
   PettyCashExpensePayload,
   ApprovalRequestCreatePayload,
   ActivityLogWritePayload,
+  BulkUpdateDeliveryChargeInput,
 } from '../interfaces';
 import {
   Team,
@@ -400,6 +401,14 @@ export class ApiOrderRepository implements IOrderRepository {
   }
   async updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order> {
     return unwrap(await apiClient.patch<{ data: Order }>(`/orders/${id}/delivery-charge`, { codCharge, remarks }));
+  }
+  async bulkUpdateDeliveryCharge(input: BulkUpdateDeliveryChargeInput): Promise<{ success: boolean; count: number; orders: Order[] }> {
+    return unwrap(
+      await apiClient.patch<{ data: { success: boolean; count: number; orders: Order[] } }>(
+        '/orders/bulk/delivery-charge',
+        input
+      )
+    );
   }
 }
 

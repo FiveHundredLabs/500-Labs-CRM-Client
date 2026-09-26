@@ -246,6 +246,21 @@ export function useInterestedLeads(overrideTeamId?: string) {
     }
   };
 
+  const bulkUpdateDeliveryCharge = async (
+    updates: { orderId: string; codCharge: number; remarks?: string }[],
+    commonRemarks?: string
+  ) => {
+    try {
+      const res = await orderRepository.bulkUpdateDeliveryCharge({ updates, commonRemarks });
+      toast.success(`Successfully updated delivery charges for ${res.count} orders!`);
+      await loadData();
+      return res;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to bulk update delivery charges.');
+      throw err;
+    }
+  };
+
   return {
     user,
     effectiveTeamId,
@@ -260,5 +275,6 @@ export function useInterestedLeads(overrideTeamId?: string) {
     dispatchInterestedLeads,
     cancelInterestedLead,
     updateDeliveryCharge,
+    bulkUpdateDeliveryCharge,
   };
 }
