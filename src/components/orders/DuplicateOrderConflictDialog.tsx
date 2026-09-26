@@ -148,7 +148,13 @@ export const DuplicateOrderConflictDialog: React.FC<DuplicateOrderConflictDialog
                         Current Selected
                       </span>
                     )}
-                    {isActive && !isThisOrder && (
+                    {ord.isReplacement && (
+                      <span className="px-2 py-0.5 bg-purple-100 text-purple-900 border border-purple-300 text-[10px] font-bold rounded-full flex items-center gap-1">
+                        <CheckCircle2 className="w-2.5 h-2.5 text-purple-600" />
+                        Authorized Replacement
+                      </span>
+                    )}
+                    {isActive && !isThisOrder && !ord.isReplacement && (
                       <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold rounded-full flex items-center gap-1">
                         <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
                         Concurrent Active Order

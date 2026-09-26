@@ -27,6 +27,7 @@ export interface OrderExpandedDetailsProps {
   onPrintSlip: (order: Order) => void;
   onInspectDamages?: (order: Order) => void;
   onOpenRejectionModal?: (order: Order) => void;
+  onOpenReplacementModal?: (order: Order) => void;
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -39,6 +40,7 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
   onPrintSlip,
   onInspectDamages,
   onOpenRejectionModal,
+  onOpenReplacementModal,
 }) => {
   const { user } = useAuth();
   const isSupervisor = user?.role === 'SUPERVISOR';
@@ -107,6 +109,24 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
         )}
       </div>
 
+      {/* Replacement Order Indicator */}
+      {order.isReplacement && (
+        <div className="p-2 bg-purple-50 border border-purple-200 rounded-lg text-xs space-y-1">
+          <div className="flex items-center justify-between font-semibold text-purple-950">
+            <span className="flex items-center gap-1.5">
+              <RotateCcw className="w-3.5 h-3.5 text-purple-600" />
+              Replacement Order (Linked to #{order.parentOrder?.orderNumber || 'Parent Order'})
+            </span>
+            <span className="text-[10px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded-full">
+              LKR 0 Product Price
+            </span>
+          </div>
+          <p className="text-[11px] text-purple-800">
+            Fulfills damaged goods replacement while keeping original order #{order.parentOrder?.orderNumber || ''} sales and payment records intact.
+          </p>
+        </div>
+      )}
+
       {/* 7-Day Review Window & Approval Status Banner */}
       {(isDelivered || isRejected) && (
         <div className="flex flex-wrap items-center justify-between gap-1.5 p-2 bg-amber-50/70 border border-amber-200/80 rounded-lg text-xs">
@@ -115,6 +135,11 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
             <span className="font-semibold text-amber-900">{reviewWindowText}</span>
           </div>
           <div className="flex items-center gap-1.5">
+            {order.activeReplacementRequest && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-300">
+                ⏳ Replacement Request Pending Admin Approval
+              </span>
+            )}
             {activeRejection && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
                 ⏳ Status Change ({activeRejection.fromStatus || order.status} → {activeRejection.toStatus || 'REJECTED'}) Pending Admin Approval
@@ -125,7 +150,7 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
                 Status Change Request Declined by Admin
               </span>
             )}
-            {isPast7Days && (
+            {isPast7Days && !isAdmin && (
               <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 font-medium">
                 <Lock className="w-3 h-3 text-slate-400" />
                 Review Period Closed (7 Days Expired)
@@ -181,29 +206,45 @@ export const OrderExpandedDetails: React.FC<OrderExpandedDetailsProps> = ({
             </>
           )}
 
-          {/* Delivered Order Transitions: Move to Rejected / Move to Dispatch (Within 7 Days) */}
-          {isDelivered && isWithin7Days && !activeRejection && (isSupervisor || isAdmin) && (
+          {/* Delivered Order Transitions: Move to Rejected / Move to Dispatch / Request Replacement */}
+          {isDelivered && (isWithin7Days || isAdmin) && (isSupervisor || isAdmin) && (
             <>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<RotateCcw className="w-3.5 h-3.5 text-amber-600" />}
-                onClick={() => onOpenStatusModal(order, 'REJECTED')}
-                className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
-                title="Move delivered order to Rejected (requires Admin approval)"
-              >
-                Move to Rejected
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Truck className="w-3.5 h-3.5 text-blue-600" />}
-                onClick={() => onOpenStatusModal(order, 'DISPATCHED')}
-                className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold text-blue-800 bg-blue-50 hover:bg-blue-100 border-blue-300"
-                title="Move delivered order back to Dispatch (requires Admin approval)"
-              >
-                Move to Dispatch
-              </Button>
+              {!order.activeReplacementRequest && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<RotateCcw className="w-3.5 h-3.5 text-purple-600" />}
+                  onClick={() => onOpenReplacementModal?.(order)}
+                  className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold text-purple-800 bg-purple-50 hover:bg-purple-100 border-purple-300"
+                  title="Submit damaged product replacement request (Admin approval required)"
+                >
+                  Request Replacement
+                </Button>
+              )}
+              {!activeRejection && isWithin7Days && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<RotateCcw className="w-3.5 h-3.5 text-amber-600" />}
+                    onClick={() => onOpenStatusModal(order, 'REJECTED')}
+                    className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
+                    title="Move delivered order to Rejected (requires Admin approval)"
+                  >
+                    Move to Rejected
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Truck className="w-3.5 h-3.5 text-blue-600" />}
+                    onClick={() => onOpenStatusModal(order, 'DISPATCHED')}
+                    className="text-[11px] sm:text-xs py-1 px-2 sm:px-2.5 cursor-pointer h-7 font-semibold text-blue-800 bg-blue-50 hover:bg-blue-100 border-blue-300"
+                    title="Move delivered order back to Dispatch (requires Admin approval)"
+                  >
+                    Move to Dispatch
+                  </Button>
+                </>
+              )}
             </>
           )}
 
