@@ -2,7 +2,7 @@ import React from 'react';
 import type { Customer, User, Order } from '../../models/domain';
 import { CustomerCard } from '../customer/CustomerCard';
 import { EmptyState } from '../shared/EmptyState';
-import { Sparkles, Truck, AlertTriangle, Info, FileText, Mail, Edit3 } from 'lucide-react';
+import { Sparkles, Truck, AlertTriangle, Info, FileText, Mail, Edit3, Banknote, Clock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DuplicateOrderConflictInfo } from '../orders/DuplicateOrderConflictDialog';
 import { getAmountToCollect, getProductSalesValue, getCodCharge } from '../../utils/orderAmounts';
@@ -16,6 +16,7 @@ export interface InterestedListProps {
   onToggleSelectCard: (id: string) => void;
   onInspectDuplicateOrders?: (conflictInfo: DuplicateOrderConflictInfo) => void;
   onEditDeliveryCharge?: (order: Order, customer: Customer) => void;
+  onRequestCashOnHand?: (order: Order, customer: Customer) => void;
 }
 
 export const InterestedList: React.FC<InterestedListProps> = React.memo(({
@@ -27,6 +28,7 @@ export const InterestedList: React.FC<InterestedListProps> = React.memo(({
   onToggleSelectCard,
   onInspectDuplicateOrders,
   onEditDeliveryCharge,
+  onRequestCashOnHand,
 }) => {
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
 
@@ -50,6 +52,11 @@ export const InterestedList: React.FC<InterestedListProps> = React.memo(({
         // Check for orders
         const custOrders = ordersMap[customer.id] || [];
         const currentOrder = custOrders[0];
+        const isCohPending = currentOrder?.cashOnHandStatus === 'PENDING';
+        const isCohDeclined = currentOrder?.cashOnHandStatus === 'DECLINED';
+        const isCohApproved = currentOrder?.cashOnHandStatus === 'APPROVED';
+        const latestCohHandover = currentOrder?.cashOnHandHandovers?.[0];
+
         const deliveryMethod = currentOrder?.deliveryMethod || customer.deliveryMethod || 'POST';
         const deliveryNote = currentOrder?.deliveryNote || customer.deliveryNote;
         const isEdited = Boolean(
@@ -97,7 +104,7 @@ export const InterestedList: React.FC<InterestedListProps> = React.memo(({
                       <span className="font-mono font-medium text-slate-700">
                         LKR {deliveryCharge.toLocaleString()}
                       </span>
-                      {onEditDeliveryCharge && (
+                      {onEditDeliveryCharge && !isCohPending && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -116,6 +123,70 @@ export const InterestedList: React.FC<InterestedListProps> = React.memo(({
                       COD: LKR {totalCod.toLocaleString()}
                     </div>
                   </div>
+
+                  {/* Cash On Hand Workflow Controls & Status in Order Card */}
+                  {isCohPending ? (
+                    <div className="mt-1 pt-1 border-t border-amber-200/70">
+                      <div className="flex items-center justify-between bg-amber-50 border border-amber-300/80 rounded px-1.5 py-1 text-[9.5px] text-amber-900">
+                        <span className="flex items-center gap-1 font-semibold">
+                          <Clock className="w-3 h-3 text-amber-700 shrink-0" />
+                          <span>Cash On Hand: Pending Admin Approval</span>
+                        </span>
+                      </div>
+                      {latestCohHandover?.requestNotes && (
+                        <p className="text-[8.5px] italic text-amber-800 mt-0.5 px-0.5 truncate">
+                          Note: "{latestCohHandover.requestNotes}"
+                        </p>
+                      )}
+                    </div>
+                  ) : isCohDeclined ? (
+                    <div className="mt-1 pt-1 border-t border-rose-200/70">
+                      <div className="bg-rose-50 border border-rose-200 rounded p-1 text-[9.5px] text-rose-900 space-y-0.5">
+                        <div className="flex items-center justify-between font-bold">
+                          <span className="flex items-center gap-1 text-rose-800">
+                            <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                            <span>Cash On Hand Declined</span>
+                          </span>
+                          {onRequestCashOnHand && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRequestCashOnHand(currentOrder, customer);
+                              }}
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors cursor-pointer shadow-2xs"
+                              title="Re-request Cash On Hand Approval"
+                            >
+                              <Banknote className="w-2.5 h-2.5" />
+                              <span>Re-request COH</span>
+                            </button>
+                          )}
+                        </div>
+                        {latestCohHandover?.rejectionReason && (
+                          <p className="text-[8.5px] italic text-rose-700 pl-4">
+                            Reason: {latestCohHandover.rejectionReason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    !isCohApproved && onRequestCashOnHand && (
+                      <div className="mt-1 pt-1 border-t border-slate-200/60 flex items-center justify-end">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRequestCashOnHand(currentOrder, customer);
+                          }}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition-colors cursor-pointer"
+                          title="Request Cash On Hand Approval"
+                        >
+                          <Banknote className="w-3 h-3 text-amber-700" />
+                          <span>Request Cash On Hand</span>
+                        </button>
+                      </div>
+                    )
+                  )}
                 </div>
               );
             })()}
@@ -235,6 +306,23 @@ export const InterestedList: React.FC<InterestedListProps> = React.memo(({
             orderNumber={currentOrder?.orderNumber}
             badge={
               <div className="flex items-center gap-1">
+                {isCohPending && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                    <Clock className="w-2.5 h-2.5 text-amber-700" />
+                    COH Pending
+                  </span>
+                )}
+                {isCohDeclined && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-900 border border-rose-300">
+                    <AlertCircle className="w-2.5 h-2.5 text-rose-700" />
+                    COH Declined
+                  </span>
+                )}
+                {isCohApproved && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                    ✓ COH Approved
+                  </span>
+                )}
                 {isEdited && (
                   <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
                     <Edit3 className="w-2.5 h-2.5 text-amber-600" />

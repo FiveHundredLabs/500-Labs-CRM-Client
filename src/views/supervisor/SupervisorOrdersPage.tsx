@@ -15,6 +15,7 @@ import { OrderPrintConfirmDialog } from '../../components/orders/OrderPrintConfi
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { OrderDamageDetailsDialog } from '../../components/orders/OrderDamageDetailsDialog';
 import { OrderRejectionModal } from '../../components/orders/OrderRejectionModal';
+import { OrderReplacementRequestModal } from '../../components/orders/OrderReplacementRequestModal';
 import { useOrders } from '../../hooks/useOrders';
 import { useOrderFilters } from '../../hooks/useOrderFilters';
 import { useSelection } from '../../hooks/useSelection';
@@ -102,6 +103,7 @@ export const SupervisorOrdersPage: React.FC = () => {
   const [remarkOrder, setRemarkOrder] = useState<Order | null>(null);
   const [damageDetailsOrder, setDamageDetailsOrder] = useState<Order | null>(null);
   const [rejectionModalOrder, setRejectionModalOrder] = useState<Order | null>(null);
+  const [replacementModalOrder, setReplacementModalOrder] = useState<Order | null>(null);
 
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
@@ -297,6 +299,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         onInspectDamages={(order) => setDamageDetailsOrder(order)}
         onInspectDuplicateOrders={handleInspectDuplicateOrders}
         onOpenRejectionModal={(order) => setRejectionModalOrder(order)}
+        onOpenReplacementModal={(order) => setReplacementModalOrder(order)}
       />
 
       {/* 4. Floating Action Panel */}
@@ -363,6 +366,17 @@ export const SupervisorOrdersPage: React.FC = () => {
       <OrderDamageDetailsDialog
         order={damageDetailsOrder}
         onClose={() => setDamageDetailsOrder(null)}
+      />
+
+      {/* Product Replacement Request Modal */}
+      <OrderReplacementRequestModal
+        order={replacementModalOrder}
+        customer={replacementModalOrder ? customersMap[replacementModalOrder.customerId] : undefined}
+        onClose={() => setReplacementModalOrder(null)}
+        onSuccess={() => {
+          setReplacementModalOrder(null);
+          loadData();
+        }}
       />
 
       <OrderHistoryDialog

@@ -18,6 +18,7 @@ export interface OrderListProps {
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
   onInspectDamages?: (order: Order) => void;
   onOpenRejectionModal?: (order: Order) => void;
+  onOpenReplacementModal?: (order: Order) => void;
 }
 
 interface OrderListItemProps {
@@ -34,6 +35,7 @@ interface OrderListItemProps {
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
   onInspectDamages?: (order: Order) => void;
   onOpenRejectionModal?: (order: Order) => void;
+  onOpenReplacementModal?: (order: Order) => void;
 }
 
 const OrderListItem = React.memo<OrderListItemProps>(({
@@ -50,6 +52,7 @@ const OrderListItem = React.memo<OrderListItemProps>(({
   onInspectDuplicateOrders,
   onInspectDamages,
   onOpenRejectionModal,
+  onOpenReplacementModal,
 }) => {
   const handleToggle = React.useCallback(() => {
     onToggleSelectCard(order.id);
@@ -70,6 +73,7 @@ const OrderListItem = React.memo<OrderListItemProps>(({
       onInspectDuplicateOrders={onInspectDuplicateOrders}
       onInspectDamages={onInspectDamages}
       onOpenRejectionModal={onOpenRejectionModal}
+      onOpenReplacementModal={onOpenReplacementModal}
     />
   );
 });
@@ -88,6 +92,7 @@ export const OrderList: React.FC<OrderListProps> = React.memo(({
   onInspectDuplicateOrders,
   onInspectDamages,
   onOpenRejectionModal,
+  onOpenReplacementModal,
 }) => {
   const selectedSet = React.useMemo(() => new Set(selectedOrderIds), [selectedOrderIds]);
 
@@ -124,6 +129,7 @@ export const OrderList: React.FC<OrderListProps> = React.memo(({
             onInspectDuplicateOrders={onInspectDuplicateOrders}
             onInspectDamages={onInspectDamages}
             onOpenRejectionModal={onOpenRejectionModal}
+            onOpenReplacementModal={onOpenReplacementModal}
           />
         );
       })}

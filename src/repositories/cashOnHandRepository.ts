@@ -32,6 +32,27 @@ export class ApiCashOnHandRepository {
     );
   }
 
+  async requestCashOnHand(
+    orderId: string,
+    payload: { requestNotes?: string; deliveryCharge?: number },
+  ): Promise<{
+    success: boolean;
+    order: Order;
+    handover: CashOnHandHandover;
+    cashOnHandStatus: CashOnHandStatus;
+  }> {
+    return unwrap(
+      await apiClient.post<{
+        data: {
+          success: boolean;
+          order: Order;
+          handover: CashOnHandHandover;
+          cashOnHandStatus: CashOnHandStatus;
+        };
+      }>(`/orders/${orderId}/cash-on-hand-request`, payload),
+    );
+  }
+
   async processCashOnHand(
     orderId: string,
     payload: ProcessCashOnHandPayload,

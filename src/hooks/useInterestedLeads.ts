@@ -146,14 +146,14 @@ export function useInterestedLeads(overrideTeamId?: string) {
         const ordersForPhone = phoneToOrdersMap[norm] || [];
         const samePhoneInterested = phoneToInterestedLeadsMap[norm] || [];
 
-        // Active orders for this phone
+        // Active non-replacement orders for this phone
         const activeOrders = ordersForPhone.filter((o) =>
-          ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status)
+          ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status) && !o.isReplacement
         );
 
-        // Orders belonging to other customers/reps with same phone
+        // Orders belonging to other customers/reps with same phone (excluding replacements)
         const foreignOrders = ordersForPhone.filter(
-          (o) => o.customerId !== cust.id || o.teamMemberId !== cust.responsibleTeamMemberId
+          (o) => (o.customerId !== cust.id || o.teamMemberId !== cust.responsibleTeamMemberId) && !o.isReplacement
         );
         const foreignActiveOrders = foreignOrders.filter((o) =>
           ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status)
@@ -246,6 +246,21 @@ export function useInterestedLeads(overrideTeamId?: string) {
     }
   };
 
+  const bulkUpdateDeliveryCharge = async (
+    updates: { orderId: string; codCharge: number; remarks?: string }[],
+    commonRemarks?: string
+  ) => {
+    try {
+      const res = await orderRepository.bulkUpdateDeliveryCharge({ updates, commonRemarks });
+      toast.success(`Successfully updated delivery charges for ${res.count} orders!`);
+      await loadData();
+      return res;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to bulk update delivery charges.');
+      throw err;
+    }
+  };
+
   return {
     user,
     effectiveTeamId,
@@ -260,5 +275,6 @@ export function useInterestedLeads(overrideTeamId?: string) {
     dispatchInterestedLeads,
     cancelInterestedLead,
     updateDeliveryCharge,
+    bulkUpdateDeliveryCharge,
   };
 }

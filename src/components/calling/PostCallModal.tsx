@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
+import { DistrictSelect } from '../shared/DistrictSelect';
 
 export interface PostCallModalProps {
   isOpen: boolean;
@@ -70,6 +71,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
   const [isFollowUp, setIsFollowUp] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [district, setDistrict] = useState('');
   const [city, setCity] = useState('');
   const [secondaryMobile, setSecondaryMobile] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
@@ -174,6 +176,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
       setIsFollowUp(Boolean(contact.isFollowUp));
       setCustomerName(prefillOrder.customer?.fullName || '');
       setCustomerAddress(prefillOrder.customer?.address || '');
+      setDistrict(prefillOrder.customer?.district || contact.district || '');
       setCity(prefillOrder.customer?.city || contact.city || '');
       setSecondaryMobile(prefillOrder.customer?.secondaryMobile || contact.secondaryMobile || '');
       setCustomerEmail(prefillOrder.customer?.email || '');
@@ -190,6 +193,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
       setIsFollowUp(Boolean(contact.isFollowUp));
       setCustomerName('');
       setCustomerAddress('');
+      setDistrict(contact.district || '');
       setCity(contact.city || '');
       setSecondaryMobile(contact.secondaryMobile || '');
       setCustomerEmail('');
@@ -245,6 +249,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
               setStatus('INTERESTED');
               setCustomerName(foundOrder.customer?.fullName || '');
               setCustomerAddress(foundOrder.customer?.address || '');
+              setDistrict(foundOrder.customer?.district || contact.district || '');
               setCity(foundOrder.customer?.city || contact.city || '');
               setSecondaryMobile(foundOrder.customer?.secondaryMobile || contact.secondaryMobile || '');
               setCustomerEmail(foundOrder.customer?.email || '');
@@ -342,12 +347,16 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
         toast.error('Customer Full Name is required for INTERESTED status.');
         return;
       }
-      if (!customerAddress.trim()) {
-        toast.error('Delivery Address is required for INTERESTED status.');
+      if (!district.trim()) {
+        toast.error('District is required for INTERESTED status. Please select a district.');
         return;
       }
       if (!city.trim()) {
         toast.error('City / Town is required for INTERESTED status.');
+        return;
+      }
+      if (!customerAddress.trim()) {
+        toast.error('Delivery Address is required for INTERESTED status.');
         return;
       }
       if (secondaryMobile.trim() && secondaryMobile.trim().length < 7) {
@@ -389,6 +398,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
           isFollowUp,
           customerName: customerName.trim() || undefined,
           customerAddress: isInterested ? customerAddress.trim() : undefined,
+          district: isInterested ? district.trim() : undefined,
           city: isInterested ? city.trim() : undefined,
           secondaryMobile: isInterested && secondaryMobile.trim() ? secondaryMobile.trim() : undefined,
           customerEmail: customerEmail.trim() || undefined,
@@ -766,13 +776,21 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                   </div>
                 )}
 
+                <Input
+                  label="Customer Full Name *"
+                  placeholder="e.g. Roshan Mahanama"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  required
+                />
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Input
-                    label="Customer Full Name *"
-                    placeholder="e.g. Roshan Mahanama"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    required
+                  <DistrictSelect
+                    label="District *"
+                    value={district}
+                    onChange={setDistrict}
+                    required={isInterested}
+                    helperText="Select from all 25 Sri Lankan districts"
                   />
 
                   <Input
@@ -781,7 +799,7 @@ export const PostCallModal: React.FC<PostCallModalProps> = ({
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     leftIcon={<MapPin className="w-4 h-4 text-slate-400" />}
-                    required
+                    required={isInterested}
                   />
                 </div>
 

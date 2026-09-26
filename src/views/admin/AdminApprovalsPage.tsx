@@ -11,6 +11,8 @@ import type {
   OrderStatus,
   CashOnHandHandover,
   CashOnHandStatus,
+  OrderReplacementRequest,
+  ReplacementReturnStatus,
 } from '../../models/domain';
 import {
   approvalRequestRepository,
@@ -18,6 +20,7 @@ import {
   productRepository,
   orderRejectionRepository,
   cashOnHandRepository,
+  replacementRepository,
 } from '../../repositories';
 import { ActivityLogService } from '../../services/activityLogService';
 import { getTeamBranding } from '../../config/branding';
@@ -74,11 +77,25 @@ export const AdminApprovalsPage: React.FC = () => {
   // Cash on Hand Handovers State
   const [cashHandovers, setCashHandovers] = useState<CashOnHandHandover[]>([]);
   const [cashStatusFilter, setCashStatusFilter] = useState<CashOnHandStatus | 'ALL'>('PENDING');
-  const [activeMainTab, setActiveMainTab] = useState<'ALL' | 'CASH_ON_HAND' | 'STOCK_PRICE' | 'ORDER_TRANSITIONS'>('ALL');
+  const [activeMainTab, setActiveMainTab] = useState<'ALL' | 'CASH_ON_HAND' | 'STOCK_PRICE' | 'ORDER_TRANSITIONS' | 'REPLACEMENTS'>('ALL');
+
+  // Replacements State
+  const [replacements, setReplacements] = useState<OrderReplacementRequest[]>([]);
+  const [replacementStatusFilter, setReplacementStatusFilter] = useState<ApprovalStatus | 'ALL'>('PENDING');
+  const [replacementReturnFilter, setReplacementReturnFilter] = useState<ReplacementReturnStatus | 'ALL'>('ALL');
+  const [viewingReplacement, setViewingReplacement] = useState<OrderReplacementRequest | null>(null);
+  const [approvingReplacement, setApprovingReplacement] = useState<OrderReplacementRequest | null>(null);
+  const [approveReplacementNotes, setApproveReplacementNotes] = useState('');
+  const [decliningReplacement, setDecliningReplacement] = useState<OrderReplacementRequest | null>(null);
+  const [declineReplacementNotes, setDeclineReplacementNotes] = useState('');
+  const [confirmingReturnRequest, setConfirmingReturnRequest] = useState<OrderReplacementRequest | null>(null);
+  const [confirmReturnNotes, setConfirmReturnNotes] = useState('');
+  const [isSubmittingReplacement, setIsSubmittingReplacement] = useState(false);
 
   // Cash on Hand Modals State
   const [viewingCashHandover, setViewingCashHandover] = useState<CashOnHandHandover | null>(null);
   const [approvingCashHandover, setApprovingCashHandover] = useState<CashOnHandHandover | null>(null);
+  const [cashApproveOutcome, setCashApproveOutcome] = useState<'DELIVERED' | 'DISPATCHED' | ''>('');
   const [cashApproveNotes, setCashApproveNotes] = useState('');
   const [decliningCashHandover, setDecliningCashHandover] = useState<CashOnHandHandover | null>(null);
   const [cashDeclineNotes, setCashDeclineNotes] = useState('');
@@ -106,18 +123,20 @@ export const AdminApprovalsPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [allRequests, allTeams, allProducts, allOrderRejections, allCashHandovers] = await Promise.all([
+      const [allRequests, allTeams, allProducts, allOrderRejections, allCashHandovers, allReplacements] = await Promise.all([
         approvalRequestRepository.getAll(),
         teamRepository.getAll(),
         productRepository.getAll(),
         orderRejectionRepository.getAll(),
         cashOnHandRepository.getAllHandovers(),
+        replacementRepository.getAll(),
       ]);
       setRequests(allRequests);
       setTeams(allTeams);
       setProducts(allProducts);
       setOrderRejections(allOrderRejections);
       setCashHandovers(allCashHandovers);
+      setReplacements(allReplacements);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load approval requests.');
     } finally {
@@ -302,34 +321,45 @@ export const AdminApprovalsPage: React.FC = () => {
 
   const handleConfirmApproveCashHandover = async () => {
     if (!approvingCashHandover || !user) return;
+    if (!cashApproveOutcome) {
+      toast.error('Please choose an outcome: Mark Delivered or Keep Dispatched');
+      return;
+    }
     setIsSubmittingCashReview(true);
     try {
       await cashOnHandRepository.reviewHandover(approvingCashHandover.id, {
         status: 'APPROVED',
+        adminOutcome: cashApproveOutcome,
         adminNotes: cashApproveNotes.trim() || undefined,
       });
+
+      const action =
+        cashApproveOutcome === 'DELIVERED'
+          ? 'CASH_ON_HAND_APPROVED_DELIVERED'
+          : 'CASH_ON_HAND_APPROVED_DISPATCHED';
 
       await ActivityLogService.logAction({
         userId: user.id,
         userRole: user.role,
         userName: user.fullName,
-        action: 'CASH_ON_HAND_APPROVED',
+        action: action as any,
         entityType: 'CashOnHandHandover',
         entityId: approvingCashHandover.id,
-        description: `Verified and approved Cash on Hand handover for order #${approvingCashHandover.orderNumber}. Physical cash received: ${formatCurrency(Number(approvingCashHandover.amountCollected))}.`,
+        description: `Approved Cash on Hand request for order #${approvingCashHandover.orderNumber} with outcome ${cashApproveOutcome}. COD set to 0.`,
       });
 
       toast.success(
-        `Approved Cash on Hand handover for Order #${approvingCashHandover.orderNumber}. Physical cash receipt of ${formatCurrency(Number(approvingCashHandover.amountCollected))} verified.`,
+        `Approved Cash on Hand for Order #${approvingCashHandover.orderNumber} (${cashApproveOutcome}).`,
       );
       setApprovingCashHandover(null);
+      setCashApproveOutcome('');
       setCashApproveNotes('');
       if (viewingCashHandover?.id === approvingCashHandover.id) {
         setViewingCashHandover(null);
       }
       loadData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to approve Cash on Hand handover.');
+      toast.error(err.response?.data?.message || err.message || 'Failed to approve Cash on Hand request.');
     } finally {
       setIsSubmittingCashReview(false);
     }
@@ -347,6 +377,7 @@ export const AdminApprovalsPage: React.FC = () => {
     try {
       await cashOnHandRepository.reviewHandover(decliningCashHandover.id, {
         status: 'DECLINED',
+        rejectionReason: cashDeclineNotes.trim(),
         adminNotes: cashDeclineNotes.trim(),
       });
 
@@ -357,11 +388,11 @@ export const AdminApprovalsPage: React.FC = () => {
         action: 'CASH_ON_HAND_DECLINED',
         entityType: 'CashOnHandHandover',
         entityId: decliningCashHandover.id,
-        description: `Declined Cash on Hand handover for order #${decliningCashHandover.orderNumber}. Reverted to Interested stage. Reason: ${cashDeclineNotes}`,
+        description: `Declined Cash on Hand request for order #${decliningCashHandover.orderNumber}. Reverted to normal COD. Reason: ${cashDeclineNotes.trim()}`,
       });
 
       toast.success(
-        `Declined Cash on Hand handover for Order #${decliningCashHandover.orderNumber}. Order automatically reverted to Interested stage (PREPARED) and inventory restored.`,
+        `Declined Cash on Hand request for Order #${decliningCashHandover.orderNumber}. Order remains in Prepared state with normal COD.`,
         { duration: 5000 },
       );
       setDecliningCashHandover(null);
@@ -371,9 +402,91 @@ export const AdminApprovalsPage: React.FC = () => {
       }
       loadData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to decline Cash on Hand handover.');
+      toast.error(err.response?.data?.message || err.message || 'Failed to decline Cash on Hand request.');
     } finally {
       setIsSubmittingCashReview(false);
+    }
+  };
+
+  const handleConfirmApproveReplacement = async () => {
+    if (!approvingReplacement || !user) return;
+    setIsSubmittingReplacement(true);
+    try {
+      await replacementRepository.review(approvingReplacement.id, {
+        status: 'APPROVED',
+        adminNotes: approveReplacementNotes.trim() || undefined,
+      });
+      toast.success(
+        `Approved replacement for Order #${approvingReplacement.originalOrderNumber}. Replacement child order generated in Prepared status.`,
+        { duration: 5000 },
+      );
+      setApprovingReplacement(null);
+      setApproveReplacementNotes('');
+      if (viewingReplacement?.id === approvingReplacement.id) {
+        setViewingReplacement(null);
+      }
+      loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to approve replacement request.');
+    } finally {
+      setIsSubmittingReplacement(false);
+    }
+  };
+
+  const handleConfirmDeclineReplacement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!decliningReplacement || !user) return;
+    if (!declineReplacementNotes.trim()) {
+      toast.error('Please provide an explanation for declining the replacement request.');
+      return;
+    }
+
+    setIsSubmittingReplacement(true);
+    try {
+      await replacementRepository.review(decliningReplacement.id, {
+        status: 'REJECTED',
+        adminNotes: declineReplacementNotes.trim(),
+      });
+      toast.success(
+        `Declined replacement request for Order #${decliningReplacement.originalOrderNumber}. Original delivered order remains intact.`,
+        { duration: 5000 },
+      );
+      setDecliningReplacement(null);
+      setDeclineReplacementNotes('');
+      if (viewingReplacement?.id === decliningReplacement.id) {
+        setViewingReplacement(null);
+      }
+      loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to decline replacement request.');
+    } finally {
+      setIsSubmittingReplacement(false);
+    }
+  };
+
+  const handleConfirmDamagedReturn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmingReturnRequest || !user) return;
+    setIsSubmittingReplacement(true);
+    try {
+      await replacementRepository.confirmReturn(confirmingReturnRequest.id, {
+        notes: confirmReturnNotes.trim() || undefined,
+        returnStatus: 'ITEM_RETURNED',
+      });
+      toast.success(
+        `Confirmed damaged product arrival for Order #${confirmingReturnRequest.originalOrderNumber}. Warehouse damaged stock credited.`,
+        { duration: 5000 },
+      );
+      setConfirmingReturnRequest(null);
+      setConfirmReturnNotes('');
+      if (viewingReplacement?.id === confirmingReturnRequest.id) {
+        setViewingReplacement(null);
+      }
+      loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to confirm damaged item return.');
+    } finally {
+      setIsSubmittingReplacement(false);
     }
   };
 
@@ -409,10 +522,25 @@ export const AdminApprovalsPage: React.FC = () => {
     .filter((h) => h.status === 'PENDING')
     .reduce((sum, h) => sum + Number(h.amountCollected || 0), 0);
 
-  const totalPending = pendingCount + pendingRejectionCount + pendingCashCount;
-  const totalApproved = approvedCount + approvedRejectionCount + approvedCashCount;
-  const totalDeclined = rejectedCount + declinedRejectionCount + declinedCashCount;
-  const totalSubmissions = requests.length + orderRejections.length + cashHandovers.length;
+  const filteredReplacements = useMemo(() => {
+    return replacements.filter((r) => {
+      if (replacementStatusFilter !== 'ALL' && r.status !== replacementStatusFilter) return false;
+      if (replacementReturnFilter !== 'ALL' && r.returnStatus !== replacementReturnFilter) return false;
+      return true;
+    });
+  }, [replacements, replacementStatusFilter, replacementReturnFilter]);
+
+  const pendingReplacementCount = replacements.filter((r) => r.status === 'PENDING').length;
+  const approvedReplacementCount = replacements.filter((r) => r.status === 'APPROVED').length;
+  const declinedReplacementCount = replacements.filter((r) => r.status === 'REJECTED').length;
+  const pendingReturnCount = replacements.filter(
+    (r) => r.status === 'APPROVED' && r.returnStatus === 'PENDING_RETURN',
+  ).length;
+
+  const totalPending = pendingCount + pendingRejectionCount + pendingCashCount + pendingReplacementCount;
+  const totalApproved = approvedCount + approvedRejectionCount + approvedCashCount + approvedReplacementCount;
+  const totalDeclined = rejectedCount + declinedRejectionCount + declinedCashCount + declinedReplacementCount;
+  const totalSubmissions = requests.length + orderRejections.length + cashHandovers.length + replacements.length;
 
   if (loading) return <LoadingState rows={6} />;
 
@@ -487,10 +615,58 @@ export const AdminApprovalsPage: React.FC = () => {
             </span>
           )}
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('REPLACEMENTS')}
+          className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeMainTab === 'REPLACEMENTS'
+              ? 'bg-purple-700 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <RotateCcw className="w-4 h-4 text-purple-300" />
+          Replacements ({replacements.length})
+          {pendingReplacementCount > 0 && (
+            <span className="bg-amber-400 text-amber-950 font-black px-1.5 py-0.2 rounded-full text-[10px]">
+              {pendingReplacementCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Stat Cards */}
-      {activeMainTab === 'CASH_ON_HAND' ? (
+      {activeMainTab === 'REPLACEMENTS' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <StatCard
+            title="Pending Replacements"
+            value={pendingReplacementCount}
+            subtitle="Damaged items awaiting review"
+            icon={<Clock className="w-4 h-4 text-amber-600" />}
+            accentColor={pendingReplacementCount > 0 ? 'amber' : 'green'}
+          />
+          <StatCard
+            title="Approved Replacements"
+            value={approvedReplacementCount}
+            subtitle="Free replacement orders created"
+            icon={<CheckCircle2 className="w-4 h-4 text-purple-600" />}
+            accentColor="purple"
+          />
+          <StatCard
+            title="Pending Damaged Returns"
+            value={pendingReturnCount}
+            subtitle="Broken items awaiting return"
+            icon={<Package className="w-4 h-4 text-amber-600" />}
+            accentColor={pendingReturnCount > 0 ? 'amber' : 'blue'}
+          />
+          <StatCard
+            title="Declined Requests"
+            value={declinedReplacementCount}
+            subtitle="Replacement requests declined"
+            icon={<XCircle className="w-4 h-4 text-rose-600" />}
+            accentColor="red"
+          />
+        </div>
+      ) : activeMainTab === 'CASH_ON_HAND' ? (
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <StatCard
             title="Pending Verification"
@@ -526,21 +702,21 @@ export const AdminApprovalsPage: React.FC = () => {
           <StatCard
             title="Total Pending Approvals"
             value={totalPending}
-            subtitle={`${pendingCount} stock/price, ${pendingRejectionCount} transitions, ${pendingCashCount} cash`}
+            subtitle={`${pendingCount} stock/price, ${pendingRejectionCount} transitions, ${pendingCashCount} cash, ${pendingReplacementCount} replacements`}
             icon={<Clock className="w-4 h-4 text-amber-600" />}
             accentColor={totalPending > 0 ? 'amber' : 'green'}
           />
           <StatCard
             title="Total Approved"
             value={totalApproved}
-            subtitle={`${approvedCount} stock/price, ${approvedRejectionCount} transitions, ${approvedCashCount} cash`}
+            subtitle={`${approvedCount} stock/price, ${approvedRejectionCount} transitions, ${approvedCashCount} cash, ${approvedReplacementCount} replacements`}
             icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
             accentColor="green"
           />
           <StatCard
             title="Total Rejected / Declined"
             value={totalDeclined}
-            subtitle={`${rejectedCount} stock/price, ${declinedRejectionCount} transitions, ${declinedCashCount} cash`}
+            subtitle={`${rejectedCount} stock/price, ${declinedRejectionCount} transitions, ${declinedCashCount} cash, ${declinedReplacementCount} replacements`}
             icon={<XCircle className="w-4 h-4 text-rose-600" />}
             accentColor="red"
           />
@@ -1002,12 +1178,12 @@ export const AdminApprovalsPage: React.FC = () => {
                   <tr>
                     <th className="px-4 py-3">Date</th>
                     <th className="px-4 py-3">Order #</th>
-                    <th className="px-4 py-3">Supervisor</th>
+                    <th className="px-4 py-3">Requester & Team</th>
                     <th className="px-4 py-3">Customer</th>
-                    <th className="px-4 py-3">Outcome</th>
+                    <th className="px-4 py-3">Packages</th>
                     <th className="px-4 py-3 text-right">Delivery Fee</th>
-                    <th className="px-4 py-3 text-right font-bold text-emerald-950">Cash Collected</th>
-                    <th className="px-4 py-3">Verification Status</th>
+                    <th className="px-4 py-3 text-right font-bold text-slate-900">Current COD</th>
+                    <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -1015,11 +1191,12 @@ export const AdminApprovalsPage: React.FC = () => {
                   {filteredCashHandovers.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="text-center py-10 text-slate-400">
-                        No Cash on Hand handover records found matching filter "{cashStatusFilter}".
+                        No Cash on Hand approval records found matching filter "{cashStatusFilter}".
                       </td>
                     </tr>
                   ) : (
                     filteredCashHandovers.map((h) => {
+                      const codAmount = Number(h.amountCollected || (Number(h.productValue) + Number(h.deliveryCharge)));
                       return (
                         <tr key={h.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="px-4 py-3.5 text-slate-500 whitespace-nowrap">
@@ -1033,7 +1210,7 @@ export const AdminApprovalsPage: React.FC = () => {
                               {h.supervisorName}
                             </span>
                             {h.team && (
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-[10px] text-slate-500">
                                 {h.team.name}
                               </span>
                             )}
@@ -1042,45 +1219,60 @@ export const AdminApprovalsPage: React.FC = () => {
                             <span className="font-semibold text-slate-900 block">
                               {h.customerName}
                             </span>
-                            <span className="text-slate-400 text-[11px]">{h.customerPhone}</span>
+                            <span className="text-slate-400 text-[11px] block">{h.customerPhone}</span>
+                            {h.order?.customer?.address && (
+                              <span className="text-slate-400 text-[10px] block truncate max-w-[180px]">{h.order.customer.address}</span>
+                            )}
                           </td>
-                          <td className="px-4 py-3.5 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                                h.outcomeStatus === 'DELIVERED'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
-                              }`}
-                            >
-                              {h.outcomeStatus === 'DELIVERED' ? (
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              ) : (
-                                <XCircle className="w-3 h-3 text-rose-600" />
-                              )}
-                              {h.outcomeStatus}
-                            </span>
+                          <td className="px-4 py-3.5 max-w-[200px]">
+                            {h.order?.items && h.order.items.length > 0 ? (
+                              <div className="space-y-0.5">
+                                {h.order.items.map((it, idx) => (
+                                  <div key={it.id || idx} className="text-[11px] text-slate-700 truncate">
+                                    {it.productName} <span className="text-slate-400 font-mono">×{it.quantity}</span>
+                                  </div>
+                                ))}
+                                <span className="text-[10px] font-mono text-slate-500 block">
+                                  Total: {formatCurrency(Number(h.productValue))}
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="text-slate-800 font-medium block truncate">
+                                  {h.order?.itemsDescription || 'Package'}
+                                </span>
+                                <span className="text-[10px] font-mono text-slate-500 block">
+                                  Total: {formatCurrency(Number(h.productValue))}
+                                </span>
+                              </div>
+                            )}
+                            {h.requestNotes && (
+                              <span className="text-[10px] italic text-amber-800 bg-amber-50 rounded px-1 py-0.2 mt-1 block truncate" title={h.requestNotes}>
+                                Note: "{h.requestNotes}"
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3.5 text-right font-medium text-slate-600 whitespace-nowrap">
                             {formatCurrency(Number(h.deliveryCharge))}
                           </td>
-                          <td className="px-4 py-3.5 text-right font-black text-emerald-700 text-sm whitespace-nowrap">
-                            {formatCurrency(Number(h.amountCollected))}
+                          <td className="px-4 py-3.5 text-right font-bold text-slate-900 text-sm whitespace-nowrap">
+                            {formatCurrency(codAmount)}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap">
                             {h.status === 'APPROVED' ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                Verified &amp; Received
+                                Approved {h.outcomeStatus ? `(${h.outcomeStatus})` : ''}
                               </span>
                             ) : h.status === 'DECLINED' ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
                                 <XCircle className="w-3 h-3 text-rose-600" />
-                                Declined (Reverted)
+                                Declined
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                                 <Clock className="w-3 h-3 text-amber-600" />
-                                Pending Receipt
+                                Pending Admin Approval
                               </span>
                             )}
                           </td>
@@ -1090,20 +1282,27 @@ export const AdminApprovalsPage: React.FC = () => {
                                 <>
                                   <Button
                                     size="sm"
-                                    onClick={() => setApprovingCashHandover(h)}
+                                    onClick={() => {
+                                      setApprovingCashHandover(h);
+                                      setCashApproveOutcome('');
+                                      setCashApproveNotes('');
+                                    }}
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1 h-auto flex items-center gap-1 cursor-pointer"
                                   >
                                     <Check className="w-3.5 h-3.5" />
-                                    Confirm Received
+                                    Approve
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => setDecliningCashHandover(h)}
+                                    onClick={() => {
+                                      setDecliningCashHandover(h);
+                                      setCashDeclineNotes('');
+                                    }}
                                     className="border-rose-300 text-rose-700 hover:bg-rose-50 text-[11px] font-bold px-2.5 py-1 h-auto flex items-center gap-1 cursor-pointer"
                                   >
                                     <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                                    Decline
+                                    Reject
                                   </Button>
                                 </>
                               )}
@@ -1112,7 +1311,251 @@ export const AdminApprovalsPage: React.FC = () => {
                                 variant="outline"
                                 onClick={() => setViewingCashHandover(h)}
                                 className="text-slate-600 hover:text-slate-900 px-2 py-1 h-auto cursor-pointer"
-                                title="View Handover Details"
+                                title="View Details"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 4. Order Replacements Section */}
+      {(activeMainTab === 'ALL' || activeMainTab === 'REPLACEMENTS') && (
+        <Card>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base font-bold text-slate-900">
+                  Damaged Product Replacements Queue
+                </CardTitle>
+                <span className="bg-purple-100 text-purple-800 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {filteredReplacements.length}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Approve free replacement orders for damaged deliveries, allocate stock to ORD-XXXX-R1, and log warehouse physical returns.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs">
+                {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setReplacementStatusFilter(st)}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                      replacementStatusFilter === st
+                        ? 'bg-white text-slate-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {st === 'ALL' ? 'All Statuses' : st.charAt(0) + st.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs">
+                {(['ALL', 'PENDING_RETURN', 'ITEM_RETURNED', 'WAIVED_NOT_RETURNED'] as const).map((ret) => (
+                  <button
+                    key={ret}
+                    onClick={() => setReplacementReturnFilter(ret)}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                      replacementReturnFilter === ret
+                        ? 'bg-white text-slate-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {ret === 'ALL'
+                      ? 'All Returns'
+                      : ret === 'PENDING_RETURN'
+                      ? 'Pending Return'
+                      : ret === 'ITEM_RETURNED'
+                      ? 'Returned'
+                      : 'Waived'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Orders</th>
+                    <th className="px-4 py-3">Requester & Team</th>
+                    <th className="px-4 py-3">Customer</th>
+                    <th className="px-4 py-3">Damaged Items</th>
+                    <th className="px-4 py-3">Delivery & Fee</th>
+                    <th className="px-4 py-3">Approval</th>
+                    <th className="px-4 py-3">Return Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredReplacements.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="text-center py-10 text-slate-400">
+                        No replacement requests found matching filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredReplacements.map((r) => {
+                      return (
+                        <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-4 py-3.5 text-slate-500 whitespace-nowrap">
+                            {format(new Date(r.createdAt), 'MMM dd, HH:mm')}
+                          </td>
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            <span className="font-bold text-slate-900 block">
+                              #{r.originalOrderNumber}
+                            </span>
+                            {(r.replacementOrderNum || r.replacementOrderNumber) ? (
+                              <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded inline-block mt-0.5 border border-purple-200">
+                                ↳ #{r.replacementOrderNum || r.replacementOrderNumber}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 block mt-0.5">Original Order</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="font-semibold text-slate-900 block">
+                              {r.requestedByName}
+                            </span>
+                            {r.team && (
+                              <span className="text-[10px] text-slate-500">
+                                {r.team.name}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="font-semibold text-slate-900 block">
+                              {r.customerName}
+                            </span>
+                            <span className="text-slate-400 text-[11px] block">{r.customerPhone}</span>
+                          </td>
+                          <td className="px-4 py-3.5 max-w-[220px]">
+                            {(r.itemsToReplace || r.items || []).length > 0 ? (
+                              <div className="space-y-0.5">
+                                {(r.itemsToReplace || r.items || []).map((it, idx) => (
+                                  <div key={idx} className="text-[11px] text-slate-700 truncate">
+                                    <span className="font-medium text-slate-900">{it.productName}</span>{' '}
+                                    <span className="text-rose-600 font-mono font-bold">×{it.quantity}</span>
+                                    {(it.reason || it.damageReason) && (
+                                      <span className="text-slate-400 text-[10px] block truncate">
+                                        Reason: {it.reason || it.damageReason}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic">No item details</span>
+                            )}
+                            {(r.damageDescription || r.reason) && (
+                              <span className="text-[10px] italic text-purple-900 bg-purple-50 rounded px-1 py-0.5 mt-1 block truncate" title={r.damageDescription || r.reason}>
+                                Note: {r.damageDescription || r.reason}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            <span className="text-[11px] font-semibold text-slate-800 block">
+                              {r.deliveryMethod || 'DOMESTIC_COURIER'}
+                            </span>
+                            <span className="text-[10px] font-bold text-emerald-600">
+                              {Number(r.deliveryFee) === 0 ? 'FREE REPLACEMENT' : formatCurrency(Number(r.deliveryFee))}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                r.status === 'APPROVED'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                  : r.status === 'REJECTED'
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+                              }`}
+                            >
+                              {r.status === 'APPROVED' && <CheckCircle2 className="w-3 h-3" />}
+                              {r.status === 'REJECTED' && <XCircle className="w-3 h-3" />}
+                              {r.status === 'PENDING' && <Clock className="w-3 h-3" />}
+                              {r.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                r.returnStatus === 'ITEM_RETURNED'
+                                  ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                                  : r.returnStatus === 'WAIVED_NOT_RETURNED'
+                                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                                  : 'bg-orange-100 text-orange-800 border border-orange-200'
+                              }`}
+                            >
+                              {r.returnStatus === 'ITEM_RETURNED' && 'Returned to WH'}
+                              {r.returnStatus === 'WAIVED_NOT_RETURNED' && 'Return Waived'}
+                              {r.returnStatus === 'PENDING_RETURN' && 'Pending Return'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {r.status === 'PENDING' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setApprovingReplacement(r);
+                                      setApproveReplacementNotes('');
+                                    }}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1 h-auto flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setDecliningReplacement(r);
+                                      setDeclineReplacementNotes('');
+                                    }}
+                                    className="border-rose-300 text-rose-700 hover:bg-rose-50 text-[11px] font-bold px-2.5 py-1 h-auto flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                              {r.status === 'APPROVED' && r.returnStatus === 'PENDING_RETURN' && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setConfirmingReturnRequest(r);
+                                    setConfirmReturnNotes('');
+                                  }}
+                                  className="bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold px-2.5 py-1 h-auto flex items-center gap-1 cursor-pointer"
+                                  title="Confirm arrival of damaged item at warehouse"
+                                >
+                                  <Package className="w-3.5 h-3.5" />
+                                  Confirm Return
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setViewingReplacement(r)}
+                                className="text-slate-600 hover:text-slate-900 px-2 py-1 h-auto cursor-pointer"
+                                title="View Details"
                               >
                                 <Eye className="w-3.5 h-3.5" />
                               </Button>
@@ -1874,60 +2317,122 @@ export const AdminApprovalsPage: React.FC = () => {
         </form>
       </Dialog>
 
-      {/* Dialog for Approving Cash on Hand Handover */}
+      {/* Dialog for Approving Cash on Hand Request */}
       <Dialog
         isOpen={!!approvingCashHandover}
         onClose={() => !isSubmittingCashReview && setApprovingCashHandover(null)}
-        title="Confirm Cash Received & Approve Handover"
-        description={`Confirm physical receipt of cash collected by supervisor for Order #${approvingCashHandover?.orderNumber}`}
+        title="Approve Cash On Hand Request"
+        description={`Order #${approvingCashHandover?.orderNumber} • ${approvingCashHandover?.customerName}`}
       >
         {approvingCashHandover && (
           <div className="space-y-4">
-            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 text-xs">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-600">Order Number:</span>
-                <span className="font-bold text-slate-900">#{approvingCashHandover.orderNumber}</span>
+                <span className="text-slate-500">Order Number:</span>
+                <span className="font-bold text-slate-900 font-mono">#{approvingCashHandover.orderNumber}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Supervisor:</span>
-                <span className="font-bold text-slate-900">{approvingCashHandover.supervisorName}</span>
+                <span className="text-slate-500">Requester:</span>
+                <span className="font-semibold text-slate-800">{approvingCashHandover.supervisorName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Customer:</span>
-                <span className="font-bold text-slate-900">
+                <span className="text-slate-500">Customer:</span>
+                <span className="font-medium text-slate-900">
                   {approvingCashHandover.customerName} ({approvingCashHandover.customerPhone})
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Outcome Status:</span>
-                <span className="font-bold text-emerald-800">{approvingCashHandover.outcomeStatus}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Product Value:</span>
-                <span className="font-medium text-slate-800">
+                <span className="text-slate-500">Package Total:</span>
+                <span className="font-mono text-slate-800">
                   {formatCurrency(Number(approvingCashHandover.productValue))}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Delivery Charge:</span>
-                <span className="font-medium text-slate-800">
+                <span className="text-slate-500">Delivery Charge:</span>
+                <span className="font-mono text-slate-800">
                   {formatCurrency(Number(approvingCashHandover.deliveryCharge))}
                 </span>
               </div>
-              <div className="pt-2 border-t border-emerald-200 flex justify-between items-center">
-                <span className="font-bold text-emerald-950 text-sm">Physical Cash to Receive:</span>
-                <span className="font-black text-emerald-950 text-xl">
-                  {formatCurrency(Number(approvingCashHandover.amountCollected))}
+              <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
+                <span className="font-bold text-slate-900">Approved COD to Customer:</span>
+                <span className="font-bold text-emerald-700 text-sm">
+                  LKR 0.00 (Cash on Hand)
                 </span>
+              </div>
+              {approvingCashHandover.requestNotes && (
+                <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-amber-900 bg-amber-50/70 p-2 rounded">
+                  <span className="font-bold block">Requester Note:</span>
+                  "{approvingCashHandover.requestNotes}"
+                </div>
+              )}
+            </div>
+
+            {/* Outcome Selection (Mandatory) */}
+            <div className="space-y-2 border border-slate-200 rounded-xl p-3 bg-slate-50/60">
+              <label className="block text-xs font-bold text-slate-800">
+                Select Order Outcome <span className="text-rose-600">*</span>
+              </label>
+              <div className="space-y-2">
+                <label
+                  className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition ${
+                    cashApproveOutcome === 'DELIVERED'
+                      ? 'bg-emerald-50 border-emerald-400 ring-1 ring-emerald-400'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="cohOutcome"
+                    value="DELIVERED"
+                    checked={cashApproveOutcome === 'DELIVERED'}
+                    onChange={() => setCashApproveOutcome('DELIVERED')}
+                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Mark Delivered</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Order transitions to <strong>DELIVERED</strong>. Allocated stock moves to <strong>Sold Stock</strong>. COD is set to 0.
+                    </p>
+                  </div>
+                </label>
+
+                <label
+                  className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition ${
+                    cashApproveOutcome === 'DISPATCHED'
+                      ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="cohOutcome"
+                    value="DISPATCHED"
+                    checked={cashApproveOutcome === 'DISPATCHED'}
+                    onChange={() => setCashApproveOutcome('DISPATCHED')}
+                    className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Keep Dispatched</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Order transitions to <strong>DISPATCHED</strong>. Allocated stock moves to <strong>Dispatched Stock</strong>. COD is set to 0. Enters courier workflow.
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Optional Admin Notes / Verification Remarks
+                Optional Admin Notes
               </label>
               <Input
-                placeholder="e.g. Received exact cash from supervisor at Colombo office."
+                placeholder="e.g. Handover approved by Admin; verified collection."
                 value={cashApproveNotes}
                 onChange={(e) => setCashApproveNotes(e.target.value)}
               />
@@ -1946,44 +2451,43 @@ export const AdminApprovalsPage: React.FC = () => {
                 type="button"
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
                 onClick={handleConfirmApproveCashHandover}
+                disabled={!cashApproveOutcome || isSubmittingCashReview}
                 isLoading={isSubmittingCashReview}
               >
-                Confirm Receipt &amp; Approve
+                Confirm &amp; Approve
               </Button>
             </div>
           </div>
         )}
       </Dialog>
 
-      {/* Dialog for Declining Cash on Hand Handover */}
+      {/* Dialog for Declining Cash on Hand Request */}
       <Dialog
         isOpen={!!decliningCashHandover}
         onClose={() => !isSubmittingCashReview && setDecliningCashHandover(null)}
-        title="Decline Cash on Hand Handover"
-        description={`Decline handover for Order #${decliningCashHandover?.orderNumber}`}
+        title="Reject Cash On Hand Request"
+        description={`Reject Cash On Hand request for Order #${decliningCashHandover?.orderNumber}`}
       >
         {decliningCashHandover && (
           <form onSubmit={handleConfirmDeclineCashHandover} className="space-y-4">
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-950 space-y-2">
               <div className="font-bold flex items-center gap-1.5 text-rose-900">
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                Automatic Reversion to Interested Stage
+                Preserve Normal COD Workflow
               </div>
               <p className="text-rose-800">
-                Declining this handover will <strong>automatically revert Order #{decliningCashHandover.orderNumber}</strong> back to the <strong>Interested stage (`PREPARED`)</strong>. Sold inventory will be returned to allocated stock.
+                Rejecting this request will keep <strong>Order #{decliningCashHandover.orderNumber}</strong> in its
+                valid <strong>Prepared (`PREPARED`) state</strong> as a normal COD order. Stock will not move and remains in allocated stock.
               </p>
-              <div className="text-[11px] text-rose-700 pt-1 border-t border-rose-200">
-                Expected cash amount: {formatCurrency(Number(decliningCashHandover.amountCollected))}
-              </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Decline Reason / Explanation <span className="text-rose-600">*</span>
+                Rejection Reason <span className="text-rose-600">*</span>
               </label>
               <textarea
                 rows={3}
-                placeholder="e.g. Supervisor did not hand over the collected cash, cash discrepancy of Rs. 500, customer disputed delivery, etc."
+                placeholder="e.g. Customer did not pick up, cash payment not confirmed, must proceed via postal COD..."
                 value={cashDeclineNotes}
                 onChange={(e) => setCashDeclineNotes(e.target.value)}
                 required
@@ -2005,7 +2509,7 @@ export const AdminApprovalsPage: React.FC = () => {
                 className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
                 isLoading={isSubmittingCashReview}
               >
-                Confirm Decline &amp; Revert Order
+                Confirm Rejection
               </Button>
             </div>
           </form>
@@ -2133,6 +2637,371 @@ export const AdminApprovalsPage: React.FC = () => {
             </div>
           </div>
         )}
+      </Dialog>
+
+      {/* Dialog for Viewing Replacement Request Details */}
+      <Dialog
+        isOpen={!!viewingReplacement}
+        onClose={() => setViewingReplacement(null)}
+        title="Replacement Request Dossier"
+        description="Comprehensive review of damaged products claim, stock allocation, and return status."
+        maxWidth="2xl"
+      >
+        {viewingReplacement && (
+          <div className="space-y-4">
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+                <div>
+                  <span className="text-[11px] font-mono text-slate-400">Request ID: {viewingReplacement.id}</span>
+                  <h4 className="text-sm font-bold text-slate-900 mt-0.5">
+                    Original Order #{viewingReplacement.originalOrderNumber}
+                  </h4>
+                  {(viewingReplacement.replacementOrderNum || viewingReplacement.replacementOrderNumber) && (
+                    <span className="inline-block mt-1 text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                      Child Replacement Order: #{viewingReplacement.replacementOrderNum || viewingReplacement.replacementOrderNumber}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      viewingReplacement.status === 'APPROVED'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : viewingReplacement.status === 'REJECTED'
+                        ? 'bg-rose-100 text-rose-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {viewingReplacement.status}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      viewingReplacement.returnStatus === 'ITEM_RETURNED'
+                        ? 'bg-indigo-100 text-indigo-800'
+                        : viewingReplacement.returnStatus === 'WAIVED_NOT_RETURNED'
+                        ? 'bg-slate-100 text-slate-700'
+                        : 'bg-orange-100 text-orange-800'
+                    }`}
+                  >
+                    {viewingReplacement.returnStatus}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-slate-500 block">Customer</span>
+                  <span className="font-semibold text-slate-900">{viewingReplacement.customerName}</span>
+                  <span className="text-slate-400 block text-[11px]">{viewingReplacement.customerPhone}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Requester & Team</span>
+                  <span className="font-semibold text-slate-900">{viewingReplacement.requestedByName}</span>
+                  <span className="text-slate-500 block text-[11px]">
+                    {viewingReplacement.team?.name || 'General Team'} • {format(new Date(viewingReplacement.createdAt), 'MMM dd, yyyy HH:mm')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Damaged Items Breakdown */}
+            <div>
+              <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Damaged Items Claimed
+              </h5>
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium">
+                    <tr>
+                      <th className="px-3 py-2">Item</th>
+                      <th className="px-3 py-2 text-center">Qty Damaged</th>
+                      <th className="px-3 py-2">Damage Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(viewingReplacement.itemsToReplace || viewingReplacement.items || []).map((it, idx) => (
+                      <tr key={idx}>
+                        <td className="px-3 py-2 font-medium text-slate-900">{it.productName}</td>
+                        <td className="px-3 py-2 text-center font-bold text-rose-600">{it.quantity}</td>
+                        <td className="px-3 py-2 text-slate-600">{it.reason || it.damageReason || 'Broken during transit'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Fulfillment & Reason Details */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Delivery Method:</span>
+                <span className="font-semibold text-slate-800">{viewingReplacement.deliveryMethod || 'DOMESTIC_COURIER'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Replacement Shipping Fee:</span>
+                <span className="font-bold text-slate-900">
+                  {Number(viewingReplacement.deliveryFee) === 0 ? 'FREE (LKR 0.00)' : formatCurrency(Number(viewingReplacement.deliveryFee))}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Replacement Product Value:</span>
+                <span className="font-bold text-emerald-600">LKR 0.00 (Customer pays 0 for product)</span>
+              </div>
+              {(viewingReplacement.damageDescription || viewingReplacement.reason) && (
+                <div className="pt-2 border-t border-slate-200">
+                  <span className="text-slate-500 block font-medium mb-0.5">Supervisor Description:</span>
+                  <p className="text-slate-700 italic">{viewingReplacement.damageDescription || viewingReplacement.reason}</p>
+                </div>
+              )}
+              {viewingReplacement.adminNotes && (
+                <div className="pt-2 border-t border-slate-200">
+                  <span className="text-slate-500 block font-medium mb-0.5">Admin Review Notes:</span>
+                  <p className="text-slate-700 font-medium">{viewingReplacement.adminNotes}</p>
+                </div>
+              )}
+              {(viewingReplacement.damagedReturnNotes || viewingReplacement.returnReceivedByName) && (
+                <div className="pt-2 border-t border-slate-200">
+                  <span className="text-slate-500 block font-medium mb-0.5">Warehouse Return Info:</span>
+                  <p className="text-purple-700 font-medium">
+                    {viewingReplacement.damagedReturnNotes || `Received by ${viewingReplacement.returnReceivedByName || 'Warehouse'}`}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setViewingReplacement(null)}
+              >
+                Close
+              </Button>
+              {viewingReplacement.status === 'PENDING' && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setDecliningReplacement(viewingReplacement);
+                      setViewingReplacement(null);
+                    }}
+                    className="border-rose-300 text-rose-700 hover:bg-rose-50"
+                  >
+                    Decline Request
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setApprovingReplacement(viewingReplacement);
+                      setViewingReplacement(null);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                  >
+                    Approve Replacement
+                  </Button>
+                </>
+              )}
+              {viewingReplacement.status === 'APPROVED' && viewingReplacement.returnStatus === 'PENDING_RETURN' && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setConfirmingReturnRequest(viewingReplacement);
+                    setViewingReplacement(null);
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
+                >
+                  Confirm Damaged Return
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* Dialog for Approving Replacement Request */}
+      <Dialog
+        isOpen={!!approvingReplacement}
+        onClose={() => !isSubmittingReplacement && setApprovingReplacement(null)}
+        title="Approve Replacement & Generate Order"
+        description={`Order #${approvingReplacement?.originalOrderNumber} • Customer: ${approvingReplacement?.customerName}`}
+        maxWidth="md"
+      >
+        {approvingReplacement && (
+          <div className="space-y-4">
+            <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-purple-700 font-medium">Original Order:</span>
+                <span className="font-bold text-slate-900 font-mono">#{approvingReplacement.originalOrderNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-purple-700 font-medium">Child Replacement Order:</span>
+                <span className="font-bold text-purple-900 font-mono">
+                  #{approvingReplacement.originalOrderNumber.replace(/-R\d+$/, '')}-R{((approvingReplacement.originalOrder as any)?.replacements?.length || 0) + 1}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-purple-700 font-medium">Initial Child Status:</span>
+                <span className="font-bold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded">PREPARED</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-purple-700 font-medium">Product Charge to Customer:</span>
+                <span className="font-bold text-emerald-700">LKR 0.00 (Free Replacement)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-purple-700 font-medium">Delivery Fee:</span>
+                <span className="font-bold text-slate-900">
+                  {Number(approvingReplacement.deliveryFee) === 0 ? 'LKR 0.00 (Free Shipping)' : formatCurrency(Number(approvingReplacement.deliveryFee))}
+                </span>
+              </div>
+              <div className="pt-2 border-t border-purple-200 text-purple-800 leading-relaxed text-[11px]">
+                <strong>Inventory Impact:</strong> Stock will be deducted from <em>currentStock</em> and allocated to <em>allocatedStock</em> (StockAction: <code>ALLOCATE</code>). When the replacement is later delivered, <em>soldStock</em> will NOT increment to prevent duplicate revenue.
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Admin Notes (Optional)
+              </label>
+              <Input
+                placeholder="e.g. Approved replacement dispatch, express courier"
+                value={approveReplacementNotes}
+                onChange={(e) => setApproveReplacementNotes(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setApprovingReplacement(null)}
+                disabled={isSubmittingReplacement}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmApproveReplacement}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
+                isLoading={isSubmittingReplacement}
+              >
+                Confirm Approval & Create Order
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* Dialog for Declining Replacement Request */}
+      <Dialog
+        isOpen={!!decliningReplacement}
+        onClose={() => !isSubmittingReplacement && setDecliningReplacement(null)}
+        title="Decline Replacement Request"
+        description={`Original Order #${decliningReplacement?.originalOrderNumber} • Customer: ${decliningReplacement?.customerName}`}
+        maxWidth="md"
+      >
+        <form onSubmit={handleConfirmDeclineReplacement} className="space-y-4">
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 space-y-1">
+            <p className="font-semibold">Rejecting this replacement request:</p>
+            <p>
+              The original order #{decliningReplacement?.originalOrderNumber} remains DELIVERED. No replacement order will be created and no inventory will be deducted.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Decline Reason / Explanation *
+            </label>
+            <Input
+              placeholder="e.g. Damage reported beyond 7-day window, missing photo proof, or customer caused damage."
+              value={declineReplacementNotes}
+              onChange={(e) => setDeclineReplacementNotes(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setDecliningReplacement(null)}
+              disabled={isSubmittingReplacement}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              className="bg-rose-600 hover:bg-rose-700"
+              isLoading={isSubmittingReplacement}
+            >
+              Confirm Decline
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Dialog for Confirming Damaged Return to Warehouse */}
+      <Dialog
+        isOpen={!!confirmingReturnRequest}
+        onClose={() => !isSubmittingReplacement && setConfirmingReturnRequest(null)}
+        title="Confirm Damaged Item Physical Return"
+        description={`Order #${confirmingReturnRequest?.originalOrderNumber} • Stock Return Confirmation`}
+        maxWidth="md"
+      >
+        <form onSubmit={handleConfirmDamagedReturn} className="space-y-4">
+          <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2 text-xs text-indigo-950">
+            <div className="font-bold flex items-center gap-1.5 text-indigo-900">
+              <Package className="w-4 h-4 text-indigo-700" />
+              Warehouse Stock Arrival
+            </div>
+            <p className="text-[11px] leading-relaxed">
+              Confirm that the physical damaged goods have arrived at the warehouse from the customer.
+            </p>
+            <div className="pt-2 border-t border-indigo-200/80">
+              <span className="font-semibold block mb-1">Damaged Items to be Restocked:</span>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                {(confirmingReturnRequest?.itemsToReplace || confirmingReturnRequest?.items || []).map((it, idx) => (
+                  <li key={idx}>
+                    <span className="font-medium">{it.productName}</span>: <span className="font-bold text-rose-700">+{it.quantity}</span> to Damaged Inventory
+                  </li>
+                ))}
+              </ul>
+              <span className="text-[10px] text-indigo-700 block mt-1.5 font-medium">
+                Warehouse <em>damagedStock</em> will be credited with StockAction: <code>RETURN_DAMAGE</code>.
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Return Inspection Notes (Optional)
+            </label>
+            <Input
+              placeholder="e.g. Package inspected, item cracked at seal, logged into bin D-04"
+              value={confirmReturnNotes}
+              onChange={(e) => setConfirmReturnNotes(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setConfirmingReturnRequest(null)}
+              disabled={isSubmittingReplacement}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+              isLoading={isSubmittingReplacement}
+            >
+              Confirm Damaged Item Received
+            </Button>
+          </div>
+        </form>
       </Dialog>
     </div>
   );

@@ -23,6 +23,7 @@ import {
   PettyCashExpensePayload,
   ApprovalRequestCreatePayload,
   ActivityLogWritePayload,
+  BulkUpdateDeliveryChargeInput,
 } from '../interfaces';
 import {
   Team,
@@ -249,6 +250,9 @@ export class ApiContactRepository implements IContactRepository {
   async checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult> {
     return unwrap(await apiClient.post<{ data: DuplicatePhoneCheckResult }>('/contacts/check-duplicate', data));
   }
+  async checkDuplicatesBatch(data: { phones: string[]; memberId?: string; teamId?: string }): Promise<Record<string, DuplicatePhoneCheckResult>> {
+    return unwrap(await apiClient.post<{ data: Record<string, DuplicatePhoneCheckResult> }>('/contacts/check-duplicates', data));
+  }
   async update(id: string, updates: Partial<Contact>): Promise<Contact> {
     const payload: any = { ...updates };
     delete payload.id;
@@ -397,6 +401,14 @@ export class ApiOrderRepository implements IOrderRepository {
   }
   async updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order> {
     return unwrap(await apiClient.patch<{ data: Order }>(`/orders/${id}/delivery-charge`, { codCharge, remarks }));
+  }
+  async bulkUpdateDeliveryCharge(input: BulkUpdateDeliveryChargeInput): Promise<{ success: boolean; count: number; orders: Order[] }> {
+    return unwrap(
+      await apiClient.patch<{ data: { success: boolean; count: number; orders: Order[] } }>(
+        '/orders/bulk/delivery-charge',
+        input
+      )
+    );
   }
 }
 
@@ -878,6 +890,14 @@ export class ApiFinanceRepository implements IFinanceRepository {
   async getCityDeliveryReport(startDate?: string, endDate?: string): Promise<any> {
     return unwrap(
       await apiClient.get<{ data: any }>('/finance/delivery-report', {
+        params: this.buildParams(startDate, endDate),
+      })
+    );
+  }
+
+  async getDistrictDeliveryReport(startDate?: string, endDate?: string): Promise<any> {
+    return unwrap(
+      await apiClient.get<{ data: any }>('/finance/district-delivery-report', {
         params: this.buildParams(startDate, endDate),
       })
     );

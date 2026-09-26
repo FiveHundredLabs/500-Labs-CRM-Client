@@ -95,6 +95,7 @@ export interface IContactRepository {
   createMany(contacts: Array<Omit<Contact, 'id' | 'updatedAt'>>): Promise<Contact[]>;
   addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string; code?: string }): Promise<Contact>;
   checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult>;
+  checkDuplicatesBatch(data: { phones: string[]; memberId?: string; teamId?: string }): Promise<Record<string, DuplicatePhoneCheckResult>>;
   update(id: string, updates: Partial<Contact>): Promise<Contact>;
   updateManyStatus(ids: string[], status: ContactStatus): Promise<void>;
 }
@@ -141,6 +142,18 @@ export interface IOrderRepository {
     damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[]
   ): Promise<Order>;
   updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order>;
+  bulkUpdateDeliveryCharge(input: BulkUpdateDeliveryChargeInput): Promise<{ success: boolean; count: number; orders: Order[] }>;
+}
+
+export interface BulkUpdateDeliveryChargeItem {
+  orderId: string;
+  codCharge: number;
+  remarks?: string;
+}
+
+export interface BulkUpdateDeliveryChargeInput {
+  updates: BulkUpdateDeliveryChargeItem[];
+  commonRemarks?: string;
 }
 
 export interface IDeliveryStatusHistoryRepository {
@@ -225,6 +238,7 @@ export interface IFinanceRepository {
   getRealizedSalesReport(startDate?: string, endDate?: string, teamId?: string): Promise<any[]>;
   getSalesReport(period: 'daily' | 'weekly' | 'monthly', startDate?: string, endDate?: string): Promise<any>;
   getCityDeliveryReport(startDate?: string, endDate?: string): Promise<any>;
+  getDistrictDeliveryReport(startDate?: string, endDate?: string): Promise<any>;
   getSalesAnalysisMembers(): Promise<SalesAnalysisMember[]>;
   getTeamMemberSalesReport(startDate?: string, endDate?: string, teamId?: string): Promise<any>;
   getContactBatchReport(startDate?: string, endDate?: string, teamId?: string): Promise<any>;

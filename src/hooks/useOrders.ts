@@ -81,17 +81,17 @@ export function useOrders(overrideTeamId?: string) {
       const allForPhone = mapByPhone[norm];
       const otherOrders = allForPhone.filter((o) => o.id !== ord.id);
       const activeDuplicates = otherOrders.filter((o) =>
-        ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status)
+        ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status) && !o.isReplacement
       );
       const previousDelivered = otherOrders.filter((o) => o.status === 'DELIVERED');
 
       conflictMap[ord.id] = {
         phone: norm,
         customerName: cust?.fullName,
-        hasDuplicateActiveOrders: isThisOrderActive && activeDuplicates.length > 0,
-        activeDuplicateOrders: activeDuplicates,
-        hasPreviousDeliveredOrder: isThisOrderActive && previousDelivered.length > 0,
-        previousDeliveredOrders: previousDelivered,
+        hasDuplicateActiveOrders: !ord.isReplacement && isThisOrderActive && activeDuplicates.length > 0,
+        activeDuplicateOrders: ord.isReplacement ? [] : activeDuplicates,
+        hasPreviousDeliveredOrder: !ord.isReplacement && isThisOrderActive && previousDelivered.length > 0,
+        previousDeliveredOrders: ord.isReplacement ? [] : previousDelivered,
         allOrdersForPhone: allForPhone,
       };
     });
