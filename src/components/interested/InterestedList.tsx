@@ -31,6 +31,31 @@ export const InterestedList: React.FC<InterestedListProps> = React.memo(({
   onRequestCashOnHand,
 }) => {
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
+  const [renderLimit, setRenderLimit] = React.useState(48);
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    setRenderLimit(48);
+  }, [filteredCustomers]);
+
+  React.useEffect(() => {
+    if (renderLimit >= filteredCustomers.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setRenderLimit((prev) => Math.min(prev + 48, filteredCustomers.length));
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    const target = sentinelRef.current;
+    if (target) observer.observe(target);
+    return () => {
+      if (target) observer.unobserve(target);
+      observer.disconnect();
+    };
+  }, [renderLimit, filteredCustomers.length]);
 
   if (filteredCustomers.length === 0) {
     return (
@@ -41,9 +66,12 @@ export const InterestedList: React.FC<InterestedListProps> = React.memo(({
     );
   }
 
+  const visibleCustomers = filteredCustomers.slice(0, renderLimit);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-      {filteredCustomers.map((customer) => {
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+        {visibleCustomers.map((customer) => {
         const member = membersMap[customer.responsibleTeamMemberId];
         const isSelected = selectedSet.has(customer.id);
         const formattedDate = format(new Date(customer.createdAt), 'MMM dd');
@@ -362,6 +390,19 @@ export const InterestedList: React.FC<InterestedListProps> = React.memo(({
         );
       })}
     </div>
-  );
+
+    {renderLimit < filteredCustomers.length && (
+      <div ref={sentinelRef} className="py-4 text-center">
+        <button
+          type="button"
+          onClick={() => setRenderLimit((prev) => Math.min(prev + 48, filteredCustomers.length))}
+          className="text-xs text-slate-500 hover:text-slate-800 font-semibold px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+        >
+          Showing {renderLimit} of {filteredCustomers.length} leads (Scroll to load more)
+        </button>
+      </div>
+    )}
+  </>
+);
 });
 

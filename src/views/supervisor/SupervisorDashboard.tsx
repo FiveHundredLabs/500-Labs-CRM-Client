@@ -1,27 +1,16 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { User, Contact, Order, ActivityLog, Product, CallLog } from '../../models/domain';
-import {
-  userRepository,
-  contactRepository,
-  orderRepository,
-  activityLogRepository,
-  productRepository,
-  callLogRepository,
-  supervisorTargetRepository,
-} from '../../repositories';
+import { supervisorTargetRepository } from '../../repositories';
 import type { SupervisorSalesTarget } from '../../models/domain';
-import { SupervisorAnalyticsService } from '../../services/supervisorAnalyticsService';
+import { useSupervisorDashboardQuery } from '../../hooks/queries/useDashboardQuery';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { ActivityTimeline } from '../../components/shared/ActivityTimeline';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { Leaderboard } from '../../components/leaderboard';
 import {
-  Users,
   Layers,
   Package,
   CheckCircle2,
@@ -41,9 +30,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import {
   format,
-  isWithinInterval,
-  startOfDay,
-  endOfDay,
   startOfWeek,
   endOfWeek,
   startOfMonth,
@@ -51,8 +37,6 @@ import {
   subMonths,
 } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
-import { getAmountToCollect, getProductSalesValue } from '../../utils/orderAmounts';
-import toast from 'react-hot-toast';
 
 export type DashboardDateFilter = 'THIS_MONTH' | 'LAST_MONTH' | 'TODAY' | 'THIS_WEEK' | 'ALL' | 'LAST_6_MONTHS' | 'CUSTOM';
 
@@ -60,69 +44,13 @@ export const SupervisorDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [teamMembers, setTeamMembers] = useState<User[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [callLogs, setCallLogs] = useState<CallLog[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [activities, setActivities] = useState<ActivityLog[]>([]);
-  const [loading, setLoading] = useState(true);
-
   // Supervisor team goal state
   const [supervisorTarget, setSupervisorTarget] = useState<SupervisorSalesTarget | null>(null);
 
   // Date Filter State
   const [dateFilter, setDateFilter] = useState<DashboardDateFilter>('THIS_MONTH');
-  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
-
-  useEffect(() => {
-    const loadDashboard = async () => {
-      if (!user) return;
-      const effectiveTeamId = user.teamId || (user as any).team?.id;
-      setLoading(true);
-      try {
-        if (effectiveTeamId) {
-          const [members, tContacts, tOrders, cLogs, teamProducts, logs] = await Promise.all([
-            userRepository.getByTeamId(effectiveTeamId).catch(() => []),
-            contactRepository.getByTeamId(effectiveTeamId).catch(() => []),
-            orderRepository.getByTeamId(effectiveTeamId).catch(() => []),
-            callLogRepository.getByTeamId(effectiveTeamId).catch(() => []),
-            productRepository.getByTeamId(effectiveTeamId).catch(() => []),
-            activityLogRepository.getRecentWithinMonth().catch(() => []),
-          ]);
-
-          setTeamMembers(members.filter((m) => m.role === 'TEAM_MEMBER'));
-          setContacts(tContacts);
-          setOrders(tOrders);
-          setCallLogs(cLogs);
-          setProducts(teamProducts);
-          setActivities(logs.filter((l) => !l.teamId || l.teamId === effectiveTeamId).slice(0, 8));
-        } else {
-          const [members, tContacts, tOrders, cLogs, teamProducts, logs] = await Promise.all([
-            userRepository.getAll().catch(() => []),
-            contactRepository.getAll().catch(() => []),
-            orderRepository.getAll().catch(() => []),
-            callLogRepository.getAll().catch(() => []),
-            productRepository.getAll().catch(() => []),
-            activityLogRepository.getAll().catch(() => []),
-          ]);
-          setTeamMembers(members.filter((m) => m.role === 'TEAM_MEMBER'));
-          setContacts(tContacts);
-          setOrders(tOrders);
-          setCallLogs(cLogs);
-          setProducts(teamProducts);
-          setActivities(logs.slice(0, 8));
-        }
-      } catch (err: any) {
-        toast.error(err?.message || 'Failed to load supervisor dashboard data.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDashboard();
-  }, [user]);
+  const [startDateInput, setStartDateInput] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDateInput, setEndDateInput] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   // Load supervisor's own team goal (current month)
   useEffect(() => {
@@ -134,115 +62,77 @@ export const SupervisorDashboard: React.FC = () => {
       .catch(() => setSupervisorTarget(null));
   }, [user]);
 
-  // Date Range Matcher Helper with precomputed interval
-  const filterInterval = useMemo(() => {
-    if (dateFilter === 'ALL') return null;
+  const effectiveTeamId = user?.teamId || (user as any)?.team?.id;
+
+  const queryDates = useMemo(() => {
+    if (dateFilter === 'ALL') {
+      return { startDate: undefined, endDate: undefined, teamId: effectiveTeamId };
+    }
     const now = new Date();
     if (dateFilter === 'TODAY') {
-      return { start: startOfDay(now).getTime(), end: endOfDay(now).getTime() };
+      const todayStr = format(now, 'yyyy-MM-dd');
+      return { startDate: todayStr, endDate: todayStr, teamId: effectiveTeamId };
     }
     if (dateFilter === 'THIS_WEEK') {
-      return { start: startOfWeek(now).getTime(), end: endOfWeek(now).getTime() };
+      return {
+        startDate: format(startOfWeek(now), 'yyyy-MM-dd'),
+        endDate: format(endOfWeek(now), 'yyyy-MM-dd'),
+        teamId: effectiveTeamId,
+      };
     }
     if (dateFilter === 'THIS_MONTH') {
-      return { start: startOfMonth(now).getTime(), end: endOfMonth(now).getTime() };
+      return {
+        startDate: format(startOfMonth(now), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(now), 'yyyy-MM-dd'),
+        teamId: effectiveTeamId,
+      };
     }
     if (dateFilter === 'LAST_MONTH') {
       const lastMonth = subMonths(now, 1);
-      return { start: startOfMonth(lastMonth).getTime(), end: endOfMonth(lastMonth).getTime() };
+      return {
+        startDate: format(startOfMonth(lastMonth), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(lastMonth), 'yyyy-MM-dd'),
+        teamId: effectiveTeamId,
+      };
     }
     if (dateFilter === 'LAST_6_MONTHS') {
       const sixMonthsAgo = subMonths(now, 6);
-      return { start: sixMonthsAgo.getTime(), end: now.getTime() };
+      return {
+        startDate: format(sixMonthsAgo, 'yyyy-MM-dd'),
+        endDate: format(now, 'yyyy-MM-dd'),
+        teamId: effectiveTeamId,
+      };
     }
     if (dateFilter === 'CUSTOM') {
-      const s = new Date(startDate).getTime();
-      const e = new Date(endDate);
-      e.setHours(23, 59, 59, 999);
-      return { start: s, end: e.getTime() };
+      return {
+        startDate: startDateInput || undefined,
+        endDate: endDateInput || undefined,
+        teamId: effectiveTeamId,
+      };
     }
-    return null;
-  }, [dateFilter, startDate, endDate]);
+    return { startDate: undefined, endDate: undefined, teamId: effectiveTeamId };
+  }, [dateFilter, startDateInput, endDateInput, effectiveTeamId]);
 
-  const isDateInFilter = useCallback((dateStr?: string | null) => {
-    if (!dateStr) return false;
-    if (!filterInterval) return true;
-    const time = new Date(dateStr).getTime();
-    return !Number.isNaN(time) && time >= filterInterval.start && time <= filterInterval.end;
-  }, [filterInterval]);
+  const { data: summary, isLoading } = useSupervisorDashboardQuery(queryDates, !!user);
 
-  // Filtered Datasets based on selected date range
-  const scopedOrders = useMemo(
-    () => orders.filter((o) => isDateInFilter(o.createdAt)),
-    [orders, isDateInFilter]
-  );
-  const scopedCalls = useMemo(
-    () => callLogs.filter((cl) => isDateInFilter(cl.calledAt)),
-    [callLogs, isDateInFilter]
-  );
-  const scopedInterestedContacts = useMemo(
-    () => contacts.filter((c) => c.status === 'INTERESTED' && isDateInFilter(c.updatedAt || c.importedAt)),
-    [contacts, isDateInFilter]
-  );
+  if (isLoading) return <LoadingState rows={6} />;
 
-  // Status Metrics (memoized single pass)
-  const {
-    totalOrders,
-    dispatchedOrders,
-    deliveredOrders,
-    rejectedOrders,
-    totalGrossSales,
-    totalDeliveredSales,
-    deliveryRate,
-  } = useMemo(() => {
-    const total = scopedOrders.length;
-    let dispatched = 0;
-    let delivered = 0;
-    let rejected = 0;
-    let gross = 0;
-    let deliveredSales = 0;
+  const kpi = summary?.kpi || {
+    totalGrossSales: 0,
+    totalOrders: 0,
+    dispatchedOrders: 0,
+    deliveredOrders: 0,
+    totalDeliveredSales: 0,
+    deliveryRate: 0,
+    interestedContactsCount: 0,
+    callsCount: 0,
+    rejectedOrders: 0,
+    unallocatedContactsCount: 0,
+  };
 
-    for (let i = 0; i < scopedOrders.length; i++) {
-      const o = scopedOrders[i];
-      gross += getAmountToCollect(o);
-      if (o.status === 'DISPATCHED') {
-        dispatched++;
-      } else if (o.status === 'DELIVERED') {
-        delivered++;
-        deliveredSales += getProductSalesValue(o);
-      } else if (o.status === 'REJECTED' || o.status === 'RETURNED') {
-        rejected++;
-      }
-    }
-
-    const rate = total > 0 ? Math.round((delivered / total) * 100) : 0;
-    return {
-      totalOrders: total,
-      dispatchedOrders: dispatched,
-      deliveredOrders: delivered,
-      rejectedOrders: rejected,
-      totalGrossSales: gross,
-      totalDeliveredSales: deliveredSales,
-      deliveryRate: rate,
-    };
-  }, [scopedOrders]);
-
-  // Low Stock Alerts (Requirement 2.13)
-  const lowStockProducts = useMemo(() => {
-    return products.filter((p) => p.currentStock <= p.minStockThreshold);
-  }, [products]);
-
-  // Dynamic Leaderboard based on scoped orders
-  const leaderboard = useMemo(() => {
-    return SupervisorAnalyticsService.computeLeaderboard(teamMembers, scopedOrders);
-  }, [teamMembers, scopedOrders]);
-
-  const unallocatedContacts = useMemo(
-    () => contacts.filter((c) => !c.isAllocated && c.status === 'NEW').length,
-    [contacts]
-  );
-
-  if (loading) return <LoadingState rows={6} />;
+  const lowStockProducts = summary?.lowStockProducts || [];
+  const leaderboard = summary?.leaderboard || [];
+  const activities = summary?.recentActivities || [];
 
   return (
     <div className="space-y-6 pb-16">
@@ -281,7 +171,7 @@ export const SupervisorDashboard: React.FC = () => {
               leftIcon={<Layers className="w-4 h-4" />}
               onClick={() => navigate('/supervisor/allocation')}
             >
-              Allocate Leads ({unallocatedContacts})
+              Allocate Leads ({kpi.unallocatedContactsCount})
             </Button>
           </div>
         }
@@ -306,7 +196,7 @@ export const SupervisorDashboard: React.FC = () => {
                 ? 'This Week'
                 : dateFilter === 'LAST_6_MONTHS'
                 ? 'Last 6 Months'
-                : `${startDate} to ${endDate}`}
+                : `${startDateInput} to ${endDateInput}`}
             </span>
           </div>
 
@@ -342,8 +232,8 @@ export const SupervisorDashboard: React.FC = () => {
               <span className="font-semibold text-slate-600">From Date:</span>
               <input
                 type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                value={startDateInput}
+                onChange={(e) => setStartDateInput(e.target.value)}
                 className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
               />
             </div>
@@ -351,8 +241,8 @@ export const SupervisorDashboard: React.FC = () => {
               <span className="font-semibold text-slate-600">To Date:</span>
               <input
                 type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                value={endDateInput}
+                onChange={(e) => setEndDateInput(e.target.value)}
                 className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
               />
             </div>
@@ -370,7 +260,7 @@ export const SupervisorDashboard: React.FC = () => {
             <div>
               <div className="font-bold text-xs uppercase tracking-wider text-amber-800">Inventory Alert: Low Stock</div>
               <div className="text-xs text-amber-900 mt-0.5">
-                {lowStockProducts.map((p) => `${p.name} (${p.currentStock} remaining)`).join(' • ')}
+                {lowStockProducts.map((p: any) => `${p.name} (${p.currentStock} remaining)`).join(' • ')}
               </div>
             </div>
           </div>
@@ -390,23 +280,23 @@ export const SupervisorDashboard: React.FC = () => {
         <StatCard
           size="compact"
           title="Gross Sales"
-          value={formatCurrency(totalGrossSales)}
-          subtitle={`${totalOrders} Booked Orders`}
+          value={formatCurrency(kpi.totalGrossSales)}
+          subtitle={`${kpi.totalOrders} Booked Orders`}
           icon={<DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />}
           accentColor="green"
         />
         <StatCard
           size="compact"
           title="Delivered"
-          value={formatCurrency(totalDeliveredSales)}
-          subtitle={`${deliveredOrders} Delivered (${deliveryRate}%)`}
+          value={formatCurrency(kpi.totalDeliveredSales)}
+          subtitle={`${kpi.deliveredOrders} Delivered (${kpi.deliveryRate}%)`}
           icon={<CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />}
           accentColor="blue"
         />
         <StatCard
           size="compact"
           title="Dispatched"
-          value={`${dispatchedOrders} Orders`}
+          value={`${kpi.dispatchedOrders} Orders`}
           subtitle="In courier transit"
           icon={<Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />}
           accentColor="amber"
@@ -414,7 +304,7 @@ export const SupervisorDashboard: React.FC = () => {
         <StatCard
           size="compact"
           title="Interested"
-          value={scopedInterestedContacts.length}
+          value={kpi.interestedContactsCount}
           subtitle="Qualified prospect leads"
           icon={<Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />}
           accentColor="purple"
@@ -422,7 +312,7 @@ export const SupervisorDashboard: React.FC = () => {
         <StatCard
           size="compact"
           title="Calls Handled"
-          value={scopedCalls.length}
+          value={kpi.callsCount}
           subtitle="Customer calls logged"
           icon={<PhoneCall className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />}
           accentColor="blue"
@@ -430,7 +320,7 @@ export const SupervisorDashboard: React.FC = () => {
         <StatCard
           size="compact"
           title="Rejected / Ret."
-          value={rejectedOrders}
+          value={kpi.rejectedOrders}
           subtitle="Customer rejected / returned"
           icon={<XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600" />}
           accentColor="red"
@@ -519,7 +409,7 @@ export const SupervisorDashboard: React.FC = () => {
         {/* Leaderboard (Col-span 2) */}
         <div className="lg:col-span-2">
           <Leaderboard
-            items={leaderboard.map((m) => ({
+            items={leaderboard.map((m: any) => ({
               id: m.memberId,
               rank: m.rank,
               name: m.memberName,
@@ -563,5 +453,3 @@ export const SupervisorDashboard: React.FC = () => {
     </div>
   );
 };
-
-
