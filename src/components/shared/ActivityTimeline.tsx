@@ -39,15 +39,6 @@ const ACTION_CONFIG: Record<string, { icon: React.FC<any>; color: string; bg: st
 
 export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ activities, className = '' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-
-  if (activities.length === 0) {
-    return (
-      <div className="p-6 text-center text-xs text-slate-400">
-        No recorded activity history yet.
-      </div>
-    );
-  }
-
   const shouldVirtualize = activities.length > 25;
 
   const virtualizer = useWindowVirtualizer({
@@ -56,6 +47,14 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ activities, 
     overscan: 6,
     scrollMargin: containerRef.current?.offsetTop ?? 0,
   });
+
+  if (activities.length === 0) {
+    return (
+      <div className="p-6 text-center text-xs text-slate-400">
+        No recorded activity history yet.
+      </div>
+    );
+  }
 
   const renderItem = (act: ActivityLog, index: number) => {
     const conf = ACTION_CONFIG[act.action] ?? {

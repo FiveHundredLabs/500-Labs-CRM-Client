@@ -2,6 +2,7 @@ import apiClient from '../../lib/apiClient';
 import {
   ITeamRepository,
   IUserRepository,
+  LeaderboardUser,
   IContactRepository,
   IAllocationRepository,
   ICallLogRepository,
@@ -160,22 +161,22 @@ export class ApiUserRepository implements IUserRepository {
     return all.filter((u) => u.role === role);
   }
   async getByTeamId(teamId: string): Promise<User[]> {
-    try {
-      const res = unwrap(
-        await apiClient.get<{ data: any }>(`/users?teamId=${teamId}&limit=100`)
-      ) as any;
-      const items = Array.isArray(res) ? res : res?.items;
-      if (Array.isArray(items)) {
-        return items;
-      }
-      return unwrap(
-        await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
-      );
-    } catch {
-      return unwrap(
-        await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
-      );
+    if (!teamId || teamId === 'undefined' || teamId === 'null') {
+      return [];
     }
+
+    return unwrap(
+      await apiClient.get<{ data: User[] }>(
+        '/users/leaderboard',
+        { params: { teamId } }
+      )
+    );
+  }
+  async getLeaderboard(teamId?: string): Promise<LeaderboardUser[]> {
+    const params = teamId ? { teamId } : undefined;
+    return unwrap(
+      await apiClient.get<{ data: LeaderboardUser[] }>('/users/leaderboard', { params })
+    );
   }
   async getBySupervisorId(supervisorId: string): Promise<User[]> {
     const all = await this.getAll();
@@ -597,6 +598,10 @@ export class ApiActivityLogRepository implements IActivityLogRepository {
     const res = unwrap(await apiClient.get<{ data: any }>(url)) as any;
     return unwrapArray<ActivityLog>(res);
   }
+  async getMyRecentWithinMonth(): Promise<ActivityLog[]> {
+    const res = unwrap(await apiClient.get<{ data: any }>('/activity-logs/me')) as any;
+    return unwrapArray<ActivityLog>(res);
+  }
   async getByEntity(entityType: string, entityId: string): Promise<ActivityLog[]> {
     const all = await this.getAll();
     return all.filter((l) => l.entityType === entityType && l.entityId === entityId);
@@ -684,7 +689,7 @@ export class ApiExpenseRepository implements IExpenseRepository {
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/expenses/${id}`);
   }
-  async requestChange(id: string, data: { action: 'EDIT' | 'DELETE'; reason: string; [key: string]: any }): Promise<any> {
+  async requestChange(id: string, data: { action: 'EDIT' | 'DELETE'; reason: string;[key: string]: any }): Promise<any> {
     return unwrap(await apiClient.post<{ data: any }>(`/expenses/${id}/change-request`, data));
   }
   async getChangeRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<any[]> {

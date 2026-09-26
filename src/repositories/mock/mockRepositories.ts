@@ -125,6 +125,24 @@ export class MockUserRepository implements IUserRepository {
     return users.filter((u) => u.teamId === teamId);
   }
 
+  async getLeaderboard(teamId?: string): Promise<import('../interfaces').LeaderboardUser[]> {
+    await delay();
+    const users = getStoredItem<User>(STORAGE_KEYS.USERS, []);
+    const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
+    return users
+      .filter((user) => user.role === 'TEAM_MEMBER' && user.isActive && (!teamId || user.teamId === teamId))
+      .map((user) => {
+        const memberOrders = orders.filter((order) => order.teamMemberId === user.id);
+        const deliveredOrders = memberOrders.filter((order) => order.status === 'DELIVERED');
+        return {
+          ...user,
+          totalOrdersCount: memberOrders.length,
+          deliveredOrdersCount: deliveredOrders.length,
+          deliveredSalesAmount: deliveredOrders.reduce((total, order) => total + Number(order.totalPackageValue || order.totalAmount || 0), 0),
+        };
+      });
+  }
+
   async getBySupervisorId(supervisorId: string): Promise<User[]> {
     await delay();
     const users = getStoredItem<User>(STORAGE_KEYS.USERS, []);
@@ -832,6 +850,10 @@ export class MockActivityLogRepository implements IActivityLogRepository {
         return matchesUser && isRecent;
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getMyRecentWithinMonth(): Promise<ActivityLog[]> {
+    return this.getRecentWithinMonth();
   }
 
   async getByEntity(entityType: string, entityId: string): Promise<ActivityLog[]> {
