@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { Customer, Order, User, Team } from '../models/domain';
 
@@ -144,23 +143,53 @@ export const downloadPostLeadExcel = async (
     throw new Error('No items selected for Post Lead export.');
   }
 
-  const rows = buildInterestedExportRows(items);
+  const XLSX = await import('xlsx');
 
-  const worksheet = XLSX.utils.json_to_sheet(rows, {
-    header: INTERESTED_EXCEL_HEADERS,
-  });
+  const CHUNK_SIZE = 100;
+  let worksheet: any = null;
+
+  for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+    const chunk = items.slice(i, i + CHUNK_SIZE);
+    const chunkRows = chunk.map((item, cIdx) => {
+      const cust = item.customer;
+      const ord = item.order;
+      const team = item.team;
+      const rawDate = ord?.createdAt || cust.createdAt;
+
+      return {
+        Date: formatExportDate(rawDate),
+        'NO (Start From 1) Write this number on the Parcel': i + cIdx + 1,
+        Sender: buildSender(team),
+        Receiver: buildReceiver(cust),
+        'Postal City': getPostalCity(cust),
+        'Pay Back Value': getPayBackValue(ord),
+        'Weight in grams': getWeightInGrams(ord, cust),
+        Barcode: '',
+      };
+    });
+
+    if (!worksheet) {
+      worksheet = XLSX.utils.json_to_sheet(chunkRows, {
+        header: INTERESTED_EXCEL_HEADERS,
+      });
+    } else {
+      XLSX.utils.sheet_add_json(worksheet, chunkRows, { skipHeader: true, origin: -1 });
+    }
+  }
 
   // Set professional column widths
-  worksheet['!cols'] = [
-    { wch: 13 }, // Date
-    { wch: 48 }, // NO (Start From 1) Write this number on the Parcel
-    { wch: 45 }, // Sender
-    { wch: 65 }, // Receiver
-    { wch: 20 }, // Postal City
-    { wch: 18 }, // Pay Back Value
-    { wch: 18 }, // Weight in grams
-    { wch: 25 }, // Barcode
-  ];
+  if (worksheet) {
+    worksheet['!cols'] = [
+      { wch: 13 }, // Date
+      { wch: 48 }, // NO (Start From 1) Write this number on the Parcel
+      { wch: 45 }, // Sender
+      { wch: 65 }, // Receiver
+      { wch: 20 }, // Postal City
+      { wch: 18 }, // Pay Back Value
+      { wch: 18 }, // Weight in grams
+      { wch: 25 }, // Barcode
+    ];
+  }
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Interested Orders');

@@ -1,5 +1,3 @@
-import * as XLSX from 'xlsx';
-
 /**
  * Normalizes Sri Lankan mobile numbers into standard 10-digit local format: 07XXXXXXXX.
  *
@@ -193,6 +191,7 @@ export interface ExcelContactParseResult {
  * 4. Normalizes all numbers into 10-digit format starting with 07.
  */
 export async function parseExcelContactSheet(file: File): Promise<ExcelContactParseResult> {
+  const XLSX = await import('xlsx');
   const data = await file.arrayBuffer();
   const workbook = XLSX.read(data, { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];

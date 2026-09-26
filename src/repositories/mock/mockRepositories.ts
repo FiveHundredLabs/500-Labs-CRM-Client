@@ -19,6 +19,14 @@ import {
   ExpenseWritePayload,
   PettyCashExpensePayload,
   BulkUpdateDeliveryChargeInput,
+  PaginatedResponse,
+  ContactPaginationParams,
+  CustomerPaginationParams,
+  OrderPaginationParams,
+  ExpenseSummary,
+  ExpensePaginationParams,
+  OrderMetrics,
+  OrderConflictCheckDto,
 } from '../interfaces';
 import {
   Team,
@@ -371,6 +379,51 @@ export class MockContactRepository implements IContactRepository {
     }
     return results;
   }
+
+  async getCounts(params?: { teamId?: string; memberId?: string; search?: string }): Promise<Record<string, number>> {
+    const contacts = await this.getAll();
+    const counts: Record<string, number> = {
+      ALL: contacts.length,
+      NEW: 0,
+      FOLLOW_UP: 0,
+      ANSWERED: 0,
+      NOT_ANSWERED: 0,
+      PHONE_OFF: 0,
+      INTERESTED: 0,
+      NOT_INTERESTED: 0,
+      DISPATCHED: 0,
+      REJECTED: 0,
+      DELIVERED: 0,
+      CANCELLED: 0,
+      SAVED_CONTACTS: 0,
+    };
+    for (const c of contacts) {
+      if (counts[c.status] !== undefined) counts[c.status]++;
+      if (c.status !== 'NEW' && c.isFollowUp) counts.FOLLOW_UP++;
+      if (c.isSelfAdded || (c as any).addedBy) counts.SAVED_CONTACTS++;
+    }
+    return counts;
+  }
+
+  async getPaginated(params: ContactPaginationParams): Promise<PaginatedResponse<Contact>> {
+    const contacts = await this.getAll();
+    const page = params.page || 1;
+    const limit = params.limit || 50;
+    const start = (page - 1) * limit;
+    const items = contacts.slice(start, start + limit);
+    return {
+      items,
+      pageInfo: {
+        total: contacts.length,
+        page,
+        limit,
+        totalPages: Math.ceil(contacts.length / limit) || 1,
+        hasNextPage: start + limit < contacts.length,
+        hasPreviousPage: page > 1,
+        endCursor: null,
+      },
+    };
+  }
 }
 
 export class MockAllocationRepository implements IAllocationRepository {
@@ -488,6 +541,26 @@ export class MockCustomerRepository implements ICustomerRepository {
     return customers.filter((c) => c.responsibleTeamMemberId === memberId);
   }
 
+  async getPaginated(params: CustomerPaginationParams): Promise<PaginatedResponse<Customer>> {
+    const customers = await this.getAll();
+    const page = params.page || 1;
+    const limit = params.limit || 50;
+    const start = (page - 1) * limit;
+    const items = customers.slice(start, start + limit);
+    return {
+      items,
+      pageInfo: {
+        total: customers.length,
+        page,
+        limit,
+        totalPages: Math.ceil(customers.length / limit) || 1,
+        hasNextPage: start + limit < customers.length,
+        hasPreviousPage: page > 1,
+        endCursor: null,
+      },
+    };
+  }
+
   async create(customerData: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
     await delay();
     const customers = getStoredItem<Customer>(STORAGE_KEYS.CUSTOMERS, []);
@@ -549,6 +622,49 @@ export class MockOrderRepository implements IOrderRepository {
     await delay();
     const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
     return orders.filter((o) => o.teamMemberId === memberId);
+  }
+
+  async getPaginated(params: OrderPaginationParams): Promise<PaginatedResponse<Order>> {
+    const orders = await this.getAll();
+    const page = params.page || 1;
+    const limit = params.limit || 50;
+    const start = (page - 1) * limit;
+    const items = orders.slice(start, start + limit);
+    return {
+      items,
+      pageInfo: {
+        total: orders.length,
+        page,
+        limit,
+        totalPages: Math.ceil(orders.length / limit) || 1,
+        hasNextPage: start + limit < orders.length,
+        hasPreviousPage: page > 1,
+        endCursor: null,
+      },
+    };
+  }
+
+  async getMetrics(_params?: any): Promise<OrderMetrics> {
+    await delay();
+    return {
+      totalOrdersCount: 0,
+      totalBookedSales: 0,
+      dispatchedCount: 0,
+      dispatchedCODSales: 0,
+      deliveredCount: 0,
+      deliveredCODSales: 0,
+      rejectedCount: 0,
+      rejectedCODSales: 0,
+      cancelledCount: 0,
+      cancelledCODSales: 0,
+      awaitingDispatchCount: 0,
+      successRate: 100,
+    };
+  }
+
+  async checkConflicts(_dto: OrderConflictCheckDto): Promise<Record<string, any>> {
+    await delay();
+    return {};
   }
 
   async create(orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order> {
@@ -742,9 +858,42 @@ export class MockActivityLogRepository implements IActivityLogRepository {
 }
 
 export class MockExpenseRepository implements IExpenseRepository {
-  async getAll(): Promise<Expense[]> {
+  async getAll(_params?: any): Promise<Expense[]> {
     await delay();
     return getStoredItem<Expense>(STORAGE_KEYS.EXPENSES, []);
+  }
+
+  async getSummary(params?: ExpensePaginationParams): Promise<ExpenseSummary> {
+    await delay();
+    const expenses = await this.getAll(params);
+    const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    return {
+      totalCount: expenses.length,
+      totalAmount,
+      allCount: expenses.length,
+      byCategory: {},
+      byPaymentMethod: {},
+    };
+  }
+
+  async getPaginated(params: ExpensePaginationParams): Promise<PaginatedResponse<Expense>> {
+    const expenses = await this.getAll(params);
+    const page = params.page || 1;
+    const limit = params.limit || 50;
+    const start = (page - 1) * limit;
+    const items = expenses.slice(start, start + limit);
+    return {
+      items,
+      pageInfo: {
+        total: expenses.length,
+        page,
+        limit,
+        totalPages: Math.ceil(expenses.length / limit) || 1,
+        hasNextPage: start + limit < expenses.length,
+        hasPreviousPage: page > 1,
+        endCursor: null,
+      },
+    };
   }
 
   async getCategories(): Promise<ExpenseCategory[]> {

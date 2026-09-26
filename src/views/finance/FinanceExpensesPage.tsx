@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { expenseRepository, pettyCashRepository } from '../../repositories';
 import { Expense, ExpenseCategory, PettyCashWallet } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -37,19 +37,27 @@ import {
   getStartOfCurrentWeekString,
   validateExpenseDate,
 } from '../../utils/dateValidation';
+import { useExpenseSummaryQuery, usePaginatedExpensesQuery } from '../../hooks/queries/useExpensesQuery';
 import toast from 'react-hot-toast';
 
 export const FinanceExpensesPage: React.FC = () => {
   const { user, role } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
   const [allocations, setAllocations] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('ALL');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const minExpenseDate = getStartOfCurrentWeekString();
   const maxExpenseDate = getLocalDateString();
@@ -96,33 +104,59 @@ export const FinanceExpensesPage: React.FC = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [expData, catData, walletData, allocationData] = await Promise.all([
-        expenseRepository.getAll(),
-        expenseRepository.getCategories().catch(() => []),
-        pettyCashRepository.getWallet().catch(() => null),
-        pettyCashRepository.getAllocations().catch(() => []),
-      ]);
-      setExpenses(
-        (expData || []).sort(
-          (a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime()
-        )
-      );
-      setCategories(catData || []);
-      setSelectedCategoryName((current) => current || catData?.[0]?.name || '');
-      setWallet(walletData);
-      setAllocations(allocationData || []);
-    } catch {
-      toast.error('Failed to load expense records.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [startDate, endDate, categoryFilter, paymentMethodFilter, debouncedSearch]);
+
+  const summaryParams = useMemo(
+    () => ({
+      dateStart: startDate || undefined,
+      dateEnd: endDate || undefined,
+      categoryName: categoryFilter !== 'ALL' ? categoryFilter : undefined,
+      paymentMethod: paymentMethodFilter !== 'ALL' ? paymentMethodFilter : undefined,
+      search: debouncedSearch.trim() || undefined,
+    }),
+    [startDate, endDate, categoryFilter, paymentMethodFilter, debouncedSearch]
+  );
+
+  const paginationParams = useMemo(
+    () => ({
+      ...summaryParams,
+      page: currentPage,
+      limit: 50,
+    }),
+    [summaryParams, currentPage]
+  );
+
+  const summaryQuery = useExpenseSummaryQuery(summaryParams);
+  const paginatedQuery = usePaginatedExpensesQuery(paginationParams);
+  const loading = (paginatedQuery.isLoading && !paginatedQuery.data) || summaryQuery.isLoading;
+
+  const loadData = useCallback(async () => {
+    await Promise.all([
+      summaryQuery.refetch(),
+      paginatedQuery.refetch(),
+    ]);
+  }, [summaryQuery, paginatedQuery]);
 
   useEffect(() => {
-    loadData();
+    const loadRefData = async () => {
+      try {
+        const [catData, walletData, allocationData] = await Promise.all([
+          expenseRepository.getCategories().catch(() => []),
+          pettyCashRepository.getWallet().catch(() => null),
+          pettyCashRepository.getAllocations().catch(() => []),
+        ]);
+        setCategories(catData || []);
+        setSelectedCategoryName((current) => current || catData?.[0]?.name || '');
+        setWallet(walletData);
+        setAllocations(allocationData || []);
+      } catch {
+        toast.error('Failed to load expense metadata.');
+      }
+    };
+    loadRefData();
   }, []);
 
   const handlePresetChange = (preset: string) => {
@@ -406,8 +440,8 @@ export const FinanceExpensesPage: React.FC = () => {
   };
 
 
-  // Safe CSV export with formula injection escaping
-  const handleExportCSV = () => {
+  // Safe CSV export with formula injection escaping of complete filtered dataset
+  const handleExportCSV = async () => {
     const escapeCsvValue = (val: any): string => {
       if (val === null || val === undefined) return '""';
       let str = String(val);
@@ -430,33 +464,41 @@ export const FinanceExpensesPage: React.FC = () => {
       'Created At',
     ];
 
-    const rows = filtered.map((e) => [
-      e.id.length > 8 ? `EXP-${e.id.slice(0, 8).toUpperCase()}` : e.id,
-      e.expenseDate ? format(new Date(e.expenseDate), 'yyyy-MM-dd') : '',
-      e.categoryName,
-      Number(e.amount).toFixed(2),
-      e.paymentMethod || 'CASH',
-      e.remarks,
-      e.notes || '',
-      e.pettyCashRef || '',
-      e.createdByName,
-      format(new Date(e.createdAt), 'yyyy-MM-dd HH:mm'),
-    ]);
+    try {
+      toast.loading('Preparing complete ledger export...', { id: 'csv-export' });
+      const fullList = await expenseRepository.getAll(summaryParams);
 
-    const csvContent = [
-      headers.map(escapeCsvValue).join(','),
-      ...rows.map((r) => r.map(escapeCsvValue).join(',')),
-    ].join('\r\n');
+      const rows = fullList.map((e) => [
+        e.id.length > 8 ? `EXP-${e.id.slice(0, 8).toUpperCase()}` : e.id,
+        e.expenseDate ? format(new Date(e.expenseDate), 'yyyy-MM-dd') : '',
+        e.categoryName,
+        Number(e.amount).toFixed(2),
+        e.paymentMethod || 'CASH',
+        e.remarks,
+        e.notes || '',
+        e.pettyCashRef || '',
+        e.createdByName,
+        format(new Date(e.createdAt), 'yyyy-MM-dd HH:mm'),
+      ]);
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Expenses_Ledger_${format(new Date(), 'yyyyMMdd')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const csvContent = [
+        headers.map(escapeCsvValue).join(','),
+        ...rows.map((r) => r.map(escapeCsvValue).join(',')),
+      ].join('\r\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Expenses_Ledger_${format(new Date(), 'yyyyMMdd')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${fullList.length} vouchers to CSV!`, { id: 'csv-export' });
+    } catch {
+      toast.error('Failed to export CSV.', { id: 'csv-export' });
+    }
   };
 
   // Download Individual Voucher PDF
@@ -471,32 +513,11 @@ export const FinanceExpensesPage: React.FC = () => {
     }
   };
 
-  // Filter matching expenses
-  const filtered = expenses.filter((e) => {
-    const matchesSearch =
-      !search ||
-      e.id.toLowerCase().includes(search.toLowerCase()) ||
-      e.remarks.toLowerCase().includes(search.toLowerCase()) ||
-      e.createdByName.toLowerCase().includes(search.toLowerCase()) ||
-      (e.notes && e.notes.toLowerCase().includes(search.toLowerCase()));
-
-    const matchesCat = categoryFilter === 'ALL' || e.categoryName === categoryFilter;
-    const matchesPM = paymentMethodFilter === 'ALL' || (e.paymentMethod || 'CASH') === paymentMethodFilter;
-
-    let matchesDate = true;
-    if (startDate) {
-      matchesDate = matchesDate && e.expenseDate >= startDate;
-    }
-    if (endDate) {
-      matchesDate = matchesDate && e.expenseDate <= endDate;
-    }
-
-    return matchesSearch && matchesCat && matchesPM && matchesDate;
-  });
-
-  const totalFilteredAmount = filtered.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-
-  if (loading) return <LoadingState rows={8} />;
+  const visibleExpenses = paginatedQuery.data?.items ?? [];
+  const pageInfo = paginatedQuery.data?.pageInfo;
+  const totalFilteredAmount = summaryQuery.data?.totalAmount ?? 0;
+  const totalFilteredCount = summaryQuery.data?.totalCount ?? 0;
+  const totalAllCount = summaryQuery.data?.allCount ?? 0;
 
   return (
     <div className="space-y-6">
@@ -625,13 +646,13 @@ export const FinanceExpensesPage: React.FC = () => {
 
         {/* Filter Summary Stats */}
         <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
-          <span>Showing <strong className="text-slate-900">{filtered.length}</strong> of {expenses.length} vouchers</span>
+          <span>Showing <strong className="text-slate-900">{totalFilteredCount}</strong> of {totalAllCount} vouchers</span>
           <span>Cumulative Filtered Expense: <strong className="text-[#547E1B] font-mono text-sm">{formatCurrency(totalFilteredAmount)}</strong></span>
         </div>
       </div>
 
       {/* Table */}
-      {filtered.length === 0 ? (
+      {visibleExpenses.length === 0 ? (
         <EmptyState title="No expenses recorded" description="No expense records match your current filter criteria." />
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
@@ -650,7 +671,7 @@ export const FinanceExpensesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
-                {filtered.map((exp) => {
+                {visibleExpenses.map((exp) => {
                   const recent = isWithin24Hours(exp.createdAt);
 
                   return (
@@ -742,6 +763,38 @@ export const FinanceExpensesPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls matching CRM design system */}
+          {pageInfo && (pageInfo.totalPages ?? 1) > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200/90 rounded-2xl shadow-2xs mt-3">
+              <span className="text-xs text-slate-500">
+                Showing {((currentPage - 1) * 50) + 1}–{Math.min(currentPage * 50, pageInfo.total ?? 0)} of {pageInfo.total} vouchers
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={currentPage <= 1 || !pageInfo.hasPreviousPage}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="text-xs font-semibold cursor-pointer"
+                >
+                  Previous
+                </Button>
+                <span className="text-xs font-mono font-bold text-slate-700 px-2.5 py-1 bg-slate-100 rounded-md border border-slate-200">
+                  Page {currentPage} of {pageInfo.totalPages}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={currentPage >= (pageInfo.totalPages ?? 1) || !pageInfo.hasNextPage}
+                  onClick={() => setCurrentPage((p) => Math.min(pageInfo.totalPages ?? 1, p + 1))}
+                  className="text-xs font-semibold cursor-pointer"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -65,6 +65,99 @@ export interface ActivityLogWritePayload {
   metadata?: Record<string, any>;
 }
 
+export interface PageInfo {
+  total?: number;
+  page?: number;
+  limit: number;
+  totalPages?: number;
+  hasNextPage: boolean;
+  hasPreviousPage?: boolean;
+  endCursor?: string | null;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  pageInfo: PageInfo;
+}
+
+export interface ContactPaginationParams {
+  teamId?: string;
+  memberId?: string;
+  search?: string;
+  tab?: string;
+  status?: string;
+  isFollowUp?: boolean;
+  page?: number;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface CustomerPaginationParams {
+  teamId?: string;
+  supervisorId?: string;
+  memberId?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface OrderPaginationParams {
+  teamId?: string;
+  supervisorId?: string;
+  memberId?: string;
+  customerId?: string;
+  status?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface ExpenseSummary {
+  totalCount: number;
+  totalAmount: number;
+  allCount: number;
+  byCategory: Record<string, number>;
+  byPaymentMethod: Record<string, number>;
+}
+
+export interface ExpensePaginationParams {
+  dateStart?: string;
+  dateEnd?: string;
+  categoryId?: string;
+  categoryName?: string;
+  paymentMethod?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface OrderMetrics {
+  totalOrdersCount: number;
+  totalBookedSales: number;
+  dispatchedCount: number;
+  dispatchedCODSales: number;
+  deliveredCount: number;
+  deliveredCODSales: number;
+  rejectedCount: number;
+  rejectedCODSales: number;
+  cancelledCount: number;
+  cancelledCODSales: number;
+  awaitingDispatchCount: number;
+  successRate: number;
+}
+
+export interface OrderConflictCheckDto {
+  orderIds?: string[];
+  customerIds?: string[];
+  phones?: string[];
+  teamId?: string;
+}
+
 export interface ITeamRepository {
   getAll(): Promise<Team[]>;
   getById(id: string): Promise<Team | null>;
@@ -91,6 +184,8 @@ export interface IContactRepository {
   getByTeamId(teamId: string): Promise<Contact[]>;
   getByMemberId(memberId: string): Promise<Contact[]>;
   getByPhone(phone: string): Promise<Contact | null>;
+  getCounts(params?: { teamId?: string; memberId?: string; search?: string }): Promise<Record<string, number>>;
+  getPaginated(params: ContactPaginationParams): Promise<PaginatedResponse<Contact>>;
   create(contact: Omit<Contact, 'id' | 'updatedAt'>): Promise<Contact>;
   createMany(contacts: Array<Omit<Contact, 'id' | 'updatedAt'>>): Promise<Contact[]>;
   addPersonalNumber(data: { phone: string; memberId: string; teamId: string; city?: string; secondaryMobile?: string; code?: string }): Promise<Contact>;
@@ -123,6 +218,7 @@ export interface ICustomerRepository {
   getByTeamId(teamId: string): Promise<Customer[]>;
   getBySupervisorId(supervisorId: string): Promise<Customer[]>;
   getByMemberId(memberId: string): Promise<Customer[]>;
+  getPaginated(params: CustomerPaginationParams): Promise<PaginatedResponse<Customer>>;
   create(customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer>;
   update(id: string, updates: Partial<Customer>): Promise<Customer>;
 }
@@ -134,6 +230,10 @@ export interface IOrderRepository {
   getByTeamId(teamId: string): Promise<Order[]>;
   getBySupervisorId(supervisorId: string): Promise<Order[]>;
   getByMemberId(memberId: string): Promise<Order[]>;
+  getPaginated(params: OrderPaginationParams): Promise<PaginatedResponse<Order>>;
+  getMetrics(params?: { teamId?: string; supervisorId?: string; memberId?: string; startDate?: string; endDate?: string }): Promise<OrderMetrics>;
+  checkConflicts(dto: OrderConflictCheckDto): Promise<Record<string, any>>;
+  create(order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }): Promise<Order>;
   updateStatus(
     id: string,
     status: any,
@@ -171,9 +271,11 @@ export interface IActivityLogRepository {
 }
 
 export interface IExpenseRepository {
-  getAll(params?: { dateStart?: string; dateEnd?: string; categoryId?: string }): Promise<Expense[]>;
+  getAll(params?: { dateStart?: string; dateEnd?: string; categoryId?: string; categoryName?: string; paymentMethod?: string; search?: string }): Promise<Expense[]>;
   getById(id: string): Promise<Expense | null>;
   getCategories(): Promise<ExpenseCategory[]>;
+  getSummary(params?: ExpensePaginationParams): Promise<ExpenseSummary>;
+  getPaginated(params: ExpensePaginationParams): Promise<PaginatedResponse<Expense>>;
   create(expense: ExpenseWritePayload): Promise<Expense>;
   createCategory(category: Omit<ExpenseCategory, 'id'>): Promise<ExpenseCategory>;
   updateCategory(id: string, data: Partial<ExpenseCategory>): Promise<ExpenseCategory>;
@@ -242,6 +344,101 @@ export interface IFinanceRepository {
   getSalesAnalysisMembers(): Promise<SalesAnalysisMember[]>;
   getTeamMemberSalesReport(startDate?: string, endDate?: string, teamId?: string): Promise<any>;
   getContactBatchReport(startDate?: string, endDate?: string, teamId?: string): Promise<any>;
+  getSalesAnalysisSummary(params: {
+    teamId?: string;
+    status?: string;
+    package?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+  }): Promise<SalesAnalysisSummary>;
+}
+
+export interface SalesAnalysisSummary {
+  metrics: {
+    totalSalesValue: number;
+    deliveredValue: number;
+    dispatchedValue: number;
+    preparedValue: number;
+    deliveredCount: number;
+    dispatchedCount: number;
+    rejectedCount: number;
+    totalOrdersCount: number;
+    deliverySuccessRate: number;
+    averageOrderValue: number;
+    totalUnits: number;
+    adultUnits: number;
+    kidsUnits: number;
+  };
+  salesTimeline: Array<{ date: string; revenue: number; orders: number; delivered: number }>;
+  teamComparison: Array<{ name: string; revenue: number; orders: number; delivered: number }>;
+  packageDistribution: Array<{ name: string; value: number; color: string }>;
+  orderStatusBreakdown?: Array<{ status: string; count: number; color: string }>;
+  totalOrdersCount: number;
+}
+
+export interface AdminDashboardSummary {
+  kpi: {
+    totalGrossSales: number;
+    bookedOrdersCount: number;
+    dispatchedCount: number;
+    deliveredCount: number;
+    interestedContactsCount: number;
+    totalExpenses: number;
+    pendingApprovalsCount?: number;
+  };
+  teamLeaderboards: Array<{
+    team: { id: string; name: string };
+    items: Array<{
+      id: string;
+      rank: number;
+      name: string;
+      avatarUrl?: string;
+      primaryValue: number;
+      secondaryValue: number;
+      primaryLabel: string;
+      secondaryLabel: string;
+      unitLabel: string;
+    }>;
+  }>;
+  recentActivities: ActivityLog[];
+  pendingApprovals: any[];
+}
+
+export interface SupervisorDashboardSummary {
+  kpi: {
+    totalGrossSales: number;
+    totalOrders: number;
+    dispatchedOrders: number;
+    deliveredOrders: number;
+    totalDeliveredSales: number;
+    deliveryRate: number;
+    interestedContactsCount: number;
+    callsCount: number;
+    rejectedOrders: number;
+    unallocatedContactsCount: number;
+  };
+  lowStockProducts: Array<{ id: string; name: string; code?: string; currentStock: number; minStockThreshold: number }>;
+  leaderboard: Array<{
+    rank: number;
+    memberId: string;
+    memberName: string;
+    avatarUrl?: string | null;
+    totalOrders?: number;
+    dispatchedOrders?: number;
+    deliveredOrders: number;
+    rejectedOrders?: number;
+    deliveryRate?: number;
+    totalSalesValue: number;
+    allocatedLeads?: number;
+    conversionRate?: number;
+  }>;
+  recentActivities: ActivityLog[];
+}
+
+export interface IDashboardRepository {
+  getAdminSummary(params?: { startDate?: string; endDate?: string }): Promise<AdminDashboardSummary>;
+  getSupervisorSummary(params?: { startDate?: string; endDate?: string; teamId?: string }): Promise<SupervisorDashboardSummary>;
 }
 
 export interface ISalesTargetRepository {

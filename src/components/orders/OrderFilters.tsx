@@ -49,6 +49,26 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
   const hasActiveFilters =
     Boolean(selectedDate) || selectedMemberId !== 'ALL' || Boolean(search) || statusFilter !== 'ALL';
 
+  const memberCountMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    for (let i = 0; i < dateFilteredOrders.length; i++) {
+      const mid = dateFilteredOrders[i].teamMemberId;
+      map[mid] = (map[mid] || 0) + 1;
+    }
+    return map;
+  }, [dateFilteredOrders]);
+
+  const memberOptions = React.useMemo(() => [
+    {
+      value: 'ALL',
+      label: `All Members (${dateFilteredOrders.length})`,
+    },
+    ...teamMembers.map((m) => ({
+      value: m.id,
+      label: `${m.fullName} (${memberCountMap[m.id] || 0})`,
+    })),
+  ], [dateFilteredOrders.length, teamMembers, memberCountMap]);
+
   return (
     <Card>
       <CardContent className="p-3 space-y-3">
@@ -75,21 +95,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
             label="Team Member"
             value={selectedMemberId}
             onChange={(e) => onMemberIdChange(e.target.value)}
-            options={[
-              {
-                value: 'ALL',
-                label: `All Members (${dateFilteredOrders.length})`,
-              },
-              ...teamMembers.map((m) => {
-                const mCount = dateFilteredOrders.filter(
-                  (o) => o.teamMemberId === m.id
-                ).length;
-                return {
-                  value: m.id,
-                  label: `${m.fullName} (${mCount})`,
-                };
-              }),
-            ]}
+            options={memberOptions}
           />
 
           {/* Search Input */}

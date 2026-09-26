@@ -1,9 +1,8 @@
 import React from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import type { LeadPrintItem } from '../components/printing/printTypes';
+import type jsPDF from 'jspdf';
 import { PortraitParcelSlip } from '../components/printing/PortraitParcelSlip';
 import { ParcelSlipData } from '../models/domain';
 import { buildPublicParcelSlipUrl, generateParcelSlipQrDataUrl } from './parcelSlipQr';
@@ -223,6 +222,7 @@ const captureParcelSlipImage = async (item: ParcelSlipData): Promise<string> => 
 
     replaceOklchStyles(slipNode);
 
+    const { default: html2canvas } = await import('html2canvas');
     const canvas = await html2canvas(slipNode, {
       backgroundColor: '#ffffff',
       scale: CAPTURE_SCALE,
@@ -238,6 +238,8 @@ const captureParcelSlipImage = async (item: ParcelSlipData): Promise<string> => 
     const dataUrl = canvas.toDataURL('image/png');
     canvas.width = 1;
     canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, 1, 1);
     return dataUrl;
   } finally {
     root.unmount();
@@ -254,18 +256,12 @@ export const generateParcelSlipPdf = async (
   }
 
   const parcelItems = toParcelSlipDataList(items);
-  const slipImages: string[] = [];
+  const totalItems = parcelItems.length;
 
-  onProgress?.(0, parcelItems.length, 0);
+  onProgress?.(0, totalItems, 0);
   await waitForFonts();
 
-  for (let i = 0; i < parcelItems.length; i++) {
-    const pngDataUrl = await captureParcelSlipImage(parcelItems[i]);
-    slipImages.push(pngDataUrl);
-    onProgress?.(i + 1, parcelItems.length, Math.round(((i + 1) / parcelItems.length) * 100));
-  }
-
-  const pages = chunkIntoSheets(slipImages);
+  const { default: jsPDF } = await import('jspdf');
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -273,23 +269,33 @@ export const generateParcelSlipPdf = async (
     compress: true,
   });
 
-  pages.forEach((pageImages, pageIndex) => {
-    if (pageIndex > 0) {
+  const sheets = chunkIntoSheets(parcelItems, 4);
+
+  for (let sheetIndex = 0; sheetIndex < sheets.length; sheetIndex++) {
+    if (sheetIndex > 0) {
       pdf.addPage('a4', 'portrait');
     }
 
-    pageImages.forEach((image, imageIndex) => {
-      const column = imageIndex % 2;
-      const row = Math.floor(imageIndex / 2);
+    const currentSheetItems = sheets[sheetIndex];
+    for (let slotIndex = 0; slotIndex < currentSheetItems.length; slotIndex++) {
+      const globalIndex = sheetIndex * 4 + slotIndex;
+      const pngDataUrl = await captureParcelSlipImage(currentSheetItems[slotIndex]);
+
+      const column = slotIndex % 2;
+      const row = Math.floor(slotIndex / 2);
       const x = PDF_MARGIN_MM + column * (PARCEL_SLIP_WIDTH_MM + PDF_GAP_MM);
       const y = PDF_MARGIN_MM + row * (PARCEL_SLIP_HEIGHT_MM + PDF_GAP_MM);
 
-      pdf.addImage(image, 'PNG', x, y, PARCEL_SLIP_WIDTH_MM, PARCEL_SLIP_HEIGHT_MM, undefined, 'FAST');
-    });
-  });
+      pdf.addImage(pngDataUrl, 'PNG', x, y, PARCEL_SLIP_WIDTH_MM, PARCEL_SLIP_HEIGHT_MM, undefined, 'FAST');
 
-  slipImages.length = 0;
-  return { pdf, pageCount: pages.length };
+      onProgress?.(globalIndex + 1, totalItems, Math.round(((globalIndex + 1) / totalItems) * 100));
+
+      // Yield to the browser event loop so UI stays completely responsive and GC can reclaim canvas memory
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  return { pdf, pageCount: sheets.length };
 };
 
 export const downloadParcelSlipPDF = async (

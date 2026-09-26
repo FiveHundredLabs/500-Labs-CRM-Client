@@ -37,7 +37,6 @@ import {
   getYesterdayDateString,
   validatePettyCashDate,
 } from '../../utils/dateValidation';
-import * as XLSX from 'xlsx';
 
 export const FinancePettyCashPage: React.FC = () => {
   const { user, role } = useAuth();
@@ -248,7 +247,8 @@ export const FinancePettyCashPage: React.FC = () => {
   };
 
   // Export Excel
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
     const exportData = filteredTransactions.map((t) => ({
       'Type': t.transactionType,
       'Allocation Fund': t.allocation?.allocationCode || (t.transactionType === 'ALLOCATION' ? 'Deposit' : (t.category || 'N/A')),

@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { Customer, Order, User, Team } from '../models/domain';
 
@@ -17,8 +16,13 @@ export const downloadRoyalCourierExcel = async (
     throw new Error('No items selected for Royal Courier export.');
   }
 
-  // Map rows according to standard Courier Dispatch Manifest structure
-  const rows = items.map((item, index) => {
+  const XLSX = await import('xlsx');
+
+  const CHUNK_SIZE = 100;
+  let worksheet: any = null;
+  const maxLens: Record<string, number> = {};
+
+  const mapItemToRow = (item: RoyalCourierExportItem, index: number) => {
     const cust = item.customer;
     const ord = item.order;
     const rep = item.responsibleUser;
@@ -46,21 +50,37 @@ export const downloadRoyalCourierExcel = async (
       'Team / Project': tm?.name || tm?.code || 'N/A',
       'Order Date': dateFormatted,
     };
-  });
+  };
 
-  // Create worksheet & workbook
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+  for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+    const chunk = items.slice(i, i + CHUNK_SIZE);
+    const chunkRows = chunk.map((item, cIdx) => {
+      const row = mapItemToRow(item, i + cIdx);
+      for (const [k, v] of Object.entries(row)) {
+        const len = String(v ?? '').length;
+        if (!maxLens[k] || len > maxLens[k]) {
+          maxLens[k] = len;
+        }
+      }
+      return row;
+    });
+
+    if (!worksheet) {
+      worksheet = XLSX.utils.json_to_sheet(chunkRows);
+    } else {
+      XLSX.utils.sheet_add_json(worksheet, chunkRows, { skipHeader: true, origin: -1 });
+    }
+  }
 
   // Auto-size columns nicely
-  const colKeys = Object.keys(rows[0] || {});
+  const colKeys = Object.keys(maxLens);
   const colWidths = colKeys.map((key) => {
-    const maxLen = Math.max(
-      key.length,
-      ...rows.map((r) => String((r as any)[key] || '').length)
-    );
+    const maxLen = Math.max(key.length, maxLens[key] || 0);
     return { wch: Math.min(Math.max(maxLen + 3, 10), 45) };
   });
-  worksheet['!cols'] = colWidths;
+  if (worksheet) {
+    worksheet['!cols'] = colWidths;
+  }
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Royal Courier Dispatch');
