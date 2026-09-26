@@ -75,9 +75,41 @@ export const MemberImportPage: React.FC = () => {
     e.preventDefault();
     if (!manualPhone.trim() || !user) return;
 
-    const norm = normalizeSriLankanPhone(manualPhone);
+    const rawInput = manualPhone.trim();
+    const norm = normalizeSriLankanPhone(rawInput);
     if (!norm) {
-      toast.error('Invalid Sri Lankan mobile format. Must be 10 digits starting with 07.');
+      const invalidRow = {
+        id: `manual_invalid_${Date.now()}`,
+        phone: rawInput,
+        isValid: false,
+        isDuplicate: false,
+        reason: 'Invalid Sri Lankan mobile format (must be 10 digits starting with 07)',
+      };
+
+      setImportSummary((prev) => {
+        if (!prev) {
+          return {
+            batchId: `manual_${Date.now()}`,
+            totalParsed: 1,
+            validCount: 0,
+            invalidCount: 1,
+            duplicateCount: 0,
+            ownDuplicateCount: 0,
+            claimableDuplicateCount: 0,
+            rows: [invalidRow],
+          };
+        }
+        const updatedRows = [invalidRow, ...prev.rows];
+        return {
+          ...prev,
+          totalParsed: updatedRows.length,
+          invalidCount: prev.invalidCount + 1,
+          rows: updatedRows,
+        };
+      });
+
+      setPreviewTab('INVALID');
+      toast.error(`Invalid format rejected: "${rawInput}". Listed under Invalid Formats.`);
       return;
     }
 
@@ -87,6 +119,39 @@ export const MemberImportPage: React.FC = () => {
 
       if (dupCheck.exists) {
         if (dupCheck.isOwnedBySelf) {
+          const ownDupRow = {
+            id: `manual_owndup_${Date.now()}`,
+            phone: norm,
+            isValid: false,
+            isDuplicate: true,
+            isOwnDuplicate: true,
+            reason: 'Already exists in your personal queue (automatically excluded)',
+          };
+
+          setImportSummary((prev) => {
+            if (!prev) {
+              return {
+                batchId: `manual_${Date.now()}`,
+                totalParsed: 1,
+                validCount: 0,
+                invalidCount: 0,
+                duplicateCount: 1,
+                ownDuplicateCount: 1,
+                claimableDuplicateCount: 0,
+                rows: [ownDupRow],
+              };
+            }
+            const updatedRows = [ownDupRow, ...prev.rows];
+            return {
+              ...prev,
+              totalParsed: updatedRows.length,
+              duplicateCount: prev.duplicateCount + 1,
+              ownDuplicateCount: prev.ownDuplicateCount + 1,
+              rows: updatedRows,
+            };
+          });
+
+          setPreviewTab('DUPLICATES');
           toast.error(`Duplicate rejected: Phone number ${norm} is already in your personal queue.`);
           setIsManualSubmitting(false);
           return;
@@ -211,7 +276,7 @@ export const MemberImportPage: React.FC = () => {
       const extractedNumbers = extractPhonesFromBulkText(bulkText);
 
       if (extractedNumbers.length === 0) {
-        toast.error('No valid Sri Lankan mobile numbers found in input text.');
+        toast.error('No phone numbers detected in input text.');
         setIsBulkTextProcessing(false);
         return;
       }
@@ -226,7 +291,19 @@ export const MemberImportPage: React.FC = () => {
         .map((r) => r.phone);
       setSelectedPhones(Array.from(new Set(initialSelected)));
 
-      toast.success(`Extracted & checked ${extractedNumbers.length} Sri Lankan mobile numbers!`);
+      // If only invalid format numbers were entered, switch straight to the INVALID tab
+      if (summary.invalidCount > 0 && summary.validCount === 0 && summary.claimableDuplicateCount === 0) {
+        setPreviewTab('INVALID');
+        toast.error(`Rejected ${summary.invalidCount} invalid format numbers. Listed in Invalid Formats.`);
+      } else if (summary.invalidCount > 0) {
+        setPreviewTab('ALL');
+        toast.success(
+          `Processed ${extractedNumbers.length} numbers (${summary.validCount} valid, ${summary.invalidCount} invalid format).`
+        );
+      } else {
+        setPreviewTab('ALL');
+        toast.success(`Extracted & checked ${extractedNumbers.length} Sri Lankan mobile numbers!`);
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to process bulk numbers.');
     } finally {
@@ -245,7 +322,7 @@ export const MemberImportPage: React.FC = () => {
       setParsedFileInfo(parseResult);
 
       if (parseResult.contactNumbers.length === 0) {
-        toast.error(`No valid contact numbers found in column "${parseResult.contactColumnName}".`);
+        toast.error(`No contact numbers found in column "${parseResult.contactColumnName}".`);
         return;
       }
 
@@ -262,9 +339,21 @@ export const MemberImportPage: React.FC = () => {
         .map((r) => r.phone);
       setSelectedPhones(Array.from(new Set(initialSelected)));
 
-      toast.success(
-        `Extracted ${parseResult.contactNumbers.length} contacts from "${parseResult.contactColumnName}" column.`
-      );
+      if (summary.invalidCount > 0 && summary.validCount === 0 && summary.claimableDuplicateCount === 0) {
+        setPreviewTab('INVALID');
+      } else {
+        setPreviewTab('ALL');
+      }
+
+      if (summary.invalidCount > 0) {
+        toast.success(
+          `Extracted ${parseResult.contactNumbers.length} contacts (${summary.validCount} valid, ${summary.invalidCount} invalid format).`
+        );
+      } else {
+        toast.success(
+          `Extracted ${parseResult.contactNumbers.length} contacts from "${parseResult.contactColumnName}" column.`
+        );
+      }
     } catch (err: any) {
       toast.error('Error parsing spreadsheet: ' + err.message);
     }
@@ -283,7 +372,7 @@ export const MemberImportPage: React.FC = () => {
     const validCount = updatedRows.filter((r) => r.isValid && !r.isDuplicate).length;
     const claimableDuplicateCount = updatedRows.filter((r) => r.isClaimableDuplicate).length;
     const ownDuplicateCount = updatedRows.filter((r) => r.isOwnDuplicate).length;
-    const invalidCount = updatedRows.filter((r) => !r.isValid && !r.isDuplicate).length;
+    const invalidCount = updatedRows.filter((r) => !r.isValid).length;
 
     setImportSummary({
       ...importSummary,
@@ -314,7 +403,7 @@ export const MemberImportPage: React.FC = () => {
         if (previewTab === 'VALID') return r.isValid && !r.isDuplicate;
         if (previewTab === 'CLAIMABLE') return r.isClaimableDuplicate;
         if (previewTab === 'DUPLICATES') return r.isOwnDuplicate;
-        if (previewTab === 'INVALID') return !r.isValid && !r.isDuplicate;
+        if (previewTab === 'INVALID') return !r.isValid;
         return true;
       })
     : [];
@@ -600,19 +689,17 @@ export const MemberImportPage: React.FC = () => {
               >
                 Own Duplicates ({importSummary.ownDuplicateCount})
               </button>
-              {importSummary.invalidCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setPreviewTab('INVALID')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    previewTab === 'INVALID'
-                      ? 'bg-rose-600 text-white shadow-2xs'
-                      : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
-                  }`}
-                >
-                  Invalid ({importSummary.invalidCount})
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setPreviewTab('INVALID')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  previewTab === 'INVALID'
+                    ? 'bg-rose-600 text-white shadow-2xs'
+                    : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
+                }`}
+              >
+                Invalid Formats ({importSummary.invalidCount})
+              </button>
             </div>
 
             {/* Table */}
