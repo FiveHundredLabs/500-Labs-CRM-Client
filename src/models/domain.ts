@@ -313,6 +313,9 @@ export interface ParcelSlipCustomer {
 export interface ParcelSlipItem {
   productName: string;
   quantity: number;
+  unitPrice?: number;
+  subtotal?: number;
+  price?: number;
 }
 
 export interface ParcelSlipData {
@@ -323,6 +326,7 @@ export interface ParcelSlipData {
   paymentMethod?: string | null;
   codAmount?: number | string | null;
   codCharge?: number | string | null;
+  deliveryCharge?: number | string | null;
   amountToCollect?: number | string | null;
   productSalesValue?: number | string | null;
   totalAmount: number | string;
@@ -331,6 +335,8 @@ export interface ParcelSlipData {
   customer: ParcelSlipCustomer;
   team: ParcelSlipTeam;
   items?: ParcelSlipItem[];
+  isCashOnHand?: boolean;
+  deliveryMethod?: DeliveryMethod | string;
 }
 
 export interface DeliveryStatusHistory {
