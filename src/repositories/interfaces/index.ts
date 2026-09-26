@@ -142,6 +142,18 @@ export interface IOrderRepository {
     damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[]
   ): Promise<Order>;
   updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order>;
+  bulkUpdateDeliveryCharge(input: BulkUpdateDeliveryChargeInput): Promise<{ success: boolean; count: number; orders: Order[] }>;
+}
+
+export interface BulkUpdateDeliveryChargeItem {
+  orderId: string;
+  codCharge: number;
+  remarks?: string;
+}
+
+export interface BulkUpdateDeliveryChargeInput {
+  updates: BulkUpdateDeliveryChargeItem[];
+  commonRemarks?: string;
 }
 
 export interface IDeliveryStatusHistoryRepository {
