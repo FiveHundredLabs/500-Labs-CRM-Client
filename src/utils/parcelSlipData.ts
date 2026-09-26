@@ -1,5 +1,6 @@
 import type { LeadPrintItem } from '../components/printing/printTypes';
-import { ParcelSlipData } from '../models/domain';
+import { ParcelSlipData, ParcelSlipItem } from '../models/domain';
+import { getAmountToCollect, getCodCharge, getProductSalesValue } from './orderAmounts';
 
 const getOrderLabel = (item: LeadPrintItem, index: number): string =>
   item.order?.orderNumber || item.order?.id || item.customer?.fullName || `item ${index + 1}`;
@@ -41,13 +42,100 @@ export const toParcelSlipData = (item: LeadPrintItem, index = 0): ParcelSlipData
     (customer as any)?.contact?.secondaryMobile ||
     null;
 
+  const isCashOnHand =
+    order.isCashOnHand === true ||
+    order.deliveryMethod === 'CASH_ON_HAND' ||
+    (order as any).paymentMethod === 'CASH_ON_HAND' ||
+    (order as any).paymentType === 'CASH_ON_HAND';
+
+  const productSalesValue = getProductSalesValue(order);
+  const codCharge = isCashOnHand ? 0 : getCodCharge(order);
+  const amountToCollect = isCashOnHand ? 0 : getAmountToCollect(order);
+
+  let items: ParcelSlipItem[] | undefined = undefined;
+
+  if (order.items && order.items.length > 0) {
+    items = order.items.map((orderItem) => {
+      const unitPrice =
+        orderItem.unitPrice !== undefined && orderItem.unitPrice !== null
+          ? Number(orderItem.unitPrice)
+          : undefined;
+      const subtotal =
+        orderItem.subtotal !== undefined && orderItem.subtotal !== null
+          ? Number(orderItem.subtotal)
+          : unitPrice !== undefined
+            ? unitPrice * (orderItem.quantity || 1)
+            : undefined;
+      const price =
+        subtotal ??
+        (unitPrice !== undefined ? unitPrice * (orderItem.quantity || 1) : undefined);
+
+      return {
+        productName: orderItem.productName,
+        quantity: orderItem.quantity,
+        unitPrice,
+        subtotal,
+        price,
+      };
+    });
+  } else if (
+    (order.adultQty && order.adultQty > 0) ||
+    (order.kidsQty && order.kidsQty > 0)
+  ) {
+    items = [];
+    if (order.adultQty && order.adultQty > 0) {
+      const adultPrice = Number(
+        order.adultSubtotal ||
+          Number(order.adultUnitPrice || 0) * order.adultQty,
+      );
+      items.push({
+        productName: 'Adult Package',
+        quantity: order.adultQty,
+        unitPrice: Number(order.adultUnitPrice || 0),
+        subtotal: adultPrice,
+        price: adultPrice,
+      });
+    }
+    if (order.kidsQty && order.kidsQty > 0) {
+      const kidsPrice = Number(
+        order.kidsSubtotal ||
+          Number(order.kidsUnitPrice || 0) * order.kidsQty,
+      );
+      items.push({
+        productName: 'Kids Package',
+        quantity: order.kidsQty,
+        unitPrice: Number(order.kidsUnitPrice || 0),
+        subtotal: kidsPrice,
+        price: kidsPrice,
+      });
+    }
+  } else if (order.itemsDescription) {
+    items = [
+      {
+        productName: order.itemsDescription,
+        quantity: 1,
+        unitPrice: productSalesValue,
+        subtotal: productSalesValue,
+        price: productSalesValue,
+      },
+    ];
+  }
+
   return {
     publicSlipToken: order.publicSlipToken,
     orderNumber: order.orderNumber,
     orderDate: order.createdAt,
     itemsDescription: order.itemsDescription,
-    paymentMethod: (order as any).paymentMethod || (order as any).paymentType || 'COD',
-    codAmount: order.codAmount ?? null,
+    paymentMethod: isCashOnHand
+      ? 'CASH ON HAND'
+      : (order as any).paymentMethod || (order as any).paymentType || 'COD',
+    isCashOnHand,
+    deliveryMethod: order.deliveryMethod,
+    codCharge,
+    deliveryCharge: codCharge,
+    codAmount: amountToCollect,
+    amountToCollect,
+    productSalesValue,
     totalAmount: order.totalAmount,
     currency: order.currency,
     contactCode: contactCode || null,
@@ -67,10 +155,7 @@ export const toParcelSlipData = (item: LeadPrintItem, index = 0): ParcelSlipData
       contactPhone: team.contactPhone || null,
       contactEmail: team.contactEmail || null,
     },
-    items: order.items?.map((orderItem) => ({
-      productName: orderItem.productName,
-      quantity: orderItem.quantity,
-    })),
+    items,
   };
 };
 
