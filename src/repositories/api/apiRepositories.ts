@@ -886,6 +886,14 @@ export class ApiFinanceRepository implements IFinanceRepository {
     );
   }
 
+  async getDistrictDeliveryReport(startDate?: string, endDate?: string): Promise<any> {
+    return unwrap(
+      await apiClient.get<{ data: any }>('/finance/district-delivery-report', {
+        params: this.buildParams(startDate, endDate),
+      })
+    );
+  }
+
   async getSalesAnalysisMembers(): Promise<SalesAnalysisMember[]> {
     return unwrap(
       await apiClient.get<{ data: SalesAnalysisMember[] }>('/finance/sales-analysis/members')

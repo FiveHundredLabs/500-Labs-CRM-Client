@@ -11,7 +11,8 @@ import {
   Tag,
   MapPin,
   Package,
-  Users
+  Users,
+  Compass
 } from 'lucide-react';
 import { ReportDefinition, ActiveFilters } from './types';
 import { 
@@ -1376,6 +1377,144 @@ export const SALES_REPORTS: ReportDefinition[] = [
         };
       }).filter((c: any) => {
         if (filters.search && !String(c.city).toLowerCase().includes(filters.search.toLowerCase())) return false;
+        return true;
+      });
+    },
+  },
+
+  // 4b. District-Wise Sales Order Report
+  {
+    id: 'district-delivery',
+    name: 'District-Wise Sales Order Report',
+    description: 'Standardized geographic sales order distribution, completed delivery rates, returns, and regional collection volumes across all 25 districts.',
+    category: 'SALES',
+    groupCategory: 'SALES',
+    badgeText: 'Districts (25)',
+    badgeType: 'analytical',
+    icon: Compass,
+    supportedFilters: ['dateRange', 'search'],
+    kpis: [
+      {
+        id: 'total-district-dispatched',
+        label: 'Total Orders / Dispatched',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, d) => s + (Number(d.total) || 0), 0) : 0,
+        subtitle: () => 'Consignments across all 25 districts',
+        accentColor: 'blue',
+      },
+      {
+        id: 'district-fulfillment-rate',
+        label: 'District Delivery Success Rate',
+        format: 'percentage',
+        getValue: (data) => {
+          if (!Array.isArray(data) || !data.length) return 0;
+          const tot = data.reduce((s, d) => s + (Number(d.total) || 0), 0);
+          const del = data.reduce((s, d) => s + (Number(d.delivered) || 0), 0);
+          return tot > 0 ? Math.round((del / tot) * 100) : 0;
+        },
+        subtitle: () => 'Successfully delivered orders',
+        accentColor: 'green',
+      },
+      {
+        id: 'district-collections',
+        label: 'Total Realized Revenue',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, d) => s + (Number(d.revenue) || 0), 0) : 0,
+        subtitle: () => 'Realized COD collections',
+        accentColor: 'purple',
+      },
+      {
+        id: 'active-districts',
+        label: 'Active Delivery Districts',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.filter((d: any) => d.district !== 'Unassigned').length : 0,
+        subtitle: () => 'Out of 25 Sri Lankan districts',
+        accentColor: 'amber',
+      },
+    ],
+    chartConfig: {
+      type: 'BAR',
+      xAxisKey: 'district',
+      series: [
+        { key: 'revenue', name: 'Realized Revenue (LKR)', color: '#01A8F3', format: 'currency' },
+        { key: 'delivered', name: 'Delivered Orders', color: '#80BD2B', format: 'number' },
+      ],
+      getChartData: (data) => Array.isArray(data) ? data.slice(0, 10).map((d: any) => ({
+        district: d.district,
+        revenue: Number(d.revenue) || 0,
+        delivered: Number(d.delivered) || 0,
+      })) : [],
+    },
+    columns: [
+      { id: 'district', header: 'Sri Lankan District', accessorKey: 'district', format: 'text' },
+      { id: 'total', header: 'Total Orders', accessorKey: 'total', align: 'center', format: 'number' },
+      { id: 'delivered', header: 'Delivered', accessorKey: 'delivered', align: 'center', format: 'number' },
+      { id: 'pending', header: 'In Transit', accessorKey: 'pending', align: 'center', format: 'number' },
+      { id: 'cancelled', header: 'Cancelled / Returned', accessorKey: 'cancelled', align: 'center', format: 'number' },
+      { 
+        id: 'rate', 
+        header: 'Delivery Rate', 
+        accessorKey: 'rate',
+        align: 'center', 
+        cell: (row) => {
+          const tot = Number(row.total) || 0;
+          const del = Number(row.delivered) || 0;
+          const pct = tot > 0 ? ((del / tot) * 100).toFixed(1) : '0.0';
+          const isGood = Number(pct) >= 60;
+          return React.createElement(
+            'span',
+            {
+              className: `px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                isGood 
+                  ? 'bg-[#F2F9E9] text-[#547E1B] border border-[#D4ECC6]' 
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`,
+            },
+            `${pct}%`
+          );
+        } 
+      },
+      { id: 'revenue', header: 'Realized Collections', accessorKey: 'revenue', align: 'right', format: 'currency' },
+    ],
+    pdfConfig: {
+      orientation: 'portrait',
+      columns: [
+        { header: 'District', accessorKey: 'district', align: 'left', widthMm: 42 },
+        { header: 'Booked', accessorKey: 'total', align: 'center', format: 'number', widthMm: 20 },
+        { header: 'Delivered', accessorKey: 'delivered', align: 'center', format: 'number', widthMm: 20 },
+        { header: 'In Transit', accessorKey: 'pending', align: 'center', format: 'number', widthMm: 20 },
+        { header: 'Cancelled', accessorKey: 'cancelled', align: 'center', format: 'number', widthMm: 20 },
+        { header: 'Delivery Rate', accessorKey: 'rate', align: 'center', format: 'text', widthMm: 22 },
+        { header: 'COD Collections', accessorKey: 'revenue', align: 'right', format: 'currency', widthMm: 38 },
+      ],
+      summaryLines: (data) => {
+        const tot = data.reduce((s: number, d: any) => s + (Number(d.total) || 0), 0);
+        const del = data.reduce((s: number, d: any) => s + (Number(d.delivered) || 0), 0);
+        const inTransit = data.reduce((s: number, d: any) => s + (Number(d.pending) || 0), 0);
+        const canc = data.reduce((s: number, d: any) => s + (Number(d.cancelled) || 0), 0);
+        const rev = data.reduce((s: number, d: any) => s + (Number(d.revenue) || 0), 0);
+        const overallRate = tot > 0 ? `${((del / tot) * 100).toFixed(1)}%` : '0.0%';
+        return [
+          { label: 'Total Orders Booked Across Districts:', value: `${tot.toLocaleString()} consignments`, isBold: true },
+          { label: 'Successfully Delivered:', value: `${del.toLocaleString()} consignments (${overallRate})` },
+          { label: 'Currently In Transit:', value: `${inTransit.toLocaleString()} consignments` },
+          { label: 'Cancelled / Returned:', value: `${canc.toLocaleString()} consignments` },
+          { label: 'Total Realized Collections:', value: formatCurrency(rev), isBold: true, isHighlight: true },
+        ];
+      },
+    },
+    getData: (allData, filters) => {
+      const raw = allData && allData.districtData ? allData.districtData : (Array.isArray(allData) ? allData : []);
+      return raw.map((d: any) => {
+        const tot = Number(d.total) || 0;
+        const del = Number(d.delivered) || 0;
+        const rate = tot > 0 ? `${((del / tot) * 100).toFixed(1)}%` : '0.0%';
+        return {
+          ...d,
+          rate,
+        };
+      }).filter((d: any) => {
+        if (filters.search && !String(d.district).toLowerCase().includes(filters.search.toLowerCase())) return false;
         return true;
       });
     },

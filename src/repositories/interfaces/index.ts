@@ -226,6 +226,7 @@ export interface IFinanceRepository {
   getRealizedSalesReport(startDate?: string, endDate?: string, teamId?: string): Promise<any[]>;
   getSalesReport(period: 'daily' | 'weekly' | 'monthly', startDate?: string, endDate?: string): Promise<any>;
   getCityDeliveryReport(startDate?: string, endDate?: string): Promise<any>;
+  getDistrictDeliveryReport(startDate?: string, endDate?: string): Promise<any>;
   getSalesAnalysisMembers(): Promise<SalesAnalysisMember[]>;
   getTeamMemberSalesReport(startDate?: string, endDate?: string, teamId?: string): Promise<any>;
   getContactBatchReport(startDate?: string, endDate?: string, teamId?: string): Promise<any>;
