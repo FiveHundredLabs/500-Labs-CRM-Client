@@ -4,7 +4,7 @@ import { CustomerCard } from '../customer/CustomerCard';
 import { StatusBadge } from '../shared/StatusBadge';
 import { OrderExpandedDetails } from './OrderExpandedDetails';
 import type { DuplicateOrderConflictInfo } from './DuplicateOrderConflictDialog';
-import { ChevronDown, ChevronUp, AlertTriangle, Info, FileText, Mail, Truck, Clock, ShieldAlert, Banknote, CheckCircle2, XCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertTriangle, Info, FileText, Mail, Truck, Clock, ShieldAlert, Banknote, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 
 export interface OrderCardProps {
@@ -21,6 +21,7 @@ export interface OrderCardProps {
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
   onInspectDamages?: (order: Order) => void;
   onOpenRejectionModal?: (order: Order) => void;
+  onOpenReplacementModal?: (order: Order) => void;
 }
 
 export const OrderCard: React.FC<OrderCardProps> = React.memo(({
@@ -37,6 +38,7 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
   onInspectDuplicateOrders,
   onInspectDamages,
   onOpenRejectionModal,
+  onOpenReplacementModal,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -96,6 +98,12 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
               Post
             </span>
           )}
+          {order.isReplacement && (
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-purple-100 text-purple-800 border border-purple-300">
+              <RotateCcw className="w-2.5 h-2.5 text-purple-600" />
+              Replacement
+            </span>
+          )}
           <StatusBadge type="order" status={order.status} className="shrink-0 text-[10px]" />
           <button
             type="button"
@@ -153,7 +161,7 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
           )}
 
           {/* Active Duplicate Orders Warning Banner - Only shown while order is active, hidden after delivery */}
-          {order.status !== 'DELIVERED' && order.status !== 'REJECTED' && conflictInfo?.hasDuplicateActiveOrders && (
+          {order.status !== 'DELIVERED' && order.status !== 'REJECTED' && !order.isReplacement && conflictInfo?.hasDuplicateActiveOrders && (
             <div
               onClick={(e) => {
                 e.stopPropagation();
@@ -175,7 +183,7 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
           )}
 
           {/* Previous Delivered Order Found Banner - Only shown while order is active */}
-          {order.status !== 'DELIVERED' && order.status !== 'REJECTED' && !conflictInfo?.hasDuplicateActiveOrders && conflictInfo?.hasPreviousDeliveredOrder && (
+          {order.status !== 'DELIVERED' && order.status !== 'REJECTED' && !order.isReplacement && !conflictInfo?.hasDuplicateActiveOrders && conflictInfo?.hasPreviousDeliveredOrder && (
             <div
               onClick={(e) => {
                 e.stopPropagation();
@@ -244,6 +252,40 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
             </div>
           )}
 
+          {/* Replacement Order Banner */}
+          {order.isReplacement && (
+            <div className="p-1.5 bg-purple-50 border border-purple-200 rounded-lg flex items-center justify-between text-[10px] sm:text-[11px] font-semibold text-purple-950">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <RotateCcw className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                <span className="truncate">
+                  Free Replacement for #{order.parentOrder?.orderNumber || 'Parent Order'}
+                </span>
+              </div>
+              <span className="text-[10px] text-purple-700 font-bold shrink-0 ml-1">
+                LKR 0 Product Price
+              </span>
+            </div>
+          )}
+
+          {/* Delivered Order Active Replacement Requests / Replacements */}
+          {order.status === 'DELIVERED' && order.activeReplacementRequest && (
+            <div className="p-1.5 bg-purple-50 border border-purple-300 rounded-lg flex items-center justify-between text-[10px] sm:text-[11px] text-purple-950 font-semibold shadow-2xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Clock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                <span className="truncate">⏳ Replacement Request Awaiting Admin Approval</span>
+              </div>
+            </div>
+          )}
+
+          {order.status === 'DELIVERED' && !order.activeReplacementRequest && order.replacements && order.replacements.length > 0 && (
+            <div className="p-1.5 bg-purple-50 border border-purple-200 rounded-lg flex items-center justify-between text-[10px] sm:text-[11px] text-purple-950 font-semibold shadow-2xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                <span className="truncate">✓ Replacement Active (#{order.replacements[0].orderNumber})</span>
+              </div>
+            </div>
+          )}
+
           {isExpanded && (
             <OrderExpandedDetails
               order={order}
@@ -253,6 +295,7 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
               onPrintSlip={onPrintSlip}
               onInspectDamages={onInspectDamages}
               onOpenRejectionModal={onOpenRejectionModal}
+              onOpenReplacementModal={onOpenReplacementModal}
             />
           )}
         </div>

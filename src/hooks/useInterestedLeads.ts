@@ -146,14 +146,14 @@ export function useInterestedLeads(overrideTeamId?: string) {
         const ordersForPhone = phoneToOrdersMap[norm] || [];
         const samePhoneInterested = phoneToInterestedLeadsMap[norm] || [];
 
-        // Active orders for this phone
+        // Active non-replacement orders for this phone
         const activeOrders = ordersForPhone.filter((o) =>
-          ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status)
+          ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status) && !o.isReplacement
         );
 
-        // Orders belonging to other customers/reps with same phone
+        // Orders belonging to other customers/reps with same phone (excluding replacements)
         const foreignOrders = ordersForPhone.filter(
-          (o) => o.customerId !== cust.id || o.teamMemberId !== cust.responsibleTeamMemberId
+          (o) => (o.customerId !== cust.id || o.teamMemberId !== cust.responsibleTeamMemberId) && !o.isReplacement
         );
         const foreignActiveOrders = foreignOrders.filter((o) =>
           ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status)
