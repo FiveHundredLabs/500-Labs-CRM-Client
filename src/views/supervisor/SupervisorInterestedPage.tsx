@@ -572,12 +572,12 @@ export const SupervisorInterestedPage: React.FC = () => {
             </div>
 
             {/* Buttons row: Excel / Cancel / Delivery Charge */}
-            <div className="flex items-center gap-1.5 w-full pt-1.5 border-t border-slate-700/60">
+            <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-700/60 whitespace-nowrap">
               <button
                 type="button"
                 onClick={handleDownloadRoyalCourierExcel}
                 disabled={selectedIds.length === 0 || isDownloadingExcel}
-                className="flex-1 py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 <span>Excel</span>
@@ -587,7 +587,7 @@ export const SupervisorInterestedPage: React.FC = () => {
                 type="button"
                 onClick={() => setIsCancelConfirmOpen(true)}
                 disabled={selectedIds.length === 0}
-                className="flex-1 py-1 px-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="py-1 px-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 title="Cancel selected interested leads"
               >
                 <XCircle className="w-3.5 h-3.5" />
@@ -598,7 +598,7 @@ export const SupervisorInterestedPage: React.FC = () => {
                 type="button"
                 onClick={handleOpenBulkEditDelivery}
                 disabled={selectedIds.length === 0}
-                className="flex-1 py-1 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="py-1 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 title="Bulk Edit Delivery Amount (Max 20 orders)"
               >
                 <Pencil className="w-3.5 h-3.5" />

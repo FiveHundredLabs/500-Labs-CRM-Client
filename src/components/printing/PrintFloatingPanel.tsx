@@ -22,7 +22,7 @@ export const PrintFloatingPanel: React.FC<PrintFloatingPanelProps> = ({
 
   return (
     <div className="fixed right-3 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:right-6 md:bottom-6 z-30 pointer-events-auto">
-      <div className="bg-slate-900/95 backdrop-blur-md text-white p-2 rounded-xl shadow-2xl border border-slate-700/60 flex flex-col items-center gap-1.5 min-w-[150px]">
+      <div className="bg-slate-900/95 backdrop-blur-md text-white p-2 rounded-xl shadow-2xl border border-slate-700/60 flex flex-col items-center gap-1.5">
         {/* Top Line: Selected Count */}
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-200 px-1">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
@@ -32,13 +32,13 @@ export const PrintFloatingPanel: React.FC<PrintFloatingPanelProps> = ({
         </div>
 
         {/* Bottom Line: Extra Actions, PDF & Print Buttons */}
-        <div className="flex items-center gap-1.5 w-full pt-1.5 border-t border-slate-700/60">
+        <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-700/60 whitespace-nowrap">
           {extraActions}
 
           <button
             type="button"
             onClick={onDownloadPDF}
-            className="flex-1 py-1 px-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-indigo-400/30 cursor-pointer"
+            className="py-1 px-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-indigo-400/30 cursor-pointer"
             title="Download PDF"
           >
             <FileDown className="w-3.5 h-3.5" />
@@ -48,7 +48,7 @@ export const PrintFloatingPanel: React.FC<PrintFloatingPanelProps> = ({
           <button
             type="button"
             onClick={onNativePrint}
-            className="flex-1 py-1 px-2.5 bg-teal-600 hover:bg-teal-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-teal-400/30 cursor-pointer"
+            className="py-1 px-2.5 bg-teal-600 hover:bg-teal-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-teal-400/30 cursor-pointer"
             title="Print Slips"
           >
             <Printer className="w-3.5 h-3.5" />
