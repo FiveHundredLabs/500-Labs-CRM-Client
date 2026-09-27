@@ -234,7 +234,10 @@ export const InterestedList: React.FC<InterestedListProps> = React.memo(({
                 <div className="flex items-center justify-between font-bold text-amber-900">
                   <span className="flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
-                    <span>⚠️ Duplicate Active Orders ({conflictInfo.activeDuplicateOrders.length})</span>
+                    <span>⚠️ Duplicate Active Orders ({
+                      conflictInfo.allOrdersForPhone?.filter((o: any) => ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status) && !o.isReplacement).length ||
+                      (conflictInfo.activeDuplicateOrders?.length ? conflictInfo.activeDuplicateOrders.length + 1 : 2)
+                    })</span>
                   </span>
                   {onInspectDuplicateOrders && (
                     <button
