@@ -93,32 +93,28 @@ export const SupervisorOrdersPage: React.FC = () => {
     clearSelection,
   } = useSelection(filteredOrderIds);
 
-  const isUpTo30Selected = useMemo(() => {
+  const isUpTo20Selected = useMemo(() => {
     if (filteredOrderIds.length === 0 || selectedOrderIds.length === 0) return false;
-    const targetSlice = filteredOrderIds.slice(0, 30);
+    const targetSlice = filteredOrderIds.slice(0, 20);
     return (
       selectedOrderIds.length === targetSlice.length &&
       targetSlice.every((id) => selectedOrderIds.includes(id))
     );
   }, [filteredOrderIds, selectedOrderIds]);
 
-  const handleSelectUpTo30 = () => {
-    if (isUpTo30Selected) {
+  const handleSelectUpTo20 = () => {
+    if (isUpTo20Selected) {
       clearSelection();
       return;
     }
-    const upTo30 = filteredOrderIds.slice(0, 30);
-    setSelectedOrderIds(upTo30);
+    const upTo20 = filteredOrderIds.slice(0, 20);
+    setSelectedOrderIds(upTo20);
   };
 
   const handleToggleSelectCard = (id: string) => {
     if (selectedOrderIds.includes(id)) {
       setSelectedOrderIds((prev) => prev.filter((item) => item !== id));
     } else {
-      if (selectedOrderIds.length >= 30) {
-        toast.error('You can select a maximum of 30 orders.');
-        return;
-      }
       setSelectedOrderIds((prev) => [...prev, id]);
     }
   };
@@ -180,8 +176,8 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
-    if (selectedPrintItems.length > 30) {
-      toast.error('You can select a maximum of 30 orders.');
+    if (selectedOrderIds.length > 20 || selectedPrintItems.length > 20) {
+      toast.error('You can select a maximum of 20 orders for this action.');
       return;
     }
     setPdfProgress({
@@ -213,8 +209,8 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
-    if (selectedPrintItems.length > 30) {
-      toast.error('You can select a maximum of 30 orders.');
+    if (selectedOrderIds.length > 20 || selectedPrintItems.length > 20) {
+      toast.error('You can select a maximum of 20 orders for this action.');
       return;
     }
     setPdfProgress({
@@ -249,8 +245,8 @@ export const SupervisorOrdersPage: React.FC = () => {
       toast.error('Please select at least one order.');
       return;
     }
-    if (selectedOrderIds.length > 30) {
-      toast.error('You can select a maximum of 30 orders.');
+    if (selectedOrderIds.length > 20) {
+      toast.error('You can select a maximum of 20 orders for this action.');
       return;
     }
     setIsBulkModalOpen(true);
@@ -325,9 +321,9 @@ export const SupervisorOrdersPage: React.FC = () => {
         onResetFilters={resetFilters}
         filteredCount={filteredOrders.length}
         selectedCount={selectedOrderIds.length}
-        onSelectUpTo30={handleSelectUpTo30}
+        onSelectUpTo20={handleSelectUpTo20}
         onClearSelection={clearSelection}
-        isUpTo30Selected={isUpTo30Selected}
+        isUpTo20Selected={isUpTo20Selected}
         onOpenBulkModal={handleOpenBulkModal}
       />
 
@@ -364,8 +360,10 @@ export const SupervisorOrdersPage: React.FC = () => {
             <button
               type="button"
               onClick={handleOpenBulkModal}
-              className="py-1 px-2.5 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-amber-400/30 cursor-pointer"
-              title="Bulk Status Change"
+              className={`py-1 px-2.5 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-amber-400/30 cursor-pointer ${
+                selectedOrderIds.length > 20 ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              title={selectedOrderIds.length > 20 ? 'Maximum 20 orders allowed for this action' : 'Bulk Status Change'}
             >
               <span>Bulk</span>
             </button>

@@ -21,7 +21,7 @@ export interface BulkEditDeliveryChargeDialogProps {
 }
 
 const PRESETS = [0, 200, 250, 300, 350, 400, 500];
-const MAX_LIMIT = 30;
+const MAX_LIMIT = 20;
 
 export const BulkEditDeliveryChargeDialog: React.FC<BulkEditDeliveryChargeDialogProps> = ({
   isOpen,
@@ -52,7 +52,7 @@ export const BulkEditDeliveryChargeDialog: React.FC<BulkEditDeliveryChargeDialog
     }
 
     if (isExceeded) {
-      toast.error(`Maximum ${MAX_LIMIT} orders allowed. You currently have ${count} selected.`);
+      toast.error(`You can select a maximum of ${MAX_LIMIT} orders for this action.`);
       return;
     }
 
@@ -90,7 +90,7 @@ export const BulkEditDeliveryChargeDialog: React.FC<BulkEditDeliveryChargeDialog
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Limit Warning (Only if > 30) */}
+        {/* Limit Warning (Only if > 20) */}
         {isExceeded && (
           <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-center gap-2 text-xs text-rose-800">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />

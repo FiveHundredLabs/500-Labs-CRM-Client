@@ -21,9 +21,9 @@ export interface OrderFiltersProps {
   // Selection
   filteredCount: number;
   selectedCount: number;
-  onSelectUpTo30: () => void;
+  onSelectUpTo20: () => void;
   onClearSelection?: () => void;
-  isUpTo30Selected: boolean;
+  isUpTo20Selected: boolean;
   onOpenBulkModal: () => void;
 }
 
@@ -41,9 +41,9 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
   onResetFilters,
   filteredCount,
   selectedCount,
-  onSelectUpTo30,
+  onSelectUpTo20,
   onClearSelection,
-  isUpTo30Selected,
+  isUpTo20Selected,
   onOpenBulkModal,
 }) => {
   const hasActiveFilters =
@@ -143,28 +143,28 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
         {/* Select Up to 30 & Actions Summary Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-700">
           <div className="flex flex-wrap items-center gap-2">
-            {/* Control: Select up to 30 (Primary / Highlighted) */}
+            {/* Control: Select up to 20 (Primary / Highlighted) */}
             <button
               type="button"
-              onClick={onSelectUpTo30}
+              onClick={onSelectUpTo20}
               disabled={filteredCount === 0}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-                isUpTo30Selected
+                isUpTo20Selected
                   ? 'bg-[#01A8F3] text-white ring-2 ring-[#01A8F3]/30 shadow-sky-500/20'
                   : 'bg-sky-50 hover:bg-sky-100 text-[#0077b6] border border-sky-200 hover:border-sky-300'
               }`}
-              title="Select up to 30 orders for normal bulk actions (Print, PDF, Bulk Status)"
+              title="Select up to 20 orders for normal bulk actions (Print, PDF, Bulk Status)"
             >
               <CheckSquare className="w-3.5 h-3.5 shrink-0" />
-              <span>{isUpTo30Selected ? 'Deselect (30)' : 'Select up to 30'}</span>
+              <span>{isUpTo20Selected ? 'Deselect (20)' : 'Select up to 20'}</span>
               <span
                 className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
-                  isUpTo30Selected
+                  isUpTo20Selected
                     ? 'bg-white/20 text-white'
                     : 'bg-sky-200/70 text-[#0077b6]'
                 }`}
               >
-                Max 30
+                Max 20
               </span>
             </button>
 
@@ -194,7 +194,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
           <div className="flex items-center gap-2 ml-auto">
             <div
               className={`shrink-0 font-semibold px-2 py-0.5 rounded border text-xs ${
-                selectedCount > 30
+                selectedCount > 20
                   ? 'text-amber-800 bg-amber-50 border-amber-200'
                   : selectedCount > 0
                   ? 'text-blue-700 bg-blue-50 border-blue-100'
@@ -202,7 +202,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
               }`}
             >
               {selectedCount} Selected
-              {selectedCount > 30 ? ' (Max 30 exceeded)' : ''}
+              {selectedCount > 20 ? ' (Max 20 exceeded)' : ''}
             </div>
 
             {selectedCount > 0 && statusFilter !== 'DELIVERED' && statusFilter !== 'REJECTED' && (
@@ -210,7 +210,10 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
                 variant="secondary"
                 size="sm"
                 onClick={onOpenBulkModal}
-                className="bg-slate-800 hover:bg-slate-900 text-white border-none font-semibold text-[11px] h-7 cursor-pointer"
+                className={`bg-slate-800 hover:bg-slate-900 text-white border-none font-semibold text-[11px] h-7 cursor-pointer ${
+                  selectedCount > 20 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                title={selectedCount > 20 ? 'Maximum 20 orders allowed for this action' : 'Bulk Status Change'}
               >
                 Bulk Status Change
               </Button>
