@@ -22,7 +22,6 @@ import {
   ArrowUpRight,
   ShieldCheck,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { generateInventoryValuationPdf } from '../../utils/voucherPdfGenerator';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -155,7 +154,8 @@ export const FinanceInventoryPage: React.FC = () => {
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
     const exportData = filtered.map((item) => ({
       'SKU Code': item.code,
       'Product Name': item.name,

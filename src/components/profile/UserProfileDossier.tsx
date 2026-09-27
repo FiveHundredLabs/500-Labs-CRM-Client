@@ -67,7 +67,7 @@ export const UserProfileDossier: React.FC<UserProfileDossierProps> = ({ user, on
             callLogRepository.getByMemberId(user.id),
             orderRepository.getByMemberId(user.id),
             contactRepository.getByMemberId(user.id),
-            activityLogRepository.getRecentWithinMonth(user.id),
+            activityLogRepository.getMyRecentWithinMonth(),
           ]);
           setCallLogs(cLogs);
           setOrders(mOrders);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import type { Product, StockActivityLog, ApprovalRequest, User } from '../../models/domain';
-import { productRepository, stockActivityLogRepository, approvalRequestRepository, emailNotificationRepository, userRepository, orderRepository, customerRepository } from '../../repositories';
+import type { Product, ApprovalRequest, User } from '../../models/domain';
+import { productRepository, approvalRequestRepository, emailNotificationRepository, userRepository, orderRepository, customerRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { LoadingState } from '../../components/shared/LoadingState';
@@ -10,7 +10,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import toast from 'react-hot-toast';
-import { Package, PlusCircle, DollarSign, AlertTriangle, Clock, CheckCircle2, XCircle, History, Send, ShieldAlert } from 'lucide-react';
+import { Package, PlusCircle, DollarSign, AlertTriangle, Clock, CheckCircle2, XCircle, Send, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
 
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
@@ -22,7 +22,6 @@ export const SupervisorStockPage: React.FC = () => {
   const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || '';
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [stockLogs, setStockLogs] = useState<StockActivityLog[]>([]);
   const [approvalRequests, setApprovalRequests] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -71,21 +70,18 @@ export const SupervisorStockPage: React.FC = () => {
     if (!user) return;
     if (!effectiveTeamId) {
       setProducts([]);
-      setStockLogs([]);
       setApprovalRequests([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const [teamProducts, logs, requests] = await Promise.all([
+      const [teamProducts, requests] = await Promise.all([
         productRepository.getByTeamId(effectiveTeamId).catch(() => []),
-        stockActivityLogRepository.getByTeamId(effectiveTeamId).catch(() => []),
         approvalRequestRepository.getByTeamId(effectiveTeamId).catch(() => []),
       ]);
 
       setProducts(teamProducts);
-      setStockLogs(logs);
       setApprovalRequests(requests);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err?.message || 'Failed to load stock data.');
@@ -648,71 +644,39 @@ export const SupervisorStockPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Stock Activity History & Approval Trail (Requirement 2.13) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pending & Historical Approval Requests */}
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-3">
-          <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-blue-600" />
-              <span>Approval Requests Sent to Admin</span>
-            </h3>
-          </div>
-          <div className="space-y-2 max-h-72 overflow-y-auto">
-            {approvalRequests.length === 0 ? (
-              <div className="py-6 text-center text-slate-400 text-xs">No approval requests logged yet.</div>
-            ) : (
-              approvalRequests.map((req) => (
-                <div key={req.id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/70 text-xs space-y-1">
-                  <div className="flex items-center justify-between font-semibold text-slate-900">
-                    <span className="truncate">{req.productName} ({req.requestType.replace(/_/g, ' ')})</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
-                    }`}>
-                      {req.status}
-                    </span>
-                  </div>
-                  <div className="text-slate-600 text-[11px]">
-                    {req.requestType === 'STOCK_ADDITION' ? `Requesting +${req.quantity} units (Current: ${req.oldValue})` : `New Price Proposal: LKR ${req.newValue} (Old: LKR ${req.oldValue})`}
-                  </div>
-                  <div className="text-[10px] text-slate-400 flex items-center justify-between pt-0.5">
-                    <span>Reason: {req.reason}</span>
-                    <span>{format(new Date(req.createdAt), 'MMM dd, HH:mm')}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+      {/* Approval Requests Sent to Admin */}
+      <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-3">
+        <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
+          <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-blue-600" />
+            <span>Approval Requests Sent to Admin</span>
+          </h3>
+          <span className="text-xs text-slate-500 font-medium">{approvalRequests.length} request(s)</span>
         </div>
-
-        {/* Stock Activity History Audit Feed */}
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-3">
-          <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-              <History className="w-4 h-4 text-emerald-600" />
-              <span>Stock Activity & Movement Log</span>
-            </h3>
-          </div>
-          <div className="space-y-2 max-h-72 overflow-y-auto">
-            {stockLogs.length === 0 ? (
-              <div className="py-6 text-center text-slate-400 text-xs">No stock activity recorded.</div>
-            ) : (
-              stockLogs.map((log) => (
-                <div key={log.id} className="p-2.5 rounded-lg border border-slate-100 bg-white text-xs space-y-1">
-                  <div className="flex items-center justify-between font-semibold text-slate-900">
-                    <span>{log.productName}</span>
-                    <span className="font-mono text-blue-600 font-bold">{log.action}</span>
-                  </div>
-                  <div className="text-slate-600 text-[11px]">
-                    Stock: {log.previousStock} → <strong>{log.newStock}</strong> (Performed by: {log.performedByName})
-                  </div>
-                  <div className="text-[10px] text-slate-400 text-right">
-                    {format(new Date(log.createdAt), 'MMM dd, yyyy HH:mm')}
-                  </div>
+        <div className="space-y-2 max-h-72 overflow-y-auto">
+          {approvalRequests.length === 0 ? (
+            <div className="py-6 text-center text-slate-400 text-xs">No approval requests logged yet.</div>
+          ) : (
+            approvalRequests.map((req) => (
+              <div key={req.id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/70 text-xs space-y-1">
+                <div className="flex items-center justify-between font-semibold text-slate-900">
+                  <span className="truncate">{req.productName} ({req.requestType.replace(/_/g, ' ')})</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {req.status}
+                  </span>
                 </div>
-              ))
-            )}
-          </div>
+                <div className="text-slate-600 text-[11px]">
+                  {req.requestType === 'STOCK_ADDITION' ? `Requesting +${req.quantity} units (Current: ${req.oldValue})` : `New Price Proposal: LKR ${req.newValue} (Old: LKR ${req.oldValue})`}
+                </div>
+                <div className="text-[10px] text-slate-400 flex items-center justify-between pt-0.5">
+                  <span>Reason: {req.reason}</span>
+                  <span>{format(new Date(req.createdAt), 'MMM dd, yyyy HH:mm')}</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

@@ -33,6 +33,7 @@ import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
+import { queryClient, queryKeys } from '../../lib/queryClient';
 import toast from 'react-hot-toast';
 import {
   CheckCircle2,
@@ -137,6 +138,11 @@ export const AdminApprovalsPage: React.FC = () => {
       setOrderRejections(allOrderRejections);
       setCashHandovers(allCashHandovers);
       setReplacements(allReplacements);
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.overview() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard() });
     } catch (err: any) {
       toast.error(err.message || 'Failed to load approval requests.');
     } finally {

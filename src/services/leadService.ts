@@ -31,8 +31,7 @@ export class LeadService {
           await OrderService.updateOrderStatus(targetOrder.id, 'DISPATCHED', actor, 'Dispatched via Interested Leads billing print');
         }
       } else {
-        const allOrders = await orderRepository.getAll();
-        const orderNumber = `ORD-2026-${String(allOrders.length + 1).padStart(3, '0')}`;
+        const orderNumber = `ORD-2026-${Date.now().toString().slice(-6)}`;
         await orderRepository.create({
           orderNumber,
           customerId: customer.id,
@@ -138,7 +137,7 @@ export class LeadService {
     phone?: string
   ): Promise<Order | null> {
     try {
-      const orders = await orderRepository.getAll();
+      const orders = await orderRepository.getByMemberId(memberId);
       const match = orders.find((o) => {
         const isMember = o.teamMemberId === memberId;
         const isPrepared = o.status === 'PREPARED';
@@ -168,7 +167,7 @@ export class LeadService {
     phone?: string
   ): Promise<Order | null> {
     try {
-      const orders = await orderRepository.getAll();
+      const orders = await orderRepository.getByMemberId(memberId);
       const match = orders.find((o) => {
         const isMember = o.teamMemberId === memberId;
         const isRejected = o.status === 'REJECTED';

@@ -72,28 +72,18 @@ export const MemberSalesPage: React.FC = () => {
       if (!user) return;
       setLoading(true);
       try {
-        const [allOrders, allContacts, allCustomers] = await Promise.all([
-          orderRepository.getAll(),
-          contactRepository.getAll(),
-          customerRepository.getAll().catch(() => []),
+        const [memberOrders, memberContacts, memberCustomers] = await Promise.all([
+          orderRepository.getByMemberId(user.id).catch((err: any) => {
+            toast.error(err?.message || 'Failed to load your sales orders.');
+            return [] as Order[];
+          }),
+          contactRepository.getByMemberId(user.id).catch(() => [] as Contact[]),
+          customerRepository.getByMemberId(user.id).catch(() => [] as Customer[]),
         ]);
-
-        // Filter isolated strictly to logged-in Team Member
-        const memberOrders = allOrders.filter(
-          (o) => o.teamMemberId === user.id || (o as any).responsibleTeamMemberId === user.id
-        );
-        const memberContacts = allContacts.filter(
-          (c) =>
-            c.allocatedToId === user.id ||
-            c.addedBy === user.id ||
-            (c as any).addedById === user.id ||
-            (c as any).importedById === user.id ||
-            (c as any).importedBy === user.id
-        );
 
         setOrders(memberOrders);
         setContacts(memberContacts);
-        setCustomers(allCustomers);
+        setCustomers(memberCustomers);
       } catch (err: any) {
         toast.error(err.message || 'Failed to load your personal sales data.');
       } finally {

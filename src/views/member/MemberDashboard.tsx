@@ -92,12 +92,11 @@ export const MemberDashboard: React.FC = () => {
       const currentTeamId = user.teamId || '';
       const targetMonthPrefix = selectedMonth;
 
-      const [mContacts, mLogs, mOrders, teamUsers, teamOrders, fetchedTargets] = await Promise.all([
+      const [mContacts, mLogs, mOrders, teamUsers, fetchedTargets] = await Promise.all([
         contactRepository.getByMemberId(user.id).catch(() => []),
         callLogRepository.getByMemberId(user.id).catch(() => []),
         orderRepository.getByMemberId(user.id).catch(() => []),
-        userRepository.getByTeamId(currentTeamId).catch(() => []),
-        orderRepository.getByTeamId(currentTeamId).catch(() => []),
+        userRepository.getLeaderboard(currentTeamId).catch(() => []),
         salesTargetRepository.getAll(targetMonthPrefix, currentTeamId).catch(() => []),
       ]);
 
@@ -107,28 +106,12 @@ export const MemberDashboard: React.FC = () => {
       setSalesTargets(fetchedTargets);
 
       // Build Leaderboard Roster ranked by Delivered Sales Amount (LKR)
-      const membersOnly = teamUsers.filter(
-        (u) => u.role === 'TEAM_MEMBER' && (u.teamId === currentTeamId || !u.teamId)
-      );
-
-      const computedRoster: LeaderboardMember[] = membersOnly.slice(0, 7).map((u: any) => {
-        const uOrders = teamOrders.filter((o) => o.teamMemberId === u.id);
-        const uDeliveredOrders = uOrders.filter((o) => o.status === 'DELIVERED');
-        const deliveredSalesAmount = u.deliveredSalesAmount !== undefined
-          ? Number(u.deliveredSalesAmount)
-          : uDeliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
-        const deliveredCount = u.deliveredOrdersCount !== undefined
-          ? Number(u.deliveredOrdersCount)
-          : uDeliveredOrders.length;
-        const totalOrders = u.totalOrdersCount !== undefined
-          ? Number(u.totalOrdersCount)
-          : uOrders.length;
-
+      const computedRoster: LeaderboardMember[] = teamUsers.slice(0, 7).map((u) => {
         return {
           user: u,
-          totalOrders,
-          deliveredCount,
-          deliveredSalesAmount,
+          totalOrders: u.totalOrdersCount,
+          deliveredCount: u.deliveredOrdersCount,
+          deliveredSalesAmount: u.deliveredSalesAmount,
           rank: 0,
         };
       });
