@@ -4,7 +4,7 @@ import { Card, CardContent } from '../ui/Card';
 import { Select } from '../ui/Select';
 import { SearchInput } from '../shared/SearchInput';
 import { Button } from '../ui/Button';
-import { CalendarDays, X, RotateCcw } from 'lucide-react';
+import { CalendarDays, X, RotateCcw, CheckSquare } from 'lucide-react';
 
 export interface OrderFiltersProps {
   selectedDate: string;
@@ -21,9 +21,9 @@ export interface OrderFiltersProps {
   // Selection
   filteredCount: number;
   selectedCount: number;
-  allFilteredSelected: boolean;
-  onToggleSelectAll: () => void;
-  selectAllCheckboxRef: React.RefObject<HTMLInputElement | null>;
+  onSelectUpTo20: () => void;
+  onClearSelection?: () => void;
+  isUpTo20Selected: boolean;
   onOpenBulkModal: () => void;
 }
 
@@ -41,13 +41,33 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
   onResetFilters,
   filteredCount,
   selectedCount,
-  allFilteredSelected,
-  onToggleSelectAll,
-  selectAllCheckboxRef,
+  onSelectUpTo20,
+  onClearSelection,
+  isUpTo20Selected,
   onOpenBulkModal,
 }) => {
   const hasActiveFilters =
     Boolean(selectedDate) || selectedMemberId !== 'ALL' || Boolean(search) || statusFilter !== 'ALL';
+
+  const memberCountMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    for (let i = 0; i < dateFilteredOrders.length; i++) {
+      const mid = dateFilteredOrders[i].teamMemberId;
+      map[mid] = (map[mid] || 0) + 1;
+    }
+    return map;
+  }, [dateFilteredOrders]);
+
+  const memberOptions = React.useMemo(() => [
+    {
+      value: 'ALL',
+      label: `All Members (${dateFilteredOrders.length})`,
+    },
+    ...teamMembers.map((m) => ({
+      value: m.id,
+      label: `${m.fullName} (${memberCountMap[m.id] || 0})`,
+    })),
+  ], [dateFilteredOrders.length, teamMembers, memberCountMap]);
 
   return (
     <Card>
@@ -75,21 +95,7 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
             label="Team Member"
             value={selectedMemberId}
             onChange={(e) => onMemberIdChange(e.target.value)}
-            options={[
-              {
-                value: 'ALL',
-                label: `All Members (${dateFilteredOrders.length})`,
-              },
-              ...teamMembers.map((m) => {
-                const mCount = dateFilteredOrders.filter(
-                  (o) => o.teamMemberId === m.id
-                ).length;
-                return {
-                  value: m.id,
-                  label: `${m.fullName} (${mCount})`,
-                };
-              }),
-            ]}
+            options={memberOptions}
           />
 
           {/* Search Input */}
@@ -134,36 +140,69 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
           )}
         </div>
 
-        {/* Select All & Actions Summary Bar */}
+        {/* Select Up to 30 & Actions Summary Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-700">
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 cursor-pointer select-none font-semibold min-w-0">
-              <input
-                ref={selectAllCheckboxRef}
-                type="checkbox"
-                checked={allFilteredSelected}
-                onChange={onToggleSelectAll}
-                className="w-4 h-4 shrink-0 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
-              />
-              <span className="truncate">
-                Select All ({filteredCount})
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Control: Select up to 20 (Primary / Highlighted) */}
+            <button
+              type="button"
+              onClick={onSelectUpTo20}
+              disabled={filteredCount === 0}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                isUpTo20Selected
+                  ? 'bg-[#01A8F3] text-white ring-2 ring-[#01A8F3]/30 shadow-sky-500/20'
+                  : 'bg-sky-50 hover:bg-sky-100 text-[#0077b6] border border-sky-200 hover:border-sky-300'
+              }`}
+              title="Select up to 20 orders for normal bulk actions (Print, PDF, Bulk Status)"
+            >
+              <CheckSquare className="w-3.5 h-3.5 shrink-0" />
+              <span>{isUpTo20Selected ? 'Deselect (20)' : 'Select up to 20'}</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
+                  isUpTo20Selected
+                    ? 'bg-white/20 text-white'
+                    : 'bg-sky-200/70 text-[#0077b6]'
+                }`}
+              >
+                Max 20
               </span>
-            </label>
+            </button>
+
+            {/* Clear Selection */}
+            {selectedCount > 0 && onClearSelection && (
+              <button
+                type="button"
+                onClick={onClearSelection}
+                className="text-slate-400 hover:text-rose-600 text-[11px] font-medium transition-colors ml-1 cursor-pointer"
+                title="Clear current selection"
+              >
+                Clear
+              </button>
+            )}
 
             {statusFilter !== 'ALL' && (
               <button
                 type="button"
                 onClick={() => onStatusFilterChange('ALL')}
-                className="text-[11px] text-blue-600 hover:underline font-medium cursor-pointer"
+                className="text-[11px] text-blue-600 hover:underline font-medium ml-1 cursor-pointer"
               >
                 Clear Status Filter (Show All)
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="shrink-0 font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+          <div className="flex items-center gap-2 ml-auto">
+            <div
+              className={`shrink-0 font-semibold px-2 py-0.5 rounded border text-xs ${
+                selectedCount > 20
+                  ? 'text-amber-800 bg-amber-50 border-amber-200'
+                  : selectedCount > 0
+                  ? 'text-blue-700 bg-blue-50 border-blue-100'
+                  : 'text-slate-500 bg-slate-50 border-slate-200'
+              }`}
+            >
               {selectedCount} Selected
+              {selectedCount > 20 ? ' (Max 20 exceeded)' : ''}
             </div>
 
             {selectedCount > 0 && statusFilter !== 'DELIVERED' && statusFilter !== 'REJECTED' && (
@@ -171,13 +210,15 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
                 variant="secondary"
                 size="sm"
                 onClick={onOpenBulkModal}
-                className="bg-slate-800 hover:bg-slate-900 text-white border-none font-semibold text-[11px] h-7 cursor-pointer"
+                className={`bg-slate-800 hover:bg-slate-900 text-white border-none font-semibold text-[11px] h-7 cursor-pointer ${
+                  selectedCount > 20 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                title={selectedCount > 20 ? 'Maximum 20 orders allowed for this action' : 'Bulk Status Change'}
               >
                 Bulk Status Change
               </Button>
             )}
           </div>
-
         </div>
       </CardContent>
     </Card>

@@ -1,61 +1,59 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import type { Customer, User, Order, OrderStatus, DeliveryStatusHistory } from '../models/domain';
-import { customerRepository, userRepository, orderRepository, deliveryStatusHistoryRepository } from '../repositories';
-import { OrderService } from '../services/orderService';
-import toast from 'react-hot-toast';
+import { deliveryStatusHistoryRepository } from '../repositories';
+import { useOrdersQuery, useOrderMutations } from './queries/useOrdersQuery';
+import { useCustomersQuery } from './queries/useCustomersQuery';
+import { useTeamUsersQuery } from './queries/useUsersQuery';
 
 export function useOrders(overrideTeamId?: string) {
   const { user } = useAuth();
   const effectiveTeamId = overrideTeamId || user?.teamId || '';
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [customersMap, setCustomersMap] = useState<Record<string, Customer>>({});
-  const [teamMembers, setTeamMembers] = useState<User[]>([]);
-  const [membersMap, setMembersMap] = useState<Record<string, User>>({});
-  const [loading, setLoading] = useState(true);
+  // 1. TanStack Queries for Server State
+  const ordersQuery = useOrdersQuery({ teamId: effectiveTeamId }, Boolean(user && effectiveTeamId));
+  const customersQuery = useCustomersQuery({ teamId: effectiveTeamId }, Boolean(user && effectiveTeamId));
+  const usersQuery = useTeamUsersQuery(effectiveTeamId, Boolean(user && effectiveTeamId));
+
+  const { updateStatusMutation, updateRemarkMutation, bulkUpdateStatusMutation } = useOrderMutations();
+
+  const orders = useMemo(() => ordersQuery.data ?? [], [ordersQuery.data]);
+
+  const customersMap = useMemo(() => {
+    const list = customersQuery.data ?? [];
+    const map: Record<string, Customer> = {};
+    list.forEach((c) => {
+      map[c.id] = c;
+    });
+    return map;
+  }, [customersQuery.data]);
+
+  const teamUsers = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
+
+  const teamMembers = useMemo(() => {
+    return teamUsers.filter((u) => u.role === 'TEAM_MEMBER');
+  }, [teamUsers]);
+
+  const membersMap = useMemo(() => {
+    const map: Record<string, User> = {};
+    teamUsers.forEach((u) => {
+      map[u.id] = u;
+    });
+    return map;
+  }, [teamUsers]);
+
+  const loading = ordersQuery.isLoading || customersQuery.isLoading || usersQuery.isLoading;
 
   const loadData = useCallback(async () => {
-    if (!user) return;
-    if (!effectiveTeamId) {
-      setOrders([]);
-      setCustomersMap({});
-      setTeamMembers([]);
-      setMembersMap({});
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const [oList, cList, teamUsers] = await Promise.all([
-        orderRepository.getByTeamId(effectiveTeamId),
-        customerRepository.getByTeamId(effectiveTeamId),
-        userRepository.getByTeamId(effectiveTeamId),
-      ]);
+    await Promise.all([
+      ordersQuery.refetch(),
+      customersQuery.refetch(),
+      usersQuery.refetch(),
+    ]);
+  }, [ordersQuery, customersQuery, usersQuery]);
 
-      setOrders(oList);
-
-      const cMap: Record<string, Customer> = {};
-      cList.forEach((c) => (cMap[c.id] = c));
-      setCustomersMap(cMap);
-
-      const membersOnly = teamUsers.filter((u) => u.role === 'TEAM_MEMBER');
-      setTeamMembers(membersOnly);
-
-      const uMap: Record<string, User> = {};
-      teamUsers.forEach((u) => (uMap[u.id] = u));
-      setMembersMap(uMap);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, effectiveTeamId]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  // Compute duplicate conflict info for each order
-  const orderConflictMap = React.useMemo<Record<string, any>>(() => {
+  // Fast O(N) duplicate conflict resolution
+  const orderConflictMap = useMemo<Record<string, any>>(() => {
     const mapByPhone: Record<string, Order[]> = {};
 
     orders.forEach((ord) => {
@@ -69,6 +67,17 @@ export function useOrders(overrideTeamId?: string) {
       mapByPhone[norm].push(ord);
     });
 
+    // Pre-calculate active and delivered buckets per phone for O(1) checks
+    const activeByPhone: Record<string, Order[]> = {};
+    const deliveredByPhone: Record<string, Order[]> = {};
+
+    Object.entries(mapByPhone).forEach(([phone, ords]) => {
+      activeByPhone[phone] = ords.filter(
+        (o) => ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status) && !o.isReplacement
+      );
+      deliveredByPhone[phone] = ords.filter((o) => o.status === 'DELIVERED');
+    });
+
     const conflictMap: Record<string, any> = {};
 
     orders.forEach((ord) => {
@@ -79,19 +88,16 @@ export function useOrders(overrideTeamId?: string) {
 
       const isThisOrderActive = ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(ord.status);
       const allForPhone = mapByPhone[norm];
-      const otherOrders = allForPhone.filter((o) => o.id !== ord.id);
-      const activeDuplicates = otherOrders.filter((o) =>
-        ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status)
-      );
-      const previousDelivered = otherOrders.filter((o) => o.status === 'DELIVERED');
+      const activeDuplicates = (activeByPhone[norm] || []).filter((o) => o.id !== ord.id);
+      const previousDelivered = (deliveredByPhone[norm] || []).filter((o) => o.id !== ord.id);
 
       conflictMap[ord.id] = {
         phone: norm,
         customerName: cust?.fullName,
-        hasDuplicateActiveOrders: isThisOrderActive && activeDuplicates.length > 0,
-        activeDuplicateOrders: activeDuplicates,
-        hasPreviousDeliveredOrder: isThisOrderActive && previousDelivered.length > 0,
-        previousDeliveredOrders: previousDelivered,
+        hasDuplicateActiveOrders: !ord.isReplacement && isThisOrderActive && activeDuplicates.length > 0,
+        activeDuplicateOrders: ord.isReplacement ? [] : activeDuplicates,
+        hasPreviousDeliveredOrder: !ord.isReplacement && isThisOrderActive && previousDelivered.length > 0,
+        previousDeliveredOrders: ord.isReplacement ? [] : previousDelivered,
         allOrdersForPhone: allForPhone,
       };
     });
@@ -107,18 +113,15 @@ export function useOrders(overrideTeamId?: string) {
   ) => {
     if (!user) return false;
     try {
-      await OrderService.updateOrderStatus(
-        targetOrder.id,
+      await updateStatusMutation.mutateAsync({
+        targetOrder,
         targetNewStatus,
         user,
-        statusRemark.trim() || undefined,
-        damagedItems
-      );
-      toast.success(`Order #${targetOrder.orderNumber} status changed to ${targetNewStatus}`);
-      await loadData();
+        statusRemark,
+        damagedItems,
+      });
       return true;
-    } catch (err: any) {
-      toast.error(err.message || 'Status transition failed.');
+    } catch {
       return false;
     }
   };
@@ -126,12 +129,13 @@ export function useOrders(overrideTeamId?: string) {
   const updateOrderRemark = async (remarkOrder: Order, remarkText: string) => {
     if (!user) return false;
     try {
-      await OrderService.updateOrderRemark(remarkOrder.id, remarkText.trim(), user);
-      toast.success(`Remark updated for Order #${remarkOrder.orderNumber}`);
-      await loadData();
+      await updateRemarkMutation.mutateAsync({
+        remarkOrder,
+        remarkText,
+        user,
+      });
       return true;
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update remark.');
+    } catch {
       return false;
     }
   };
@@ -143,17 +147,14 @@ export function useOrders(overrideTeamId?: string) {
   ) => {
     if (!user || selectedOrderIds.length === 0) return false;
     try {
-      const count = await OrderService.bulkUpdateOrderStatus(
+      await bulkUpdateStatusMutation.mutateAsync({
         selectedOrderIds,
         bulkTargetStatus,
         user,
-        damagedItems
-      );
-      toast.success(`Updated status of ${count} selected order(s) to ${bulkTargetStatus}`);
-      await loadData();
+        damagedItems,
+      });
       return true;
-    } catch (err: any) {
-      toast.error(err.message || 'Bulk status update failed.');
+    } catch {
       return false;
     }
   };

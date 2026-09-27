@@ -228,4 +228,10 @@ export class OrderService {
   ): Promise<Order> {
     return orderRepository.updateDeliveryCharge(orderId, codCharge, remarks);
   }
+
+  static async bulkUpdateDeliveryCharge(
+    input: import('../repositories/interfaces').BulkUpdateDeliveryChargeInput
+  ): Promise<{ success: boolean; count: number; orders: Order[] }> {
+    return orderRepository.bulkUpdateDeliveryCharge(input);
+  }
 }

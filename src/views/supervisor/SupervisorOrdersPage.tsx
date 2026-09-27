@@ -15,6 +15,7 @@ import { OrderPrintConfirmDialog } from '../../components/orders/OrderPrintConfi
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { OrderDamageDetailsDialog } from '../../components/orders/OrderDamageDetailsDialog';
 import { OrderRejectionModal } from '../../components/orders/OrderRejectionModal';
+import { OrderReplacementRequestModal } from '../../components/orders/OrderReplacementRequestModal';
 import { useOrders } from '../../hooks/useOrders';
 import { useOrderFilters } from '../../hooks/useOrderFilters';
 import { useSelection } from '../../hooks/useSelection';
@@ -84,16 +85,39 @@ export const SupervisorOrdersPage: React.FC = () => {
     resetFilters,
   } = useOrderFilters(orders, customersMap, membersMap);
 
-  const filteredOrderIds = filteredOrders.map((o) => o.id);
+  const filteredOrderIds = useMemo(() => filteredOrders.map((o) => o.id), [filteredOrders]);
 
   const {
     selectedIds: selectedOrderIds,
-    selectAllCheckboxRef,
-    allSelected: allFilteredSelected,
-    toggleSelectAll,
-    toggleSelectCard,
+    setSelectedIds: setSelectedOrderIds,
     clearSelection,
   } = useSelection(filteredOrderIds);
+
+  const isUpTo20Selected = useMemo(() => {
+    if (filteredOrderIds.length === 0 || selectedOrderIds.length === 0) return false;
+    const targetSlice = filteredOrderIds.slice(0, 20);
+    return (
+      selectedOrderIds.length === targetSlice.length &&
+      targetSlice.every((id) => selectedOrderIds.includes(id))
+    );
+  }, [filteredOrderIds, selectedOrderIds]);
+
+  const handleSelectUpTo20 = () => {
+    if (isUpTo20Selected) {
+      clearSelection();
+      return;
+    }
+    const upTo20 = filteredOrderIds.slice(0, 20);
+    setSelectedOrderIds(upTo20);
+  };
+
+  const handleToggleSelectCard = (id: string) => {
+    if (selectedOrderIds.includes(id)) {
+      setSelectedOrderIds((prev) => prev.filter((item) => item !== id));
+    } else {
+      setSelectedOrderIds((prev) => [...prev, id]);
+    }
+  };
 
   // Workflow Dialog States
   const [targetOrder, setTargetOrder] = useState<Order | null>(null);
@@ -102,6 +126,7 @@ export const SupervisorOrdersPage: React.FC = () => {
   const [remarkOrder, setRemarkOrder] = useState<Order | null>(null);
   const [damageDetailsOrder, setDamageDetailsOrder] = useState<Order | null>(null);
   const [rejectionModalOrder, setRejectionModalOrder] = useState<Order | null>(null);
+  const [replacementModalOrder, setReplacementModalOrder] = useState<Order | null>(null);
 
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
@@ -151,6 +176,10 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
+    if (selectedOrderIds.length > 20 || selectedPrintItems.length > 20) {
+      toast.error('You can select a maximum of 20 orders for this action.');
+      return;
+    }
     setPdfProgress({
       isOpen: true,
       title: 'Downloading Slips PDF...',
@@ -180,6 +209,10 @@ export const SupervisorOrdersPage: React.FC = () => {
 
   const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
+    if (selectedOrderIds.length > 20 || selectedPrintItems.length > 20) {
+      toast.error('You can select a maximum of 20 orders for this action.');
+      return;
+    }
     setPdfProgress({
       isOpen: true,
       title: 'Preparing Slips for Printing...',
@@ -205,6 +238,18 @@ export const SupervisorOrdersPage: React.FC = () => {
     } finally {
       setPdfProgress((prev) => ({ ...prev, isOpen: false }));
     }
+  };
+
+  const handleOpenBulkModal = () => {
+    if (selectedOrderIds.length === 0) {
+      toast.error('Please select at least one order.');
+      return;
+    }
+    if (selectedOrderIds.length > 20) {
+      toast.error('You can select a maximum of 20 orders for this action.');
+      return;
+    }
+    setIsBulkModalOpen(true);
   };
 
   const handlePrintSlip = async (order: Order) => {
@@ -276,10 +321,10 @@ export const SupervisorOrdersPage: React.FC = () => {
         onResetFilters={resetFilters}
         filteredCount={filteredOrders.length}
         selectedCount={selectedOrderIds.length}
-        allFilteredSelected={allFilteredSelected}
-        onToggleSelectAll={toggleSelectAll}
-        selectAllCheckboxRef={selectAllCheckboxRef}
-        onOpenBulkModal={() => setIsBulkModalOpen(true)}
+        onSelectUpTo20={handleSelectUpTo20}
+        onClearSelection={clearSelection}
+        isUpTo20Selected={isUpTo20Selected}
+        onOpenBulkModal={handleOpenBulkModal}
       />
 
       {/* Orders List View */}
@@ -289,7 +334,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         membersMap={membersMap}
         selectedOrderIds={selectedOrderIds}
         orderConflictMap={orderConflictMap}
-        onToggleSelectCard={toggleSelectCard}
+        onToggleSelectCard={handleToggleSelectCard}
         onViewHistory={handleViewHistory}
         onOpenStatusModal={handleOpenStatusModal}
         onOpenRemarkModal={(order) => setRemarkOrder(order)}
@@ -297,6 +342,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         onInspectDamages={(order) => setDamageDetailsOrder(order)}
         onInspectDuplicateOrders={handleInspectDuplicateOrders}
         onOpenRejectionModal={(order) => setRejectionModalOrder(order)}
+        onOpenReplacementModal={(order) => setReplacementModalOrder(order)}
       />
 
       {/* 4. Floating Action Panel */}
@@ -313,9 +359,11 @@ export const SupervisorOrdersPage: React.FC = () => {
           ) ? (
             <button
               type="button"
-              onClick={() => setIsBulkModalOpen(true)}
-              className="py-1 px-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-amber-400/20 cursor-pointer"
-              title="Bulk Status Change"
+              onClick={handleOpenBulkModal}
+              className={`py-1 px-2.5 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-amber-400/30 cursor-pointer ${
+                selectedOrderIds.length > 20 ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              title={selectedOrderIds.length > 20 ? 'Maximum 20 orders allowed for this action' : 'Bulk Status Change'}
             >
               <span>Bulk</span>
             </button>
@@ -363,6 +411,17 @@ export const SupervisorOrdersPage: React.FC = () => {
       <OrderDamageDetailsDialog
         order={damageDetailsOrder}
         onClose={() => setDamageDetailsOrder(null)}
+      />
+
+      {/* Product Replacement Request Modal */}
+      <OrderReplacementRequestModal
+        order={replacementModalOrder}
+        customer={replacementModalOrder ? customersMap[replacementModalOrder.customerId] : undefined}
+        onClose={() => setReplacementModalOrder(null)}
+        onSuccess={() => {
+          setReplacementModalOrder(null);
+          loadData();
+        }}
       />
 
       <OrderHistoryDialog

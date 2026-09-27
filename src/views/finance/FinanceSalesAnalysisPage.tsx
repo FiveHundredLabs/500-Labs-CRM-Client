@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { orderRepository, teamRepository, financeRepository } from '../../repositories';
 import { Order, Team, SalesAnalysisMember } from '../../models/domain';
+import { useSalesAnalysisSummaryQuery } from '../../hooks/queries/useSalesAnalysisQuery';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -26,25 +27,24 @@ import {
   Legend,
 } from 'recharts';
 import {
-  TrendingUp,
   DollarSign,
   CheckCircle2,
   Truck,
-  Filter,
   Download,
   ShoppingBag,
-  Calendar,
 } from 'lucide-react';
-import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
 import { getAmountToCollect, getProductSalesValue } from '../../utils/orderAmounts';
 import toast from 'react-hot-toast';
 
 export const FinanceSalesAnalysisPage: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [members, setMembers] = useState<SalesAnalysisMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [paginatedOrders, setPaginatedOrders] = useState<Order[]>([]);
+  const [totalOrders, setTotalOrders] = useState<number>(0);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Filter States
   const [selectedTeamId, setSelectedTeamId] = useState<string>('ALL');
@@ -57,30 +57,26 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 15;
 
+  // Load team & member catalogs once
   useEffect(() => {
     let isMounted = true;
-    const loadData = async () => {
-      setLoading(true);
+    const loadCatalogs = async () => {
       try {
-        const [ordersData, teamsData, membersData] = await Promise.all([
-          orderRepository.getAll(),
+        const [teamsData, membersData] = await Promise.all([
           teamRepository.getAll().catch(() => []),
           financeRepository.getSalesAnalysisMembers().catch(() => []),
         ]);
         if (!isMounted) return;
-        setOrders(ordersData || []);
         setTeams(teamsData || []);
         setMembers(membersData || []);
       } catch (err: any) {
         if (!isMounted) return;
-        toast.error(err.message || 'Failed to load sales data.');
+        toast.error(err.message || 'Failed to load reference metadata.');
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setInitialLoading(false);
       }
     };
-    loadData();
+    loadCatalogs();
     return () => {
       isMounted = false;
     };
@@ -131,273 +127,160 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
     return map;
   }, [members]);
 
-  // Master filtered orders
-  const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
-      // 1. Team filter
-      if (selectedTeamId !== 'ALL' && o.teamId !== selectedTeamId) return false;
+  // Server-side pre-aggregated summary
+  const summaryParams = useMemo(() => ({
+    teamId: selectedTeamId !== 'ALL' ? selectedTeamId : undefined,
+    status: statusFilter !== 'ALL' ? statusFilter : undefined,
+    package: packageFilter !== 'ALL' ? packageFilter : undefined,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+    search: searchQuery.trim() || undefined,
+  }), [selectedTeamId, statusFilter, packageFilter, startDate, endDate, searchQuery]);
 
-      // 2. Status filter
-      if (statusFilter !== 'ALL' && o.status !== statusFilter) return false;
+  const { data: summaryData, isLoading: summaryLoading } = useSalesAnalysisSummaryQuery(summaryParams);
 
-      // 3. Package filter
-      if (packageFilter !== 'ALL') {
-        if (o.selectedPackage !== packageFilter) return false;
-      }
-
-      // 4. Date filter
-      if (startDate || endDate) {
-        const orderDate = o.createdAt.split('T')[0];
-        if (startDate && orderDate < startDate) return false;
-        if (endDate && orderDate > endDate) return false;
-      }
-
-      // 5. Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const repName = userMap[o.teamMemberId]?.fullName?.toLowerCase() || '';
-        const orderNum = o.orderNumber.toLowerCase();
-        const items = (o.itemsDescription || '').toLowerCase();
-        const remarks = (o.remarks || '').toLowerCase();
-        if (
-          !orderNum.includes(q) &&
-          !repName.includes(q) &&
-          !items.includes(q) &&
-          !remarks.includes(q)
-        ) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [orders, selectedTeamId, statusFilter, packageFilter, startDate, endDate, searchQuery, userMap]);
-
-  // Executive KPI Calculations
-  const metrics = useMemo(() => {
-    let totalSalesValue = 0;
-    let deliveredValue = 0;
-    let dispatchedValue = 0;
-    let preparedValue = 0;
-    let deliveredCount = 0;
-    let dispatchedCount = 0;
-    let rejectedCount = 0;
-    let adultUnits = 0;
-    let kidsUnits = 0;
-
-    filteredOrders.forEach((o) => {
-      const productSalesValue = getProductSalesValue(o);
-      const amountToCollect = getAmountToCollect(o);
-      totalSalesValue += productSalesValue;
-
-      if (o.status === 'DELIVERED') {
-        deliveredValue += amountToCollect;
-        deliveredCount++;
-      } else if (o.status === 'DISPATCHED') {
-        dispatchedValue += amountToCollect;
-        dispatchedCount++;
-      } else if (o.status === 'PREPARED') {
-        preparedValue += amountToCollect;
-      } else if (o.status === 'REJECTED') {
-        rejectedCount++;
-      }
-
-      adultUnits += Number(o.adultQty || 0);
-      kidsUnits += Number(o.kidsQty || 0);
-    });
-
-    const totalOrdersCount = filteredOrders.length;
-    const fulfilledOrders = deliveredCount + rejectedCount;
-    const deliverySuccessRate = fulfilledOrders > 0 ? (deliveredCount / fulfilledOrders) * 100 : (deliveredCount > 0 ? 100 : 0);
-    const averageOrderValue = totalOrdersCount > 0 ? totalSalesValue / totalOrdersCount : 0;
-
-    return {
-      totalSalesValue,
-      deliveredValue,
-      dispatchedValue,
-      preparedValue,
-      deliveredCount,
-      dispatchedCount,
-      rejectedCount,
-      totalOrdersCount,
-      deliverySuccessRate,
-      averageOrderValue,
-      totalUnits: adultUnits + kidsUnits,
-      adultUnits,
-      kidsUnits,
-    };
-  }, [filteredOrders]);
-
-  // Dynamic Chart 1: Daily/Weekly Sales Trend
-  const salesTimelineData = useMemo(() => {
-    const dateGroups: Record<string, { date: string; revenue: number; orders: number; delivered: number }> = {};
-
-    filteredOrders.forEach((o) => {
-      const dateKey = o.createdAt.split('T')[0];
-      if (!dateGroups[dateKey]) {
-        dateGroups[dateKey] = {
-          date: format(parseISO(dateKey), 'MMM dd'),
-          revenue: 0,
-          orders: 0,
-          delivered: 0,
-        };
-      }
-      dateGroups[dateKey].revenue += getProductSalesValue(o);
-      dateGroups[dateKey].orders += 1;
-      if (o.status === 'DELIVERED') {
-        dateGroups[dateKey].delivered += getAmountToCollect(o);
-      }
-    });
-
-    return Object.values(dateGroups).sort((a, b) => (a.date > b.date ? 1 : -1));
-  }, [filteredOrders]);
-
-  // Dynamic Chart 2: Team Performance Comparison
-  const teamComparisonData = useMemo(() => {
-    const teamStats: Record<string, { name: string; revenue: number; orders: number; delivered: number }> = {};
-
-    filteredOrders.forEach((o) => {
-      const team = teamMap[o.teamId];
-      const tName = team ? team.name : 'Unassigned';
-      if (!teamStats[tName]) {
-        teamStats[tName] = { name: tName, revenue: 0, orders: 0, delivered: 0 };
-      }
-      teamStats[tName].revenue += getProductSalesValue(o);
-      teamStats[tName].orders += 1;
-      if (o.status === 'DELIVERED') {
-        teamStats[tName].delivered += getAmountToCollect(o);
-      }
-    });
-
-    return Object.values(teamStats);
-  }, [filteredOrders, teamMap]);
-
-  // Dynamic Chart 3: Package Distribution
-  const packageDistributionData = useMemo(() => {
-    let adultRev = 0;
-    let kidsRev = 0;
-    let bothRev = 0;
-    let standardRev = 0;
-
-    filteredOrders.forEach((o) => {
-      const amt = getProductSalesValue(o);
-      if (o.selectedPackage === 'ADULT') adultRev += amt;
-      else if (o.selectedPackage === 'KIDS') kidsRev += amt;
-      else if (o.selectedPackage === 'BOTH') bothRev += amt;
-      else standardRev += amt;
-    });
-
-    const data = [
-      { name: 'Adult Package', value: adultRev, color: '#01A8F3' },
-      { name: 'Kids Package', value: kidsRev, color: '#80BD2B' },
-      { name: 'Combo (Both)', value: bothRev, color: '#8B5CF6' },
-    ];
-    if (standardRev > 0) {
-      data.push({ name: 'Standard / Custom', value: standardRev, color: '#F59E0B' });
+  // Fetch paginated table records (15 items per page)
+  const loadTableRecords = useCallback(async () => {
+    setTableLoading(true);
+    try {
+      const res = await orderRepository.getPaginated({
+        page: currentPage,
+        limit: itemsPerPage,
+        teamId: selectedTeamId !== 'ALL' ? selectedTeamId : undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        search: searchQuery.trim() || undefined,
+      });
+      setPaginatedOrders(res.items || []);
+      setTotalOrders(res.pageInfo?.total ?? res.items.length);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load transaction ledger records.');
+    } finally {
+      setTableLoading(false);
     }
-    return data.filter((d) => d.value > 0);
-  }, [filteredOrders]);
+  }, [currentPage, selectedTeamId, statusFilter, startDate, endDate, searchQuery]);
 
-  // Dynamic Chart 4: Order Status Breakdown
-  const orderStatusData = useMemo(() => {
-    const counts: Record<string, number> = {
-      DELIVERED: 0,
-      DISPATCHED: 0,
-      PREPARED: 0,
-      REJECTED: 0,
-      CANCELLED: 0,
-    };
-    filteredOrders.forEach((o) => {
-      if (counts[o.status] !== undefined) {
-        counts[o.status]++;
-      }
-    });
-    return [
-      { status: 'Delivered', count: counts.DELIVERED, color: '#80BD2B' },
-      { status: 'Dispatched', count: counts.DISPATCHED, color: '#01A8F3' },
-      { status: 'Prepared', count: counts.PREPARED, color: '#D97706' },
-      { status: 'Rejected', count: counts.REJECTED, color: '#DC2626' },
-      { status: 'Cancelled', count: counts.CANCELLED, color: '#64748B' },
-    ];
-  }, [filteredOrders]);
+  useEffect(() => {
+    loadTableRecords();
+  }, [loadTableRecords]);
 
-  // CSV Export Handler
-  const handleExportCSV = () => {
-    if (filteredOrders.length === 0) {
+  // Fallback defaults for KPIs & charts from server aggregation
+  const metrics = summaryData?.metrics || {
+    totalSalesValue: 0,
+    deliveredValue: 0,
+    dispatchedValue: 0,
+    preparedValue: 0,
+    deliveredCount: 0,
+    dispatchedCount: 0,
+    rejectedCount: 0,
+    totalOrdersCount: totalOrders,
+    deliverySuccessRate: 0,
+    averageOrderValue: 0,
+    totalUnits: 0,
+    adultUnits: 0,
+    kidsUnits: 0,
+  };
+
+  const salesTimelineData = summaryData?.salesTimeline || [];
+  const teamComparisonData = summaryData?.teamComparison || [];
+  const packageDistributionData = summaryData?.packageDistribution || [];
+  const orderStatusData = summaryData?.orderStatusBreakdown || [
+    { status: 'Delivered', count: metrics.deliveredCount, color: '#80BD2B' },
+    { status: 'Dispatched', count: metrics.dispatchedCount, color: '#01A8F3' },
+    { status: 'Prepared', count: 0, color: '#D97706' },
+    { status: 'Rejected', count: metrics.rejectedCount, color: '#DC2626' },
+    { status: 'Cancelled', count: 0, color: '#64748B' },
+  ];
+
+  // Chunked CSV Export Handler (Task 7 optimization: chunked retrieval)
+  const handleExportCSV = async () => {
+    const totalToExport = summaryData?.totalOrdersCount || totalOrders;
+    if (totalToExport === 0) {
       toast.error('No sales transactions to export.');
       return;
     }
 
-    const escapeCsvText = (val: any): string => {
-      if (val === null || val === undefined) return '""';
-      let str = String(val);
-      if (/^[=+\-@]/.test(str)) {
-        str = `'${str}`;
+    const toastId = toast.loading('Preparing sales ledger export...');
+    try {
+      const escapeCsvText = (val: any): string => {
+        if (val === null || val === undefined) return '""';
+        let str = String(val);
+        if (/^[=+\-@]/.test(str)) {
+          str = `'${str}`;
+        }
+        return `"${str.replace(/"/g, '""')}"`;
+      };
+
+      const headers = [
+        'Order Number',
+        'Date',
+        'Team',
+        'Sales Rep',
+        'Package',
+        'Adult Qty',
+        'Kids Qty',
+        'Product Sales Value (LKR)',
+        'COD / Delivery Charge (LKR)',
+        'COD Amount (LKR)',
+        'Status',
+        'Remarks',
+      ];
+
+      const allRows: string[][] = [];
+      const chunkSize = 100;
+      const totalPagesToFetch = Math.ceil(totalToExport / chunkSize) || 1;
+
+      for (let p = 1; p <= totalPagesToFetch; p++) {
+        const chunkRes = await orderRepository.getPaginated({
+          page: p,
+          limit: chunkSize,
+          teamId: selectedTeamId !== 'ALL' ? selectedTeamId : undefined,
+          status: statusFilter !== 'ALL' ? statusFilter : undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          search: searchQuery.trim() || undefined,
+        });
+
+        const rows = chunkRes.items.map((o) => [
+          escapeCsvText(o.orderNumber),
+          escapeCsvText(o.createdAt ? o.createdAt.split('T')[0] : ''),
+          escapeCsvText(teamMap[o.teamId]?.name || o.teamId),
+          escapeCsvText(userMap[o.teamMemberId]?.fullName || o.teamMemberId),
+          escapeCsvText(o.selectedPackage || 'STANDARD'),
+          escapeCsvText(o.adultQty || 0),
+          escapeCsvText(o.kidsQty || 0),
+          escapeCsvText(getProductSalesValue(o)),
+          escapeCsvText(o.codCharge || 0),
+          escapeCsvText(getAmountToCollect(o)),
+          escapeCsvText(o.status),
+          escapeCsvText(o.remarks || ''),
+        ]);
+
+        allRows.push(...rows);
       }
-      return `"${str.replace(/"/g, '""')}"`;
-    };
 
-    const headers = [
-      'Order Number',
-      'Date',
-      'Team',
-      'Sales Rep',
-      'Package',
-      'Adult Qty',
-      'Kids Qty',
-      'Product Sales Value (LKR)',
-      'COD / Delivery Charge (LKR)',
-      'COD Amount (LKR)',
-      'Status',
-      'Remarks',
-    ];
-
-    const rows = filteredOrders.map((o) => [
-      escapeCsvText(o.orderNumber),
-      escapeCsvText(o.createdAt ? o.createdAt.split('T')[0] : ''),
-      escapeCsvText(teamMap[o.teamId]?.name || o.teamId),
-      escapeCsvText(userMap[o.teamMemberId]?.fullName || o.teamMemberId),
-      escapeCsvText(o.selectedPackage || 'STANDARD'),
-      o.adultQty || 0,
-      o.kidsQty || 0,
-      getProductSalesValue(o).toFixed(2),
-      Math.max(0, getAmountToCollect(o) - getProductSalesValue(o)).toFixed(2),
-      getAmountToCollect(o).toFixed(2),
-      escapeCsvText(o.status),
-      escapeCsvText(o.remarks || ''),
-    ]);
-
-    const csvContent = [
-      `"500 Labs - Detailed Sales Analysis Report"`,
-      `"Exported Date","${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}"`,
-      `"Team Filter",${escapeCsvText(selectedTeamId === 'ALL' ? 'All Teams' : teamMap[selectedTeamId]?.name || selectedTeamId)}`,
-      `"Date Range",${escapeCsvText(`${startDate || 'Start'} to ${endDate || 'Present'}`)}`,
-      `"Total Filtered Sales","${formatCurrency(metrics.totalSalesValue)}"`,
-      '',
-      headers.map(escapeCsvText).join(','),
-      ...rows.map((r) => r.join(',')),
-    ].join('\r\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Sales_Analysis_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success('Sales ledger exported successfully!');
+      const csvContent = [headers.join(','), ...allRows.map((r) => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Sales_Analysis_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Sales ledger exported successfully!', { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || 'Export failed.', { id: toastId });
+    }
   };
 
   // Pagination for transaction table
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage) || 1;
-  const paginatedOrders = filteredOrders.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalRecords = summaryData?.totalOrdersCount ?? totalOrders;
+  const totalPages = Math.ceil(totalRecords / itemsPerPage) || 1;
 
-  if (loading) return <LoadingState rows={8} />;
+  if (initialLoading || summaryLoading) return <LoadingState rows={8} />;
 
   return (
     <div className="space-y-6">
@@ -421,7 +304,6 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
       <Card className="border-slate-200 bg-white">
         <CardContent className="p-4 sm:p-5">
           <div className="flex flex-col gap-4">
-            {/* Top row filters */}
             {/* Top row filters */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
@@ -747,7 +629,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
           <div>
             <CardTitle className="text-base font-bold text-slate-900">Sales Transactions Ledger</CardTitle>
             <CardDescription>
-              Showing {filteredOrders.length} filtered transactions ({formatCurrency(metrics.totalSalesValue)})
+              Showing {paginatedOrders.length} of {totalRecords} filtered transactions ({formatCurrency(metrics.totalSalesValue)})
             </CardDescription>
           </div>
           <div className="w-full sm:w-72">
@@ -762,7 +644,11 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {paginatedOrders.length > 0 ? (
+          {tableLoading ? (
+            <div className="p-8">
+              <LoadingState rows={5} />
+            </div>
+          ) : paginatedOrders.length > 0 ? (
             <div className="enterprise-table-container overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-700">
                 <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -824,7 +710,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-600">
               <div>
-                Page {currentPage} of {totalPages} ({filteredOrders.length} total records)
+                Page {currentPage} of {totalPages} ({totalRecords} total records)
               </div>
               <div className="flex items-center gap-1.5">
                 <Button

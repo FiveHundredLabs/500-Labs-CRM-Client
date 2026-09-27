@@ -94,6 +94,7 @@ export interface Contact {
   allocationSource?: 'SELF_ADDED' | 'SUPERVISOR_ALLOCATED' | 'BULK_IMPORT' | string;
   isSelfAdded?: boolean;
   city?: string;
+  district?: string;
   secondaryMobile?: string;
   attemptCount: number;
   lastCalledAt: string | null;
@@ -136,9 +137,11 @@ export interface DuplicatePhoneIntelligence {
   lastCalledAt?: string | null;
   lastCallStatus?: ContactStatus | string | null;
   lastCallRemarks?: string | null;
+  notes?: string | null;
   lastCustomerName?: string | null;
   deliveryAddress?: string | null;
   city?: string | null;
+  district?: string | null;
   previousOrders: DuplicatePhoneOrderHistory[];
 }
 
@@ -161,6 +164,7 @@ export interface CallLog {
   customerAddress?: string;
   customerEmail?: string;
   city?: string;
+  district?: string;
   secondaryMobile?: string;
   deliveryMethod?: DeliveryMethod;
   deliveryNote?: string;
@@ -184,6 +188,7 @@ export interface CallLog {
     phone: string;
     secondaryMobile?: string;
     city?: string;
+    district?: string;
     status?: string;
   };
 }
@@ -199,6 +204,7 @@ export interface Customer {
   assignedMember?: Partial<User>;
   responsibleMember?: Partial<User>;
   city?: string;
+  district?: string;
   address: string;
   email?: string;
   deliveryMethod?: DeliveryMethod;
@@ -289,6 +295,14 @@ export interface Order {
   isCashOnHand?: boolean;
   cashOnHandStatus?: CashOnHandStatus | null;
   cashOnHandHandovers?: CashOnHandHandover[];
+  isReplacement?: boolean;
+  parentOrderId?: string | null;
+  parentOrderNumber?: string | null;
+  parentOrder?: { id: string; orderNumber: string; status: OrderStatus } | null;
+  replacementSequence?: number;
+  replacements?: Order[];
+  replacementRequests?: OrderReplacementRequest[];
+  activeReplacementRequest?: OrderReplacementRequest | null;
 }
 
 export interface ParcelSlipTeam {
@@ -313,6 +327,9 @@ export interface ParcelSlipCustomer {
 export interface ParcelSlipItem {
   productName: string;
   quantity: number;
+  unitPrice?: number;
+  subtotal?: number;
+  price?: number;
 }
 
 export interface ParcelSlipData {
@@ -323,6 +340,7 @@ export interface ParcelSlipData {
   paymentMethod?: string | null;
   codAmount?: number | string | null;
   codCharge?: number | string | null;
+  deliveryCharge?: number | string | null;
   amountToCollect?: number | string | null;
   productSalesValue?: number | string | null;
   totalAmount: number | string;
@@ -331,6 +349,8 @@ export interface ParcelSlipData {
   customer: ParcelSlipCustomer;
   team: ParcelSlipTeam;
   items?: ParcelSlipItem[];
+  isCashOnHand?: boolean;
+  deliveryMethod?: DeliveryMethod | string;
 }
 
 export interface DeliveryStatusHistory {
@@ -647,8 +667,9 @@ export interface CashOnHandHandover {
   amountCollected: number;
   productValue: number;
   deliveryCharge: number;
-  outcomeStatus: OrderStatus;
+  outcomeStatus?: OrderStatus | null;
   rejectionReason?: string | null;
+  requestNotes?: string | null;
   damagedItems?: OrderRejectionDamagedItem[] | null;
   status: CashOnHandStatus;
   reviewedById?: string | null;
@@ -672,7 +693,75 @@ export interface ProcessCashOnHandPayload {
 
 export interface ReviewCashOnHandPayload {
   status: CashOnHandStatus;
+  adminOutcome?: OrderStatus;
+  rejectionReason?: string;
   adminNotes?: string;
+}
+
+export type ReplacementReturnStatus = 'PENDING_RETURN' | 'ITEM_RETURNED' | 'WAIVED_NOT_RETURNED';
+
+export interface ReplacementItemPayload {
+  productId: string;
+  productName: string;
+  quantity: number;
+  reason?: string;
+  damageReason?: string;
+}
+
+export interface OrderReplacementRequest {
+  id: string;
+  originalOrderId: string;
+  originalOrderNumber: string;
+  replacementOrderId?: string | null;
+  replacementOrderNum?: string | null;
+  replacementOrderNumber?: string | null;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  teamId: string;
+  requestedById: string;
+  requestedByName: string;
+  damageDescription: string;
+  itemsToReplace: ReplacementItemPayload[];
+  items?: ReplacementItemPayload[];
+  deliveryFee: number;
+  deliveryMethod: DeliveryMethod;
+  status: ApprovalStatus;
+  returnStatus: ReplacementReturnStatus;
+  returnReceivedAt?: string | null;
+  returnReceivedById?: string | null;
+  returnReceivedByName?: string | null;
+  reviewedById?: string | null;
+  reviewedByName?: string | null;
+  reviewedAt?: string | null;
+  adminNotes?: string | null;
+  reason?: string;
+  damagedReturnNotes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  originalOrder?: Order;
+  replacementOrder?: Order;
+  team?: Team;
+  requestedBy?: Partial<User>;
+  reviewedBy?: Partial<User>;
+  returnReceivedBy?: Partial<User>;
+}
+
+export interface CreateOrderReplacementPayload {
+  damageDescription: string;
+  items: ReplacementItemPayload[];
+  deliveryFee?: number;
+  deliveryMethod?: DeliveryMethod;
+}
+
+export interface ReviewOrderReplacementPayload {
+  status: 'APPROVED' | 'REJECTED';
+  adminNotes?: string;
+}
+
+export interface ConfirmDamagedReturnPayload {
+  notes?: string;
+  returnStatus?: ReplacementReturnStatus;
 }
 
 export interface PettyCashWallet {

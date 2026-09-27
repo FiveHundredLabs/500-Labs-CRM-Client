@@ -22,6 +22,7 @@ import { Input } from '../../components/ui/Input';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { GitHubVerificationDeleteDialog } from '../../components/shared/GitHubVerificationDeleteDialog';
 import toast from 'react-hot-toast';
+import { format } from 'date-fns';
 import {
   Package,
   Plus,
@@ -44,6 +45,9 @@ import {
   UserCheck,
   FileText,
   Zap,
+  History,
+  RefreshCw,
+  Filter,
 } from 'lucide-react';
 
 export interface DamageAuditRecord {
@@ -109,15 +113,23 @@ export const AdminProductsPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingSave, setConfirmingSave] = useState(false);
 
+  // Stock Activity Log States (Admin Exclusive Audit Feed)
+  const [stockLogs, setStockLogs] = useState<StockActivityLog[]>([]);
+  const [stockLogActionFilter, setStockLogActionFilter] = useState<string>('ALL');
+  const [stockLogSearch, setStockLogSearch] = useState('');
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [allProducts, allTeams] = await Promise.all([
+      const [allProducts, allTeams, allStockLogs] = await Promise.all([
         productRepository.getAll(),
         teamRepository.getAll(),
+        stockActivityLogRepository.getAll().catch(() => []),
       ]);
       setProducts(allProducts);
       setTeams(allTeams);
+      setStockLogs(allStockLogs);
       if (allTeams.length > 0 && !formTeamId) {
         setFormTeamId(allTeams[0].id);
       }
@@ -125,6 +137,21 @@ export const AdminProductsPage: React.FC = () => {
       toast.error(err.message || 'Failed to load products.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const reloadStockLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      const logs = selectedTeamId !== 'ALL'
+        ? await stockActivityLogRepository.getByTeamId(selectedTeamId).catch(() => [])
+        : await stockActivityLogRepository.getAll().catch(() => []);
+      setStockLogs(logs);
+      toast.success('Stock activity logs refreshed');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to refresh stock logs.');
+    } finally {
+      setLoadingLogs(false);
     }
   };
 
@@ -352,6 +379,92 @@ export const AdminProductsPage: React.FC = () => {
       return true;
     });
   }, [products, selectedTeamId, stockStatusFilter, searchQuery]);
+
+  // Filtered Stock Activity Logs
+  const filteredStockLogs = useMemo(() => {
+    return stockLogs.filter((log) => {
+      // 1. Team filter
+      if (selectedTeamId !== 'ALL' && log.teamId !== selectedTeamId) {
+        return false;
+      }
+      // 2. Action filter
+      if (stockLogActionFilter !== 'ALL' && log.action !== stockLogActionFilter) {
+        return false;
+      }
+      // 3. Search query
+      if (stockLogSearch.trim()) {
+        const query = stockLogSearch.toLowerCase().trim();
+        const pName = (log.productName || '').toLowerCase();
+        const orderNum = (log.orderNumber || '').toLowerCase();
+        const customer = (log.customerName || '').toLowerCase();
+        const performer = (log.performedByName || '').toLowerCase();
+        const reason = (log.reason || '').toLowerCase();
+        if (
+          !pName.includes(query) &&
+          !orderNum.includes(query) &&
+          !customer.includes(query) &&
+          !performer.includes(query) &&
+          !reason.includes(query)
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [stockLogs, selectedTeamId, stockLogActionFilter, stockLogSearch]);
+
+  const renderStockActionBadge = (action: string) => {
+    switch (action) {
+      case 'ADD':
+        return (
+          <span className="inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Stock Added
+          </span>
+        );
+      case 'ALLOCATE':
+        return (
+          <span className="inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+            Lead Reserved
+          </span>
+        );
+      case 'DISPATCH':
+        return (
+          <span className="inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+            Dispatched
+          </span>
+        );
+      case 'DELIVER':
+        return (
+          <span className="inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+            Delivered Sale
+          </span>
+        );
+      case 'RETURN_RESTOCK':
+        return (
+          <span className="inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+            Restocked
+          </span>
+        );
+      case 'RETURN_DAMAGE':
+        return (
+          <span className="inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+            Quarantine Damaged
+          </span>
+        );
+      case 'CANCEL_DEALLOCATE':
+        return (
+          <span className="inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+            Cancelled / Released
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+            {action}
+          </span>
+        );
+    }
+  };
 
   // Summary Metrics
   const teamScopedProducts = useMemo(() => {
@@ -731,6 +844,192 @@ export const AdminProductsPage: React.FC = () => {
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stock Activity & Movement Audit Trail (Admin Exclusive) */}
+      <Card>
+        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-3 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100">
+                <History className="w-4 h-4" />
+              </div>
+              <CardTitle className="text-base font-bold text-slate-900">
+                Stock Activity & Movement Log
+              </CardTitle>
+              <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-semibold border border-slate-200">
+                {filteredStockLogs.length} record(s)
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Complete, immutable audit trail of all warehouse stock additions, allocations, dispatches, deliveries, and returns.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${loadingLogs ? 'animate-spin' : ''}`} />}
+              onClick={reloadStockLogs}
+              disabled={loadingLogs}
+              className="text-xs font-semibold h-8"
+            >
+              Refresh Logs
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4 pt-4">
+          {/* Filters Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={stockLogSearch}
+                onChange={(e) => setStockLogSearch(e.target.value)}
+                placeholder="Search by product, order #, user, reason..."
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all placeholder:text-slate-400"
+              />
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                <Filter className="w-3 h-3" /> Action:
+              </span>
+              <select
+                value={stockLogActionFilter}
+                onChange={(e) => setStockLogActionFilter(e.target.value)}
+                className="text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-slate-700"
+              >
+                <option value="ALL">All Actions</option>
+                <option value="ADD">Stock Added (ADD)</option>
+                <option value="ALLOCATE">Reserved for Lead (ALLOCATE)</option>
+                <option value="DISPATCH">In Transit (DISPATCH)</option>
+                <option value="DELIVER">Delivered Sale (DELIVER)</option>
+                <option value="RETURN_RESTOCK">Restocked Return (RETURN_RESTOCK)</option>
+                <option value="RETURN_DAMAGE">Damaged / Quarantine (RETURN_DAMAGE)</option>
+                <option value="CANCEL_DEALLOCATE">Cancelled Order (CANCEL_DEALLOCATE)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Activity Log Table */}
+          <div className="overflow-x-auto rounded-lg border border-slate-100 max-h-96 overflow-y-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/80 sticky top-0 z-10 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="py-2.5 px-3">Date & Time</th>
+                  <th className="py-2.5 px-3">Product</th>
+                  <th className="py-2.5 px-3">Action</th>
+                  <th className="py-2.5 px-3 text-center">Movement</th>
+                  <th className="py-2.5 px-3 text-center">Stock Change</th>
+                  <th className="py-2.5 px-3">Order / Customer Ref</th>
+                  <th className="py-2.5 px-3">Performed By & Reason</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredStockLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
+                      No stock activity logs match the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStockLogs.map((log) => {
+                    const stockDiff = log.newStock - log.previousStock;
+                    const isPositive = stockDiff > 0 || (stockDiff === 0 && ['ADD', 'RETURN_RESTOCK'].includes(log.action));
+                    const isNegative = stockDiff < 0 || (stockDiff === 0 && ['DISPATCH', 'DELIVER'].includes(log.action));
+                    const displayDelta = stockDiff !== 0
+                      ? (stockDiff > 0 ? `+${stockDiff}` : `${stockDiff}`)
+                      : (isPositive ? `+${log.quantity}` : isNegative ? `-${log.quantity}` : `${log.quantity}`);
+
+                    return (
+                      <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                        {/* Timestamp */}
+                        <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap font-mono text-[11px]">
+                          {format(new Date(log.createdAt), 'MMM dd, yyyy HH:mm')}
+                        </td>
+
+                        {/* Product */}
+                        <td className="py-2.5 px-3">
+                          <span className="font-bold text-slate-900 block truncate max-w-[160px]" title={log.productName}>
+                            {log.productName}
+                          </span>
+                        </td>
+
+                        {/* Action Badge */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          {renderStockActionBadge(log.action)}
+                        </td>
+
+                        {/* Movement */}
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <span className="font-mono text-[11px] text-slate-600">
+                            {log.previousStatus || '—'} <span className="text-slate-300">→</span> <strong className="text-slate-900">{log.newStatus || '—'}</strong>
+                          </span>
+                        </td>
+
+                        {/* Stock Change */}
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5 font-mono text-[11px]">
+                            <span className="text-slate-500">{log.previousStock}</span>
+                            <span className="text-slate-300">→</span>
+                            <span className="font-bold text-slate-900">{log.newStock}</span>
+                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                              isPositive
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : isNegative
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : 'bg-slate-100 text-slate-700 border border-slate-200'
+                            }`}>
+                              {displayDelta}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Order / Customer */}
+                        <td className="py-2.5 px-3">
+                          {log.orderNumber ? (
+                            <div>
+                              <span className="font-mono font-bold text-blue-600 text-[11px] block">
+                                {log.orderNumber}
+                              </span>
+                              {log.customerName && (
+                                <span className="text-[10px] text-slate-500 truncate block max-w-[140px]">
+                                  {log.customerName}
+                                </span>
+                              )}
+                            </div>
+                          ) : log.customerName ? (
+                            <span className="text-slate-700 text-[11px] truncate block max-w-[140px]">
+                              {log.customerName}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">—</span>
+                          )}
+                        </td>
+
+                        {/* Performed By & Reason */}
+                        <td className="py-2.5 px-3">
+                          <div>
+                            <span className="font-semibold text-slate-800 text-[11px] block">
+                              {log.performedByName || 'System'}
+                            </span>
+                            {log.reason && (
+                              <span className="text-[10px] text-slate-500 truncate block max-w-[200px]" title={log.reason}>
+                                {log.reason}
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>

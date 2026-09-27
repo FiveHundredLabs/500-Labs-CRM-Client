@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useAuth } from '../../hooks/useAuth';
-import { Contact, ContactStatus, Order } from '../../models/domain';
+import { Contact, Order } from '../../models/domain';
 import { contactRepository } from '../../repositories';
 import { LeadService } from '../../services/leadService';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -12,8 +15,10 @@ import { LoadingState } from '../../components/shared/LoadingState';
 import { PostCallModal } from '../../components/calling/PostCallModal';
 import { AddPersonalNumberModal } from '../../components/calling/AddPersonalNumberModal';
 import { InboundCallbackDialog } from '../../components/calling/InboundCallbackDialog';
-import { Clock, PhoneCall, RotateCcw, Star, MapPin, UserCheck, PlusCircle, Hash, PhoneIncoming, Edit3, RefreshCw } from 'lucide-react';
+import { Clock, PhoneCall, RotateCcw, Star, MapPin, PlusCircle, Hash, PhoneIncoming, Edit3, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
+import { CACHE_TIERS, queryKeys } from '../../lib/queryClient';
+import { useContactCountsQuery, usePaginatedContactsQuery } from '../../hooks/queries/useContactsQuery';
 import toast from 'react-hot-toast';
 
 type TabCategory =
@@ -36,7 +41,6 @@ interface TabConfig {
   label: string;
 }
 
-// Strictly ordered filter tabs with All first, New as default selected
 const TABS: TabConfig[] = [
   { key: 'ALL', label: 'All' },
   { key: 'NEW', label: 'New' },
@@ -53,23 +57,91 @@ const TABS: TabConfig[] = [
   { key: 'SAVED_CONTACTS', label: 'Saved Contacts' },
 ];
 
-import { useSearchParams } from 'react-router-dom';
-
 export const MemberContactsPage: React.FC = () => {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<TabCategory>('NEW'); // Default is New
-
-  useEffect(() => {
+  const [activeTab, setActiveTab] = useState<TabCategory>(() => {
     const tabParam = searchParams.get('tab') as TabCategory | null;
-    if (tabParam) {
-      setActiveTab(tabParam);
+    return tabParam && TABS.some((t) => t.key === tabParam) ? tabParam : 'NEW';
+  });
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    const pageParam = searchParams.get('page');
+    return pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+  });
+  const [search, setSearch] = useState(() => searchParams.get('q') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('q') || '');
+
+  // Debounce search input by 250ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setCurrentPage(1);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Sync URL search params
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeTab !== 'NEW') params.set('tab', activeTab);
+    if (debouncedSearch) params.set('q', debouncedSearch);
+    if (currentPage > 1) params.set('page', currentPage.toString());
+    if (params.toString() !== searchParams.toString()) {
+      setSearchParams(params, { replace: true });
     }
-  }, [searchParams]);
+  }, [activeTab, debouncedSearch, currentPage, searchParams, setSearchParams]);
+
+  // 1. TanStack Query for tab status counters
+  const countsQuery = useContactCountsQuery(
+    { memberId: user?.id, search: debouncedSearch || undefined },
+    Boolean(user?.id)
+  );
+
+  // 2. TanStack Query for paginated contacts in active tab
+  const paginatedQuery = usePaginatedContactsQuery(
+    {
+      memberId: user?.id,
+      tab: activeTab,
+      search: debouncedSearch || undefined,
+      page: currentPage,
+      limit: 50,
+    },
+    Boolean(user?.id)
+  );
+
+  const contacts = paginatedQuery.data?.items ?? [];
+  const pageInfo = paginatedQuery.data?.pageInfo;
+  const loading = countsQuery.isLoading || paginatedQuery.isLoading;
+  const isRefreshing = countsQuery.isFetching || paginatedQuery.isFetching;
+
+  const countMap: Record<TabCategory, number> = useMemo(() => {
+    const raw = countsQuery.data || {};
+    return {
+      ALL: raw.ALL ?? 0,
+      NEW: raw.NEW ?? 0,
+      FOLLOW_UP: raw.FOLLOW_UP ?? 0,
+      ANSWERED: raw.ANSWERED ?? 0,
+      NOT_ANSWERED: raw.NOT_ANSWERED ?? 0,
+      PHONE_OFF: raw.PHONE_OFF ?? 0,
+      INTERESTED: raw.INTERESTED ?? 0,
+      NOT_INTERESTED: raw.NOT_INTERESTED ?? 0,
+      DISPATCHED: raw.DISPATCHED ?? 0,
+      REJECTED: raw.REJECTED ?? 0,
+      DELIVERED: raw.DELIVERED ?? 0,
+      CANCELLED: raw.CANCELLED ?? 0,
+      SAVED_CONTACTS: raw.SAVED_CONTACTS ?? 0,
+    };
+  }, [countsQuery.data]);
+
+  const filteredContacts = contacts;
+
+  const handleTabChange = (newTab: TabCategory) => {
+    setActiveTab(newTab);
+    setCurrentPage(1);
+  };
+
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [selectedDirection, setSelectedDirection] = useState<'OUTBOUND' | 'INBOUND'>('OUTBOUND');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -77,44 +149,25 @@ export const MemberContactsPage: React.FC = () => {
   const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isInboundModalOpen, setIsInboundModalOpen] = useState(false);
-  // Reactivation mode state (for rejected leads)
   const [isReactivationMode, setIsReactivationMode] = useState(false);
   const [selectedRejectedOrder, setSelectedRejectedOrder] = useState<Order | null>(null);
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const loadContacts = async (silent = false) => {
-    if (!user) return;
-    if (!silent) setLoading(true);
-    try {
-      const data = await contactRepository.getByMemberId(user.id);
-      setContacts(data);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
-
   const handleRefresh = async () => {
-    setIsRefreshing(true);
     try {
-      await loadContacts(true);
+      await Promise.all([countsQuery.refetch(), paginatedQuery.refetch()]);
       toast.success('Contacts refreshed!');
     } catch {
       toast.error('Failed to refresh contacts.');
-    } finally {
-      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    loadContacts();
-
     const handleExternalUpdate = () => {
-      loadContacts();
+      queryClient.invalidateQueries({ queryKey: queryKeys.contacts.all });
     };
     window.addEventListener('crm:contact-updated', handleExternalUpdate);
     return () => window.removeEventListener('crm:contact-updated', handleExternalUpdate);
-  }, [user]);
+  }, [queryClient]);
 
   const handleToggleFollowUp = async (contact: Contact, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -124,7 +177,7 @@ export const MemberContactsPage: React.FC = () => {
     try {
       await contactRepository.update(contact.id, { isFollowUp: nextState });
       toast.success(nextState ? 'Added to Follow-Up List' : 'Removed from Follow-Up List');
-      await loadContacts();
+      queryClient.invalidateQueries({ queryKey: queryKeys.contacts.all });
     } catch (err: any) {
       toast.error(err.message || 'Failed to update follow-up state');
     }
@@ -158,7 +211,6 @@ export const MemberContactsPage: React.FC = () => {
     try {
       const order = await LeadService.getRejectedOrderForReactivation(contact.id, user.id, contact.phone);
       if (!order) {
-        // No rejected order found — allow normal call flow
         setIsReactivationMode(false);
         setSelectedRejectedOrder(null);
         setSelectedDirection('OUTBOUND');
@@ -178,54 +230,123 @@ export const MemberContactsPage: React.FC = () => {
     }
   };
 
-  // Compute counts per category accurately reflecting team member's contacts
-  const countMap: Record<TabCategory, number> = {
-    ALL: contacts.length,
-    NEW: contacts.filter((c) => c.status === 'NEW').length,
-    FOLLOW_UP: contacts.filter((c) => c.status !== 'NEW' && c.isFollowUp).length,
-    ANSWERED: contacts.filter((c) => c.status === 'ANSWERED').length,
-    NOT_ANSWERED: contacts.filter((c) => c.status === 'NOT_ANSWERED').length,
-    PHONE_OFF: contacts.filter((c) => c.status === 'PHONE_OFF').length,
-    INTERESTED: contacts.filter((c) => c.status === 'INTERESTED').length,
-    NOT_INTERESTED: contacts.filter((c) => c.status === 'NOT_INTERESTED').length,
-    DISPATCHED: contacts.filter((c) => c.status === 'DISPATCHED').length,
-    REJECTED: contacts.filter((c) => c.status === 'REJECTED').length,
-    DELIVERED: contacts.filter((c) => c.status === 'DELIVERED').length,
-    CANCELLED: contacts.filter((c) => c.status === 'CANCELLED').length,
-    SAVED_CONTACTS: contacts.filter((c) => c.isSelfAdded || Boolean(c.addedBy)).length || contacts.length,
-  };
+  // Virtualization for large lists (> 25 items) to bound DOM size
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const shouldVirtualize = filteredContacts.length > 25;
 
-  // Filter contacts by active tab & search (Search matches across ALL stages)
-  const filteredContacts = contacts.filter((c) => {
-    const q = search.trim().toLowerCase();
-    const matchesSearch =
-      !q ||
-      c.phone.toLowerCase().includes(q) ||
-      (c.code && c.code.toLowerCase().includes(q)) ||
-      (c.city && c.city.toLowerCase().includes(q)) ||
-      (c.secondaryMobile && c.secondaryMobile.toLowerCase().includes(q)) ||
-      (c.importBatchId && c.importBatchId.toLowerCase().includes(q)) ||
-      (c.allocationSource && c.allocationSource.toLowerCase().includes(q));
-
-    if (!matchesSearch) return false;
-
-    // When a search term is entered, search across all stages
-    if (q) {
-      return true;
-    }
-
-    if (activeTab === 'ALL') {
-      return true;
-    }
-    if (activeTab === 'FOLLOW_UP') {
-      return c.status !== 'NEW' && Boolean(c.isFollowUp);
-    }
-    if (activeTab === 'SAVED_CONTACTS') {
-      const hasSelfAdded = contacts.some((x) => x.isSelfAdded || Boolean(x.addedBy));
-      return hasSelfAdded ? Boolean(c.isSelfAdded || c.addedBy) : true;
-    }
-    return c.status === activeTab;
+  const virtualizer = useWindowVirtualizer({
+    count: shouldVirtualize ? filteredContacts.length : 0,
+    estimateSize: () => 82,
+    overscan: 6,
+    scrollMargin: listContainerRef.current?.offsetTop ?? 0,
   });
+
+  const renderContactCard = (contact: Contact) => (
+    <div
+      key={contact.id}
+      className={`bg-white border rounded-xl p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between gap-3 ${
+        contact.isFollowUp ? 'border-amber-200/90 bg-amber-50/20' : 'border-slate-200 hover:border-slate-300'
+      }`}
+    >
+      {/* Left Info Column */}
+      <div className="space-y-1 min-w-0 flex-1">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {contact.status !== 'NEW' && (
+            <button
+              type="button"
+              onClick={(e) => handleToggleFollowUp(contact, e)}
+              className="p-1 rounded-md hover:bg-amber-50 text-slate-400 transition-colors cursor-pointer shrink-0"
+              title={contact.isFollowUp ? 'Remove from Follow-Up List' : 'Add to Follow-Up List'}
+            >
+              <Star
+                className={`w-4 h-4 ${
+                  contact.isFollowUp ? 'fill-amber-400 text-amber-500' : 'text-slate-300 hover:text-amber-400'
+                }`}
+              />
+            </button>
+          )}
+
+          <span className="font-bold text-sm sm:text-base text-slate-900 font-mono tracking-tight">
+            {contact.phone}
+          </span>
+
+          {contact.code && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC] rounded-md">
+              <Hash className="w-3 h-3 text-[#01A8F3]" />
+              <span>{contact.code}</span>
+            </span>
+          )}
+
+          <StatusBadge type="contact" status={contact.status} />
+        </div>
+
+        <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+          {contact.city && (
+            <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
+              <MapPin className="w-3 h-3 text-slate-400" />
+              <span>{contact.city}</span>
+            </span>
+          )}
+          {contact.secondaryMobile && (
+            <span>
+              <span className="text-slate-400">Alt:</span> <span className="font-mono text-slate-700">{contact.secondaryMobile}</span>
+            </span>
+          )}
+          <span>
+            <span className="text-slate-400 font-normal">Attempts:</span>{' '}
+            <span className="font-semibold text-slate-700">{contact.attemptCount}</span>
+          </span>
+          <span>
+            {contact.lastCalledAt ? (
+              <span className="inline-flex items-center gap-1 font-normal text-slate-600">
+                <Clock className="w-3 h-3 text-slate-400" />
+                <span>{format(new Date(contact.lastCalledAt), 'MMM dd • hh:mm a')}</span>
+              </span>
+            ) : (
+              <span className="text-slate-400 italic">Not called yet</span>
+            )}
+          </span>
+        </div>
+      </div>
+
+      {/* Right Action Buttons */}
+      <div className="flex items-center gap-2 shrink-0">
+        {contact.status === 'INTERESTED' && (
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Edit3 className="w-3.5 h-3.5 text-emerald-600" />}
+            onClick={() => handleEditLead(contact)}
+            isLoading={loadingOrderId === contact.id}
+            className="border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold"
+          >
+            Edit Lead
+          </Button>
+        )}
+        <Button
+          variant="primary"
+          size="sm"
+          leftIcon={<PhoneCall className="w-3.5 h-3.5" />}
+          onClick={() => {
+            if (contact.status === 'REJECTED') {
+              handleReactivateRejectedLead(contact);
+            } else {
+              setSelectedDirection('OUTBOUND');
+              setIsEditMode(false);
+              setIsReactivationMode(false);
+              setSelectedRejectedOrder(null);
+              setSelectedOrder(null);
+              setSelectedContact(contact);
+            }
+          }}
+          isLoading={loadingOrderId === `reject-${contact.id}`}
+          className="shrink-0"
+        >
+          Call
+        </Button>
+      </div>
+    </div>
+  );
 
   if (loading) return <LoadingState rows={8} />;
 
@@ -250,67 +371,48 @@ export const MemberContactsPage: React.FC = () => {
             <Button
               variant="secondary"
               size="sm"
-              leftIcon={<PhoneIncoming className="w-4 h-4 text-emerald-600" />}
+              leftIcon={<PhoneIncoming className="w-3.5 h-3.5 text-blue-600" />}
               onClick={() => setIsInboundModalOpen(true)}
-              className="border-emerald-200 hover:bg-emerald-50 text-emerald-800 font-semibold"
+              className="border-blue-200 hover:border-blue-300 hover:bg-blue-50 text-blue-700 font-semibold"
             >
-              Inbound Callback
+              Inbound Call
+            </Button>
+
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<PlusCircle className="w-4 h-4" />}
+              onClick={() => setIsAddModalOpen(true)}
+            >
+              Add Contact
             </Button>
           </div>
         }
       />
 
-      {/* Filter Tabs Header */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
-        <div className="flex flex-wrap gap-2">
+      {/* Modern Filter Category Tabs */}
+      <div className="border-b border-slate-200">
+        <div className="flex items-center gap-1 overflow-x-auto pb-px scrollbar-none">
           {TABS.map((tab) => {
-            const count = countMap[tab.key];
             const isActive = activeTab === tab.key;
-            const isFollowUpTab = tab.key === 'FOLLOW_UP';
-            const isDelivered = tab.key === 'DELIVERED';
-            const isRejected = tab.key === 'REJECTED';
-            const isNew = tab.key === 'NEW';
-
-            let activeBadgeStyle = 'bg-[#01A8F3] text-white';
-            let activeContainerStyle = 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs';
-
-            if (isFollowUpTab) {
-              activeBadgeStyle = 'bg-amber-500 text-white font-bold';
-              activeContainerStyle = 'bg-amber-100/90 text-amber-900 font-bold border border-amber-300 shadow-2xs';
-            } else if (isDelivered) {
-              activeBadgeStyle = 'bg-[#80BD2B] text-white font-bold';
-              activeContainerStyle = 'bg-[#F2F9E9] text-[#547E1B] font-bold border border-[#D4ECC6] shadow-2xs';
-            } else if (isRejected) {
-              activeBadgeStyle = 'bg-rose-600 text-white font-bold';
-              activeContainerStyle = 'bg-rose-50 text-rose-800 font-bold border border-rose-300 shadow-2xs';
-            } else if (isNew) {
-              activeBadgeStyle = 'bg-[#01A8F3] text-white font-bold';
-              activeContainerStyle = 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs';
-            }
-
+            const count = countMap[tab.key];
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex-1 sm:flex-initial min-w-[115px] sm:min-w-0 ${
+                type="button"
+                onClick={() => handleTabChange(tab.key)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold whitespace-nowrap border-b-2 transition-all cursor-pointer ${
                   isActive
-                    ? activeContainerStyle
-                    : isFollowUpTab
-                    ? 'bg-amber-50/70 hover:bg-amber-100/80 text-amber-800 border border-amber-200/80 font-medium'
-                    : isRejected
-                    ? 'bg-rose-50/50 hover:bg-rose-100/70 text-rose-700 border border-rose-200/60 font-medium'
-                    : isDelivered
-                    ? 'bg-emerald-50/50 hover:bg-emerald-100/70 text-emerald-700 border border-emerald-200/60 font-medium'
-                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/60'
+                    ? 'border-[#01A8F3] text-[#0188C7] bg-[#E8F7FE]/30'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
                 }`}
               >
-                <span className="whitespace-nowrap flex items-center gap-1.5">
-                  {isFollowUpTab && <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />}
-                  <span>{tab.label}</span>
-                </span>
+                <span>{tab.label}</span>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0 ${
-                    isActive ? activeBadgeStyle : isFollowUpTab ? 'bg-amber-200 text-amber-900' : isRejected ? 'bg-rose-100 text-rose-800' : isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold transition-colors ${
+                    isActive
+                      ? 'bg-[#E8F7FE] text-[#0188C7]'
+                      : 'bg-slate-100 text-slate-500'
                   }`}
                 >
                   {count}
@@ -321,32 +423,23 @@ export const MemberContactsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        <div className="flex-1">
+      {/* Search Input Bar */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
           <SearchInput
             value={search}
             onChange={setSearch}
-            placeholder={`Search ${
-              activeTab === 'SAVED_CONTACTS'
-                ? 'saved contacts'
-                : activeTab.toLowerCase().replace('_', ' ')
-            } by phone, contact code, or city...`}
+            placeholder="Search phone, code, city, alt mobile across all stages..."
           />
         </div>
-        {search && (
-          <Button variant="secondary" size="sm" onClick={() => setSearch('')}>
-            Clear
-          </Button>
-        )}
         <button
           type="button"
           onClick={handleRefresh}
           disabled={isRefreshing}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50 active:scale-95 shadow-2xs shrink-0"
-          title="Refresh contacts"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+          title="Refresh contact list"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#01A8F3]' : 'text-slate-500'}`} />
+          <RefreshCw className={`w-3.5 h-3.5 text-[#01A8F3] ${isRefreshing ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">Refresh</span>
         </button>
       </div>
@@ -373,7 +466,7 @@ export const MemberContactsPage: React.FC = () => {
                 size="sm"
                 leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
                 onClick={() => {
-                  setActiveTab('NEW');
+                  handleTabChange('NEW');
                   setSearch('');
                 }}
               >
@@ -382,115 +475,62 @@ export const MemberContactsPage: React.FC = () => {
             ) : undefined
           }
         />
+      ) : shouldVirtualize ? (
+        <div ref={listContainerRef} className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+          {virtualizer.getVirtualItems().map((virtualItem) => {
+            const contact = filteredContacts[virtualItem.index];
+            return (
+              <div
+                key={contact.id}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                className="absolute top-0 left-0 w-full pb-2.5"
+                style={{
+                  transform: `translateY(${virtualItem.start - virtualizer.options.scrollMargin}px)`,
+                }}
+              >
+                {renderContactCard(contact)}
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className="space-y-2.5">
-          {filteredContacts.map((contact) => (
-            <div
-              key={contact.id}
-              className={`bg-white border rounded-xl p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between gap-3 ${
-                contact.isFollowUp ? 'border-amber-200/90 bg-amber-50/20' : 'border-slate-200 hover:border-slate-300'
-              }`}
+          {filteredContacts.map(renderContactCard)}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {pageInfo && pageInfo.totalPages !== undefined && pageInfo.totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-1 border-t border-slate-200">
+          <div className="text-xs text-slate-500 font-medium">
+            Showing <span className="font-semibold text-slate-800">{(currentPage - 1) * pageInfo.limit + 1}</span> to{' '}
+            <span className="font-semibold text-slate-800">{Math.min(currentPage * pageInfo.limit, pageInfo.total ?? 0)}</span> of{' '}
+            <span className="font-semibold text-slate-800">{pageInfo.total}</span> contacts
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={currentPage <= 1 || !pageInfo.hasPreviousPage}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="text-xs font-semibold cursor-pointer"
             >
-              {/* Left Info Column */}
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  {/* Star Icon for Non-NEW contacts */}
-                  {contact.status !== 'NEW' && (
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggleFollowUp(contact, e)}
-                      className="p-1 rounded-md hover:bg-amber-50 text-slate-400 transition-colors cursor-pointer shrink-0"
-                      title={contact.isFollowUp ? 'Remove from Follow-Up List' : 'Add to Follow-Up List'}
-                    >
-                      <Star
-                        className={`w-4 h-4 ${
-                          contact.isFollowUp ? 'fill-amber-400 text-amber-500' : 'text-slate-300 hover:text-amber-400'
-                        }`}
-                      />
-                    </button>
-                  )}
-
-                  <span className="font-bold text-sm sm:text-base text-slate-900 font-mono tracking-tight">
-                    {contact.phone}
-                  </span>
-                  
-                  {contact.code && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC] rounded-md">
-                      <Hash className="w-3 h-3 text-[#01A8F3]" />
-                      <span>{contact.code}</span>
-                    </span>
-                  )}
-
-                  <StatusBadge type="contact" status={contact.status} />
-                </div>
-
-                <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-                  {contact.city && (
-                    <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
-                      <MapPin className="w-3 h-3 text-slate-400" />
-                      <span>{contact.city}</span>
-                    </span>
-                  )}
-                  {contact.secondaryMobile && (
-                    <span>
-                      <span className="text-slate-400">Alt:</span> <span className="font-mono text-slate-700">{contact.secondaryMobile}</span>
-                    </span>
-                  )}
-                  <span>
-                    <span className="text-slate-400 font-normal">Attempts:</span>{' '}
-                    <span className="font-semibold text-slate-700">{contact.attemptCount}</span>
-                  </span>
-                  <span>
-                    {contact.lastCalledAt ? (
-                      <span className="inline-flex items-center gap-1 font-normal text-slate-600">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span>{format(new Date(contact.lastCalledAt), 'MMM dd • hh:mm a')}</span>
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 italic">Not called yet</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Action: Single-row Call / Edit Lead Buttons */}
-              <div className="flex items-center gap-2 shrink-0">
-                {contact.status === 'INTERESTED' && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<Edit3 className="w-3.5 h-3.5 text-emerald-600" />}
-                    onClick={() => handleEditLead(contact)}
-                    isLoading={loadingOrderId === contact.id}
-                    className="border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold"
-                  >
-                    Edit Lead
-                  </Button>
-                )}
-                <Button
-                  variant="primary"
-                  size="sm"
-                  leftIcon={<PhoneCall className="w-3.5 h-3.5" />}
-                  onClick={() => {
-                    if (contact.status === 'REJECTED') {
-                      handleReactivateRejectedLead(contact);
-                    } else {
-                      setSelectedDirection('OUTBOUND');
-                      setIsEditMode(false);
-                      setIsReactivationMode(false);
-                      setSelectedRejectedOrder(null);
-                      setSelectedOrder(null);
-                      setSelectedContact(contact);
-                    }
-                  }}
-                  isLoading={loadingOrderId === `reject-${contact.id}`}
-                  className="shrink-0"
-                >
-                  Call
-                </Button>
-              </div>
-            </div>
-          ))}
+              Previous
+            </Button>
+            <span className="text-xs font-mono font-bold text-slate-700 px-2.5 py-1 bg-slate-100 rounded-md border border-slate-200">
+              Page {currentPage} of {pageInfo.totalPages}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={currentPage >= (pageInfo.totalPages ?? 1) || !pageInfo.hasNextPage}
+              onClick={() => setCurrentPage((p) => Math.min(pageInfo.totalPages ?? 1, p + 1))}
+              className="text-xs font-semibold cursor-pointer"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
 
@@ -506,7 +546,7 @@ export const MemberContactsPage: React.FC = () => {
             setIsReactivationMode(false);
           }}
           contact={selectedContact}
-          onSuccess={loadContacts}
+          onSuccess={handleRefresh}
           initialDirection={selectedDirection}
           editMode={isEditMode}
           existingOrder={selectedOrder}
@@ -529,7 +569,7 @@ export const MemberContactsPage: React.FC = () => {
       <AddPersonalNumberModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSuccess={loadContacts}
+        onSuccess={handleRefresh}
         onOpenExistingCallback={(contact) => {
           setSelectedDirection('INBOUND');
           setSelectedContact(contact);

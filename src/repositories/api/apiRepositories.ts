@@ -2,6 +2,7 @@ import apiClient from '../../lib/apiClient';
 import {
   ITeamRepository,
   IUserRepository,
+  LeaderboardUser,
   IContactRepository,
   IAllocationRepository,
   ICallLogRepository,
@@ -18,11 +19,24 @@ import {
   ISalesTargetRepository,
   ISupervisorTargetRepository,
   IFinanceRepository,
+  IDashboardRepository,
+  AdminDashboardSummary,
+  SupervisorDashboardSummary,
+  SalesAnalysisSummary,
   ExpenseWritePayload,
   ExpenseUpdatePayload,
+  ExpenseSummary,
+  ExpensePaginationParams,
+  OrderMetrics,
+  OrderConflictCheckDto,
   PettyCashExpensePayload,
   ApprovalRequestCreatePayload,
   ActivityLogWritePayload,
+  BulkUpdateDeliveryChargeInput,
+  PaginatedResponse,
+  ContactPaginationParams,
+  CustomerPaginationParams,
+  OrderPaginationParams,
 } from '../interfaces';
 import {
   Team,
@@ -56,6 +70,43 @@ import {
 // All backend responses are wrapped as { success: true, data: T }
 const unwrap = <T>(response: { data: { data: T } }): T => response.data.data;
 
+export const unwrapArray = <T>(res: any): T[] => {
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.items)) return res.items;
+  if (res && Array.isArray(res.data)) return res.data;
+  return [];
+};
+
+export const unwrapPaginated = <T>(res: any, defaultLimit = 50): PaginatedResponse<T> => {
+  if (res && res.items && res.pageInfo) {
+    return {
+      items: Array.isArray(res.items) ? res.items : [],
+      pageInfo: {
+        total: res.pageInfo.total ?? res.items.length,
+        page: res.pageInfo.page ?? 1,
+        limit: res.pageInfo.limit ?? defaultLimit,
+        totalPages: res.pageInfo.totalPages ?? 1,
+        hasNextPage: Boolean(res.pageInfo.hasNextPage),
+        hasPreviousPage: Boolean(res.pageInfo.hasPreviousPage),
+        endCursor: res.pageInfo.endCursor ?? null,
+      },
+    };
+  }
+  const items = unwrapArray<T>(res);
+  return {
+    items,
+    pageInfo: {
+      total: items.length,
+      page: 1,
+      limit: items.length || defaultLimit,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+      endCursor: null,
+    },
+  };
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Team
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,8 +139,7 @@ export class ApiTeamRepository implements ITeamRepository {
 export class ApiUserRepository implements IUserRepository {
   async getAll(): Promise<User[]> {
     const res = unwrap(await apiClient.get<{ data: any }>('/users')) as any;
-    // getAll returns paginated: { items, total } — extract items
-    return Array.isArray(res) ? res : res.items ?? res;
+    return unwrapArray<User>(res);
   }
   async getById(id: string): Promise<User | null> {
     try {
@@ -111,22 +161,22 @@ export class ApiUserRepository implements IUserRepository {
     return all.filter((u) => u.role === role);
   }
   async getByTeamId(teamId: string): Promise<User[]> {
-    try {
-      const res = unwrap(
-        await apiClient.get<{ data: any }>(`/users?teamId=${teamId}&limit=100`)
-      ) as any;
-      const items = Array.isArray(res) ? res : res?.items;
-      if (Array.isArray(items)) {
-        return items;
-      }
-      return unwrap(
-        await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
-      );
-    } catch {
-      return unwrap(
-        await apiClient.get<{ data: User[] }>(`/users/leaderboard?teamId=${teamId}`)
-      );
+    if (!teamId || teamId === 'undefined' || teamId === 'null') {
+      return [];
     }
+
+    return unwrap(
+      await apiClient.get<{ data: User[] }>(
+        '/users/leaderboard',
+        { params: { teamId } }
+      )
+    );
+  }
+  async getLeaderboard(teamId?: string): Promise<LeaderboardUser[]> {
+    const params = teamId ? { teamId } : undefined;
+    return unwrap(
+      await apiClient.get<{ data: LeaderboardUser[] }>('/users/leaderboard', { params })
+    );
   }
   async getBySupervisorId(supervisorId: string): Promise<User[]> {
     const all = await this.getAll();
@@ -206,7 +256,8 @@ export class ApiUserRepository implements IUserRepository {
 // ─────────────────────────────────────────────────────────────────────────────
 export class ApiContactRepository implements IContactRepository {
   async getAll(): Promise<Contact[]> {
-    return unwrap(await apiClient.get<{ data: Contact[] }>('/contacts'));
+    const res = unwrap(await apiClient.get<{ data: any }>('/contacts')) as any;
+    return unwrapArray<Contact>(res);
   }
   async getById(id: string): Promise<Contact | null> {
     try {
@@ -216,10 +267,14 @@ export class ApiContactRepository implements IContactRepository {
     }
   }
   async getByTeamId(teamId: string): Promise<Contact[]> {
-    return unwrap(await apiClient.get<{ data: Contact[] }>(`/contacts?teamId=${teamId}`));
+    if (!teamId || teamId === 'undefined' || teamId === 'null') return [];
+    const res = unwrap(await apiClient.get<{ data: any }>(`/contacts?teamId=${teamId}`)) as any;
+    return unwrapArray<Contact>(res);
   }
   async getByMemberId(memberId: string): Promise<Contact[]> {
-    return unwrap(await apiClient.get<{ data: Contact[] }>(`/contacts?memberId=${memberId}`));
+    if (!memberId || memberId === 'undefined' || memberId === 'null') return [];
+    const res = unwrap(await apiClient.get<{ data: any }>(`/contacts?memberId=${memberId}`)) as any;
+    return unwrapArray<Contact>(res);
   }
   async getByPhone(phone: string): Promise<Contact | null> {
     try {
@@ -229,6 +284,26 @@ export class ApiContactRepository implements IContactRepository {
     } catch {
       return null;
     }
+  }
+  async getCounts(params?: { teamId?: string; memberId?: string; search?: string }): Promise<Record<string, number>> {
+    try {
+      return unwrap(
+        await apiClient.get<{ data: Record<string, number> }>('/contacts/counts', { params })
+      );
+    } catch {
+      return {};
+    }
+  }
+  async getPaginated(params: ContactPaginationParams): Promise<PaginatedResponse<Contact>> {
+    const res = unwrap(
+      await apiClient.get<{ data: any }>('/contacts', {
+        params: {
+          ...params,
+          paginate: true,
+        },
+      })
+    );
+    return unwrapPaginated<Contact>(res, params.limit || 50);
   }
   async create(contact: Omit<Contact, 'id' | 'updatedAt'>): Promise<Contact> {
     return unwrap(await apiClient.post<{ data: Contact }>('/contacts', contact));
@@ -248,6 +323,9 @@ export class ApiContactRepository implements IContactRepository {
   }
   async checkDuplicate(data: { phone: string; memberId?: string; teamId?: string }): Promise<DuplicatePhoneCheckResult> {
     return unwrap(await apiClient.post<{ data: DuplicatePhoneCheckResult }>('/contacts/check-duplicate', data));
+  }
+  async checkDuplicatesBatch(data: { phones: string[]; memberId?: string; teamId?: string }): Promise<Record<string, DuplicatePhoneCheckResult>> {
+    return unwrap(await apiClient.post<{ data: Record<string, DuplicatePhoneCheckResult> }>('/contacts/check-duplicates', data));
   }
   async update(id: string, updates: Partial<Contact>): Promise<Contact> {
     const payload: any = { ...updates };
@@ -285,16 +363,23 @@ export class ApiAllocationRepository implements IAllocationRepository {
 // ─────────────────────────────────────────────────────────────────────────────
 export class ApiCallLogRepository implements ICallLogRepository {
   async getAll(): Promise<CallLog[]> {
-    return unwrap(await apiClient.get<{ data: CallLog[] }>('/call-logs'));
+    const res = unwrap(await apiClient.get<{ data: any }>('/call-logs')) as any;
+    return unwrapArray<CallLog>(res);
   }
   async getByContactId(contactId: string): Promise<CallLog[]> {
-    return unwrap(await apiClient.get<{ data: CallLog[] }>(`/call-logs?contactId=${contactId}`));
+    if (!contactId || contactId === 'undefined' || contactId === 'null') return [];
+    const res = unwrap(await apiClient.get<{ data: any }>(`/call-logs?contactId=${contactId}`)) as any;
+    return unwrapArray<CallLog>(res);
   }
   async getByMemberId(memberId: string): Promise<CallLog[]> {
-    return unwrap(await apiClient.get<{ data: CallLog[] }>(`/call-logs?memberId=${memberId}`));
+    if (!memberId || memberId === 'undefined' || memberId === 'null') return [];
+    const res = unwrap(await apiClient.get<{ data: any }>(`/call-logs?memberId=${memberId}`)) as any;
+    return unwrapArray<CallLog>(res);
   }
   async getByTeamId(teamId: string): Promise<CallLog[]> {
-    return unwrap(await apiClient.get<{ data: CallLog[] }>(`/call-logs?teamId=${teamId}`));
+    if (!teamId || teamId === 'undefined' || teamId === 'null') return [];
+    const res = unwrap(await apiClient.get<{ data: any }>(`/call-logs?teamId=${teamId}`)) as any;
+    return unwrapArray<CallLog>(res);
   }
   async create(log: Omit<CallLog, 'id'>): Promise<CallLog> {
     return unwrap(await apiClient.post<{ data: CallLog }>('/call-logs', log));
@@ -311,7 +396,8 @@ export class ApiCallLogRepository implements ICallLogRepository {
 // ─────────────────────────────────────────────────────────────────────────────
 export class ApiCustomerRepository implements ICustomerRepository {
   async getAll(): Promise<Customer[]> {
-    return unwrap(await apiClient.get<{ data: Customer[] }>('/customers'));
+    const res = unwrap(await apiClient.get<{ data: any }>('/customers')) as any;
+    return unwrapArray<Customer>(res);
   }
   async getById(id: string): Promise<Customer | null> {
     try {
@@ -328,13 +414,28 @@ export class ApiCustomerRepository implements ICustomerRepository {
     }
   }
   async getByTeamId(teamId: string): Promise<Customer[]> {
-    return unwrap(await apiClient.get<{ data: Customer[] }>(`/customers?teamId=${teamId}`));
+    const res = unwrap(await apiClient.get<{ data: any }>(`/customers?teamId=${teamId}`)) as any;
+    return unwrapArray<Customer>(res);
   }
   async getBySupervisorId(supervisorId: string): Promise<Customer[]> {
-    return unwrap(await apiClient.get<{ data: Customer[] }>(`/customers?supervisorId=${supervisorId}`));
+    const res = unwrap(await apiClient.get<{ data: any }>(`/customers?supervisorId=${supervisorId}`)) as any;
+    return unwrapArray<Customer>(res);
   }
   async getByMemberId(memberId: string): Promise<Customer[]> {
-    return unwrap(await apiClient.get<{ data: Customer[] }>(`/customers?memberId=${memberId}`));
+    if (!memberId || memberId === 'undefined' || memberId === 'null') return [];
+    const res = unwrap(await apiClient.get<{ data: any }>(`/customers?memberId=${memberId}`)) as any;
+    return unwrapArray<Customer>(res);
+  }
+  async getPaginated(params: CustomerPaginationParams): Promise<PaginatedResponse<Customer>> {
+    const res = unwrap(
+      await apiClient.get<{ data: any }>('/customers', {
+        params: {
+          ...params,
+          paginate: true,
+        },
+      })
+    );
+    return unwrapPaginated<Customer>(res, params.limit || 50);
   }
   async create(customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
     return unwrap(await apiClient.post<{ data: Customer }>('/customers', customer));
@@ -353,7 +454,8 @@ export class ApiCustomerRepository implements ICustomerRepository {
 // ─────────────────────────────────────────────────────────────────────────────
 export class ApiOrderRepository implements IOrderRepository {
   async getAll(): Promise<Order[]> {
-    return unwrap(await apiClient.get<{ data: Order[] }>('/orders'));
+    const res = unwrap(await apiClient.get<{ data: any }>('/orders')) as any;
+    return unwrapArray<Order>(res);
   }
   async getById(id: string): Promise<Order | null> {
     try {
@@ -363,16 +465,52 @@ export class ApiOrderRepository implements IOrderRepository {
     }
   }
   async getByCustomerId(customerId: string): Promise<Order[]> {
-    return unwrap(await apiClient.get<{ data: Order[] }>(`/orders?customerId=${customerId}`));
+    const res = unwrap(await apiClient.get<{ data: any }>(`/orders?customerId=${customerId}`)) as any;
+    return unwrapArray<Order>(res);
   }
   async getByTeamId(teamId: string): Promise<Order[]> {
-    return unwrap(await apiClient.get<{ data: Order[] }>(`/orders?teamId=${teamId}`));
+    const res = unwrap(await apiClient.get<{ data: any }>(`/orders?teamId=${teamId}`)) as any;
+    return unwrapArray<Order>(res);
   }
   async getBySupervisorId(supervisorId: string): Promise<Order[]> {
-    return unwrap(await apiClient.get<{ data: Order[] }>(`/orders?supervisorId=${supervisorId}`));
+    const res = unwrap(await apiClient.get<{ data: any }>(`/orders?supervisorId=${supervisorId}`)) as any;
+    return unwrapArray<Order>(res);
   }
   async getByMemberId(memberId: string): Promise<Order[]> {
-    return unwrap(await apiClient.get<{ data: Order[] }>(`/orders?memberId=${memberId}`));
+    if (!memberId || memberId === 'undefined' || memberId === 'null') return [];
+    const res = unwrap(await apiClient.get<{ data: any }>(`/orders?memberId=${memberId}`)) as any;
+    return unwrapArray<Order>(res);
+  }
+  async getPaginated(params: OrderPaginationParams): Promise<PaginatedResponse<Order>> {
+    const res = unwrap(
+      await apiClient.get<{ data: any }>('/orders', {
+        params: {
+          ...params,
+          paginate: true,
+        },
+      })
+    );
+    return unwrapPaginated<Order>(res, params.limit || 50);
+  }
+  async getMetrics(params?: {
+    teamId?: string;
+    supervisorId?: string;
+    memberId?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<OrderMetrics> {
+    const res = unwrap(
+      await apiClient.get<{ data: OrderMetrics }>('/orders/metrics', {
+        params,
+      })
+    );
+    return res as OrderMetrics;
+  }
+  async checkConflicts(dto: OrderConflictCheckDto): Promise<Record<string, any>> {
+    const res = unwrap(
+      await apiClient.post<{ data: Record<string, any> }>('/orders/check-conflicts', dto)
+    );
+    return res as Record<string, any>;
   }
   async create(
     order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'> & { orderNumber?: string }
@@ -397,6 +535,14 @@ export class ApiOrderRepository implements IOrderRepository {
   }
   async updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order> {
     return unwrap(await apiClient.patch<{ data: Order }>(`/orders/${id}/delivery-charge`, { codCharge, remarks }));
+  }
+  async bulkUpdateDeliveryCharge(input: BulkUpdateDeliveryChargeInput): Promise<{ success: boolean; count: number; orders: Order[] }> {
+    return unwrap(
+      await apiClient.patch<{ data: { success: boolean; count: number; orders: Order[] } }>(
+        '/orders/bulk/delivery-charge',
+        input
+      )
+    );
   }
 }
 
@@ -436,18 +582,25 @@ export class ApiDeliveryStatusHistoryRepository implements IDeliveryStatusHistor
 // ─────────────────────────────────────────────────────────────────────────────
 export class ApiActivityLogRepository implements IActivityLogRepository {
   async getAll(): Promise<ActivityLog[]> {
-    return unwrap(await apiClient.get<{ data: ActivityLog[] }>('/activity-logs'));
+    const res = unwrap(await apiClient.get<{ data: any }>('/activity-logs')) as any;
+    return unwrapArray<ActivityLog>(res);
   }
   async getByUserId(userId: string): Promise<ActivityLog[]> {
-    return unwrap(
-      await apiClient.get<{ data: ActivityLog[] }>(`/activity-logs?userId=${userId}`)
-    );
+    const res = unwrap(
+      await apiClient.get<{ data: any }>(`/activity-logs?userId=${userId}`)
+    ) as any;
+    return unwrapArray<ActivityLog>(res);
   }
   async getRecentWithinMonth(userId?: string): Promise<ActivityLog[]> {
     const url = userId
       ? `/activity-logs?recent=true&userId=${userId}`
       : '/activity-logs?recent=true';
-    return unwrap(await apiClient.get<{ data: ActivityLog[] }>(url));
+    const res = unwrap(await apiClient.get<{ data: any }>(url)) as any;
+    return unwrapArray<ActivityLog>(res);
+  }
+  async getMyRecentWithinMonth(): Promise<ActivityLog[]> {
+    const res = unwrap(await apiClient.get<{ data: any }>('/activity-logs/me')) as any;
+    return unwrapArray<ActivityLog>(res);
   }
   async getByEntity(entityType: string, entityId: string): Promise<ActivityLog[]> {
     const all = await this.getAll();
@@ -462,8 +615,26 @@ export class ApiActivityLogRepository implements IActivityLogRepository {
 // Expense
 // ─────────────────────────────────────────────────────────────────────────────
 export class ApiExpenseRepository implements IExpenseRepository {
-  async getAll(params?: { dateStart?: string; dateEnd?: string; categoryId?: string }): Promise<Expense[]> {
-    return unwrap(await apiClient.get<{ data: Expense[] }>('/expenses', { params }));
+  async getAll(params?: { dateStart?: string; dateEnd?: string; categoryId?: string; categoryName?: string; paymentMethod?: string; search?: string }): Promise<Expense[]> {
+    const res = unwrap(await apiClient.get<{ data: any }>('/expenses', { params })) as any;
+    return unwrapArray<Expense>(res);
+  }
+  async getSummary(params?: ExpensePaginationParams): Promise<ExpenseSummary> {
+    const res = unwrap(
+      await apiClient.get<{ data: ExpenseSummary }>('/expenses/summary', { params })
+    );
+    return res as ExpenseSummary;
+  }
+  async getPaginated(params: ExpensePaginationParams): Promise<PaginatedResponse<Expense>> {
+    const res = unwrap(
+      await apiClient.get<{ data: any }>('/expenses', {
+        params: {
+          ...params,
+          paginate: true,
+        },
+      })
+    );
+    return unwrapPaginated<Expense>(res, params.limit || 50);
   }
   async getById(id: string): Promise<Expense | null> {
     try {
@@ -518,7 +689,7 @@ export class ApiExpenseRepository implements IExpenseRepository {
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/expenses/${id}`);
   }
-  async requestChange(id: string, data: { action: 'EDIT' | 'DELETE'; reason: string; [key: string]: any }): Promise<any> {
+  async requestChange(id: string, data: { action: 'EDIT' | 'DELETE'; reason: string;[key: string]: any }): Promise<any> {
     return unwrap(await apiClient.post<{ data: any }>(`/expenses/${id}/change-request`, data));
   }
   async getChangeRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<any[]> {
@@ -883,6 +1054,14 @@ export class ApiFinanceRepository implements IFinanceRepository {
     );
   }
 
+  async getDistrictDeliveryReport(startDate?: string, endDate?: string): Promise<any> {
+    return unwrap(
+      await apiClient.get<{ data: any }>('/finance/district-delivery-report', {
+        params: this.buildParams(startDate, endDate),
+      })
+    );
+  }
+
   async getSalesAnalysisMembers(): Promise<SalesAnalysisMember[]> {
     return unwrap(
       await apiClient.get<{ data: SalesAnalysisMember[] }>('/finance/sales-analysis/members')
@@ -910,6 +1089,38 @@ export class ApiFinanceRepository implements IFinanceRepository {
       await apiClient.get<{ data: any }>('/finance/contact-batch-report', {
         params,
       })
+    );
+  }
+
+  async getSalesAnalysisSummary(params: {
+    teamId?: string;
+    status?: string;
+    package?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+  }): Promise<SalesAnalysisSummary> {
+    return unwrap(
+      await apiClient.get<{ data: SalesAnalysisSummary }>('/finance/sales-analysis/summary', {
+        params,
+      })
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashboard
+// ─────────────────────────────────────────────────────────────────────────────
+export class ApiDashboardRepository implements IDashboardRepository {
+  async getAdminSummary(params?: { startDate?: string; endDate?: string }): Promise<AdminDashboardSummary> {
+    return unwrap(
+      await apiClient.get<{ data: AdminDashboardSummary }>('/dashboard/admin-summary', { params })
+    );
+  }
+
+  async getSupervisorSummary(params?: { startDate?: string; endDate?: string; teamId?: string }): Promise<SupervisorDashboardSummary> {
+    return unwrap(
+      await apiClient.get<{ data: SupervisorDashboardSummary }>('/dashboard/supervisor-summary', { params })
     );
   }
 }

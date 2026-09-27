@@ -33,16 +33,24 @@ import {
   subMonths,
 } from 'date-fns';
 
-export const AdminActivityPage: React.FC = () => {
-  const [activities, setActivities] = useState<ActivityLog[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+import { useQuery } from '@tanstack/react-query';
+import { CACHE_TIERS, queryKeys } from '../../lib/queryClient';
 
+export const AdminActivityPage: React.FC = () => {
   // Filter States
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('ALL');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [actionCategoryFilter, setActionCategoryFilter] = useState('ALL');
+
+  // Debounce search input by 250ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Date Filter States
   const [datePreset, setDatePreset] = useState<
@@ -51,24 +59,28 @@ export const AdminActivityPage: React.FC = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  useEffect(() => {
-    const loadLogsAndUsers = async () => {
-      setLoading(true);
-      try {
-        const [logs, userList] = await Promise.all([
-          activityLogRepository.getAll(),
-          userRepository.getAll(),
-        ]);
-        setActivities(
-          logs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        );
-        setUsers(userList);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadLogsAndUsers();
-  }, []);
+  const { data: rawActivities = [], isLoading: logsLoading } = useQuery({
+    queryKey: ['activities', selectedUserId],
+    queryFn: () =>
+      selectedUserId !== 'ALL'
+        ? activityLogRepository.getByUserId(selectedUserId)
+        : activityLogRepository.getRecentWithinMonth(),
+    staleTime: CACHE_TIERS.WARM,
+  });
+
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: queryKeys.users.all,
+    queryFn: userRepository.getAll,
+    staleTime: CACHE_TIERS.COLD,
+  });
+
+  const loading = logsLoading || usersLoading;
+
+  const activities = useMemo(() => {
+    return [...rawActivities].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [rawActivities]);
 
   const usersMap = useMemo(() => {
     const map: Record<string, User> = {};
@@ -83,8 +95,8 @@ export const AdminActivityPage: React.FC = () => {
   const filteredActivities = useMemo(() => {
     return activities.filter((act) => {
       // 1. Text Search
-      if (search.trim()) {
-        const q = search.toLowerCase().trim();
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase().trim();
         const matchesSearch =
           act.userName.toLowerCase().includes(q) ||
           act.description.toLowerCase().includes(q) ||
@@ -150,7 +162,7 @@ export const AdminActivityPage: React.FC = () => {
     });
   }, [
     activities,
-    search,
+    debouncedSearch,
     selectedUserId,
     roleFilter,
     actionCategoryFilter,

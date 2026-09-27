@@ -4,11 +4,14 @@ import { ActivityLogService } from './activityLogService';
 import { normalizeSriLankanPhone } from '../utils/phoneUtils';
 
 export interface ImportPreviewRow {
+  id: string;
   phone: string;
   isValid: boolean;
   isDuplicate: boolean;
   isOwnDuplicate?: boolean;
   isClaimableDuplicate?: boolean;
+  assignedMemberName?: string;
+  notes?: string | null;
   reason?: string;
   intelligence?: DuplicatePhoneIntelligence;
 }
@@ -108,15 +111,52 @@ export class ContactService {
     rawPhones: string[],
     actor: User,
     includeClaimablePhones: string[] = []
-  ): Promise<{ summary: ImportSummary; executeImport: () => Promise<Contact[]> }> {
-    const existingContacts = await contactRepository.getAll();
-    const ownPhoneSet = new Set(
-      existingContacts.filter((c) => c.allocatedToId === actor.id).map((c) => c.phone.trim())
+  ): Promise<{ summary: ImportSummary; executeImport: (batchCode?: string, overridePhones?: string[]) => Promise<Contact[]> }> {
+    // 1. Gather all normalized valid candidate phones
+    const normalizedCandidates: { raw: string; normalized: string | null }[] = rawPhones.map((raw) => ({
+      raw,
+      normalized: normalizeSriLankanPhone(raw),
+    }));
+
+    const validCandidatePhones = Array.from(
+      new Set(
+        normalizedCandidates
+          .map((c) => c.normalized)
+          .filter((p): p is string => Boolean(p))
+      )
     );
-    const otherPhoneMap = new Map<string, Contact>();
-    existingContacts
-      .filter((c) => c.allocatedToId !== actor.id)
-      .forEach((c) => otherPhoneMap.set(c.phone.trim(), c));
+
+    // 2. Perform batch duplicate check against database/storage
+    let dupBatchResults: Record<string, DuplicatePhoneCheckResult> = {};
+    if (validCandidatePhones.length > 0) {
+      if (typeof contactRepository.checkDuplicatesBatch === 'function') {
+        try {
+          dupBatchResults = await contactRepository.checkDuplicatesBatch({
+            phones: validCandidatePhones,
+            memberId: actor.id,
+            teamId: actor.teamId || undefined,
+          });
+        } catch {
+          // Fallback if network issue
+          dupBatchResults = {};
+        }
+      } else {
+        // Fallback to checking via checkDuplicate
+        const checks = await Promise.all(
+          validCandidatePhones.map(async (phone) => {
+            const res = await contactRepository.checkDuplicate({
+              phone,
+              memberId: actor.id,
+              teamId: actor.teamId || undefined,
+            });
+            return { phone, res };
+          })
+        );
+        checks.forEach(({ phone, res }) => {
+          dupBatchResults[phone] = res;
+        });
+      }
+    }
 
     const rows: ImportPreviewRow[] = [];
     const validNewPhones: string[] = [];
@@ -127,12 +167,13 @@ export class ContactService {
     let ownDuplicateCount = 0;
     let claimableDuplicateCount = 0;
 
-    rawPhones.forEach((raw) => {
-      const normalized = normalizeSriLankanPhone(raw);
+    normalizedCandidates.forEach(({ raw, normalized }, index) => {
+      const rowId = `row_${index}_${normalized || raw}`;
 
       if (!normalized) {
         invalidCount++;
         rows.push({
+          id: rowId,
           phone: String(raw).trim(),
           isValid: false,
           isDuplicate: false,
@@ -143,6 +184,7 @@ export class ContactService {
 
       if (seenInBatch.has(normalized)) {
         rows.push({
+          id: rowId,
           phone: normalized,
           isValid: false,
           isDuplicate: true,
@@ -153,50 +195,58 @@ export class ContactService {
       }
       seenInBatch.add(normalized);
 
-      // Check if current user already owns it
-      if (ownPhoneSet.has(normalized)) {
+      const checkResult = dupBatchResults[normalized];
+
+      // 1. Duplicate in user's own account: automatically identify and exclude
+      if (checkResult?.isOwnedBySelf) {
         ownDuplicateCount++;
         rows.push({
+          id: rowId,
           phone: normalized,
           isValid: false,
           isDuplicate: true,
           isOwnDuplicate: true,
-          reason: 'Already exists in your profile queue',
+          reason: 'Already exists in your personal queue (automatically excluded)',
         });
         return;
       }
 
-      // Check if exists under another member
-      if (otherPhoneMap.has(normalized)) {
-        const existing = otherPhoneMap.get(normalized)!;
+      // 2. Duplicate within team / another team member's account:
+      // Display warning showing who owns it + notes, do NOT automatically remove.
+      if (checkResult?.exists && !checkResult?.isOwnedBySelf) {
         claimableDuplicateCount++;
         claimablePhones.push(normalized);
+        const intel = checkResult.intelligence;
+        const owner = intel?.assignedMemberName || 'Another Team Specialist';
+        const notes = intel?.notes || intel?.lastCallRemarks || 'No previous notes';
         rows.push({
+          id: rowId,
           phone: normalized,
           isValid: true,
           isDuplicate: true,
           isClaimableDuplicate: true,
-          reason: `Exists in CRM (previously assigned/added)`,
-          intelligence: {
-            phone: normalized,
-            assignedMemberName: existing.allocatedToId ? 'Another Team Specialist' : 'Unallocated Pool',
-            teamName: 'CRM Team',
-            lastCallStatus: existing.status,
-            lastCalledAt: existing.lastCalledAt,
-            previousOrders: [],
-          },
+          assignedMemberName: owner,
+          notes,
+          reason: `Owned by ${owner} • Notes: "${notes}"`,
+          intelligence: intel,
         });
         return;
       }
 
-      // Brand new valid phone
+      // 3. Brand new valid phone
       validNewPhones.push(normalized);
-      rows.push({ phone: normalized, isValid: true, isDuplicate: false });
+      rows.push({
+        id: rowId,
+        phone: normalized,
+        isValid: true,
+        isDuplicate: false,
+        reason: 'Brand new number',
+      });
     });
 
-    const totalToImport = Array.from(new Set([...validNewPhones, ...includeClaimablePhones]));
-
+    const defaultPhonesToImport = Array.from(new Set([...validNewPhones, ...includeClaimablePhones]));
     const batchId = `batch_imp_${Date.now()}`;
+
     const summary: ImportSummary = {
       batchId,
       totalParsed: rawPhones.length,
@@ -208,8 +258,10 @@ export class ContactService {
       rows,
     };
 
-    const executeImport = async (batchCode?: string): Promise<Contact[]> => {
-      if (totalToImport.length === 0) {
+    const executeImport = async (batchCode?: string, overridePhones?: string[]): Promise<Contact[]> => {
+      const finalPhonesToImport = overridePhones !== undefined ? overridePhones : defaultPhonesToImport;
+
+      if (finalPhonesToImport.length === 0) {
         throw new Error('No valid phone numbers selected to import.');
       }
       if (!actor.teamId) {
@@ -220,10 +272,8 @@ export class ContactService {
       let created: Contact[];
 
       if (isMember) {
-        // Team Members do not have the 'contacts.import' permission for the bulk endpoint.
-        // We use the personal contact addition endpoint which is allowed.
         created = await Promise.all(
-          totalToImport.map((phone) =>
+          finalPhonesToImport.map((phone) =>
             contactRepository.addPersonalNumber({
               phone,
               memberId: actor.id,
@@ -234,7 +284,7 @@ export class ContactService {
         );
       } else {
         const now = new Date().toISOString();
-        const contactsToCreate = totalToImport.map((phone) => ({
+        const contactsToCreate = finalPhonesToImport.map((phone) => ({
           phone,
           code: batchCode?.trim() || undefined,
           status: 'NEW' as const,

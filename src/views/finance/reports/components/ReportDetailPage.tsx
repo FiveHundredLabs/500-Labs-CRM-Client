@@ -23,6 +23,7 @@ const LIVE_DATA_REPORTS = [
   'contact-batch-report',
   'team-member-sales',
   'city-delivery',
+  'district-delivery',
   'daily-sales',
   'weekly-sales',
   'monthly-sales',
@@ -300,6 +301,24 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
         } catch (err) {
           console.error('Failed to fetch city delivery report from backend:', err);
           if (active) setLiveReportData({ cityData: [] });
+        } finally {
+          if (active) setIsLoadingLive(false);
+        }
+
+      // ── District Delivery Report ───────────────────────────────────────────
+      } else if (report.id === 'district-delivery') {
+        setIsLoadingLive(true);
+        try {
+          const deliveryData = await financeRepository.getDistrictDeliveryReport(
+            filters.dateRange.startDate || undefined,
+            filters.dateRange.endDate || undefined
+          );
+          if (active) {
+            setLiveReportData(deliveryData || { districtData: [] });
+          }
+        } catch (err) {
+          console.error('Failed to fetch district delivery report from backend:', err);
+          if (active) setLiveReportData({ districtData: [] });
         } finally {
           if (active) setIsLoadingLive(false);
         }

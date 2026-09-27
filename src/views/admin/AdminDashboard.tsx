@@ -1,16 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  teamRepository,
-  userRepository,
-  contactRepository,
-  orderRepository,
-  activityLogRepository,
-  expenseRepository,
-  approvalRequestRepository,
-  emailNotificationRepository,
-} from '../../repositories';
-import { Team, User, Contact, Order, ActivityLog, Expense, ApprovalRequest, EmailNotification } from '../../models/domain';
+import { useAdminDashboardQuery } from '../../hooks/queries/useDashboardQuery';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -28,183 +18,84 @@ import {
   Shield,
   Layers,
   FileSpreadsheet,
-  PieChart as PieChartIcon,
-  Bell,
   Clock,
-  AlertTriangle,
   Target,
   Calendar,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
-import { getAmountToCollect, getProductSalesValue } from '../../utils/orderAmounts';
 import {
   format,
-  startOfDay,
-  endOfDay,
   startOfWeek,
   endOfWeek,
   startOfMonth,
   endOfMonth,
   subMonths,
-  isWithinInterval,
 } from 'date-fns';
-import toast from 'react-hot-toast';
 
 export type AdminDashboardDateFilter = 'THIS_MONTH' | 'LAST_MONTH' | 'TODAY' | 'THIS_WEEK' | 'ALL' | 'CUSTOM';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [activities, setActivities] = useState<ActivityLog[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
-  const [emailLogs, setEmailLogs] = useState<EmailNotification[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Date Filter State
   const [dateFilter, setDateFilter] = useState<AdminDashboardDateFilter>('THIS_MONTH');
-  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [startDateInput, setStartDateInput] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDateInput, setEndDateInput] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
-  useEffect(() => {
-    const loadAll = async () => {
-      setLoading(true);
-      try {
-        const [tList, uList, cList, oList, logs, expList, reqList, eLogs] = await Promise.all([
-          teamRepository.getAll(),
-          userRepository.getAll(),
-          contactRepository.getAll(),
-          orderRepository.getAll(),
-          activityLogRepository.getAll(),
-          expenseRepository.getAll(),
-          approvalRequestRepository.getAll(),
-          emailNotificationRepository.getAll(),
-        ]);
-        setTeams(tList);
-        setUsers(uList);
-        setContacts(cList);
-        setOrders(oList);
-        setActivities(logs);
-        setExpenses(expList);
-        setPendingApprovals(reqList.filter((r) => r.status === 'PENDING'));
-        setEmailLogs(eLogs);
-      } catch (err: any) {
-        toast.error(err?.response?.data?.message || err?.message || 'Failed to load dashboard data.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadAll();
-  }, []);
-
-  // Date Range Matcher Helper with precomputed interval
-  const filterInterval = useMemo(() => {
-    if (dateFilter === 'ALL') return null;
+  // Calculate API query filter bounds
+  const queryDates = useMemo(() => {
+    if (dateFilter === 'ALL') {
+      return { startDate: undefined, endDate: undefined };
+    }
     const now = new Date();
     if (dateFilter === 'TODAY') {
-      return { start: startOfDay(now).getTime(), end: endOfDay(now).getTime() };
+      const todayStr = format(now, 'yyyy-MM-dd');
+      return { startDate: todayStr, endDate: todayStr };
     }
     if (dateFilter === 'THIS_WEEK') {
-      return { start: startOfWeek(now).getTime(), end: endOfWeek(now).getTime() };
+      return {
+        startDate: format(startOfWeek(now), 'yyyy-MM-dd'),
+        endDate: format(endOfWeek(now), 'yyyy-MM-dd'),
+      };
     }
     if (dateFilter === 'THIS_MONTH') {
-      return { start: startOfMonth(now).getTime(), end: endOfMonth(now).getTime() };
+      return {
+        startDate: format(startOfMonth(now), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(now), 'yyyy-MM-dd'),
+      };
     }
     if (dateFilter === 'LAST_MONTH') {
       const lastMonth = subMonths(now, 1);
-      return { start: startOfMonth(lastMonth).getTime(), end: endOfMonth(lastMonth).getTime() };
+      return {
+        startDate: format(startOfMonth(lastMonth), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(lastMonth), 'yyyy-MM-dd'),
+      };
     }
     if (dateFilter === 'CUSTOM') {
-      const s = new Date(startDate).getTime();
-      const e = new Date(endDate);
-      e.setHours(23, 59, 59, 999);
-      return { start: s, end: e.getTime() };
+      return {
+        startDate: startDateInput || undefined,
+        endDate: endDateInput || undefined,
+      };
     }
-    return null;
-  }, [dateFilter, startDate, endDate]);
+    return { startDate: undefined, endDate: undefined };
+  }, [dateFilter, startDateInput, endDateInput]);
 
-  const isDateInFilter = useCallback((dateStr?: string | null) => {
-    if (!dateStr) return false;
-    if (!filterInterval) return true;
-    const time = new Date(dateStr).getTime();
-    return !Number.isNaN(time) && time >= filterInterval.start && time <= filterInterval.end;
-  }, [filterInterval]);
+  const { data: summary, isLoading } = useAdminDashboardQuery(queryDates);
 
-  // Filtered Datasets based on selected date range
-  const scopedOrders = useMemo(
-    () => orders.filter((o) => isDateInFilter(o.createdAt)),
-    [orders, isDateInFilter]
-  );
+  if (isLoading) return <LoadingState rows={8} />;
 
-  const scopedContacts = useMemo(
-    () => contacts.filter((c) => isDateInFilter(c.updatedAt || c.importedAt)),
-    [contacts, isDateInFilter]
-  );
+  const kpi = summary?.kpi || {
+    totalGrossSales: 0,
+    bookedOrdersCount: 0,
+    dispatchedCount: 0,
+    deliveredCount: 0,
+    interestedContactsCount: 0,
+    totalExpenses: 0,
+  };
 
-  const scopedExpenses = useMemo(
-    () => expenses.filter((e: any) => isDateInFilter(e.expenseDate || e.createdAt || e.date)),
-    [expenses, isDateInFilter]
-  );
-
-  // Dynamic KPI Metrics with explicit Number() casting (memoized)
-  const { totalGrossSales, lastDispatchedCount, totalDeliveredOrders } = useMemo(() => {
-    let sales = 0;
-    let dispatched = 0;
-    let delivered = 0;
-    for (let i = 0; i < scopedOrders.length; i++) {
-      const o = scopedOrders[i];
-      sales += getAmountToCollect(o);
-      if (o.status === 'DISPATCHED') dispatched++;
-      else if (o.status === 'DELIVERED') delivered++;
-    }
-    return { totalGrossSales: sales, lastDispatchedCount: dispatched, totalDeliveredOrders: delivered };
-  }, [scopedOrders]);
-
-  const todayInterestedCount = useMemo(
-    () => scopedContacts.filter((c) => c.status === 'INTERESTED').length,
-    [scopedContacts]
-  );
-
-  const totalMonthlyExpenses = useMemo(
-    () => scopedExpenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0),
-    [scopedExpenses]
-  );
-
-  // Dynamic Per-Team Leaderboards based on loaded teams and scoped orders (memoized)
-  const teamLeaderboards = useMemo(() => {
-    return teams.map((team) => {
-      const teamMembers = users.filter((u) => u.teamId === team.id && u.role === 'TEAM_MEMBER');
-      const list = teamMembers.map((m) => {
-        const memberOrders = scopedOrders.filter((o) => o.teamMemberId === m.id);
-        const deliveredOrders = memberOrders.filter((o) => o.status === 'DELIVERED');
-        const deliveredSalesAmount = deliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
-        const deliveredCount = deliveredOrders.length;
-        return {
-          id: m.id,
-          rank: 0,
-          name: m.fullName,
-          avatarUrl: m.avatarUrl,
-          primaryValue: deliveredSalesAmount,
-          secondaryValue: deliveredCount,
-          primaryLabel: 'Delivered Sales',
-          secondaryLabel: 'Delivered Orders',
-          unitLabel: 'orders',
-        };
-      });
-      list.sort((a, b) => b.primaryValue - a.primaryValue || b.secondaryValue - a.secondaryValue);
-      list.forEach((item, idx) => {
-        item.rank = idx + 1;
-      });
-      return { team, items: list.slice(0, 5) };
-    });
-  }, [teams, users, scopedOrders]);
-
-  const recentActivities: ActivityLog[] = useMemo(() => activities.slice(0, 6), [activities]);
-
-  if (loading) return <LoadingState rows={8} />;
+  const pendingApprovals = summary?.pendingApprovals || [];
+  const teamLeaderboards = summary?.teamLeaderboards || [];
+  const recentActivities = summary?.recentActivities || [];
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-24 overflow-hidden">
@@ -249,7 +140,7 @@ export const AdminDashboard: React.FC = () => {
                 </span>
               </div>
               <div className="text-xs text-amber-900 mt-0.5 line-clamp-1 sm:line-clamp-none">
-                {pendingApprovals.map((r) => `${r.requestedByName}: ${r.requestType.replace(/_/g, ' ')} (${r.productName})`).join(' • ')}
+                {pendingApprovals.map((r: any) => `${r.requestedByName}: ${r.requestType?.replace(/_/g, ' ')} (${r.productName})`).join(' • ')}
               </div>
             </div>
           </div>
@@ -281,7 +172,7 @@ export const AdminDashboard: React.FC = () => {
                 ? 'Today'
                 : dateFilter === 'THIS_WEEK'
                 ? 'This Week'
-                : `${startDate} to ${endDate}`}
+                : `${startDateInput} to ${endDateInput}`}
             </span>
           </div>
 
@@ -317,8 +208,8 @@ export const AdminDashboard: React.FC = () => {
               <span className="font-semibold text-slate-600">From Date:</span>
               <input
                 type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                value={startDateInput}
+                onChange={(e) => setStartDateInput(e.target.value)}
                 className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
@@ -326,8 +217,8 @@ export const AdminDashboard: React.FC = () => {
               <span className="font-semibold text-slate-600">To Date:</span>
               <input
                 type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                value={endDateInput}
+                onChange={(e) => setEndDateInput(e.target.value)}
                 className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
@@ -341,8 +232,8 @@ export const AdminDashboard: React.FC = () => {
           variant="vibrant"
           accentColor="sales"
           title="Gross Sales"
-          value={formatCurrency(totalGrossSales)}
-          subtitle={`${scopedOrders.length} Booked Orders`}
+          value={formatCurrency(kpi.totalGrossSales)}
+          subtitle={`${kpi.bookedOrdersCount} Booked Orders`}
           icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
           className="col-span-2 sm:col-span-1"
         />
@@ -351,7 +242,7 @@ export const AdminDashboard: React.FC = () => {
           variant="vibrant"
           accentColor="dispatched"
           title="Dispatched"
-          value={`${lastDispatchedCount} Orders`}
+          value={`${kpi.dispatchedCount} Orders`}
           subtitle="In courier transit"
           icon={<Package className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
         />
@@ -360,7 +251,7 @@ export const AdminDashboard: React.FC = () => {
           variant="vibrant"
           accentColor="delivered"
           title="Delivered"
-          value={totalDeliveredOrders}
+          value={kpi.deliveredCount}
           subtitle="Customer handovers"
           icon={<CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
         />
@@ -369,7 +260,7 @@ export const AdminDashboard: React.FC = () => {
           variant="vibrant"
           accentColor="interested"
           title="Interested"
-          value={todayInterestedCount}
+          value={kpi.interestedContactsCount}
           subtitle="Qualified leads"
           icon={<PhoneCall className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
         />
@@ -378,7 +269,7 @@ export const AdminDashboard: React.FC = () => {
           variant="vibrant"
           accentColor="expenses"
           title="Expenses"
-          value={formatCurrency(totalMonthlyExpenses)}
+          value={formatCurrency(kpi.totalExpenses)}
           subtitle="Finance logged"
           icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />}
         />
@@ -445,7 +336,7 @@ export const AdminDashboard: React.FC = () => {
       {/* 3. Team Leaderboards Comparison Section */}
       <div className="space-y-3 sm:space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          {teamLeaderboards.map(({ team, items }) => (
+          {teamLeaderboards.map(({ team, items }: any) => (
             <Leaderboard
               key={team.id}
               items={items}

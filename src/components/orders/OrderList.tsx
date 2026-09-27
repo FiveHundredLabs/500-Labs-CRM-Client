@@ -18,6 +18,7 @@ export interface OrderListProps {
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
   onInspectDamages?: (order: Order) => void;
   onOpenRejectionModal?: (order: Order) => void;
+  onOpenReplacementModal?: (order: Order) => void;
 }
 
 interface OrderListItemProps {
@@ -34,6 +35,7 @@ interface OrderListItemProps {
   onInspectDuplicateOrders?: (order: Order, conflictInfo: DuplicateOrderConflictInfo) => void;
   onInspectDamages?: (order: Order) => void;
   onOpenRejectionModal?: (order: Order) => void;
+  onOpenReplacementModal?: (order: Order) => void;
 }
 
 const OrderListItem = React.memo<OrderListItemProps>(({
@@ -50,6 +52,7 @@ const OrderListItem = React.memo<OrderListItemProps>(({
   onInspectDuplicateOrders,
   onInspectDamages,
   onOpenRejectionModal,
+  onOpenReplacementModal,
 }) => {
   const handleToggle = React.useCallback(() => {
     onToggleSelectCard(order.id);
@@ -70,6 +73,7 @@ const OrderListItem = React.memo<OrderListItemProps>(({
       onInspectDuplicateOrders={onInspectDuplicateOrders}
       onInspectDamages={onInspectDamages}
       onOpenRejectionModal={onOpenRejectionModal}
+      onOpenReplacementModal={onOpenReplacementModal}
     />
   );
 });
@@ -88,8 +92,34 @@ export const OrderList: React.FC<OrderListProps> = React.memo(({
   onInspectDuplicateOrders,
   onInspectDamages,
   onOpenRejectionModal,
+  onOpenReplacementModal,
 }) => {
   const selectedSet = React.useMemo(() => new Set(selectedOrderIds), [selectedOrderIds]);
+  const [renderLimit, setRenderLimit] = React.useState(48);
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    setRenderLimit(48);
+  }, [filteredOrders]);
+
+  React.useEffect(() => {
+    if (renderLimit >= filteredOrders.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setRenderLimit((prev) => Math.min(prev + 48, filteredOrders.length));
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    const target = sentinelRef.current;
+    if (target) observer.observe(target);
+    return () => {
+      if (target) observer.unobserve(target);
+      observer.disconnect();
+    };
+  }, [renderLimit, filteredOrders.length]);
 
   if (filteredOrders.length === 0) {
     return (
@@ -100,33 +130,50 @@ export const OrderList: React.FC<OrderListProps> = React.memo(({
     );
   }
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-      {filteredOrders.map((order) => {
-        const customer = customersMap[order.customerId];
-        const member = membersMap[order.teamMemberId];
-        const isSelected = selectedSet.has(order.id);
-        const conflictInfo = orderConflictMap ? orderConflictMap[order.id] : undefined;
+  const visibleOrders = filteredOrders.slice(0, renderLimit);
 
-        return (
-          <OrderListItem
-            key={order.id}
-            order={order}
-            customer={customer}
-            handledByMember={member}
-            conflictInfo={conflictInfo}
-            isSelected={isSelected}
-            onToggleSelectCard={onToggleSelectCard}
-            onViewHistory={onViewHistory}
-            onOpenStatusModal={onOpenStatusModal}
-            onOpenRemarkModal={onOpenRemarkModal}
-            onPrintSlip={onPrintSlip}
-            onInspectDuplicateOrders={onInspectDuplicateOrders}
-            onInspectDamages={onInspectDamages}
-            onOpenRejectionModal={onOpenRejectionModal}
-          />
-        );
-      })}
-    </div>
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+        {visibleOrders.map((order) => {
+          const customer = customersMap[order.customerId];
+          const member = membersMap[order.teamMemberId];
+          const isSelected = selectedSet.has(order.id);
+          const conflictInfo = orderConflictMap ? orderConflictMap[order.id] : undefined;
+
+          return (
+            <OrderListItem
+              key={order.id}
+              order={order}
+              customer={customer}
+              handledByMember={member}
+              conflictInfo={conflictInfo}
+              isSelected={isSelected}
+              onToggleSelectCard={onToggleSelectCard}
+              onViewHistory={onViewHistory}
+              onOpenStatusModal={onOpenStatusModal}
+              onOpenRemarkModal={onOpenRemarkModal}
+              onPrintSlip={onPrintSlip}
+              onInspectDuplicateOrders={onInspectDuplicateOrders}
+              onInspectDamages={onInspectDamages}
+              onOpenRejectionModal={onOpenRejectionModal}
+              onOpenReplacementModal={onOpenReplacementModal}
+            />
+          );
+        })}
+      </div>
+
+      {renderLimit < filteredOrders.length && (
+        <div ref={sentinelRef} className="py-4 text-center">
+          <button
+            type="button"
+            onClick={() => setRenderLimit((prev) => Math.min(prev + 48, filteredOrders.length))}
+            className="text-xs text-slate-500 hover:text-slate-800 font-semibold px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+          >
+            Showing {renderLimit} of {filteredOrders.length} orders (Scroll to load more)
+          </button>
+        </div>
+      )}
+    </>
   );
 });

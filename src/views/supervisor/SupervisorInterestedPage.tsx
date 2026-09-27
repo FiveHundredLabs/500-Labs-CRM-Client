@@ -11,6 +11,8 @@ import { RoyalCourierDispatchConfirmDialog } from '../../components/interested/R
 import { CircularProgressPdfModal } from '../../components/printing/CircularProgressPdfModal';
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { EditDeliveryChargeDialog } from '../../components/orders/EditDeliveryChargeDialog';
+import { BulkEditDeliveryChargeDialog, BulkEditOrderLeadItem } from '../../components/orders/BulkEditDeliveryChargeDialog';
+import { CashOnHandRequestDialog } from '../../components/interested/CashOnHandRequestDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
 import { downloadParcelSlipPDF, printParcelSlipPDF } from '../../utils/parcelPdfGenerator';
@@ -18,7 +20,7 @@ import { downloadRoyalCourierExcel, RoyalCourierExportItem } from '../../utils/r
 import { downloadPostLeadExcel, PostLeadExportItem } from '../../utils/postLeadExcel';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
-import { XCircle, Mail, Truck, FileSpreadsheet, RefreshCw } from 'lucide-react';
+import { XCircle, Mail, Pencil, Truck, FileSpreadsheet, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { teamRepository } from '../../repositories';
 import { Team, DeliveryMethod, Order, Customer } from '../../models/domain';
@@ -39,6 +41,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     dispatchInterestedLeads,
     cancelInterestedLead,
     updateDeliveryCharge,
+    bulkUpdateDeliveryCharge,
   } = useInterestedLeads(user?.role === 'ADMIN' ? adminTeamId : undefined);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -85,6 +88,11 @@ export const SupervisorInterestedPage: React.FC = () => {
   // Edit Delivery Charge State
   const [editDeliveryOrder, setEditDeliveryOrder] = useState<Order | null>(null);
   const [editDeliveryCustomer, setEditDeliveryCustomer] = useState<Customer | null>(null);
+  const [isBulkEditDeliveryOpen, setIsBulkEditDeliveryOpen] = useState(false);
+
+  // Cash On Hand Approval Request State
+  const [cashOnHandOrder, setCashOnHandOrder] = useState<Order | null>(null);
+  const [cashOnHandCustomer, setCashOnHandCustomer] = useState<Customer | null>(null);
 
   // Circular Progress PDF Loading State
   const [pdfProgress, setPdfProgress] = useState({
@@ -177,7 +185,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     });
   }, [customers, ordersMap, activeDeliveryTab, search, selectedMemberId]);
 
-  const filteredCustomerIds = useMemo(
+  const selectableCustomerIds = useMemo(
     () => filteredCustomers.map((c) => c.id),
     [filteredCustomers]
   );
@@ -185,12 +193,53 @@ export const SupervisorInterestedPage: React.FC = () => {
   const {
     selectedIds,
     setSelectedIds,
-    selectAllCheckboxRef,
-    allSelected: allFilteredSelected,
-    toggleSelectAll,
-    toggleSelectCard,
     clearSelection,
-  } = useSelection(filteredCustomerIds);
+  } = useSelection(selectableCustomerIds);
+
+  const isUpTo20Selected = useMemo(() => {
+    if (selectableCustomerIds.length === 0 || selectedIds.length === 0) return false;
+    const targetSlice = selectableCustomerIds.slice(0, 20);
+    return (
+      selectedIds.length === targetSlice.length &&
+      targetSlice.every((id) => selectedIds.includes(id))
+    );
+  }, [selectableCustomerIds, selectedIds]);
+
+  const isAllExcelSelected = useMemo(() => {
+    if (selectableCustomerIds.length === 0 || selectedIds.length === 0) return false;
+    return (
+      selectedIds.length === selectableCustomerIds.length &&
+      selectableCustomerIds.every((id) => selectedIds.includes(id))
+    );
+  }, [selectableCustomerIds, selectedIds]);
+
+  // Normal bulk selection: select first up to 20 records
+  const handleSelectUpTo20 = () => {
+    if (isUpTo20Selected) {
+      clearSelection();
+      return;
+    }
+    const upTo20 = selectableCustomerIds.slice(0, 20);
+    setSelectedIds(upTo20);
+  };
+
+  // Excel bulk selection: select all records without any limit
+  const handleSelectAllExcel = () => {
+    if (isAllExcelSelected) {
+      clearSelection();
+      return;
+    }
+    setSelectedIds(selectableCustomerIds);
+  };
+
+  // Card toggle selection: allow selection to exceed 20, but relevant bulk actions will be disabled
+  const handleToggleSelectCard = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds((prev) => prev.filter((item) => item !== id));
+    } else {
+      setSelectedIds((prev) => [...prev, id]);
+    }
+  };
 
   // Clear selection when changing tabs
   const handleTabChange = (tab: DeliveryMethod) => {
@@ -198,7 +247,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     clearSelection();
   };
 
-  // Handle Team Member Filter Change (Auto-selects member's leads)
+  // Handle Team Member Filter Change (Auto-selects member's leads, max 20)
   const handleMemberFilterChange = (memberId: string) => {
     setSelectedMemberId(memberId);
 
@@ -206,7 +255,7 @@ export const SupervisorInterestedPage: React.FC = () => {
       const memberLeadIds = filteredCustomers
         .filter((c) => c.responsibleTeamMemberId === memberId)
         .map((c) => c.id);
-      setSelectedIds(memberLeadIds);
+      setSelectedIds(memberLeadIds.slice(0, 20));
     }
   };
 
@@ -252,9 +301,55 @@ export const SupervisorInterestedPage: React.FC = () => {
       };
     });
 
+  // Selected items for Bulk Delivery Charge Editing (strictly max 20)
+  const selectedBulkDeliveryItems: BulkEditOrderLeadItem[] = useMemo(() => {
+    return selectedIds
+      .map((id) => {
+        const customer = customers.find((c) => c.id === id);
+        const order = customer ? ordersMap[customer.id]?.[0] : null;
+        if (!customer || !order) return null;
+        // Exclude orders with pending Cash On Hand approvals
+        if (order.cashOnHandStatus === 'PENDING') return null;
+        return { customer, order };
+      })
+      .filter((it): it is BulkEditOrderLeadItem => it !== null);
+  }, [selectedIds, customers, ordersMap]);
+
+  const handleOpenBulkEditDelivery = () => {
+    if (selectedIds.length === 0) {
+      toast.error('Please select at least one interested lead to edit delivery amount.');
+      return;
+    }
+    if (selectedIds.length > 20) {
+      toast.error('You can select a maximum of 20 orders for this action.');
+      return;
+    }
+    if (selectedBulkDeliveryItems.length === 0) {
+      toast.error('Selected orders cannot be edited (e.g. pending cash on hand).');
+      return;
+    }
+    setIsBulkEditDeliveryOpen(true);
+  };
+
+  const handleOpenCancelConfirm = () => {
+    if (selectedIds.length === 0) {
+      toast.error('Please select at least one interested lead to cancel.');
+      return;
+    }
+    if (selectedIds.length > 20) {
+      toast.error('You can select a maximum of 20 orders for this action.');
+      return;
+    }
+    setIsCancelConfirmOpen(true);
+  };
+
   // TAB 1 (POST): PDF Download Trigger
   const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
+    if (selectedIds.length > 20 || selectedPrintItems.length > 20) {
+      toast.error('You can select a maximum of 20 orders for this action.');
+      return;
+    }
     setPdfProgress({
       isOpen: true,
       title: 'Downloading Slips PDF...',
@@ -286,6 +381,10 @@ export const SupervisorInterestedPage: React.FC = () => {
   // TAB 1 (POST): Native Print Trigger
   const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
+    if (selectedIds.length > 20 || selectedPrintItems.length > 20) {
+      toast.error('You can select a maximum of 20 orders for this action.');
+      return;
+    }
     setPdfProgress({
       isOpen: true,
       title: 'Preparing Slips for Printing...',
@@ -455,9 +554,11 @@ export const SupervisorInterestedPage: React.FC = () => {
         onSearchChange={setSearch}
         filteredCount={filteredCustomers.length}
         selectedCount={selectedIds.length}
-        allFilteredSelected={allFilteredSelected}
-        onToggleSelectAll={toggleSelectAll}
-        selectAllCheckboxRef={selectAllCheckboxRef}
+        onSelectUpTo20={handleSelectUpTo20}
+        onSelectAllExcel={handleSelectAllExcel}
+        onClearSelection={clearSelection}
+        isUpTo20Selected={isUpTo20Selected}
+        isAllExcelSelected={isAllExcelSelected}
       />
 
       {/* Interested Leads List Grid */}
@@ -467,11 +568,15 @@ export const SupervisorInterestedPage: React.FC = () => {
         ordersMap={ordersMap}
         interestedConflictMap={interestedConflictMap}
         selectedIds={selectedIds}
-        onToggleSelectCard={toggleSelectCard}
+        onToggleSelectCard={handleToggleSelectCard}
         onInspectDuplicateOrders={(info) => setInspectConflictInfo(info)}
         onEditDeliveryCharge={(ord, cust) => {
           setEditDeliveryOrder(ord);
           setEditDeliveryCustomer(cust);
+        }}
+        onRequestCashOnHand={(ord, cust) => {
+          setCashOnHandOrder(ord);
+          setCashOnHandCustomer(cust);
         }}
       />
 
@@ -488,54 +593,95 @@ export const SupervisorInterestedPage: React.FC = () => {
                 type="button"
                 onClick={handleDownloadPostLeadExcel}
                 disabled={selectedIds.length === 0 || isDownloadingPostExcel}
-                className="py-1 px-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 title="Download Post Lead Excel"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 <span>Excel</span>
               </button>
+            </>
+          }
+          trailingActions={
+            <>
               <button
                 type="button"
-                onClick={() => setIsCancelConfirmOpen(true)}
-                className="py-1 px-2 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer"
-                title="Cancel selected interested leads"
+                onClick={handleOpenCancelConfirm}
+                className={`py-1 px-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer ${
+                  selectedIds.length > 20 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                title={selectedIds.length > 20 ? 'Maximum 20 orders allowed for this action' : 'Cancel selected interested leads'}
               >
                 <XCircle className="w-3.5 h-3.5" />
                 <span>Cancel</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenBulkEditDelivery}
+                className={`py-1 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/30 cursor-pointer ${
+                  selectedIds.length > 20 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                title={selectedIds.length > 20 ? 'Maximum 20 orders allowed for this action' : 'Bulk Edit Delivery Amount (Max 20 orders)'}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Delivery Charge</span>
               </button>
             </>
           }
         />
       )}
 
-      {/* TAB 2 (ROYAL COURIER): Dedicated Floating Action Panel (Excel Export Only) */}
+      {/* TAB 2 (ROYAL COURIER): Dedicated Floating Action Panel */}
       {activeDeliveryTab === 'ROYAL_COURIER' && (
-        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-white/95 backdrop-blur-md border border-purple-200 p-2.5 rounded-2xl shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <div className="flex items-center gap-2 px-3 py-1 bg-purple-50 text-purple-950 rounded-xl text-xs font-bold border border-purple-200">
-            <Truck className="w-4 h-4 text-purple-600" />
-            <span>{selectedIds.length} Selected</span>
+        <div className="fixed right-3 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:right-6 md:bottom-6 z-40 pointer-events-auto">
+          <div className="bg-slate-900/95 backdrop-blur-md text-white p-2 rounded-xl shadow-2xl border border-slate-700/60 flex flex-col items-center gap-1.5 min-w-[150px]">
+            {/* Selected count */}
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-200 px-1">
+              <span className={`w-2 h-2 rounded-full ${selectedIds.length > 20 ? 'bg-amber-400' : 'bg-emerald-400'} animate-pulse shrink-0`} />
+              <span>
+                {selectedIds.length} Selected
+                {selectedIds.length > 20 ? ' (Excel only)' : ''}
+              </span>
+            </div>
+
+            {/* Buttons row: Excel / Cancel / Delivery Charge */}
+            <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-700/60 whitespace-nowrap">
+              <button
+                type="button"
+                onClick={handleDownloadRoyalCourierExcel}
+                disabled={selectedIds.length === 0 || isDownloadingExcel}
+                className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Excel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenCancelConfirm}
+                disabled={selectedIds.length === 0}
+                className={`py-1 px-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer ${
+                  selectedIds.length > 20 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                title={selectedIds.length > 20 ? 'Maximum 20 orders allowed for this action' : 'Cancel selected interested leads'}
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenBulkEditDelivery}
+                disabled={selectedIds.length === 0}
+                className={`py-1 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/30 cursor-pointer ${
+                  selectedIds.length > 20 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                title={selectedIds.length > 20 ? 'Maximum 20 orders allowed for this action' : 'Bulk Edit Delivery Amount (Max 20 orders)'}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Delivery Charge</span>
+              </button>
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={handleDownloadRoyalCourierExcel}
-            disabled={selectedIds.length === 0 || isDownloadingExcel}
-            className="py-2 px-4 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Download Royal Courier Excel</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsCancelConfirmOpen(true)}
-            disabled={selectedIds.length === 0}
-            className="py-2 px-3 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-xs border border-rose-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            title="Cancel selected interested leads"
-          >
-            <XCircle className="w-4 h-4" />
-            <span>Cancel</span>
-          </button>
         </div>
       )}
 
@@ -591,7 +737,7 @@ export const SupervisorInterestedPage: React.FC = () => {
         }}
       />
 
-      {/* Edit Delivery Charge Dialog for Interested Leads */}
+      {/* Edit Delivery Charge Dialog for Interested Leads (Single) */}
       <EditDeliveryChargeDialog
         isOpen={Boolean(editDeliveryOrder)}
         order={editDeliveryOrder}
@@ -601,6 +747,32 @@ export const SupervisorInterestedPage: React.FC = () => {
           setEditDeliveryCustomer(null);
         }}
         onSave={updateDeliveryCharge}
+      />
+
+      {/* Bulk Edit Delivery Charge Dialog for Multiple Selected Orders (Strictly <= 20) */}
+      <BulkEditDeliveryChargeDialog
+        isOpen={isBulkEditDeliveryOpen}
+        items={selectedBulkDeliveryItems}
+        onClose={() => setIsBulkEditDeliveryOpen(false)}
+        onSave={async (updates, commonRemarks) => {
+          await bulkUpdateDeliveryCharge(updates, commonRemarks);
+          clearSelection();
+        }}
+      />
+
+      {/* Cash On Hand Request Confirmation Dialog */}
+      <CashOnHandRequestDialog
+        isOpen={Boolean(cashOnHandOrder)}
+        order={cashOnHandOrder}
+        customer={cashOnHandCustomer}
+        currentUser={user}
+        onClose={() => {
+          setCashOnHandOrder(null);
+          setCashOnHandCustomer(null);
+        }}
+        onSuccess={async () => {
+          await loadData(true);
+        }}
       />
 
       {/* Circular Progress PDF / Print Loading Modal */}

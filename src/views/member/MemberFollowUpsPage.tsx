@@ -89,8 +89,11 @@ export const MemberFollowUpsPage: React.FC = () => {
     setLoading(true);
     try {
       const [logsData, contactsData] = await Promise.all([
-        callLogRepository.getByMemberId(user.id),
-        contactRepository.getByMemberId(user.id),
+        callLogRepository.getByMemberId(user.id).catch((err: any) => {
+          toast.error(err?.message || 'Failed to load your call history.');
+          return [] as CallLog[];
+        }),
+        contactRepository.getByMemberId(user.id).catch(() => [] as Contact[]),
       ]);
 
       // Create contact map for fast lookup of phone numbers & follow-up states

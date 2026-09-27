@@ -1,11 +1,13 @@
 import React from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import type jsPDF from 'jspdf';
 import type { LeadPrintItem } from '../components/printing/printTypes';
 import { A6BillingSlip } from '../components/printing/A6BillingSlip';
 import { BrandPrintConfig, getBrandPrintConfig } from '../config/branding';
+
+const getHtml2Canvas = async () => (await import('html2canvas')).default;
+const getJsPDF = async () => (await import('jspdf')).default;
 
 const A4_LANDSCAPE_WIDTH_MM = 297;
 const A4_LANDSCAPE_HEIGHT_MM = 210;
@@ -20,7 +22,7 @@ type PrintReadyItem = LeadPrintItem & {
 };
 
 export interface BillingPdfResult {
-  pdf: jsPDF;
+  pdf: InstanceType<typeof jsPDF>;
   pageCount: number;
 }
 
@@ -253,6 +255,7 @@ const captureSlipImage = async (item: PrintReadyItem): Promise<string> => {
 
     replaceOklchStyles(slipNode);
 
+    const html2canvas = await getHtml2Canvas();
     const canvas = await html2canvas(slipNode, {
       backgroundColor: '#ffffff',
       scale: CAPTURE_SCALE,
@@ -266,6 +269,8 @@ const captureSlipImage = async (item: PrintReadyItem): Promise<string> => {
     });
 
     const dataUrl = canvas.toDataURL('image/png');
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvas.width = 1;
     canvas.height = 1;
     return dataUrl;
@@ -291,9 +296,12 @@ export const generateBillingPdf = async (
     const item = printItems[i];
     slipImages.push(await captureSlipImage(item));
     onProgress?.(i + 1, printItems.length, Math.round(((i + 1) / printItems.length) * 100));
+    // Yield to the browser event loop to avoid UI thread starvation and facilitate GC
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   const pages = chunkIntoSheets(slipImages, 4);
+  const jsPDF = await getJsPDF();
   const pdf = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
