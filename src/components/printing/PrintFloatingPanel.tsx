@@ -6,6 +6,7 @@ export interface PrintFloatingPanelProps {
   onDownloadPDF: () => void;
   onNativePrint: () => void;
   extraActions?: React.ReactNode;
+  trailingActions?: React.ReactNode;
   countLabel?: string;
 }
 
@@ -14,6 +15,7 @@ export const PrintFloatingPanel: React.FC<PrintFloatingPanelProps> = ({
   onDownloadPDF,
   onNativePrint,
   extraActions,
+  trailingActions,
   countLabel = 'Selected',
 }) => {
   if (selectedCount === 0) return null;
@@ -36,7 +38,7 @@ export const PrintFloatingPanel: React.FC<PrintFloatingPanelProps> = ({
           <button
             type="button"
             onClick={onDownloadPDF}
-            className="flex-1 py-1 px-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-100 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-slate-600/60 cursor-pointer"
+            className="flex-1 py-1 px-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-indigo-400/30 cursor-pointer"
             title="Download PDF"
           >
             <FileDown className="w-3.5 h-3.5" />
@@ -46,12 +48,14 @@ export const PrintFloatingPanel: React.FC<PrintFloatingPanelProps> = ({
           <button
             type="button"
             onClick={onNativePrint}
-            className="flex-1 py-1 px-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/20 cursor-pointer"
+            className="flex-1 py-1 px-2.5 bg-teal-600 hover:bg-teal-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-teal-400/30 cursor-pointer"
             title="Print Slips"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Print</span>
           </button>
+
+          {trailingActions}
         </div>
       </div>
     </div>

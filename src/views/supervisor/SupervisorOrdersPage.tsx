@@ -317,7 +317,7 @@ export const SupervisorOrdersPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsBulkModalOpen(true)}
-              className="py-1 px-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 border border-amber-400/20 cursor-pointer"
+              className="py-1 px-2.5 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-amber-400/30 cursor-pointer"
               title="Bulk Status Change"
             >
               <span>Bulk</span>

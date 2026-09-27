@@ -20,7 +20,7 @@ import { downloadRoyalCourierExcel, RoyalCourierExportItem } from '../../utils/r
 import { downloadPostLeadExcel, PostLeadExportItem } from '../../utils/postLeadExcel';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
-import { XCircle, Mail, Truck, FileSpreadsheet, RefreshCw } from 'lucide-react';
+import { XCircle, Mail, Pencil, Truck, FileSpreadsheet, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { teamRepository } from '../../repositories';
 import { Team, DeliveryMethod, Order, Customer } from '../../models/domain';
@@ -525,77 +525,87 @@ export const SupervisorInterestedPage: React.FC = () => {
             <>
               <button
                 type="button"
-                onClick={handleOpenBulkEditDelivery}
-                disabled={selectedIds.length === 0}
-                className="py-1 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                title="Bulk Edit Delivery Amount (Max 20 orders)"
-              >
-                <Truck className="w-3.5 h-3.5" />
-                <span>Edit Delivery</span>
-              </button>
-              <button
-                type="button"
                 onClick={handleDownloadPostLeadExcel}
                 disabled={selectedIds.length === 0 || isDownloadingPostExcel}
-                className="py-1 px-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 title="Download Post Lead Excel"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 <span>Excel</span>
               </button>
+            </>
+          }
+          trailingActions={
+            <>
               <button
                 type="button"
                 onClick={() => setIsCancelConfirmOpen(true)}
-                className="py-1 px-2 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer"
+                className="py-1 px-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer"
                 title="Cancel selected interested leads"
               >
                 <XCircle className="w-3.5 h-3.5" />
                 <span>Cancel</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenBulkEditDelivery}
+                disabled={selectedIds.length === 0}
+                className="py-1 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                title="Bulk Edit Delivery Amount (Max 20 orders)"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Delivery Charge</span>
               </button>
             </>
           }
         />
       )}
 
-      {/* TAB 2 (ROYAL COURIER): Dedicated Floating Action Panel (Excel Export Only) */}
+      {/* TAB 2 (ROYAL COURIER): Dedicated Floating Action Panel */}
       {activeDeliveryTab === 'ROYAL_COURIER' && (
-        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-white/95 backdrop-blur-md border border-purple-200 p-2.5 rounded-2xl shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <div className="flex items-center gap-2 px-3 py-1 bg-purple-50 text-purple-950 rounded-xl text-xs font-bold border border-purple-200">
-            <Truck className="w-4 h-4 text-purple-600" />
-            <span>{selectedIds.length} Selected</span>
+        <div className="fixed right-3 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:right-6 md:bottom-6 z-40 pointer-events-auto">
+          <div className="bg-slate-900/95 backdrop-blur-md text-white p-2 rounded-xl shadow-2xl border border-slate-700/60 flex flex-col items-center gap-1.5 min-w-[150px]">
+            {/* Selected count */}
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-200 px-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span>{selectedIds.length} Selected</span>
+            </div>
+
+            {/* Buttons row: Excel / Cancel / Delivery Charge */}
+            <div className="flex items-center gap-1.5 w-full pt-1.5 border-t border-slate-700/60">
+              <button
+                type="button"
+                onClick={handleDownloadRoyalCourierExcel}
+                disabled={selectedIds.length === 0 || isDownloadingExcel}
+                className="flex-1 py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Excel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsCancelConfirmOpen(true)}
+                disabled={selectedIds.length === 0}
+                className="flex-1 py-1 px-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                title="Cancel selected interested leads"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenBulkEditDelivery}
+                disabled={selectedIds.length === 0}
+                className="flex-1 py-1 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                title="Bulk Edit Delivery Amount (Max 20 orders)"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Delivery Charge</span>
+              </button>
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={handleOpenBulkEditDelivery}
-            disabled={selectedIds.length === 0}
-            className="py-2 px-3 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            title="Bulk Edit Delivery Amount (Max 20 orders)"
-          >
-            <Truck className="w-4 h-4" />
-            <span>Edit Delivery</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleDownloadRoyalCourierExcel}
-            disabled={selectedIds.length === 0 || isDownloadingExcel}
-            className="py-2 px-4 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Download Royal Courier Excel</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsCancelConfirmOpen(true)}
-            disabled={selectedIds.length === 0}
-            className="py-2 px-3 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-xs border border-rose-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            title="Cancel selected interested leads"
-          >
-            <XCircle className="w-4 h-4" />
-            <span>Cancel</span>
-          </button>
         </div>
       )}
 
