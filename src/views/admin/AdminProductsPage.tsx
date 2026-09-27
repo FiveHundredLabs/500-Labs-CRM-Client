@@ -946,8 +946,12 @@ export const AdminProductsPage: React.FC = () => {
                   </tr>
                 ) : (
                   filteredStockLogs.map((log) => {
-                    const isPositive = ['ADD', 'RETURN_RESTOCK'].includes(log.action);
-                    const isNegative = ['DISPATCH', 'DELIVER', 'RETURN_DAMAGE'].includes(log.action);
+                    const stockDiff = log.newStock - log.previousStock;
+                    const isPositive = stockDiff > 0 || (stockDiff === 0 && ['ADD', 'RETURN_RESTOCK'].includes(log.action));
+                    const isNegative = stockDiff < 0 || (stockDiff === 0 && ['DISPATCH', 'DELIVER'].includes(log.action));
+                    const displayDelta = stockDiff !== 0
+                      ? (stockDiff > 0 ? `+${stockDiff}` : `${stockDiff}`)
+                      : (isPositive ? `+${log.quantity}` : isNegative ? `-${log.quantity}` : `${log.quantity}`);
 
                     return (
                       <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
@@ -988,7 +992,7 @@ export const AdminProductsPage: React.FC = () => {
                                 ? 'bg-rose-50 text-rose-700 border border-rose-200'
                                 : 'bg-slate-100 text-slate-700 border border-slate-200'
                             }`}>
-                              {isPositive ? `+${log.quantity}` : isNegative ? `-${log.quantity}` : `${log.quantity}`}
+                              {displayDelta}
                             </span>
                           </div>
                         </td>
