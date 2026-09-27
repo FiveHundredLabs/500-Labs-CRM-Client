@@ -193,12 +193,57 @@ export const SupervisorInterestedPage: React.FC = () => {
   const {
     selectedIds,
     setSelectedIds,
-    selectAllCheckboxRef,
-    allSelected: allFilteredSelected,
-    toggleSelectAll,
-    toggleSelectCard,
     clearSelection,
   } = useSelection(selectableCustomerIds);
+
+  const isUpTo30Selected = useMemo(() => {
+    if (selectableCustomerIds.length === 0 || selectedIds.length === 0) return false;
+    const targetSlice = selectableCustomerIds.slice(0, 30);
+    return (
+      selectedIds.length === targetSlice.length &&
+      targetSlice.every((id) => selectedIds.includes(id))
+    );
+  }, [selectableCustomerIds, selectedIds]);
+
+  const isAllExcelSelected = useMemo(() => {
+    if (selectableCustomerIds.length === 0 || selectedIds.length === 0) return false;
+    return (
+      selectedIds.length === selectableCustomerIds.length &&
+      selectableCustomerIds.every((id) => selectedIds.includes(id))
+    );
+  }, [selectableCustomerIds, selectedIds]);
+
+  // Normal bulk selection: select first up to 30 records
+  const handleSelectUpTo30 = () => {
+    if (isUpTo30Selected) {
+      clearSelection();
+      return;
+    }
+    const upTo30 = selectableCustomerIds.slice(0, 30);
+    setSelectedIds(upTo30);
+  };
+
+  // Excel bulk selection: select all records without any limit
+  const handleSelectAllExcel = () => {
+    if (isAllExcelSelected) {
+      clearSelection();
+      return;
+    }
+    setSelectedIds(selectableCustomerIds);
+  };
+
+  // Card toggle selection: enforce maximum 30 for manual additions
+  const handleToggleSelectCard = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds((prev) => prev.filter((item) => item !== id));
+    } else {
+      if (selectedIds.length >= 30) {
+        toast.error('You can select a maximum of 30 orders.');
+        return;
+      }
+      setSelectedIds((prev) => [...prev, id]);
+    }
+  };
 
   // Clear selection when changing tabs
   const handleTabChange = (tab: DeliveryMethod) => {
@@ -206,7 +251,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     clearSelection();
   };
 
-  // Handle Team Member Filter Change (Auto-selects member's leads)
+  // Handle Team Member Filter Change (Auto-selects member's leads, max 30)
   const handleMemberFilterChange = (memberId: string) => {
     setSelectedMemberId(memberId);
 
@@ -214,7 +259,7 @@ export const SupervisorInterestedPage: React.FC = () => {
       const memberLeadIds = filteredCustomers
         .filter((c) => c.responsibleTeamMemberId === memberId)
         .map((c) => c.id);
-      setSelectedIds(memberLeadIds);
+      setSelectedIds(memberLeadIds.slice(0, 30));
     }
   };
 
@@ -260,7 +305,7 @@ export const SupervisorInterestedPage: React.FC = () => {
       };
     });
 
-  // Selected items for Bulk Delivery Charge Editing (strictly max 20)
+  // Selected items for Bulk Delivery Charge Editing (strictly max 30)
   const selectedBulkDeliveryItems: BulkEditOrderLeadItem[] = useMemo(() => {
     return selectedIds
       .map((id) => {
@@ -279,6 +324,10 @@ export const SupervisorInterestedPage: React.FC = () => {
       toast.error('Please select at least one interested lead to edit delivery amount.');
       return;
     }
+    if (selectedIds.length > 30) {
+      toast.error('You can select a maximum of 30 orders.');
+      return;
+    }
     if (selectedBulkDeliveryItems.length === 0) {
       toast.error('Selected orders cannot be edited (e.g. pending cash on hand).');
       return;
@@ -286,9 +335,25 @@ export const SupervisorInterestedPage: React.FC = () => {
     setIsBulkEditDeliveryOpen(true);
   };
 
+  const handleOpenCancelConfirm = () => {
+    if (selectedIds.length === 0) {
+      toast.error('Please select at least one interested lead to cancel.');
+      return;
+    }
+    if (selectedIds.length > 30) {
+      toast.error('You can select a maximum of 30 orders.');
+      return;
+    }
+    setIsCancelConfirmOpen(true);
+  };
+
   // TAB 1 (POST): PDF Download Trigger
   const handleDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
+    if (selectedPrintItems.length > 30) {
+      toast.error('You can select a maximum of 30 orders.');
+      return;
+    }
     setPdfProgress({
       isOpen: true,
       title: 'Downloading Slips PDF...',
@@ -320,6 +385,10 @@ export const SupervisorInterestedPage: React.FC = () => {
   // TAB 1 (POST): Native Print Trigger
   const handleNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
+    if (selectedPrintItems.length > 30) {
+      toast.error('You can select a maximum of 30 orders.');
+      return;
+    }
     setPdfProgress({
       isOpen: true,
       title: 'Preparing Slips for Printing...',
@@ -489,9 +558,11 @@ export const SupervisorInterestedPage: React.FC = () => {
         onSearchChange={setSearch}
         filteredCount={filteredCustomers.length}
         selectedCount={selectedIds.length}
-        allFilteredSelected={allFilteredSelected}
-        onToggleSelectAll={toggleSelectAll}
-        selectAllCheckboxRef={selectAllCheckboxRef}
+        onSelectUpTo30={handleSelectUpTo30}
+        onSelectAllExcel={handleSelectAllExcel}
+        onClearSelection={clearSelection}
+        isUpTo30Selected={isUpTo30Selected}
+        isAllExcelSelected={isAllExcelSelected}
         onBulkEditDelivery={handleOpenBulkEditDelivery}
       />
 
@@ -502,7 +573,7 @@ export const SupervisorInterestedPage: React.FC = () => {
         ordersMap={ordersMap}
         interestedConflictMap={interestedConflictMap}
         selectedIds={selectedIds}
-        onToggleSelectCard={toggleSelectCard}
+        onToggleSelectCard={handleToggleSelectCard}
         onInspectDuplicateOrders={(info) => setInspectConflictInfo(info)}
         onEditDeliveryCharge={(ord, cust) => {
           setEditDeliveryOrder(ord);
@@ -539,7 +610,7 @@ export const SupervisorInterestedPage: React.FC = () => {
             <>
               <button
                 type="button"
-                onClick={() => setIsCancelConfirmOpen(true)}
+                onClick={handleOpenCancelConfirm}
                 className="py-1 px-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 cursor-pointer"
                 title="Cancel selected interested leads"
               >
@@ -551,7 +622,7 @@ export const SupervisorInterestedPage: React.FC = () => {
                 onClick={handleOpenBulkEditDelivery}
                 disabled={selectedIds.length === 0}
                 className="py-1 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                title="Bulk Edit Delivery Amount (Max 20 orders)"
+                title="Bulk Edit Delivery Amount (Max 30 orders)"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 <span>Delivery Charge</span>
@@ -567,8 +638,11 @@ export const SupervisorInterestedPage: React.FC = () => {
           <div className="bg-slate-900/95 backdrop-blur-md text-white p-2 rounded-xl shadow-2xl border border-slate-700/60 flex flex-col items-center gap-1.5 min-w-[150px]">
             {/* Selected count */}
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-200 px-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-              <span>{selectedIds.length} Selected</span>
+              <span className={`w-2 h-2 rounded-full ${selectedIds.length > 30 ? 'bg-amber-400' : 'bg-emerald-400'} animate-pulse shrink-0`} />
+              <span>
+                {selectedIds.length} Selected
+                {selectedIds.length > 30 ? ' (Excel only)' : ''}
+              </span>
             </div>
 
             {/* Buttons row: Excel / Cancel / Delivery Charge */}
@@ -585,7 +659,7 @@ export const SupervisorInterestedPage: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => setIsCancelConfirmOpen(true)}
+                onClick={handleOpenCancelConfirm}
                 disabled={selectedIds.length === 0}
                 className="py-1 px-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-rose-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 title="Cancel selected interested leads"
@@ -599,7 +673,7 @@ export const SupervisorInterestedPage: React.FC = () => {
                 onClick={handleOpenBulkEditDelivery}
                 disabled={selectedIds.length === 0}
                 className="py-1 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                title="Bulk Edit Delivery Amount (Max 20 orders)"
+                title="Bulk Edit Delivery Amount (Max 30 orders)"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 <span>Delivery Charge</span>

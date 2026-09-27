@@ -25,9 +25,10 @@ export const PrintFloatingPanel: React.FC<PrintFloatingPanelProps> = ({
       <div className="bg-slate-900/95 backdrop-blur-md text-white p-2 rounded-xl shadow-2xl border border-slate-700/60 flex flex-col items-center gap-1.5">
         {/* Top Line: Selected Count */}
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-200 px-1">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <span className={`w-2 h-2 rounded-full ${selectedCount > 30 ? 'bg-amber-400' : 'bg-emerald-400'} animate-pulse shrink-0`} />
           <span>
             {selectedCount} {countLabel}
+            {selectedCount > 30 ? ' (Excel only)' : ''}
           </span>
         </div>
 
@@ -38,8 +39,10 @@ export const PrintFloatingPanel: React.FC<PrintFloatingPanelProps> = ({
           <button
             type="button"
             onClick={onDownloadPDF}
-            className="py-1 px-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-indigo-400/30 cursor-pointer"
-            title="Download PDF"
+            className={`py-1 px-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-indigo-400/30 cursor-pointer ${
+              selectedCount > 30 ? 'opacity-60' : ''
+            }`}
+            title={selectedCount > 30 ? 'Maximum 30 orders allowed for PDF generation' : 'Download PDF'}
           >
             <FileDown className="w-3.5 h-3.5" />
             <span>PDF</span>
@@ -48,8 +51,10 @@ export const PrintFloatingPanel: React.FC<PrintFloatingPanelProps> = ({
           <button
             type="button"
             onClick={onNativePrint}
-            className="py-1 px-2.5 bg-teal-600 hover:bg-teal-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-teal-400/30 cursor-pointer"
-            title="Print Slips"
+            className={`py-1 px-2.5 bg-teal-600 hover:bg-teal-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-teal-400/30 cursor-pointer ${
+              selectedCount > 30 ? 'opacity-60' : ''
+            }`}
+            title={selectedCount > 30 ? 'Maximum 30 orders allowed for printing' : 'Print Slips'}
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Print</span>
