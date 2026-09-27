@@ -162,10 +162,16 @@ export function useInterestedLeads(overrideTeamId?: string) {
       const samePhoneInterested = phoneToInterestedLeadsMap[norm] || [];
 
       if (serverConflict) {
+        const phoneOrders = serverConflict.allOrdersForPhone || [];
+        const activeOrdersCount = phoneOrders.filter(
+          (o: any) => ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status) && !o.isReplacement
+        ).length;
+        // Strictly only a duplicate when there are 2 or more active orders in process
+        const hasDuplicateActive = activeOrdersCount >= 2 || samePhoneInterested.length >= 2;
+
         finalConflictMap[cust.id] = {
           ...serverConflict,
-          hasDuplicateActiveOrders:
-            serverConflict.hasDuplicateActiveOrders || samePhoneInterested.length >= 2,
+          hasDuplicateActiveOrders: hasDuplicateActive,
         };
       } else if (samePhoneInterested.length >= 2) {
         finalConflictMap[cust.id] = {

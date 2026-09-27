@@ -50,6 +50,15 @@ export const DuplicateOrderConflictDialog: React.FC<DuplicateOrderConflictDialog
 }) => {
   if (!conflictInfo) return null;
 
+  const allOrders = conflictInfo.allOrdersForPhone || [];
+  const totalOrdersCount = allOrders.length;
+  const activeOrders = allOrders.filter(
+    (o) => ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status) && !o.isReplacement
+  );
+  const activeOrdersCount = activeOrders.length;
+  // A duplicate active order warning ONLY applies when there are 2 or more active orders in process
+  const hasDuplicateActiveOrders = activeOrdersCount >= 2;
+
   return (
     <Dialog
       isOpen={isOpen}
@@ -60,7 +69,7 @@ export const DuplicateOrderConflictDialog: React.FC<DuplicateOrderConflictDialog
     >
       <div className="space-y-4">
         {/* Header Warning Banner */}
-        {conflictInfo.hasDuplicateActiveOrders ? (
+        {hasDuplicateActiveOrders ? (
           <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3 text-amber-950 text-xs shadow-2xs">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
@@ -68,7 +77,7 @@ export const DuplicateOrderConflictDialog: React.FC<DuplicateOrderConflictDialog
                 ⚠ Multiple Active Orders Detected for This Phone Number
               </strong>
               <p className="mt-0.5 text-amber-800">
-                This phone number currently has {conflictInfo.activeDuplicateOrders.length + (currentOrder && ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(currentOrder.status) ? 1 : 0)} active orders in process. Please review side-by-side below before dispatching. No orders have been automatically modified or cancelled.
+                This phone number currently has {activeOrdersCount} active orders in process. Please review side-by-side below before dispatching. No orders have been automatically modified or cancelled.
               </p>
             </div>
           </div>
@@ -110,14 +119,21 @@ export const DuplicateOrderConflictDialog: React.FC<DuplicateOrderConflictDialog
               <span className="font-semibold">{conflictInfo.customerName}</span>
             </div>
           )}
-          <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[11px] font-bold rounded-full">
-            {conflictInfo.allOrdersForPhone.length} Total Orders Found
-          </span>
+          <div className="flex items-center gap-1.5">
+            {hasDuplicateActiveOrders && (
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[11px] font-bold rounded-full">
+                {activeOrdersCount} Active Orders
+              </span>
+            )}
+            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[11px] font-bold rounded-full">
+              {totalOrdersCount} Total Order{totalOrdersCount === 1 ? '' : 's'} Found
+            </span>
+          </div>
         </div>
 
         {/* Orders Comparison List */}
         <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-          {conflictInfo.allOrdersForPhone.map((ord) => {
+          {allOrders.map((ord) => {
             const isThisOrder = currentOrder?.id === ord.id;
             const cust = customersMap[ord.customerId] || (ord as any).customer;
             const rep = membersMap[ord.teamMemberId] || (ord as any).teamMember;
@@ -130,7 +146,7 @@ export const DuplicateOrderConflictDialog: React.FC<DuplicateOrderConflictDialog
                 className={`p-3.5 rounded-xl border transition-all text-xs space-y-2 ${
                   isThisOrder
                     ? 'border-2 border-blue-500 bg-blue-50/40 shadow-xs'
-                    : isActive
+                    : isActive && hasDuplicateActiveOrders
                     ? 'border-amber-300 bg-amber-50/30'
                     : isDelivered
                     ? 'border-emerald-200 bg-emerald-50/20'
@@ -154,7 +170,7 @@ export const DuplicateOrderConflictDialog: React.FC<DuplicateOrderConflictDialog
                         Authorized Replacement
                       </span>
                     )}
-                    {isActive && !isThisOrder && !ord.isReplacement && (
+                    {isActive && !isThisOrder && !ord.isReplacement && hasDuplicateActiveOrders && (
                       <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold rounded-full flex items-center gap-1">
                         <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
                         Concurrent Active Order
@@ -206,8 +222,8 @@ export const DuplicateOrderConflictDialog: React.FC<DuplicateOrderConflictDialog
                   </div>
                 )}
 
-                {/* Cancel duplicate order button if active */}
-                {isActive && onCancelOrder && (
+                {/* Cancel duplicate order button if active and multiple active orders exist */}
+                {hasDuplicateActiveOrders && isActive && onCancelOrder && (
                   <div className="flex items-center justify-end pt-2 border-t border-slate-100">
                     <button
                       type="button"
