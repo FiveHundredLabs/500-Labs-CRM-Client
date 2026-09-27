@@ -9,6 +9,7 @@ import { formatCurrency } from '../../utils/currency';
 import { cashOnHandRepository, CashOnHandSearchResult } from '../../repositories/cashOnHandRepository';
 import type { CashOnHandHandover, Order, OrderRejectionDamagedItem } from '../../models/domain';
 import { useAuth } from '../../hooks/useAuth';
+import { queryClient, queryKeys } from '../../lib/queryClient';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import {
@@ -163,6 +164,11 @@ export const SupervisorCashOnHandPage: React.FC = () => {
         { duration: 5000 },
       );
       setIsDeliverDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.overview() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard() });
       // Refresh state
       setSearchResult(null);
       setPhoneNumber('');
@@ -203,6 +209,11 @@ export const SupervisorCashOnHandPage: React.FC = () => {
       setRejectionReason('');
       setRejectDeliveryCharge(0);
       setHasDamagedItems(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.overview() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard() });
       // Refresh state
       setSearchResult(null);
       setPhoneNumber('');

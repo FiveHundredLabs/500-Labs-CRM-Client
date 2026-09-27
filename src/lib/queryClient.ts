@@ -1,19 +1,19 @@
 import { QueryClient } from '@tanstack/react-query';
 
 export const CACHE_TIERS = {
-  /** Rapid operational data: 15 seconds */
-  HOT: 15 * 1000,
-  /** Normal CRM entities: 1 minute */
-  WARM: 60 * 1000,
-  /** Reference & static catalog data: 5 minutes */
-  COLD: 5 * 60 * 1000,
+  /** Rapid operational data: 30 seconds (avoids refetch churn on tab toggle while mutations immediately invalidate) */
+  HOT: 30 * 1000,
+  /** Normal CRM entities: 2 minutes */
+  WARM: 2 * 60 * 1000,
+  /** Reference & static catalog data: 10 minutes */
+  COLD: 10 * 60 * 1000,
 } as const;
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: CACHE_TIERS.WARM,
-      gcTime: 10 * 60 * 1000, // 10 minutes cache retention
+      gcTime: 15 * 60 * 1000, // 15 minutes cache retention
       refetchOnWindowFocus: false,
       refetchOnReconnect: 'always',
       retry: (failureCount, error: any) => {

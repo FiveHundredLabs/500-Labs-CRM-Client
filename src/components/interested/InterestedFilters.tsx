@@ -3,7 +3,7 @@ import type { User, Customer } from '../../models/domain';
 import { Card, CardContent } from '../ui/Card';
 import { Select } from '../ui/Select';
 import { SearchInput } from '../shared/SearchInput';
-import { Truck } from 'lucide-react';
+import { Truck, CheckSquare, FileSpreadsheet } from 'lucide-react';
 
 export interface InterestedFiltersProps {
   selectedMemberId: string;
@@ -14,9 +14,11 @@ export interface InterestedFiltersProps {
   onSearchChange: (query: string) => void;
   filteredCount: number;
   selectedCount: number;
-  allFilteredSelected: boolean;
-  onToggleSelectAll: () => void;
-  selectAllCheckboxRef: React.RefObject<HTMLInputElement | null>;
+  onSelectUpTo30: () => void;
+  onSelectAllExcel: () => void;
+  onClearSelection?: () => void;
+  isUpTo30Selected: boolean;
+  isAllExcelSelected: boolean;
   onBulkEditDelivery?: () => void;
 }
 
@@ -29,9 +31,11 @@ export const InterestedFilters: React.FC<InterestedFiltersProps> = ({
   onSearchChange,
   filteredCount,
   selectedCount,
-  allFilteredSelected,
-  onToggleSelectAll,
-  selectAllCheckboxRef,
+  onSelectUpTo30,
+  onSelectAllExcel,
+  onClearSelection,
+  isUpTo30Selected,
+  isAllExcelSelected,
   onBulkEditDelivery,
 }) => {
   return (
@@ -69,47 +73,115 @@ export const InterestedFilters: React.FC<InterestedFiltersProps> = ({
           </div>
         </div>
 
-        {/* Select All & Summary Bar */}
-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-700">
-          <label className="flex items-center gap-1.5 cursor-pointer select-none font-semibold min-w-0">
-            <input
-              ref={selectAllCheckboxRef}
-              type="checkbox"
-              checked={allFilteredSelected}
-              onChange={onToggleSelectAll}
-              className="w-4 h-4 shrink-0 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
-            />
+        {/* Selection Controls & Summary Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-700">
+          {/* Left: Two Clearly Separated Selection Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Control 1: Select up to 30 (Primary / Highlighted) */}
+            <button
+              type="button"
+              onClick={onSelectUpTo30}
+              disabled={filteredCount === 0}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                isUpTo30Selected
+                  ? 'bg-[#01A8F3] text-white ring-2 ring-[#01A8F3]/30 shadow-sky-500/20'
+                  : 'bg-sky-50 hover:bg-sky-100 text-[#0077b6] border border-sky-200 hover:border-sky-300'
+              }`}
+              title="Select up to 30 orders for normal bulk actions (Print, PDF, Cancel, Delivery Charge)"
+            >
+              <CheckSquare className="w-3.5 h-3.5 shrink-0" />
+              <span>{isUpTo30Selected ? 'Deselect (30)' : 'Select up to 30'}</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
+                  isUpTo30Selected
+                    ? 'bg-white/20 text-white'
+                    : 'bg-sky-200/70 text-[#0077b6]'
+                }`}
+              >
+                Max 30
+              </span>
+            </button>
 
-            <span className="truncate">
-              Select All ({filteredCount})
-            </span>
-          </label>
+            {/* Visual Separator */}
+            <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0 mx-0.5" />
 
-          <div className="flex items-center gap-2">
+            {/* Control 2: Select All for Excel (Visually Secondary) */}
+            <button
+              type="button"
+              onClick={onSelectAllExcel}
+              disabled={filteredCount === 0}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shadow-2xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                isAllExcelSelected
+                  ? 'bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/30'
+                  : 'bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300'
+              }`}
+              title="Select all filtered orders specifically for Excel export (No limit)"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>
+                {isAllExcelSelected
+                  ? `Deselect All Excel (${filteredCount})`
+                  : `Select All for Excel (${filteredCount})`}
+              </span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${
+                  isAllExcelSelected
+                    ? 'bg-white/20 text-white'
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}
+              >
+                Unlimited
+              </span>
+            </button>
+
+            {/* Clear Selection Link */}
+            {selectedCount > 0 && onClearSelection && (
+              <button
+                type="button"
+                onClick={onClearSelection}
+                className="text-slate-400 hover:text-rose-600 text-[11px] font-medium transition-colors ml-1 cursor-pointer"
+                title="Clear current selection"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Right: Actions & Selected Count Badge */}
+          <div className="flex items-center gap-2 ml-auto">
             {selectedCount > 0 && onBulkEditDelivery && (
               <button
                 type="button"
                 onClick={onBulkEditDelivery}
                 className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                  selectedCount > 20
+                  selectedCount > 30
                     ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
                     : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white'
                 }`}
                 title={
-                  selectedCount > 20
-                    ? `Selected ${selectedCount} orders. Max 20 allowed for bulk edit.`
-                    : 'Bulk edit delivery amount for selected orders'
+                  selectedCount > 30
+                    ? `Selected ${selectedCount} orders. Max 30 allowed for bulk edit.`
+                    : 'Bulk edit delivery amount for selected orders (Max 30)'
                 }
               >
                 <Truck className="w-3.5 h-3.5" />
                 <span>
                   Bulk Edit Delivery ({selectedCount}
-                  {selectedCount > 20 ? ' / 20 max' : ''})
+                  {selectedCount > 30 ? ' / 30 max' : ''})
                 </span>
               </button>
             )}
-            <div className="shrink-0 font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+            <div
+              className={`shrink-0 font-semibold px-2 py-0.5 rounded border text-xs ${
+                selectedCount > 30
+                  ? 'text-amber-800 bg-amber-50 border-amber-200'
+                  : selectedCount > 0
+                  ? 'text-blue-700 bg-blue-50 border-blue-100'
+                  : 'text-slate-500 bg-slate-50 border-slate-200'
+              }`}
+            >
               {selectedCount} Selected
+              {selectedCount > 30 ? ' (Excel only)' : ''}
             </div>
           </div>
         </div>

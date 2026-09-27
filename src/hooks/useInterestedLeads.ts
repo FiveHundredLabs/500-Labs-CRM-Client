@@ -199,6 +199,9 @@ export function useInterestedLeads(overrideTeamId?: string) {
       toast.success(`${count} lead${count === 1 ? '' : 's'} marked as Dispatched.`);
       queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.overview() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard() });
       return true;
     } catch (err: any) {
       toast.error(err.message || 'Failed to dispatch leads.');
@@ -218,6 +221,9 @@ export function useInterestedLeads(overrideTeamId?: string) {
         toast.success(specificOrderId ? 'Duplicate order cancelled.' : 'Interested lead / order cancelled.');
         queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
         queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.finance.overview() });
+        queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard() });
       }
       return success;
     } catch (err: any) {
@@ -232,6 +238,9 @@ export function useInterestedLeads(overrideTeamId?: string) {
       toast.success('Delivery charge updated successfully!');
       queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.overview() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard() });
       return updated;
     } catch (err: any) {
       toast.error(err.message || 'Failed to update delivery charge.');
@@ -248,6 +257,9 @@ export function useInterestedLeads(overrideTeamId?: string) {
       toast.success(`Successfully updated delivery charges for ${res.count} orders!`);
       queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.overview() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard() });
       return res;
     } catch (err: any) {
       toast.error(err.message || 'Failed to bulk update delivery charges.');
