@@ -1,23 +1,22 @@
-import React, { useState, useCallback, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { DesktopSidebar } from './DesktopSidebar';
 import { MobileBottomNav } from './MobileBottomNav';
 import { TopHeader } from './TopHeader';
 import { LoadingState } from '../shared/LoadingState';
+import { useUIStore } from '../../stores';
 
 export const AppShell: React.FC = () => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const handleToggleSidebar = useCallback(() => {
-    setIsSidebarCollapsed((prev) => !prev);
-  }, []);
+  const sidebarOpen = useUIStore((state) => state.sidebarOpen);
+  const toggleSidebar = useUIStore((state) => state.toggleSidebar);
 
   return (
     <div className="h-screen theme-modern-mesh flex flex-col font-sans antialiased text-slate-800 overflow-hidden">
       <div className="flex flex-1 h-full min-h-0 overflow-hidden">
         {/* Desktop Sidebar */}
         <DesktopSidebar
-          isCollapsed={isSidebarCollapsed}
-          onToggle={handleToggleSidebar}
+          isCollapsed={!sidebarOpen}
+          onToggle={toggleSidebar}
         />
 
         {/* Main Content Area */}

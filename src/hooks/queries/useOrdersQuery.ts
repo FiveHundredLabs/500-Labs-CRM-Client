@@ -118,6 +118,7 @@ export function useOrderMutations() {
     onSuccess: (_, variables) => {
       toast.success(`Order #${variables.targetOrder.orderNumber} status changed to ${variables.targetNewStatus}`);
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
       queryClient.invalidateQueries({ queryKey: queryKeys.finance.overview() });
       queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard() });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -142,6 +143,7 @@ export function useOrderMutations() {
     onSuccess: (_, variables) => {
       toast.success(`Remark updated for Order #${variables.remarkOrder.orderNumber}`);
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to update remark.');
@@ -170,6 +172,7 @@ export function useOrderMutations() {
     onSuccess: (count, variables) => {
       toast.success(`Updated status of ${count} selected order(s) to ${variables.bulkTargetStatus}`);
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
       queryClient.invalidateQueries({ queryKey: queryKeys.finance.overview() });
       queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard() });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
