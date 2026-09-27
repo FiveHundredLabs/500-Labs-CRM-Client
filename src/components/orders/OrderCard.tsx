@@ -173,7 +173,10 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
               <div className="flex items-center gap-1.5 min-w-0">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                 <span className="truncate">
-                  ⚠ Duplicate Active Orders ({conflictInfo.activeDuplicateOrders.length + 1} orders)
+                  ⚠ Duplicate Active Orders ({
+                    conflictInfo.allOrdersForPhone?.filter((o: any) => ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status) && !o.isReplacement).length ||
+                    (conflictInfo.activeDuplicateOrders?.length ? conflictInfo.activeDuplicateOrders.length + 1 : 2)
+                  } orders)
                 </span>
               </div>
               <span className="text-[10px] text-amber-900 underline font-bold shrink-0 ml-1">

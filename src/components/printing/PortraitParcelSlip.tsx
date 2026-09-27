@@ -1012,11 +1012,6 @@ export const PortraitParcelSlip: React.FC<
               textTransform: 'uppercase',
 
               color: '#000000',
-              backgroundColor: '#ffffff',
-              padding: '0.6mm 1.5mm',
-              border: '0.3mm solid #000000',
-
-              boxSizing: 'border-box',
               whiteSpace: 'nowrap',
 
               printColorAdjust: 'exact',
