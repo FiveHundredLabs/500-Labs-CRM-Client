@@ -262,7 +262,7 @@ export const MemberContactsPage: React.FC = () => {
   const renderContactCard = (contact: Contact) => (
     <div
       key={contact.id}
-      className={`bg-white border rounded-xl p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between gap-3 ${
+      className={`bg-white border rounded-xl p-3 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 ${
         contact.isFollowUp ? 'border-amber-200/90 bg-amber-50/20' : 'border-slate-200 hover:border-slate-300'
       }`}
     >
@@ -328,7 +328,7 @@ export const MemberContactsPage: React.FC = () => {
       </div>
 
       {/* Right Action Buttons */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center justify-end gap-2 shrink-0 pt-1.5 sm:pt-0 border-t border-slate-100 sm:border-0">
         {contact.status === 'INTERESTED' && (
           <Button
             variant="secondary"
@@ -336,7 +336,7 @@ export const MemberContactsPage: React.FC = () => {
             leftIcon={<Edit3 className="w-3.5 h-3.5 text-emerald-600" />}
             onClick={() => handleEditLead(contact)}
             isLoading={loadingOrderId === contact.id}
-            className="border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold"
+            className="border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold h-7 sm:h-8 text-xs px-2.5"
           >
             Edit Lead
           </Button>
@@ -409,8 +409,8 @@ export const MemberContactsPage: React.FC = () => {
       />
 
       {/* Filter Tabs Header */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
-        <div className="flex flex-wrap gap-2">
+      <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
           {TABS.map((tab) => {
             const count = countMap[tab.key];
             const isActive = activeTab === tab.key;
@@ -441,7 +441,7 @@ export const MemberContactsPage: React.FC = () => {
                 key={tab.key}
                 type="button"
                 onClick={() => handleTabChange(tab.key)}
-                className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex-1 sm:flex-initial min-w-[115px] sm:min-w-0 ${
+                className={`flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer min-w-0 sm:min-w-0 ${
                   isActive
                     ? activeContainerStyle
                     : isFollowUpTab
