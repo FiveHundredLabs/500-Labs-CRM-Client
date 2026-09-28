@@ -494,13 +494,20 @@ export const SupervisorInterestedPage: React.FC = () => {
       {/* Admin Multi-Team Switcher */}
       <AdminTeamSelector
         activeTeamId={adminTeamId}
-        onTeamChange={setAdminTeamId}
+        onTeamChange={(teamId) => {
+          setAdminTeamId(teamId);
+          clearSelection();
+        }}
         title="Interested Leads Dispatch"
       />
 
       <PageHeader
-        title="Interested Leads"
-        description="Review captured interested orders, choose delivery method workflow, and process dispatch."
+        title={user?.role === 'ADMIN' ? 'Interested Customers & Leads' : 'Interested Leads'}
+        description={
+          user?.role === 'ADMIN'
+            ? 'Review captured interested orders across teams, choose delivery method workflow, and process dispatch.'
+            : 'Review captured interested orders, choose delivery method workflow, and process dispatch.'
+        }
         actions={
           <button
             type="button"
