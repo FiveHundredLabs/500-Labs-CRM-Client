@@ -25,6 +25,11 @@ import toast from 'react-hot-toast';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
 import { teamRepository, productRepository } from '../../repositories';
+import { Button } from '../../components/ui/Button';
+
+const EMPTY_ORDERS: Order[] = [];
+const EMPTY_CUSTOMERS: Record<string, any> = {};
+const EMPTY_MEMBERS: Record<string, any> = {};
 
 export const SupervisorOrdersPage: React.FC = () => {
   const { user } = useAuth();
@@ -55,7 +60,24 @@ export const SupervisorOrdersPage: React.FC = () => {
   }, []);
 
   const {
+    selectedDate,
+    setSelectedDate,
+    statusFilter,
+    setStatusFilter,
+    selectedMemberId,
+    setSelectedMemberId,
+    search,
+    setSearch,
+    debouncedSearch,
+    currentPage,
+    setCurrentPage,
+    resetFilters,
+  } = useOrderFilters(EMPTY_ORDERS, EMPTY_CUSTOMERS, EMPTY_MEMBERS, true);
+
+  const {
     orders,
+    pageInfo,
+    statusMetrics,
     customersMap,
     teamMembers,
     membersMap,
@@ -66,24 +88,19 @@ export const SupervisorOrdersPage: React.FC = () => {
     updateOrderRemark,
     bulkUpdateOrderStatus,
     fetchOrderHistory,
-  } = useOrders(user?.role === 'ADMIN' ? adminTeamId : undefined);
+  } = useOrders({
+    overrideTeamId: user?.role === 'ADMIN' ? adminTeamId : undefined,
+    page: currentPage,
+    limit: 50,
+    status: statusFilter,
+    memberId: selectedMemberId,
+    search: debouncedSearch,
+    date: selectedDate,
+    paginate: true,
+  });
 
-  const {
-    selectedDate,
-    setSelectedDate,
-    statusFilter,
-    setStatusFilter,
-    selectedMemberId,
-    setSelectedMemberId,
-    search,
-    setSearch,
-    dateFilteredOrders,
-    filteredOrders,
-    dispatchedCount,
-    deliveredCount,
-    rejectedCount,
-    resetFilters,
-  } = useOrderFilters(orders, customersMap, membersMap);
+  const filteredOrders = orders;
+  const dateFilteredOrders = orders;
 
   const filteredOrderIds = useMemo(() => filteredOrders.map((o) => o.id), [filteredOrders]);
 
@@ -280,7 +297,7 @@ export const SupervisorOrdersPage: React.FC = () => {
     }
   };
 
-  if (loading) return <LoadingState rows={6} />;
+  if (loading && !orders.length && !pageInfo) return <LoadingState rows={6} />;
 
   return (
     <div className="space-y-4 pb-28">
@@ -299,9 +316,9 @@ export const SupervisorOrdersPage: React.FC = () => {
 
       {/* 1. Status Filter Summary Cards */}
       <OrdersStats
-        dispatchedCount={dispatchedCount}
-        deliveredCount={deliveredCount}
-        rejectedCount={rejectedCount}
+        dispatchedCount={statusMetrics.dispatchedCount}
+        deliveredCount={statusMetrics.deliveredCount}
+        rejectedCount={statusMetrics.rejectedCount}
         statusFilter={statusFilter}
         onSelectStatusFilter={setStatusFilter}
       />
@@ -319,7 +336,7 @@ export const SupervisorOrdersPage: React.FC = () => {
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         onResetFilters={resetFilters}
-        filteredCount={filteredOrders.length}
+        filteredCount={pageInfo?.total ?? filteredOrders.length}
         selectedCount={selectedOrderIds.length}
         onSelectUpTo20={handleSelectUpTo20}
         onClearSelection={clearSelection}
@@ -344,6 +361,40 @@ export const SupervisorOrdersPage: React.FC = () => {
         onOpenRejectionModal={(order) => setRejectionModalOrder(order)}
         onOpenReplacementModal={(order) => setReplacementModalOrder(order)}
       />
+
+      {/* Pagination Controls */}
+      {pageInfo && pageInfo.totalPages !== undefined && pageInfo.totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-1 border-t border-slate-200">
+          <div className="text-xs text-slate-500 font-medium">
+            Showing <span className="font-semibold text-slate-800">{(currentPage - 1) * pageInfo.limit + 1}</span> to{' '}
+            <span className="font-semibold text-slate-800">{Math.min(currentPage * pageInfo.limit, pageInfo.total ?? 0)}</span> of{' '}
+            <span className="font-semibold text-slate-800">{pageInfo.total}</span> orders
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={currentPage <= 1 || !pageInfo.hasPreviousPage}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="text-xs font-semibold cursor-pointer"
+            >
+              Previous
+            </Button>
+            <span className="text-xs font-mono font-bold text-slate-700 px-2.5 py-1 bg-slate-100 rounded-md border border-slate-200">
+              Page {currentPage} of {pageInfo.totalPages}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={currentPage >= (pageInfo.totalPages ?? 1) || !pageInfo.hasNextPage}
+              onClick={() => setCurrentPage((p) => Math.min(pageInfo.totalPages ?? 1, p + 1))}
+              className="text-xs font-semibold cursor-pointer"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* 4. Floating Action Panel */}
       <PrintFloatingPanel
