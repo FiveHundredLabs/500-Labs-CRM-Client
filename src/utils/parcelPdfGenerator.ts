@@ -173,6 +173,78 @@ const replaceOklchStyles = (element: HTMLElement) => {
   }
 };
 
+/**
+ * html-to-image uses SVG foreignObject serialisation. The browser's SVG security
+ * model blocks cross-origin <img> src attributes during serialisation, which
+ * causes team logos (hosted on an external CDN/VPS) to disappear in the output.
+ *
+ * WHY canvas drawImage ALWAYS FAILS for these logos:
+ *   The <img> element has no crossOrigin attribute, so the browser fetches the
+ *   logo as a NON-CORS request and caches it without CORS headers. ctx.drawImage()
+ *   on such an image immediately taints the canvas and throws SecurityError.
+ *
+ * WHY a plain fetch() ALSO FAILS:
+ *   fetch({ mode: 'cors' }) finds the cached non-CORS response and serves it
+ *   from cache. That response has no Access-Control-Allow-Origin header, so
+ *   the browser rejects it as a CORS failure before any network request is made.
+ *
+ * THE FIX — always fetch with cache: 'reload':
+ *   cache: 'reload' forces a new network request (Origin header included) and
+ *   stores the fresh CORS-enabled response, bypassing the poisoned cache entry.
+ *   The VPS already supports CORS (html2canvas useCORS: true was working).
+ *
+ * Must be called AFTER waitForImages() so the original image is already displayed.
+ */
+const imageDataUrlCache = new Map<string, string>();
+
+const resolveImagesToDataUrls = async (element: HTMLElement): Promise<void> => {
+  const images = Array.from(element.querySelectorAll<HTMLImageElement>('img'));
+
+  await Promise.all(
+    images.map(async (img) => {
+      // Already a data URL (e.g. QR code) — nothing to do.
+      if (!img.src || img.src.startsWith('data:')) return;
+
+      const originalSrc = img.src;
+
+      // Return cached data URL for repeated logos (same team across many slips).
+      const cached = imageDataUrlCache.get(originalSrc);
+      if (cached) {
+        img.src = cached;
+        return;
+      }
+
+      try {
+        // cache: 'reload' forces a fresh network request with an Origin header,
+        // bypassing the browser's cached non-CORS response for this URL.
+        // credentials: 'omit' matches html2canvas useCORS: true behaviour.
+        const response = await fetch(originalSrc, {
+          mode: 'cors',
+          credentials: 'omit',
+          cache: 'reload',
+        });
+
+        if (!response.ok) return;
+
+        const blob = await response.blob();
+
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('FileReader failed'));
+          reader.readAsDataURL(blob);
+        });
+
+        imageDataUrlCache.set(originalSrc, dataUrl);
+        img.src = dataUrl;
+      } catch {
+        // If the VPS does not send CORS headers, the logo will be absent.
+        // The rest of the slip renders correctly in this case.
+      }
+    }),
+  );
+};
+
 const createCaptureContainer = () => {
   const container = document.createElement('div');
   container.className = 'portrait-parcel-slip-raster-capture-root';
@@ -222,6 +294,9 @@ const captureParcelSlipImage = async (item: ParcelSlipData): Promise<string> => 
 
     replaceOklchStyles(slipNode);
 
+    // Inline all <img> src as base64 data URLs so html-to-image SVG serialisation
+    // can embed cross-origin images (e.g. team logos hosted on the VPS CDN).
+    await resolveImagesToDataUrls(slipNode);
     // html-to-image replaces html2canvas. toJpeg() returns a JPEG data URL directly,
     // avoiding an intermediate canvas object in user code and reducing peak memory.
     // `pixelRatio` is the exact equivalent of html2canvas's `scale` option.
@@ -313,6 +388,9 @@ export const generateParcelSlipPdf = async (
 
         replaceOklchStyles(slipNode);
 
+        // Inline all <img> src as base64 data URLs so html-to-image SVG serialisation
+        // can embed cross-origin images (e.g. team logos hosted on the VPS CDN).
+        await resolveImagesToDataUrls(slipNode);
         // html-to-image: toJpeg() returns a JPEG data URL directly.
         // `pixelRatio` mirrors html2canvas's `scale` — CAPTURE_SCALE = 1.5.
         // `backgroundColor` prevents transparent SVG-serialisation artefacts.
