@@ -34,8 +34,15 @@ export const LargeBatchWarningDialog: React.FC<LargeBatchWarningDialogProps> = (
               Generating {count} bills at once
             </p>
             <p>
-              This may take some time, and your device may become slightly slower while processing.
-              You currently have <strong className="font-black text-amber-950 underline">{count} bills</strong> to arrange and generate. Do you want to continue?
+              This may take some time and your device may become slightly slower while processing.
+              You currently have <strong className="font-black text-amber-950 underline">{count} bills</strong> selected.
+            </p>
+            <p className="mt-1">
+              💡 <strong>Tip:</strong> For the best performance, we recommend processing bills in batches of{' '}
+              <strong className="font-black text-amber-950">50 at a time</strong>. You can deselect some bills and repeat the action in smaller groups.
+            </p>
+            <p className="mt-0.5">
+              You may still click <strong>"Yes, Continue"</strong> to process all {count} bills at once.
             </p>
           </div>
         </div>
