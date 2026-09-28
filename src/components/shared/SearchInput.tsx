@@ -26,6 +26,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
       />
       {value ? (
         <button
+          type="button"
           onClick={() => onChange('')}
           className="absolute right-3 p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
         >
