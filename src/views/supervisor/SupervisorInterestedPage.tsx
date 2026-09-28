@@ -412,10 +412,10 @@ export const SupervisorInterestedPage: React.FC = () => {
     }
   };
 
-  // Triggers with > 50 bills confirmation
+  // Triggers with >= 50 bills confirmation
   const handleDownloadPDF = () => {
-    if (selectedPrintItems.length === 0) return;
-    if (selectedPrintItems.length > 50) {
+    if (selectedIds.length === 0) return;
+    if (selectedIds.length >= 50) {
       setPendingBatchAction('DOWNLOAD');
       setIsLargeBatchWarningOpen(true);
       return;
@@ -424,8 +424,8 @@ export const SupervisorInterestedPage: React.FC = () => {
   };
 
   const handleNativePrint = () => {
-    if (selectedPrintItems.length === 0) return;
-    if (selectedPrintItems.length > 50) {
+    if (selectedIds.length === 0) return;
+    if (selectedIds.length >= 50) {
       setPendingBatchAction('PRINT');
       setIsLargeBatchWarningOpen(true);
       return;
@@ -793,10 +793,10 @@ export const SupervisorInterestedPage: React.FC = () => {
         }}
       />
 
-      {/* High-Volume Bills Warning Modal (> 50 bills) */}
+      {/* High-Volume Bills Warning Modal (>= 50 bills) */}
       <LargeBatchWarningDialog
         isOpen={isLargeBatchWarningOpen}
-        count={selectedPrintItems.length}
+        count={selectedIds.length}
         actionType={pendingBatchAction || 'DOWNLOAD'}
         onClose={() => {
           setIsLargeBatchWarningOpen(false);

@@ -453,8 +453,8 @@ export class ApiCustomerRepository implements ICustomerRepository {
 // Order
 // ─────────────────────────────────────────────────────────────────────────────
 export class ApiOrderRepository implements IOrderRepository {
-  async getAll(): Promise<Order[]> {
-    const res = unwrap(await apiClient.get<{ data: any }>('/orders')) as any;
+  async getAll(params?: Record<string, any>): Promise<Order[]> {
+    const res = unwrap(await apiClient.get<{ data: any }>('/orders', { params })) as any;
     return unwrapArray<Order>(res);
   }
   async getById(id: string): Promise<Order | null> {

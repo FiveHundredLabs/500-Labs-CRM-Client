@@ -607,7 +607,7 @@ export class MockCustomerRepository implements ICustomerRepository {
 }
 
 export class MockOrderRepository implements IOrderRepository {
-  async getAll(): Promise<Order[]> {
+  async getAll(_params?: Record<string, any>): Promise<Order[]> {
     await delay();
     return getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
   }
