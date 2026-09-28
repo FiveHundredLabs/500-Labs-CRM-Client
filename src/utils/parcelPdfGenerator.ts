@@ -222,22 +222,17 @@ const captureParcelSlipImage = async (item: ParcelSlipData): Promise<string> => 
 
     replaceOklchStyles(slipNode);
 
-    const { default: html2canvas } = await import('html2canvas');
-    const canvas = await html2canvas(slipNode, {
+    // html-to-image replaces html2canvas. toJpeg() returns a JPEG data URL directly,
+    // avoiding an intermediate canvas object in user code and reducing peak memory.
+    // `pixelRatio` is the exact equivalent of html2canvas's `scale` option.
+    // `backgroundColor` prevents transparent artefacts from SVG serialisation.
+    const { toJpeg } = await import('html-to-image');
+    const dataUrl = await toJpeg(slipNode, {
+      quality: 0.85,
+      pixelRatio: CAPTURE_SCALE,
       backgroundColor: '#ffffff',
-      scale: CAPTURE_SCALE,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      width: slipNode.offsetWidth,
-      height: slipNode.offsetHeight,
-      windowWidth: slipNode.scrollWidth,
-      windowHeight: slipNode.scrollHeight,
+      skipAutoScale: false,
     });
-
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    canvas.width = 1;
-    canvas.height = 1;
     return dataUrl;
   } finally {
     root.unmount();
@@ -258,9 +253,11 @@ export const generateParcelSlipPdf = async (
 
   onProgress?.(0, totalItems, 0);
 
-  // Parallel pre-computation: fonts, libraries, and QR codes
-  const [{ default: html2canvas }, { default: jsPDF }, qrCodeDataUrls] = await Promise.all([
-    import('html2canvas'),
+  // Parallel pre-computation: fonts, libraries, and QR codes.
+  // html-to-image is eagerly imported alongside jsPDF so the module is ready
+  // before the render loop starts, avoiding a per-slip cold dynamic-import penalty.
+  const [{ toJpeg }, { default: jsPDF }, qrCodeDataUrls] = await Promise.all([
+    import('html-to-image'),
     import('jspdf'),
     Promise.all(
       parcelItems.map((item) => {
@@ -316,22 +313,18 @@ export const generateParcelSlipPdf = async (
 
         replaceOklchStyles(slipNode);
 
-        const canvas = await html2canvas(slipNode, {
+        // html-to-image: toJpeg() returns a JPEG data URL directly.
+        // `pixelRatio` mirrors html2canvas's `scale` — CAPTURE_SCALE = 1.5.
+        // `backgroundColor` prevents transparent SVG-serialisation artefacts.
+        // No explicit canvas teardown is required (no canvas object in user code).
+        const jpegDataUrl = await toJpeg(slipNode, {
+          quality: 0.85,
+          pixelRatio: CAPTURE_SCALE,
           backgroundColor: '#ffffff',
-          scale: CAPTURE_SCALE,
-          useCORS: true,
-          allowTaint: false,
-          logging: false,
-          width: slipNode.offsetWidth,
-          height: slipNode.offsetHeight,
-          windowWidth: slipNode.scrollWidth,
-          windowHeight: slipNode.scrollHeight,
+          skipAutoScale: false,
         });
 
         // Fast high-quality JPEG compression (drastically faster than PNG with identical visual crispness)
-        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        canvas.width = 1;
-        canvas.height = 1;
 
         const column = slotIndex % 2;
         const row = Math.floor(slotIndex / 2);
