@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { Order, Customer, User } from '../models/domain';
 import { format } from 'date-fns';
@@ -18,7 +18,8 @@ const toDateString = (val?: string | null): string => {
 export function useOrderFilters(
   orders: Order[],
   customersMap: Record<string, Customer>,
-  membersMap: Record<string, User>
+  membersMap: Record<string, User>,
+  isServerFiltered = false
 ) {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -33,41 +34,76 @@ export function useOrderFilters(
   const [selectedMemberId, setSelectedMemberId] = useState<string>(() => searchParams.get('member') || 'ALL');
   const [search, setSearch] = useState(() => searchParams.get('q') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('q') || '');
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    const p = Number(searchParams.get('page'));
+    return Number.isInteger(p) && p >= 1 ? p : 1;
+  });
 
-  // 250ms input debounce for search to prevent re-filtering jank
+  // 300ms input debounce for search to prevent per-keystroke API flooding
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
-    }, 250);
+    }, 300);
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Keep URL parameters synchronized with active filter state
+  // Reset to page 1 whenever search, status, member, or date changes
+  const prevFilterState = useRef(`${selectedDate}|${statusFilter}|${selectedMemberId}|${debouncedSearch}`);
+  useEffect(() => {
+    const currentState = `${selectedDate}|${statusFilter}|${selectedMemberId}|${debouncedSearch}`;
+    if (prevFilterState.current !== currentState) {
+      prevFilterState.current = currentState;
+      setCurrentPage(1);
+    }
+  }, [selectedDate, statusFilter, selectedMemberId, debouncedSearch]);
+
+  // Keep URL parameters synchronized with active filter and page state without navigation loops
+  const lastSyncedQuery = useRef<string>('');
   useEffect(() => {
     const params = new URLSearchParams();
     if (selectedDate) params.set('date', selectedDate);
     if (statusFilter !== 'DISPATCHED') params.set('status', statusFilter);
     if (selectedMemberId !== 'ALL') params.set('member', selectedMemberId);
     if (debouncedSearch) params.set('q', debouncedSearch);
+    if (currentPage > 1) params.set('page', String(currentPage));
 
-    // Only update if search params actually changed
-    if (params.toString() !== searchParams.toString()) {
+    const newQuery = params.toString();
+    const currentParams = new URLSearchParams(window.location.search);
+
+    let isDifferent = false;
+    for (const [key, val] of params.entries()) {
+      if (currentParams.get(key) !== val) {
+        isDifferent = true;
+        break;
+      }
+    }
+    if (!isDifferent) {
+      for (const [key] of currentParams.entries()) {
+        if (!params.has(key)) {
+          isDifferent = true;
+          break;
+        }
+      }
+    }
+
+    if (isDifferent && lastSyncedQuery.current !== newQuery) {
+      lastSyncedQuery.current = newQuery;
       setSearchParams(params, { replace: true });
     }
-  }, [selectedDate, statusFilter, selectedMemberId, debouncedSearch, searchParams, setSearchParams]);
+  }, [selectedDate, statusFilter, selectedMemberId, debouncedSearch, currentPage, setSearchParams]);
 
-  // Global Date Filtered Dataset
+  // Date Filtered Dataset (for local fallback / counting)
   const dateFilteredOrders = useMemo(() => {
-    if (!selectedDate || selectedDate === 'ALL') return orders;
+    if (isServerFiltered || !selectedDate || selectedDate === 'ALL') return orders;
     return orders.filter((order) => {
       const createdDate = toDateString(order.createdAt);
       if (createdDate === selectedDate) return true;
       const updatedDate = order.updatedAt ? toDateString(order.updatedAt) : createdDate;
       return updatedDate === selectedDate;
     });
-  }, [orders, selectedDate]);
+  }, [orders, selectedDate, isServerFiltered]);
 
-  // Dynamic counts based on date scope in a single pass
+  // Dynamic counts based on date scope
   const { dispatchedCount, deliveredCount, rejectedCount } = useMemo(() => {
     let dispatched = 0;
     let delivered = 0;
@@ -83,6 +119,11 @@ export function useOrderFilters(
 
   // Combined filtered orders (Date + Status + Team Member + Debounced Search)
   const filteredOrders = useMemo(() => {
+    // If the backend already paginated and filtered the active dataset, return it directly
+    if (isServerFiltered) {
+      return orders;
+    }
+
     const q = debouncedSearch.trim().toLowerCase();
     const cleanQuery = q.replace(/\D/g, '');
     const hasSearch = q.length > 0;
@@ -109,8 +150,8 @@ export function useOrderFilters(
         return true;
       }
 
-      const customer = customersMap[order.customerId];
-      const member = membersMap[order.teamMemberId];
+      const customer = customersMap[order.customerId] || order.customer;
+      const member = membersMap[order.teamMemberId] || (order as any).teamMember;
 
       const matchesPhone = (customerPhone?: string): boolean => {
         if (!customerPhone) return false;
@@ -123,25 +164,26 @@ export function useOrderFilters(
       };
 
       return (
-        order.orderNumber.toLowerCase().includes(q) ||
-        order.itemsDescription.toLowerCase().includes(q) ||
-        order.totalAmount.toString().includes(q) ||
-        (order.remarks && order.remarks.toLowerCase().includes(q)) ||
-        (customer && customer.fullName.toLowerCase().includes(q)) ||
-        (customer && matchesPhone(customer.phone)) ||
-        (customer && customer.address.toLowerCase().includes(q)) ||
-        (customer && customer.email && customer.email.toLowerCase().includes(q)) ||
-        (member && member.fullName.toLowerCase().includes(q)) ||
-        (member && member.username.toLowerCase().includes(q))
+        Boolean(order.orderNumber && order.orderNumber.toLowerCase().includes(q)) ||
+        Boolean(order.itemsDescription && order.itemsDescription.toLowerCase().includes(q)) ||
+        Boolean(order.totalAmount !== undefined && order.totalAmount !== null && order.totalAmount.toString().includes(q)) ||
+        Boolean(order.remarks && order.remarks.toLowerCase().includes(q)) ||
+        Boolean(customer && customer.fullName && customer.fullName.toLowerCase().includes(q)) ||
+        Boolean(customer && matchesPhone(customer.phone)) ||
+        Boolean(customer && customer.address && customer.address.toLowerCase().includes(q)) ||
+        Boolean(customer && customer.email && customer.email.toLowerCase().includes(q)) ||
+        Boolean(member && member.fullName && member.fullName.toLowerCase().includes(q)) ||
+        Boolean(member && member.username && member.username.toLowerCase().includes(q))
       );
     });
-  }, [dateFilteredOrders, customersMap, membersMap, statusFilter, selectedMemberId, debouncedSearch]);
+  }, [dateFilteredOrders, orders, customersMap, membersMap, statusFilter, selectedMemberId, debouncedSearch, isServerFiltered]);
 
   const resetFilters = useCallback(() => {
     setSelectedDate('');
     setSelectedMemberId('ALL');
     setSearch('');
     setStatusFilter('ALL');
+    setCurrentPage(1);
   }, []);
 
   return {
@@ -153,6 +195,9 @@ export function useOrderFilters(
     setSelectedMemberId,
     search,
     setSearch,
+    debouncedSearch,
+    currentPage,
+    setCurrentPage,
     dateFilteredOrders,
     filteredOrders,
     dispatchedCount,
