@@ -12,6 +12,7 @@ import { CircularProgressPdfModal } from '../../components/printing/CircularProg
 import { DuplicateOrderConflictDialog, DuplicateOrderConflictInfo } from '../../components/orders/DuplicateOrderConflictDialog';
 import { EditDeliveryChargeDialog } from '../../components/orders/EditDeliveryChargeDialog';
 import { BulkEditDeliveryChargeDialog, BulkEditOrderLeadItem } from '../../components/orders/BulkEditDeliveryChargeDialog';
+import { LargeBatchWarningDialog } from '../../components/printing/LargeBatchWarningDialog';
 import { CashOnHandRequestDialog } from '../../components/interested/CashOnHandRequestDialog';
 import { useInterestedLeads } from '../../hooks/useInterestedLeads';
 import { useSelection } from '../../hooks/useSelection';
@@ -343,13 +344,13 @@ export const SupervisorInterestedPage: React.FC = () => {
     setIsCancelConfirmOpen(true);
   };
 
-  // TAB 1 (POST): PDF Download Trigger
-  const handleDownloadPDF = async () => {
+  // State for high-volume warning dialog (> 50 bills)
+  const [pendingBatchAction, setPendingBatchAction] = useState<'DOWNLOAD' | 'PRINT' | null>(null);
+  const [isLargeBatchWarningOpen, setIsLargeBatchWarningOpen] = useState(false);
+
+  // TAB 1 (POST): PDF Download Execution
+  const executeDownloadPDF = async () => {
     if (selectedPrintItems.length === 0) return;
-    if (selectedIds.length > 20 || selectedPrintItems.length > 20) {
-      toast.error('You can select a maximum of 20 orders for this action.');
-      return;
-    }
     setPdfProgress({
       isOpen: true,
       title: 'Downloading Slips PDF...',
@@ -378,13 +379,9 @@ export const SupervisorInterestedPage: React.FC = () => {
     }
   };
 
-  // TAB 1 (POST): Native Print Trigger
-  const handleNativePrint = async () => {
+  // TAB 1 (POST): Native Print Execution
+  const executeNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
-    if (selectedIds.length > 20 || selectedPrintItems.length > 20) {
-      toast.error('You can select a maximum of 20 orders for this action.');
-      return;
-    }
     setPdfProgress({
       isOpen: true,
       title: 'Preparing Slips for Printing...',
@@ -413,6 +410,27 @@ export const SupervisorInterestedPage: React.FC = () => {
       setPdfProgress((prev) => ({ ...prev, isOpen: false }));
       setIsDispatching(false);
     }
+  };
+
+  // Triggers with > 50 bills confirmation
+  const handleDownloadPDF = () => {
+    if (selectedPrintItems.length === 0) return;
+    if (selectedPrintItems.length > 50) {
+      setPendingBatchAction('DOWNLOAD');
+      setIsLargeBatchWarningOpen(true);
+      return;
+    }
+    executeDownloadPDF();
+  };
+
+  const handleNativePrint = () => {
+    if (selectedPrintItems.length === 0) return;
+    if (selectedPrintItems.length > 50) {
+      setPendingBatchAction('PRINT');
+      setIsLargeBatchWarningOpen(true);
+      return;
+    }
+    executeNativePrint();
   };
 
   // TAB 1 (POST): Download Post Lead Excel Sheet
@@ -772,6 +790,27 @@ export const SupervisorInterestedPage: React.FC = () => {
         }}
         onSuccess={async () => {
           await loadData(true);
+        }}
+      />
+
+      {/* High-Volume Bills Warning Modal (> 50 bills) */}
+      <LargeBatchWarningDialog
+        isOpen={isLargeBatchWarningOpen}
+        count={selectedPrintItems.length}
+        actionType={pendingBatchAction || 'DOWNLOAD'}
+        onClose={() => {
+          setIsLargeBatchWarningOpen(false);
+          setPendingBatchAction(null);
+        }}
+        onConfirm={() => {
+          const action = pendingBatchAction;
+          setIsLargeBatchWarningOpen(false);
+          setPendingBatchAction(null);
+          if (action === 'DOWNLOAD') {
+            executeDownloadPDF();
+          } else if (action === 'PRINT') {
+            executeNativePrint();
+          }
         }}
       />
 
