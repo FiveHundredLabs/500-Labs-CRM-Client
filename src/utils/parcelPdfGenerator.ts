@@ -173,6 +173,78 @@ const replaceOklchStyles = (element: HTMLElement) => {
   }
 };
 
+/**
+ * html-to-image uses SVG foreignObject serialisation. The browser's SVG security
+ * model blocks cross-origin <img> src attributes during serialisation, which
+ * causes team logos (hosted on an external CDN/VPS) to disappear in the output.
+ *
+ * WHY canvas drawImage ALWAYS FAILS for these logos:
+ *   The <img> element has no crossOrigin attribute, so the browser fetches the
+ *   logo as a NON-CORS request and caches it without CORS headers. ctx.drawImage()
+ *   on such an image immediately taints the canvas and throws SecurityError.
+ *
+ * WHY a plain fetch() ALSO FAILS:
+ *   fetch({ mode: 'cors' }) finds the cached non-CORS response and serves it
+ *   from cache. That response has no Access-Control-Allow-Origin header, so
+ *   the browser rejects it as a CORS failure before any network request is made.
+ *
+ * THE FIX — always fetch with cache: 'reload':
+ *   cache: 'reload' forces a new network request (Origin header included) and
+ *   stores the fresh CORS-enabled response, bypassing the poisoned cache entry.
+ *   The VPS already supports CORS (html2canvas useCORS: true was working).
+ *
+ * Must be called AFTER waitForImages() so the original image is already displayed.
+ */
+const imageDataUrlCache = new Map<string, string>();
+
+const resolveImagesToDataUrls = async (element: HTMLElement): Promise<void> => {
+  const images = Array.from(element.querySelectorAll<HTMLImageElement>('img'));
+
+  await Promise.all(
+    images.map(async (img) => {
+      // Already a data URL (e.g. QR code) — nothing to do.
+      if (!img.src || img.src.startsWith('data:')) return;
+
+      const originalSrc = img.src;
+
+      // Return cached data URL for repeated logos (same team across many slips).
+      const cached = imageDataUrlCache.get(originalSrc);
+      if (cached) {
+        img.src = cached;
+        return;
+      }
+
+      try {
+        // cache: 'reload' forces a fresh network request with an Origin header,
+        // bypassing the browser's cached non-CORS response for this URL.
+        // credentials: 'omit' matches html2canvas useCORS: true behaviour.
+        const response = await fetch(originalSrc, {
+          mode: 'cors',
+          credentials: 'omit',
+          cache: 'reload',
+        });
+
+        if (!response.ok) return;
+
+        const blob = await response.blob();
+
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('FileReader failed'));
+          reader.readAsDataURL(blob);
+        });
+
+        imageDataUrlCache.set(originalSrc, dataUrl);
+        img.src = dataUrl;
+      } catch {
+        // If the VPS does not send CORS headers, the logo will be absent.
+        // The rest of the slip renders correctly in this case.
+      }
+    }),
+  );
+};
+
 const createCaptureContainer = () => {
   const container = document.createElement('div');
   container.className = 'portrait-parcel-slip-raster-capture-root';
@@ -222,22 +294,20 @@ const captureParcelSlipImage = async (item: ParcelSlipData): Promise<string> => 
 
     replaceOklchStyles(slipNode);
 
-    const { default: html2canvas } = await import('html2canvas');
-    const canvas = await html2canvas(slipNode, {
+    // Inline all <img> src as base64 data URLs so html-to-image SVG serialisation
+    // can embed cross-origin images (e.g. team logos hosted on the VPS CDN).
+    await resolveImagesToDataUrls(slipNode);
+    // html-to-image replaces html2canvas. toJpeg() returns a JPEG data URL directly,
+    // avoiding an intermediate canvas object in user code and reducing peak memory.
+    // `pixelRatio` is the exact equivalent of html2canvas's `scale` option.
+    // `backgroundColor` prevents transparent artefacts from SVG serialisation.
+    const { toJpeg } = await import('html-to-image');
+    const dataUrl = await toJpeg(slipNode, {
+      quality: 0.85,
+      pixelRatio: CAPTURE_SCALE,
       backgroundColor: '#ffffff',
-      scale: CAPTURE_SCALE,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      width: slipNode.offsetWidth,
-      height: slipNode.offsetHeight,
-      windowWidth: slipNode.scrollWidth,
-      windowHeight: slipNode.scrollHeight,
+      skipAutoScale: false,
     });
-
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    canvas.width = 1;
-    canvas.height = 1;
     return dataUrl;
   } finally {
     root.unmount();
@@ -258,9 +328,11 @@ export const generateParcelSlipPdf = async (
 
   onProgress?.(0, totalItems, 0);
 
-  // Parallel pre-computation: fonts, libraries, and QR codes
-  const [{ default: html2canvas }, { default: jsPDF }, qrCodeDataUrls] = await Promise.all([
-    import('html2canvas'),
+  // Parallel pre-computation: fonts, libraries, and QR codes.
+  // html-to-image is eagerly imported alongside jsPDF so the module is ready
+  // before the render loop starts, avoiding a per-slip cold dynamic-import penalty.
+  const [{ toJpeg }, { default: jsPDF }, qrCodeDataUrls] = await Promise.all([
+    import('html-to-image'),
     import('jspdf'),
     Promise.all(
       parcelItems.map((item) => {
@@ -316,22 +388,21 @@ export const generateParcelSlipPdf = async (
 
         replaceOklchStyles(slipNode);
 
-        const canvas = await html2canvas(slipNode, {
+        // Inline all <img> src as base64 data URLs so html-to-image SVG serialisation
+        // can embed cross-origin images (e.g. team logos hosted on the VPS CDN).
+        await resolveImagesToDataUrls(slipNode);
+        // html-to-image: toJpeg() returns a JPEG data URL directly.
+        // `pixelRatio` mirrors html2canvas's `scale` — CAPTURE_SCALE = 1.5.
+        // `backgroundColor` prevents transparent SVG-serialisation artefacts.
+        // No explicit canvas teardown is required (no canvas object in user code).
+        const jpegDataUrl = await toJpeg(slipNode, {
+          quality: 0.85,
+          pixelRatio: CAPTURE_SCALE,
           backgroundColor: '#ffffff',
-          scale: CAPTURE_SCALE,
-          useCORS: true,
-          allowTaint: false,
-          logging: false,
-          width: slipNode.offsetWidth,
-          height: slipNode.offsetHeight,
-          windowWidth: slipNode.scrollWidth,
-          windowHeight: slipNode.scrollHeight,
+          skipAutoScale: false,
         });
 
         // Fast high-quality JPEG compression (drastically faster than PNG with identical visual crispness)
-        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        canvas.width = 1;
-        canvas.height = 1;
 
         const column = slotIndex % 2;
         const row = Math.floor(slotIndex / 2);

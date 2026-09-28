@@ -18,7 +18,7 @@ import { InboundCallbackDialog } from '../../components/calling/InboundCallbackD
 import { Clock, PhoneCall, RotateCcw, Star, MapPin, PlusCircle, Hash, PhoneIncoming, Edit3, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { CACHE_TIERS, queryKeys } from '../../lib/queryClient';
-import { useContactCountsQuery, usePaginatedContactsQuery } from '../../hooks/queries/useContactsQuery';
+import { useContactsQuery } from '../../hooks/queries/useContactsQuery';
 import toast from 'react-hot-toast';
 
 type TabCategory =
@@ -66,80 +66,98 @@ export const MemberContactsPage: React.FC = () => {
     const tabParam = searchParams.get('tab') as TabCategory | null;
     return tabParam && TABS.some((t) => t.key === tabParam) ? tabParam : 'NEW';
   });
-  const [currentPage, setCurrentPage] = useState<number>(() => {
-    const pageParam = searchParams.get('page');
-    return pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
-  });
   const [search, setSearch] = useState(() => searchParams.get('q') || '');
-  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('q') || '');
 
-  // Debounce search input by 250ms
+  // Debounced URL search param synchronization (doesn't trigger network calls or reload page)
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      setCurrentPage(1);
-    }, 250);
+      const params = new URLSearchParams(searchParams);
+      if (activeTab !== 'NEW') {
+        params.set('tab', activeTab);
+      } else {
+        params.delete('tab');
+      }
+      if (search.trim()) {
+        params.set('q', search.trim());
+      } else {
+        params.delete('q');
+      }
+      if (params.toString() !== searchParams.toString()) {
+        setSearchParams(params, { replace: true });
+      }
+    }, 300);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [activeTab, search, searchParams, setSearchParams]);
 
-  // Sync URL search params
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (activeTab !== 'NEW') params.set('tab', activeTab);
-    if (debouncedSearch) params.set('q', debouncedSearch);
-    if (currentPage > 1) params.set('page', currentPage.toString());
-    if (params.toString() !== searchParams.toString()) {
-      setSearchParams(params, { replace: true });
-    }
-  }, [activeTab, debouncedSearch, currentPage, searchParams, setSearchParams]);
-
-  // 1. TanStack Query for tab status counters
-  const countsQuery = useContactCountsQuery(
-    { memberId: user?.id, search: debouncedSearch || undefined },
+  // Load all contacts assigned to this team member once
+  const contactsQuery = useContactsQuery(
+    { memberId: user?.id },
     Boolean(user?.id)
   );
 
-  // 2. TanStack Query for paginated contacts in active tab
-  const paginatedQuery = usePaginatedContactsQuery(
-    {
-      memberId: user?.id,
-      tab: activeTab,
-      search: debouncedSearch || undefined,
-      page: currentPage,
-      limit: 50,
-    },
-    Boolean(user?.id)
-  );
+  const contacts = contactsQuery.data ?? [];
+  const loading = contactsQuery.isLoading && contacts.length === 0;
+  const isRefreshing = contactsQuery.isFetching;
 
-  const contacts = paginatedQuery.data?.items ?? [];
-  const pageInfo = paginatedQuery.data?.pageInfo;
-  const loading = countsQuery.isLoading || paginatedQuery.isLoading;
-  const isRefreshing = countsQuery.isFetching || paginatedQuery.isFetching;
-
+  // Compute status counts per category across all assigned contacts
   const countMap: Record<TabCategory, number> = useMemo(() => {
-    const raw = countsQuery.data || {};
     return {
-      ALL: raw.ALL ?? 0,
-      NEW: raw.NEW ?? 0,
-      FOLLOW_UP: raw.FOLLOW_UP ?? 0,
-      ANSWERED: raw.ANSWERED ?? 0,
-      NOT_ANSWERED: raw.NOT_ANSWERED ?? 0,
-      PHONE_OFF: raw.PHONE_OFF ?? 0,
-      INTERESTED: raw.INTERESTED ?? 0,
-      NOT_INTERESTED: raw.NOT_INTERESTED ?? 0,
-      DISPATCHED: raw.DISPATCHED ?? 0,
-      REJECTED: raw.REJECTED ?? 0,
-      DELIVERED: raw.DELIVERED ?? 0,
-      CANCELLED: raw.CANCELLED ?? 0,
-      SAVED_CONTACTS: raw.SAVED_CONTACTS ?? 0,
+      ALL: contacts.length,
+      NEW: contacts.filter((c) => c.status === 'NEW').length,
+      FOLLOW_UP: contacts.filter((c) => c.status !== 'NEW' && c.isFollowUp).length,
+      ANSWERED: contacts.filter((c) => c.status === 'ANSWERED').length,
+      NOT_ANSWERED: contacts.filter((c) => c.status === 'NOT_ANSWERED').length,
+      PHONE_OFF: contacts.filter((c) => c.status === 'PHONE_OFF').length,
+      INTERESTED: contacts.filter((c) => c.status === 'INTERESTED').length,
+      NOT_INTERESTED: contacts.filter((c) => c.status === 'NOT_INTERESTED').length,
+      DISPATCHED: contacts.filter((c) => c.status === 'DISPATCHED').length,
+      REJECTED: contacts.filter((c) => c.status === 'REJECTED').length,
+      DELIVERED: contacts.filter((c) => c.status === 'DELIVERED').length,
+      CANCELLED: contacts.filter((c) => c.status === 'CANCELLED').length,
+      SAVED_CONTACTS: contacts.filter((c) => c.isSelfAdded || Boolean(c.addedBy)).length || contacts.length,
     };
-  }, [countsQuery.data]);
+  }, [contacts]);
 
-  const filteredContacts = contacts;
+  // Filter contacts by active tab & search
+  // When a search term is entered, show matching contacts across ALL stages, not just the active tab
+  const filteredContacts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return contacts.filter((c) => {
+      const matchesSearch =
+        !q ||
+        c.phone.toLowerCase().includes(q) ||
+        (c.code && c.code.toLowerCase().includes(q)) ||
+        (c.city && c.city.toLowerCase().includes(q)) ||
+        (c.secondaryMobile && c.secondaryMobile.toLowerCase().includes(q)) ||
+        (c.importBatchId && c.importBatchId.toLowerCase().includes(q)) ||
+        (c.allocationSource && c.allocationSource.toLowerCase().includes(q));
+
+      if (!matchesSearch) return false;
+
+      // When search term is entered, show matching contacts across all stages
+      if (q) {
+        return true;
+      }
+
+      if (activeTab === 'ALL') {
+        return true;
+      }
+      if (activeTab === 'FOLLOW_UP') {
+        return c.status !== 'NEW' && Boolean(c.isFollowUp);
+      }
+      if (activeTab === 'SAVED_CONTACTS') {
+        const hasSelfAdded = contacts.some((x) => x.isSelfAdded || Boolean(x.addedBy));
+        return hasSelfAdded ? Boolean(c.isSelfAdded || c.addedBy) : true;
+      }
+      return c.status === activeTab;
+    });
+  }, [contacts, search, activeTab]);
 
   const handleTabChange = (newTab: TabCategory) => {
     setActiveTab(newTab);
-    setCurrentPage(1);
+    if (search) {
+      setSearch('');
+    }
   };
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -154,7 +172,7 @@ export const MemberContactsPage: React.FC = () => {
 
   const handleRefresh = async () => {
     try {
-      await Promise.all([countsQuery.refetch(), paginatedQuery.refetch()]);
+      await contactsQuery.refetch();
       toast.success('Contacts refreshed!');
     } catch {
       toast.error('Failed to refresh contacts.');
@@ -244,7 +262,7 @@ export const MemberContactsPage: React.FC = () => {
   const renderContactCard = (contact: Contact) => (
     <div
       key={contact.id}
-      className={`bg-white border rounded-xl p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between gap-3 ${
+      className={`bg-white border rounded-xl p-3 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 ${
         contact.isFollowUp ? 'border-amber-200/90 bg-amber-50/20' : 'border-slate-200 hover:border-slate-300'
       }`}
     >
@@ -310,7 +328,7 @@ export const MemberContactsPage: React.FC = () => {
       </div>
 
       {/* Right Action Buttons */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center justify-end gap-2 shrink-0 pt-1.5 sm:pt-0 border-t border-slate-100 sm:border-0">
         {contact.status === 'INTERESTED' && (
           <Button
             variant="secondary"
@@ -318,7 +336,7 @@ export const MemberContactsPage: React.FC = () => {
             leftIcon={<Edit3 className="w-3.5 h-3.5 text-emerald-600" />}
             onClick={() => handleEditLead(contact)}
             isLoading={loadingOrderId === contact.id}
-            className="border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold"
+            className="border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold h-7 sm:h-8 text-xs px-2.5"
           >
             Edit Lead
           </Button>
@@ -390,29 +408,58 @@ export const MemberContactsPage: React.FC = () => {
         }
       />
 
-      {/* Modern Filter Category Tabs */}
-      <div className="border-b border-slate-200">
-        <div className="flex items-center gap-1 overflow-x-auto pb-px scrollbar-none">
+      {/* Filter Tabs Header */}
+      <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
           {TABS.map((tab) => {
-            const isActive = activeTab === tab.key;
             const count = countMap[tab.key];
+            const isActive = activeTab === tab.key;
+            const isFollowUpTab = tab.key === 'FOLLOW_UP';
+            const isDelivered = tab.key === 'DELIVERED';
+            const isRejected = tab.key === 'REJECTED';
+            const isNew = tab.key === 'NEW';
+
+            let activeBadgeStyle = 'bg-[#01A8F3] text-white';
+            let activeContainerStyle = 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs';
+
+            if (isFollowUpTab) {
+              activeBadgeStyle = 'bg-amber-500 text-white font-bold';
+              activeContainerStyle = 'bg-amber-100/90 text-amber-900 font-bold border border-amber-300 shadow-2xs';
+            } else if (isDelivered) {
+              activeBadgeStyle = 'bg-[#80BD2B] text-white font-bold';
+              activeContainerStyle = 'bg-[#F2F9E9] text-[#547E1B] font-bold border border-[#D4ECC6] shadow-2xs';
+            } else if (isRejected) {
+              activeBadgeStyle = 'bg-rose-600 text-white font-bold';
+              activeContainerStyle = 'bg-rose-50 text-rose-800 font-bold border border-rose-300 shadow-2xs';
+            } else if (isNew) {
+              activeBadgeStyle = 'bg-[#01A8F3] text-white font-bold';
+              activeContainerStyle = 'bg-[#E8F7FE] text-[#0188C7] font-bold border border-[#B9E7FC] shadow-2xs';
+            }
+
             return (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => handleTabChange(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold whitespace-nowrap border-b-2 transition-all cursor-pointer ${
+                className={`flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer min-w-0 sm:min-w-0 ${
                   isActive
-                    ? 'border-[#01A8F3] text-[#0188C7] bg-[#E8F7FE]/30'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                    ? activeContainerStyle
+                    : isFollowUpTab
+                    ? 'bg-amber-50/70 hover:bg-amber-100/80 text-amber-800 border border-amber-200/80 font-medium'
+                    : isRejected
+                    ? 'bg-rose-50/50 hover:bg-rose-100/70 text-rose-700 border border-rose-200/60 font-medium'
+                    : isDelivered
+                    ? 'bg-emerald-50/50 hover:bg-emerald-100/70 text-emerald-700 border border-emerald-200/60 font-medium'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/60'
                 }`}
               >
-                <span>{tab.label}</span>
+                <span className="whitespace-nowrap flex items-center gap-1.5">
+                  {isFollowUpTab && <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />}
+                  <span>{tab.label}</span>
+                </span>
                 <span
-                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold transition-colors ${
-                    isActive
-                      ? 'bg-[#E8F7FE] text-[#0188C7]'
-                      : 'bg-slate-100 text-slate-500'
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0 ${
+                    isActive ? activeBadgeStyle : isFollowUpTab ? 'bg-amber-200 text-amber-900' : isRejected ? 'bg-rose-100 text-rose-800' : isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
                   }`}
                 >
                   {count}
@@ -444,23 +491,48 @@ export const MemberContactsPage: React.FC = () => {
         </button>
       </div>
 
+      {/* Search Result Summary Banner */}
+      {search.trim() && (
+        <div className="flex items-center justify-between text-xs px-3 py-2 text-slate-600 bg-sky-50/60 border border-sky-100 rounded-lg">
+          <span>
+            Showing all numbers matching <strong className="text-slate-900 font-bold">&quot;{search}&quot;</strong> ({filteredContacts.length} found across all stages)
+          </span>
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="text-[#0188C7] hover:underline font-semibold cursor-pointer"
+          >
+            Clear Search
+          </button>
+        </div>
+      )}
+
       {/* Contact Cards List */}
       {filteredContacts.length === 0 ? (
         <EmptyState
-          title={`No ${
+          title={search ? 'No matching contacts found' : `No ${
             activeTab === 'SAVED_CONTACTS'
               ? 'Saved'
               : activeTab.toLowerCase().replace('_', ' ')
           } contacts found`}
           description={
             search
-              ? `No contacts in this category match "${search}".`
+              ? `No contacts matching "${search}" were found across all stages.`
               : activeTab === 'FOLLOW_UP'
               ? 'No contacts have been starred for follow-up yet.'
               : `You currently have 0 contacts in the "${TABS.find((t) => t.key === activeTab)?.label}" category.`
           }
           action={
-            activeTab !== 'NEW' ? (
+            search ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
+                onClick={() => setSearch('')}
+              >
+                Clear Search
+              </Button>
+            ) : activeTab !== 'NEW' ? (
               <Button
                 variant="secondary"
                 size="sm"
@@ -497,40 +569,6 @@ export const MemberContactsPage: React.FC = () => {
       ) : (
         <div className="space-y-2.5">
           {filteredContacts.map(renderContactCard)}
-        </div>
-      )}
-
-      {/* Pagination Controls */}
-      {pageInfo && pageInfo.totalPages !== undefined && pageInfo.totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-1 border-t border-slate-200">
-          <div className="text-xs text-slate-500 font-medium">
-            Showing <span className="font-semibold text-slate-800">{(currentPage - 1) * pageInfo.limit + 1}</span> to{' '}
-            <span className="font-semibold text-slate-800">{Math.min(currentPage * pageInfo.limit, pageInfo.total ?? 0)}</span> of{' '}
-            <span className="font-semibold text-slate-800">{pageInfo.total}</span> contacts
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={currentPage <= 1 || !pageInfo.hasPreviousPage}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              Previous
-            </Button>
-            <span className="text-xs font-mono font-bold text-slate-700 px-2.5 py-1 bg-slate-100 rounded-md border border-slate-200">
-              Page {currentPage} of {pageInfo.totalPages}
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={currentPage >= (pageInfo.totalPages ?? 1) || !pageInfo.hasNextPage}
-              onClick={() => setCurrentPage((p) => Math.min(pageInfo.totalPages ?? 1, p + 1))}
-              className="text-xs font-semibold cursor-pointer"
-            >
-              Next
-            </Button>
-          </div>
         </div>
       )}
 
