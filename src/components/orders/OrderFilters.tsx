@@ -4,7 +4,7 @@ import { Card, CardContent } from '../ui/Card';
 import { Select } from '../ui/Select';
 import { SearchInput } from '../shared/SearchInput';
 import { Button } from '../ui/Button';
-import { CalendarDays, X, RotateCcw, CheckSquare } from 'lucide-react';
+import { CalendarDays, X, RotateCcw, CheckSquare, Square } from 'lucide-react';
 
 export interface OrderFiltersProps {
   selectedDate: string;
@@ -155,17 +155,21 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
                 isUpTo20Selected
                   ? 'bg-[#01A8F3] text-white ring-2 ring-[#01A8F3]/30 shadow-sky-500/20'
-                  : 'bg-sky-50 hover:bg-sky-100 text-[#0077b6] border border-sky-200 hover:border-sky-300'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 hover:border-slate-400'
               }`}
               title="Select 20 orders (Required for Bulk Status changes)"
             >
-              <CheckSquare className="w-3.5 h-3.5 shrink-0" />
+              {isUpTo20Selected ? (
+                <CheckSquare className="w-3.5 h-3.5 text-white shrink-0" />
+              ) : (
+                <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              )}
               <span>{isUpTo20Selected ? 'Deselect (20)' : 'Select 20'}</span>
               <span
                 className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
                   isUpTo20Selected
                     ? 'bg-white/20 text-white'
-                    : 'bg-sky-200/70 text-[#0077b6]'
+                    : 'bg-slate-100 text-slate-600'
                 }`}
               >
                 Max 20
@@ -181,17 +185,21 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
                   isAllSelected
                     ? 'bg-emerald-600 text-white ring-2 ring-emerald-500/30'
-                    : 'bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 hover:border-slate-400'
                 }`}
                 title="Select all orders for Excel, PDF, and Print (No limit)"
               >
-                <CheckSquare className="w-3.5 h-3.5 shrink-0" />
+                {isAllSelected ? (
+                  <CheckSquare className="w-3.5 h-3.5 text-white shrink-0" />
+                ) : (
+                  <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                )}
                 <span>{isAllSelected ? `Deselect All (${filteredCount})` : `Select All (${filteredCount})`}</span>
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${
                     isAllSelected
                       ? 'bg-white/20 text-white'
-                      : 'bg-emerald-100 text-emerald-800'
+                      : 'bg-slate-100 text-slate-600'
                   }`}
                 >
                   Excel, PDF, Print

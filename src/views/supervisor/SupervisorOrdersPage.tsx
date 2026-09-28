@@ -24,7 +24,7 @@ import { CircularProgressPdfModal } from '../../components/printing/CircularProg
 import toast from 'react-hot-toast';
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
-import { teamRepository, productRepository } from '../../repositories';
+import { teamRepository, productRepository, orderRepository } from '../../repositories';
 import { Button } from '../../components/ui/Button';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Layers, FileSpreadsheet } from 'lucide-react';
 import { LargeBatchWarningDialog } from '../../components/printing/LargeBatchWarningDialog';
@@ -130,24 +130,32 @@ export const SupervisorOrdersPage: React.FC = () => {
     clearSelection,
   } = useSelection(filteredOrderIds);
 
+  const [isAllPagesSelected, setIsAllPagesSelected] = useState(false);
+
+  const effectiveSelectedCount = isAllPagesSelected
+    ? (pageInfo?.total ?? filteredOrderIds.length)
+    : selectedOrderIds.length;
+
   const isUpTo20Selected = useMemo(() => {
-    if (filteredOrderIds.length === 0 || selectedOrderIds.length === 0) return false;
+    if (isAllPagesSelected || filteredOrderIds.length === 0 || selectedOrderIds.length === 0) return false;
     const targetSlice = filteredOrderIds.slice(0, 20);
     return (
       selectedOrderIds.length === targetSlice.length &&
       targetSlice.every((id) => selectedOrderIds.includes(id))
     );
-  }, [filteredOrderIds, selectedOrderIds]);
+  }, [isAllPagesSelected, filteredOrderIds, selectedOrderIds]);
 
   const isAllSelected = useMemo(() => {
+    if (isAllPagesSelected) return true;
     if (filteredOrderIds.length === 0 || selectedOrderIds.length === 0) return false;
     return (
       selectedOrderIds.length === filteredOrderIds.length &&
       filteredOrderIds.every((id) => selectedOrderIds.includes(id))
     );
-  }, [filteredOrderIds, selectedOrderIds]);
+  }, [isAllPagesSelected, filteredOrderIds, selectedOrderIds]);
 
   const handleSelectUpTo20 = () => {
+    setIsAllPagesSelected(false);
     if (isUpTo20Selected) {
       clearSelection();
       return;
@@ -157,19 +165,27 @@ export const SupervisorOrdersPage: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    if (isAllSelected) {
+    if (isAllPagesSelected || isAllSelected) {
       clearSelection();
+      setIsAllPagesSelected(false);
       return;
     }
+    setIsAllPagesSelected(true);
     setSelectedOrderIds(filteredOrderIds);
   };
 
   const handleToggleSelectCard = (id: string) => {
+    setIsAllPagesSelected(false);
     if (selectedOrderIds.includes(id)) {
       setSelectedOrderIds((prev) => prev.filter((item) => item !== id));
     } else {
       setSelectedOrderIds((prev) => [...prev, id]);
     }
+  };
+
+  const handleClearSelection = () => {
+    clearSelection();
+    setIsAllPagesSelected(false);
   };
 
   // Workflow Dialog States
@@ -227,19 +243,38 @@ export const SupervisorOrdersPage: React.FC = () => {
     .filter((o) => selectedOrderIds.includes(o.id))
     .map(buildPrintItem);
 
-  // High volume batch warning state (> 50 bills)
+  // High volume batch warning state (>= 50 bills)
   const [pendingBatchAction, setPendingBatchAction] = useState<'DOWNLOAD' | 'PRINT' | null>(null);
   const [isLargeBatchWarningOpen, setIsLargeBatchWarningOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
+  // Helper to get orders whether from current page or all matching across pages
+  const getOrdersForBatchAction = async (): Promise<Order[]> => {
+    if (isAllPagesSelected) {
+      return orderRepository.getAll({
+        teamId: user?.role === 'ADMIN' ? adminTeamId : (user?.teamId || undefined),
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        memberId: selectedMemberId !== 'ALL' ? selectedMemberId : undefined,
+        search: debouncedSearch.trim() || undefined,
+        date: selectedDate && selectedDate !== 'ALL' ? selectedDate : undefined,
+      });
+    }
+    return orders.filter((o) => selectedOrderIds.includes(o.id));
+  };
+
+  const getPrintItemsToProcess = async (): Promise<LeadPrintItem[]> => {
+    const targetOrders = await getOrdersForBatchAction();
+    return targetOrders.map(buildPrintItem);
+  };
+
   // Excel export: Unlimited and NO warning modal
   const handleExportExcel = async () => {
-    if (selectedOrderIds.length === 0) return;
+    if (effectiveSelectedCount === 0) return;
     setIsExportingExcel(true);
     try {
       const XLSX = await import('xlsx');
-      const selectedOrders = orders.filter((o) => selectedOrderIds.includes(o.id));
-      const rows = selectedOrders.map((o) => {
+      const targetOrders = await getOrdersForBatchAction();
+      const rows = targetOrders.map((o) => {
         const cust = customersMap[o.customerId];
         const member = membersMap[o.teamMemberId];
         return {
@@ -269,18 +304,28 @@ export const SupervisorOrdersPage: React.FC = () => {
   };
 
   const executeDownloadPDF = async () => {
-    if (selectedPrintItems.length === 0) return;
+    if (effectiveSelectedCount === 0) return;
     setPdfProgress({
       isOpen: true,
       title: 'Downloading Slips PDF...',
-      subtitle: `Preparing ${selectedPrintItems.length} slip(s)...`,
+      subtitle: `Preparing ${effectiveSelectedCount} slip(s)...`,
       current: 0,
-      total: selectedPrintItems.length,
+      total: effectiveSelectedCount,
       percentage: 0,
       actionType: 'DOWNLOAD',
     });
     try {
-      await downloadParcelSlipPDF(selectedPrintItems, (curr, tot, pct) => {
+      const items = await getPrintItemsToProcess();
+      if (items.length === 0) {
+        toast.error('No orders found to generate slips.');
+        return;
+      }
+      setPdfProgress((prev) => ({
+        ...prev,
+        total: items.length,
+        subtitle: `Rendering high-resolution slip 1 of ${items.length}...`,
+      }));
+      await downloadParcelSlipPDF(items, (curr, tot, pct) => {
         setPdfProgress((prev) => ({
           ...prev,
           current: curr,
@@ -289,7 +334,7 @@ export const SupervisorOrdersPage: React.FC = () => {
           subtitle: `Rendering high-resolution slip ${curr} of ${tot}...`,
         }));
       });
-      toast.success('Slips PDF downloaded!');
+      toast.success(`Successfully downloaded ${items.length} slips PDF!`);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate slips PDF.');
     } finally {
@@ -298,18 +343,28 @@ export const SupervisorOrdersPage: React.FC = () => {
   };
 
   const executeNativePrint = async () => {
-    if (selectedPrintItems.length === 0) return;
+    if (effectiveSelectedCount === 0) return;
     setPdfProgress({
       isOpen: true,
       title: 'Preparing Slips for Printing...',
-      subtitle: `Assembling ${selectedPrintItems.length} slip(s)...`,
+      subtitle: `Assembling ${effectiveSelectedCount} slip(s)...`,
       current: 0,
-      total: selectedPrintItems.length,
+      total: effectiveSelectedCount,
       percentage: 0,
       actionType: 'PRINT',
     });
     try {
-      await printParcelSlipPDF(selectedPrintItems, (curr, tot, pct) => {
+      const items = await getPrintItemsToProcess();
+      if (items.length === 0) {
+        toast.error('No orders found to generate slips.');
+        return;
+      }
+      setPdfProgress((prev) => ({
+        ...prev,
+        total: items.length,
+        subtitle: `Rendering high-resolution slip 1 of ${items.length}...`,
+      }));
+      await printParcelSlipPDF(items, (curr, tot, pct) => {
         setPdfProgress((prev) => ({
           ...prev,
           current: curr,
@@ -327,8 +382,8 @@ export const SupervisorOrdersPage: React.FC = () => {
   };
 
   const handleDownloadPDF = () => {
-    if (selectedPrintItems.length === 0) return;
-    if (selectedPrintItems.length > 50) {
+    if (effectiveSelectedCount === 0) return;
+    if (effectiveSelectedCount >= 50) {
       setPendingBatchAction('DOWNLOAD');
       setIsLargeBatchWarningOpen(true);
       return;
@@ -337,8 +392,8 @@ export const SupervisorOrdersPage: React.FC = () => {
   };
 
   const handleNativePrint = () => {
-    if (selectedPrintItems.length === 0) return;
-    if (selectedPrintItems.length > 50) {
+    if (effectiveSelectedCount === 0) return;
+    if (effectiveSelectedCount >= 50) {
       setPendingBatchAction('PRINT');
       setIsLargeBatchWarningOpen(true);
       return;
@@ -347,12 +402,12 @@ export const SupervisorOrdersPage: React.FC = () => {
   };
 
   const handleOpenBulkModal = () => {
-    if (selectedOrderIds.length === 0) {
-      toast.error('Please select at least one order.');
+    if (isAllPagesSelected || effectiveSelectedCount > 20) {
+      toast.error('You can select a maximum of 20 orders for bulk status change. Please use "Select 20".');
       return;
     }
-    if (selectedOrderIds.length > 20) {
-      toast.error('You can select a maximum of 20 orders for this action.');
+    if (selectedOrderIds.length === 0) {
+      toast.error('Please select at least one order.');
       return;
     }
     setIsBulkModalOpen(true);
@@ -415,21 +470,36 @@ export const SupervisorOrdersPage: React.FC = () => {
       {/* 2. Filter Toolbar */}
       <OrderFilters
         selectedDate={selectedDate}
-        onDateChange={setSelectedDate}
+        onDateChange={(d) => {
+          setSelectedDate(d);
+          setIsAllPagesSelected(false);
+        }}
         selectedMemberId={selectedMemberId}
-        onMemberIdChange={setSelectedMemberId}
+        onMemberIdChange={(m) => {
+          setSelectedMemberId(m);
+          setIsAllPagesSelected(false);
+        }}
         teamMembers={teamMembers}
         dateFilteredOrders={dateFilteredOrders}
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={(s) => {
+          setSearch(s);
+          setIsAllPagesSelected(false);
+        }}
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        onResetFilters={resetFilters}
+        onStatusFilterChange={(s) => {
+          setStatusFilter(s);
+          setIsAllPagesSelected(false);
+        }}
+        onResetFilters={() => {
+          resetFilters();
+          setIsAllPagesSelected(false);
+        }}
         filteredCount={pageInfo?.total ?? filteredOrders.length}
-        selectedCount={selectedOrderIds.length}
+        selectedCount={effectiveSelectedCount}
         onSelectUpTo20={handleSelectUpTo20}
         onSelectAll={handleSelectAll}
-        onClearSelection={clearSelection}
+        onClearSelection={handleClearSelection}
         isUpTo20Selected={isUpTo20Selected}
         isAllSelected={isAllSelected}
         onOpenBulkModal={handleOpenBulkModal}
@@ -618,7 +688,7 @@ export const SupervisorOrdersPage: React.FC = () => {
 
       {/* 4. Floating Action Panel */}
       <PrintFloatingPanel
-        selectedCount={selectedOrderIds.length}
+        selectedCount={effectiveSelectedCount}
         countLabel="Order(s) Selected"
         onDownloadPDF={handleDownloadPDF}
         onNativePrint={handleNativePrint}
@@ -627,7 +697,7 @@ export const SupervisorOrdersPage: React.FC = () => {
             <button
               type="button"
               onClick={handleExportExcel}
-              disabled={selectedOrderIds.length === 0 || isExportingExcel}
+              disabled={effectiveSelectedCount === 0 || isExportingExcel}
               className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               title="Export selected orders to Excel (Unlimited, No Warning)"
             >
@@ -738,10 +808,10 @@ export const SupervisorOrdersPage: React.FC = () => {
         }}
       />
 
-      {/* High-Volume Bills Warning Modal (> 50 bills) */}
+      {/* High-Volume Bills Warning Modal (>= 50 bills) */}
       <LargeBatchWarningDialog
         isOpen={isLargeBatchWarningOpen}
-        count={selectedPrintItems.length}
+        count={effectiveSelectedCount}
         actionType={pendingBatchAction || 'DOWNLOAD'}
         onClose={() => {
           setIsLargeBatchWarningOpen(false);
