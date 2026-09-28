@@ -67,13 +67,17 @@ export const SupervisorOrdersPage: React.FC = () => {
     let isMounted = true;
     teamRepository.getAll()
       .then((data) => {
-        if (isMounted) setTeams(data);
+        if (!isMounted) return;
+        setTeams(data);
+        if (data.length > 0 && (!adminTeamId || !data.some((team) => team.id === adminTeamId))) {
+          setAdminTeamId(data[0].id);
+        }
       })
       .catch(() => {});
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [adminTeamId]);
 
   const {
     selectedDate,
@@ -448,14 +452,22 @@ export const SupervisorOrdersPage: React.FC = () => {
       {/* Admin Multi-Team Switcher */}
       <AdminTeamSelector
         activeTeamId={adminTeamId}
-        onTeamChange={setAdminTeamId}
+        onTeamChange={(teamId) => {
+          setAdminTeamId(teamId);
+          setIsAllPagesSelected(false);
+          clearSelection();
+        }}
         title="Orders & Fulfillment Management"
       />
 
       {/* 1. Page Header */}
       <PageHeader
-        title="Supervisor Orders"
-        description="Monitor dispatched parcels, process delivery status updates, inspect duplicate order conflicts, and manage team orders."
+        title={user?.role === 'ADMIN' ? 'Orders Management' : 'Supervisor Orders'}
+        description={
+          user?.role === 'ADMIN'
+            ? 'Oversee team orders, monitor dispatched parcels, process delivery updates, and export or print parcel slips in bulk.'
+            : 'Monitor dispatched parcels, process delivery status updates, inspect duplicate order conflicts, and manage team orders.'
+        }
       />
 
       {/* 1. Status Filter Summary Cards */}
