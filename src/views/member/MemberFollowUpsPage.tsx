@@ -281,8 +281,8 @@ export const MemberFollowUpsPage: React.FC = () => {
       />
 
       {/* Top Filter Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
-        <div className="flex flex-wrap gap-2">
+      <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
           {FILTER_TABS.map((tab) => {
             const count = countMap[tab.key];
             const isActive = activeTab === tab.key;
@@ -307,18 +307,19 @@ export const MemberFollowUpsPage: React.FC = () => {
             return (
               <button
                 key={tab.key}
+                type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center justify-between gap-2.5 px-4 py-2 rounded-lg text-xs transition-all cursor-pointer min-w-[120px] ${
+                className={`flex items-center justify-between gap-1.5 sm:gap-2.5 px-3 sm:px-4 py-2 rounded-lg text-xs transition-all cursor-pointer min-w-0 sm:min-w-[120px] ${
                   isActive
                     ? activeColors
                     : 'bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/60 font-medium'
                 }`}
               >
-                <span className="whitespace-nowrap flex items-center gap-1.5 font-medium">
-                  {isSavedTab && <BookmarkCheck className="w-3.5 h-3.5 text-teal-600" />}
-                  {isInboundTab && <PhoneIncoming className="w-3.5 h-3.5 text-emerald-600" />}
-                  {isOutboundTab && <PhoneOutgoing className="w-3.5 h-3.5 text-blue-600" />}
-                  <span>{tab.label}</span>
+                <span className="truncate flex items-center gap-1.5 font-medium">
+                  {isSavedTab && <BookmarkCheck className="w-3.5 h-3.5 text-teal-600 shrink-0" />}
+                  {isInboundTab && <PhoneIncoming className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                  {isOutboundTab && <PhoneOutgoing className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                  <span className="truncate">{tab.label}</span>
                 </span>
                 <span
                   className={`px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0 ${
@@ -465,110 +466,143 @@ export const MemberFollowUpsPage: React.FC = () => {
                     isStarred ? 'border-amber-200/90' : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  {/* Default Collapsed Row View: Only Phone Number, Call Time, Status + Actions */}
-                  <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-                      {/* Expand / View Icon Button */}
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(log.id)}
-                        className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[#E8F7FE] text-slate-500 hover:text-[#01A8F3] flex items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200/80"
-                        title={isExpanded ? 'Collapse details' : 'Expand full call details'}
-                      >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
+                  {/* Responsive Row View: Clean two-row layout on mobile, unified row on desktop */}
+                  <div className="p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+                      {/* Left group / Top row on mobile */}
+                      <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {/* Expand / View Icon Button */}
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(log.id)}
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-100 hover:bg-[#E8F7FE] text-slate-500 hover:text-[#01A8F3] flex items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200/80"
+                            title={isExpanded ? 'Collapse details' : 'Expand full call details'}
+                          >
+                            {isExpanded ? <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                          </button>
 
-                      {/* Star Icon Button for Follow-Up toggle */}
-                      {log.status !== 'NEW' && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleStarLog(log, e)}
-                          className="p-1 rounded-md hover:bg-amber-50 transition-colors cursor-pointer shrink-0"
-                          title={isStarred ? 'Remove from Follow-Up List' : 'Add to Follow-Up List'}
-                        >
-                          <Star
-                            className={`w-4 h-4 ${
-                              isStarred ? 'fill-amber-400 text-amber-500' : 'text-slate-300 hover:text-amber-400'
-                            }`}
-                          />
-                        </button>
-                      )}
-
-                      <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4 space-y-1 sm:space-y-0">
-                        {/* Phone Number & Contact Code */}
-                        <div className="font-bold text-sm sm:text-base text-slate-900 font-mono tracking-tight shrink-0 flex items-center gap-1.5 flex-wrap">
-                          <span>{phone}</span>
-                          {contact?.code && (
-                            <span className="inline-flex items-center gap-0.5 text-[10px] font-mono font-bold px-1.5 py-0.2 bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC] rounded shrink-0">
-                              <Hash className="w-2.5 h-2.5 text-[#01A8F3]" />
-                              <span>{contact.code}</span>
-                            </span>
+                          {/* Star Icon Button for Follow-Up toggle */}
+                          {log.status !== 'NEW' && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleStarLog(log, e)}
+                              className="p-1 rounded-md hover:bg-amber-50 transition-colors cursor-pointer shrink-0"
+                              title={isStarred ? 'Remove from Follow-Up List' : 'Add to Follow-Up List'}
+                            >
+                              <Star
+                                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${
+                                  isStarred ? 'fill-amber-400 text-amber-500' : 'text-slate-300 hover:text-amber-400'
+                                }`}
+                              />
+                            </button>
                           )}
+
+                          {/* Phone Number & Contact Code */}
+                          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                            <span className="font-bold text-sm sm:text-base text-slate-900 font-mono tracking-tight">{phone}</span>
+                            {contact?.code && (
+                              <span className="inline-flex items-center gap-0.5 text-[9.5px] sm:text-[10px] font-mono font-bold px-1.5 py-0.2 bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC] rounded shrink-0">
+                                <Hash className="w-2.5 h-2.5 text-[#01A8F3]" />
+                                <span>{contact.code}</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Call Time */}
-                        <div className="text-xs text-slate-500 shrink-0">
-                          <span>{format(new Date(log.calledAt), 'MMM dd, yyyy • hh:mm a')}</span>
+                        {/* Mobile-only right side actions: Call Direction & Remarks */}
+                        <div className="flex items-center gap-1.5 sm:hidden shrink-0">
+                          <span
+                            title={log.direction === 'INBOUND' ? 'Inbound Call' : 'Outbound Call'}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                              log.direction === 'INBOUND'
+                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                : 'bg-blue-100 text-blue-700 border border-blue-200'
+                            }`}
+                          >
+                            {log.direction === 'INBOUND' ? (
+                              <PhoneIncoming className="w-3.5 h-3.5" />
+                            ) : (
+                              <PhoneOutgoing className="w-3.5 h-3.5" />
+                            )}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditRemarks(log)}
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-[#E8F7FE] text-slate-500 hover:text-[#01A8F3] flex items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200/80"
+                            title="Update Remarks"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Right side: Status Badge + Edit Lead + Update Remarks Button */}
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                      {/* Call Direction: Compact icon-only badge */}
-                      <span
-                        title={log.direction === 'INBOUND' ? 'Inbound Call' : 'Outbound Call'}
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                          log.direction === 'INBOUND'
-                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                            : 'bg-blue-100 text-blue-700 border border-blue-200'
-                        }`}
-                      >
-                        {log.direction === 'INBOUND' ? (
-                          <PhoneIncoming className="w-3.5 h-3.5" />
-                        ) : (
-                          <PhoneOutgoing className="w-3.5 h-3.5" />
-                        )}
-                      </span>
-                      <StatusBadge type="contact" status={log.status} />
+                      {/* Right group / Bottom row on mobile */}
+                      <div className="flex items-center justify-between sm:justify-end gap-2 flex-wrap pt-1.5 sm:pt-0 border-t border-slate-100 sm:border-0">
+                        {/* Call Time */}
+                        <div className="text-[11px] sm:text-xs text-slate-500 shrink-0">
+                          <span>{format(new Date(log.calledAt), 'MMM dd, yyyy • hh:mm a')}</span>
+                        </div>
 
-                      {/* Edit Lead Button for INTERESTED leads */}
-                      {log.status === 'INTERESTED' && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          leftIcon={<Edit3 className="w-3.5 h-3.5 text-emerald-600" />}
-                          onClick={() => handleEditLead(log)}
-                          isLoading={loadingOrderId === log.id}
-                          className="border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold h-8 text-xs px-2.5"
-                        >
-                          Edit Lead
-                        </Button>
-                      )}
+                        {/* Badges and Action Buttons */}
+                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap">
+                          {/* Call Direction on desktop */}
+                          <span
+                            title={log.direction === 'INBOUND' ? 'Inbound Call' : 'Outbound Call'}
+                            className={`hidden sm:flex w-7 h-7 rounded-lg items-center justify-center shrink-0 ${
+                              log.direction === 'INBOUND'
+                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                : 'bg-blue-100 text-blue-700 border border-blue-200'
+                            }`}
+                          >
+                            {log.direction === 'INBOUND' ? (
+                              <PhoneIncoming className="w-3.5 h-3.5" />
+                            ) : (
+                              <PhoneOutgoing className="w-3.5 h-3.5" />
+                            )}
+                          </span>
 
-                      {/* Re-call Button for REJECTED leads */}
-                      {log.status === 'REJECTED' && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          leftIcon={<PhoneCall className="w-3.5 h-3.5 text-amber-600" />}
-                          onClick={() => handleReactivateRejectedLog(log)}
-                          isLoading={loadingOrderId === `reject-${log.id}`}
-                          className="border-amber-200 hover:border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold h-8 text-xs px-2.5"
-                        >
-                          Re-call
-                        </Button>
-                      )}
+                          <StatusBadge type="contact" status={log.status} />
 
-                      {/* Update Remarks Icon Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditRemarks(log)}
-                        className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[#E8F7FE] text-slate-500 hover:text-[#01A8F3] flex items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200/80"
-                        title="Update Remarks"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
+                          {/* Edit Lead Button for INTERESTED leads */}
+                          {log.status === 'INTERESTED' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              leftIcon={<Edit3 className="w-3.5 h-3.5 text-emerald-600" />}
+                              onClick={() => handleEditLead(log)}
+                              isLoading={loadingOrderId === log.id}
+                              className="border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold h-7 sm:h-8 text-xs px-2 sm:px-2.5"
+                            >
+                              Edit Lead
+                            </Button>
+                          )}
+
+                          {/* Re-call Button for REJECTED leads */}
+                          {log.status === 'REJECTED' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              leftIcon={<PhoneCall className="w-3.5 h-3.5 text-amber-600" />}
+                              onClick={() => handleReactivateRejectedLog(log)}
+                              isLoading={loadingOrderId === `reject-${log.id}`}
+                              className="border-amber-200 hover:border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold h-7 sm:h-8 text-xs px-2 sm:px-2.5"
+                            >
+                              Re-call
+                            </Button>
+                          )}
+
+                          {/* Update Remarks Icon Button on desktop */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditRemarks(log)}
+                            className="hidden sm:flex w-8 h-8 rounded-lg bg-slate-100 hover:bg-[#E8F7FE] text-slate-500 hover:text-[#01A8F3] items-center justify-center shrink-0 transition-colors cursor-pointer border border-slate-200/80"
+                            title="Update Remarks"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
