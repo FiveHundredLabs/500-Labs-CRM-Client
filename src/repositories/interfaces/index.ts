@@ -226,7 +226,7 @@ export interface ICustomerRepository {
 }
 
 export interface IOrderRepository {
-  getAll(): Promise<Order[]>;
+  getAll(params?: Record<string, any>): Promise<Order[]>;
   getById(id: string): Promise<Order | null>;
   getByCustomerId(customerId: string): Promise<Order[]>;
   getByTeamId(teamId: string): Promise<Order[]>;
