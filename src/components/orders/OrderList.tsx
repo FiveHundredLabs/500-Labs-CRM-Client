@@ -130,7 +130,7 @@ export const OrderList: React.FC<OrderListProps> = React.memo(({
     );
   }
 
-  const visibleOrders = filteredOrders.slice(0, renderLimit);
+  const visibleOrders = filteredOrders.length <= 50 ? filteredOrders : filteredOrders.slice(0, renderLimit);
 
   return (
     <>

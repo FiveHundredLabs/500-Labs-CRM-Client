@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { orderRepository } from '../../repositories';
 import { OrderService } from '../../services/orderService';
 import { queryKeys, CACHE_TIERS } from '../../lib/queryClient';
@@ -44,6 +44,7 @@ export function usePaginatedOrdersQuery(params: import('../../repositories/inter
     queryKey: queryKeys.orders.paginated(params),
     queryFn: () => orderRepository.getPaginated(params),
     enabled,
+    placeholderData: keepPreviousData,
     staleTime: CACHE_TIERS.HOT,
   });
 }

@@ -111,6 +111,7 @@ export interface OrderPaginationParams {
   search?: string;
   startDate?: string;
   endDate?: string;
+  date?: string;
   page?: number;
   limit?: number;
   cursor?: string;
