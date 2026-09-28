@@ -26,6 +26,22 @@ import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 import { useAuth } from '../../hooks/useAuth';
 import { teamRepository, productRepository } from '../../repositories';
 import { Button } from '../../components/ui/Button';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Layers, FileSpreadsheet } from 'lucide-react';
+import { LargeBatchWarningDialog } from '../../components/printing/LargeBatchWarningDialog';
+import { format } from 'date-fns';
+
+const getPageNumbers = (current: number, total: number): (number | string)[] => {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, '...', total];
+  }
+  if (current >= total - 3) {
+    return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total];
+};
 
 const EMPTY_ORDERS: Order[] = [];
 const EMPTY_CUSTOMERS: Record<string, any> = {};
@@ -99,6 +115,10 @@ export const SupervisorOrdersPage: React.FC = () => {
     paginate: true,
   });
 
+  const pageNumbers = useMemo(() => {
+    return pageInfo?.totalPages ? getPageNumbers(currentPage, pageInfo.totalPages) : [];
+  }, [currentPage, pageInfo?.totalPages]);
+
   const filteredOrders = orders;
   const dateFilteredOrders = orders;
 
@@ -119,6 +139,14 @@ export const SupervisorOrdersPage: React.FC = () => {
     );
   }, [filteredOrderIds, selectedOrderIds]);
 
+  const isAllSelected = useMemo(() => {
+    if (filteredOrderIds.length === 0 || selectedOrderIds.length === 0) return false;
+    return (
+      selectedOrderIds.length === filteredOrderIds.length &&
+      filteredOrderIds.every((id) => selectedOrderIds.includes(id))
+    );
+  }, [filteredOrderIds, selectedOrderIds]);
+
   const handleSelectUpTo20 = () => {
     if (isUpTo20Selected) {
       clearSelection();
@@ -126,6 +154,14 @@ export const SupervisorOrdersPage: React.FC = () => {
     }
     const upTo20 = filteredOrderIds.slice(0, 20);
     setSelectedOrderIds(upTo20);
+  };
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      clearSelection();
+      return;
+    }
+    setSelectedOrderIds(filteredOrderIds);
   };
 
   const handleToggleSelectCard = (id: string) => {
@@ -191,12 +227,49 @@ export const SupervisorOrdersPage: React.FC = () => {
     .filter((o) => selectedOrderIds.includes(o.id))
     .map(buildPrintItem);
 
-  const handleDownloadPDF = async () => {
-    if (selectedPrintItems.length === 0) return;
-    if (selectedOrderIds.length > 20 || selectedPrintItems.length > 20) {
-      toast.error('You can select a maximum of 20 orders for this action.');
-      return;
+  // High volume batch warning state (> 50 bills)
+  const [pendingBatchAction, setPendingBatchAction] = useState<'DOWNLOAD' | 'PRINT' | null>(null);
+  const [isLargeBatchWarningOpen, setIsLargeBatchWarningOpen] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  // Excel export: Unlimited and NO warning modal
+  const handleExportExcel = async () => {
+    if (selectedOrderIds.length === 0) return;
+    setIsExportingExcel(true);
+    try {
+      const XLSX = await import('xlsx');
+      const selectedOrders = orders.filter((o) => selectedOrderIds.includes(o.id));
+      const rows = selectedOrders.map((o) => {
+        const cust = customersMap[o.customerId];
+        const member = membersMap[o.teamMemberId];
+        return {
+          'Order Number': o.orderNumber,
+          'Date': format(new Date(o.createdAt), 'yyyy-MM-dd HH:mm'),
+          'Status': o.status,
+          'Customer Name': cust?.fullName || (o as any).customer?.fullName || (o as any).customerName || '-',
+          'Phone': cust?.phone || (o as any).customer?.phone || (o as any).customerPhone || '-',
+          'Address': cust?.address || (o as any).customer?.address || '-',
+          'City': cust?.city || (o as any).customer?.city || '-',
+          'Total Amount': o.totalAmount,
+          'COD Charge': o.codCharge,
+          'Delivery Method': o.deliveryMethod || '-',
+          'Agent': member?.fullName || (o as any).teamMember?.fullName || '-',
+        };
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+      XLSX.writeFile(wb, `Orders_Export_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
+      toast.success(`Exported ${rows.length} orders to Excel!`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to export orders to Excel.');
+    } finally {
+      setIsExportingExcel(false);
     }
+  };
+
+  const executeDownloadPDF = async () => {
+    if (selectedPrintItems.length === 0) return;
     setPdfProgress({
       isOpen: true,
       title: 'Downloading Slips PDF...',
@@ -224,12 +297,8 @@ export const SupervisorOrdersPage: React.FC = () => {
     }
   };
 
-  const handleNativePrint = async () => {
+  const executeNativePrint = async () => {
     if (selectedPrintItems.length === 0) return;
-    if (selectedOrderIds.length > 20 || selectedPrintItems.length > 20) {
-      toast.error('You can select a maximum of 20 orders for this action.');
-      return;
-    }
     setPdfProgress({
       isOpen: true,
       title: 'Preparing Slips for Printing...',
@@ -255,6 +324,26 @@ export const SupervisorOrdersPage: React.FC = () => {
     } finally {
       setPdfProgress((prev) => ({ ...prev, isOpen: false }));
     }
+  };
+
+  const handleDownloadPDF = () => {
+    if (selectedPrintItems.length === 0) return;
+    if (selectedPrintItems.length > 50) {
+      setPendingBatchAction('DOWNLOAD');
+      setIsLargeBatchWarningOpen(true);
+      return;
+    }
+    executeDownloadPDF();
+  };
+
+  const handleNativePrint = () => {
+    if (selectedPrintItems.length === 0) return;
+    if (selectedPrintItems.length > 50) {
+      setPendingBatchAction('PRINT');
+      setIsLargeBatchWarningOpen(true);
+      return;
+    }
+    executeNativePrint();
   };
 
   const handleOpenBulkModal = () => {
@@ -339,10 +428,56 @@ export const SupervisorOrdersPage: React.FC = () => {
         filteredCount={pageInfo?.total ?? filteredOrders.length}
         selectedCount={selectedOrderIds.length}
         onSelectUpTo20={handleSelectUpTo20}
+        onSelectAll={handleSelectAll}
         onClearSelection={clearSelection}
         isUpTo20Selected={isUpTo20Selected}
+        isAllSelected={isAllSelected}
         onOpenBulkModal={handleOpenBulkModal}
       />
+
+      {/* Top Pagination Bar for Immediate Visibility & Context */}
+      {pageInfo && pageInfo.total !== undefined && pageInfo.total > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-gradient-to-r from-sky-50/80 via-white to-sky-50/50 border border-[#01A8F3]/30 rounded-xl px-3.5 py-2.5 text-xs shadow-2xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#01A8F3] text-white font-bold text-xs shadow-2xs">
+              <Layers className="w-3.5 h-3.5" />
+              Page {currentPage} of {pageInfo.totalPages || 1}
+            </span>
+            <span className="text-slate-600 font-medium">
+              Showing <strong className="text-slate-900 font-bold">{(currentPage - 1) * pageInfo.limit + 1}–{Math.min(currentPage * pageInfo.limit, pageInfo.total)}</strong> of{' '}
+              <strong className="text-[#0188C7] font-bold">{pageInfo.total}</strong> orders
+            </span>
+          </div>
+
+          {(pageInfo.totalPages ?? 1) > 1 && (
+            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+              <button
+                type="button"
+                disabled={currentPage <= 1 || !pageInfo.hasPreviousPage}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Prev</span>
+              </button>
+
+              <span className="text-xs font-mono font-bold text-slate-700 px-2 py-1 bg-white rounded-lg border border-slate-200 shadow-2xs">
+                {currentPage} / {pageInfo.totalPages}
+              </span>
+
+              <button
+                type="button"
+                disabled={currentPage >= (pageInfo.totalPages ?? 1) || !pageInfo.hasNextPage}
+                onClick={() => setCurrentPage((p) => Math.min(pageInfo.totalPages ?? 1, p + 1))}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Orders List View */}
       <OrderList
@@ -362,36 +497,121 @@ export const SupervisorOrdersPage: React.FC = () => {
         onOpenReplacementModal={(order) => setReplacementModalOrder(order)}
       />
 
-      {/* Pagination Controls */}
+      {/* High-Visibility Interactive Pagination Controls */}
       {pageInfo && pageInfo.totalPages !== undefined && pageInfo.totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-1 border-t border-slate-200">
-          <div className="text-xs text-slate-500 font-medium">
-            Showing <span className="font-semibold text-slate-800">{(currentPage - 1) * pageInfo.limit + 1}</span> to{' '}
-            <span className="font-semibold text-slate-800">{Math.min(currentPage * pageInfo.limit, pageInfo.total ?? 0)}</span> of{' '}
-            <span className="font-semibold text-slate-800">{pageInfo.total}</span> orders
+        <div className="bg-white border-2 border-[#01A8F3]/30 hover:border-[#01A8F3]/60 rounded-2xl p-3.5 sm:px-5 sm:py-3.5 shadow-md shadow-sky-100/60 flex flex-col md:flex-row items-center justify-between gap-3.5 transition-all">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#E8F7FE] text-[#0188C7] flex items-center justify-center shrink-0">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div className="text-xs text-slate-600 font-medium flex items-center gap-1.5 flex-wrap">
+              <span>Showing</span>
+              <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                {(currentPage - 1) * pageInfo.limit + 1} – {Math.min(currentPage * pageInfo.limit, pageInfo.total ?? 0)}
+              </span>
+              <span>of</span>
+              <span className="font-bold text-[#0188C7] bg-[#E8F7FE] px-2 py-0.5 rounded-md border border-[#B9E7FC]">
+                {pageInfo.total}
+              </span>
+              <span className="text-slate-600">orders</span>
+              <span className="hidden sm:inline-block text-slate-300">•</span>
+              <span className="text-slate-500 font-semibold">
+                Page <span className="text-slate-900 font-bold">{currentPage}</span> of{' '}
+                <span className="text-slate-900 font-bold">{pageInfo.totalPages}</span>
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
+
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {/* First Page */}
+            <button
+              type="button"
+              disabled={currentPage <= 1 || !pageInfo.hasPreviousPage}
+              onClick={() => setCurrentPage(1)}
+              title="First Page"
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+
+            {/* Previous */}
+            <button
+              type="button"
               disabled={currentPage <= 1 || !pageInfo.hasPreviousPage}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="text-xs font-semibold cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
             >
-              Previous
-            </Button>
-            <span className="text-xs font-mono font-bold text-slate-700 px-2.5 py-1 bg-slate-100 rounded-md border border-slate-200">
-              Page {currentPage} of {pageInfo.totalPages}
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Previous</span>
+            </button>
+
+            {/* Direct Page Number Buttons */}
+            <div className="flex items-center gap-1">
+              {pageNumbers.map((item, idx) => {
+                if (item === '...') {
+                  return (
+                    <span key={`ellipsis-${idx}`} className="px-1.5 text-xs font-bold text-slate-400">
+                      ...
+                    </span>
+                  );
+                }
+                const isCurrent = item === currentPage;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setCurrentPage(Number(item))}
+                    className={`min-w-[32px] h-8 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center ${
+                      isCurrent
+                        ? 'bg-[#01A8F3] text-white shadow-xs font-black ring-2 ring-[#01A8F3]/30'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Next */}
+            <button
+              type="button"
               disabled={currentPage >= (pageInfo.totalPages ?? 1) || !pageInfo.hasNextPage}
               onClick={() => setCurrentPage((p) => Math.min(pageInfo.totalPages ?? 1, p + 1))}
-              className="text-xs font-semibold cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
             >
-              Next
-            </Button>
+              <span>Next</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Last Page */}
+            <button
+              type="button"
+              disabled={currentPage >= (pageInfo.totalPages ?? 1) || !pageInfo.hasNextPage}
+              onClick={() => setCurrentPage(pageInfo.totalPages ?? 1)}
+              title="Last Page"
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+
+            {/* Direct Page Selector if more than 5 pages */}
+            {pageInfo.totalPages > 5 && (
+              <div className="flex items-center gap-1 pl-1.5 border-l border-slate-200 text-xs text-slate-500">
+                <span className="hidden sm:inline font-medium">Go to:</span>
+                <select
+                  value={currentPage}
+                  onChange={(e) => setCurrentPage(Number(e.target.value))}
+                  className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
+                >
+                  {Array.from({ length: pageInfo.totalPages }, (_, i) => i + 1).map((pg) => (
+                    <option key={pg} value={pg}>
+                      Page {pg}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -403,22 +623,35 @@ export const SupervisorOrdersPage: React.FC = () => {
         onDownloadPDF={handleDownloadPDF}
         onNativePrint={handleNativePrint}
         extraActions={
-          statusFilter !== 'DELIVERED' &&
-          statusFilter !== 'REJECTED' &&
-          !orders.some(
-            (o) => selectedOrderIds.includes(o.id) && (o.status === 'DELIVERED' || o.status === 'REJECTED')
-          ) ? (
+          <>
             <button
               type="button"
-              onClick={handleOpenBulkModal}
-              className={`py-1 px-2.5 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-amber-400/30 cursor-pointer ${
-                selectedOrderIds.length > 20 ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-              title={selectedOrderIds.length > 20 ? 'Maximum 20 orders allowed for this action' : 'Bulk Status Change'}
+              onClick={handleExportExcel}
+              disabled={selectedOrderIds.length === 0 || isExportingExcel}
+              className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              title="Export selected orders to Excel (Unlimited, No Warning)"
             >
-              <span>Bulk</span>
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Excel</span>
             </button>
-          ) : undefined
+
+            {statusFilter !== 'DELIVERED' &&
+            statusFilter !== 'REJECTED' &&
+            !orders.some(
+              (o) => selectedOrderIds.includes(o.id) && (o.status === 'DELIVERED' || o.status === 'REJECTED')
+            ) ? (
+              <button
+                type="button"
+                onClick={handleOpenBulkModal}
+                className={`py-1 px-2.5 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-xs border border-amber-400/30 cursor-pointer ${
+                  selectedOrderIds.length > 20 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                title={selectedOrderIds.length > 20 ? 'Maximum 20 orders allowed for this action' : 'Bulk Status Change'}
+              >
+                <span>Bulk</span>
+              </button>
+            ) : null}
+          </>
         }
       />
 
@@ -502,6 +735,27 @@ export const SupervisorOrdersPage: React.FC = () => {
           await updateOrderStatus(ord, 'CANCELLED', 'Supervisor cancelled duplicate order');
           setInspectConflictOrder(null);
           setInspectConflictInfo(null);
+        }}
+      />
+
+      {/* High-Volume Bills Warning Modal (> 50 bills) */}
+      <LargeBatchWarningDialog
+        isOpen={isLargeBatchWarningOpen}
+        count={selectedPrintItems.length}
+        actionType={pendingBatchAction || 'DOWNLOAD'}
+        onClose={() => {
+          setIsLargeBatchWarningOpen(false);
+          setPendingBatchAction(null);
+        }}
+        onConfirm={() => {
+          const action = pendingBatchAction;
+          setIsLargeBatchWarningOpen(false);
+          setPendingBatchAction(null);
+          if (action === 'DOWNLOAD') {
+            executeDownloadPDF();
+          } else if (action === 'PRINT') {
+            executeNativePrint();
+          }
         }}
       />
 
