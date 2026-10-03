@@ -49,16 +49,16 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
   const orderDamagedItems = Array.isArray(order.damagedItems)
     ? order.damagedItems
     : Array.isArray(order.rejectionRequests?.[0]?.damagedItems)
-    ? (order.rejectionRequests?.[0]?.damagedItems as any[])
-    : [];
+      ? (order.rejectionRequests?.[0]?.damagedItems as any[])
+      : [];
 
   const isDeliveredOrRejected = order.status === 'DELIVERED' || order.status === 'REJECTED';
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
   const statusTime = order.status === 'DELIVERED'
     ? (order.deliveredAt ? new Date(order.deliveredAt).getTime() : new Date(order.updatedAt).getTime())
     : order.status === 'REJECTED'
-    ? (order.rejectedAt ? new Date(order.rejectedAt).getTime() : new Date(order.updatedAt).getTime())
-    : 0;
+      ? (order.rejectedAt ? new Date(order.rejectedAt).getTime() : new Date(order.updatedAt).getTime())
+      : 0;
   const remainingReviewMs = isDeliveredOrRejected ? statusTime + SEVEN_DAYS_MS - Date.now() : 0;
   const isPast7Days = isDeliveredOrRejected ? remainingReviewMs <= 0 : false;
   const daysRemaining = Math.floor(remainingReviewMs / (24 * 60 * 60 * 1000));
@@ -66,8 +66,15 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
   const reviewRemainingText =
     daysRemaining > 0 ? `${daysRemaining}d ${hoursRemaining}h` : `${hoursRemaining}h`;
 
+  const displayDate =
+    order.status === 'DELIVERED'
+      ? order.deliveredAt || order.updatedAt || order.createdAt
+      : order.status === 'REJECTED'
+        ? order.rejectedAt || order.updatedAt || order.createdAt
+        : order.updatedAt || order.createdAt;
+
   const formattedDate = format(
-    new Date(order.updatedAt || order.createdAt),
+    new Date(displayDate),
     'MMM dd'
   );
 
@@ -141,13 +148,12 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
           {/* Cash on Hand Verification State Banner */}
           {order.isCashOnHand && order.cashOnHandStatus && (
             <div
-              className={`p-1.5 rounded-lg flex items-center justify-between text-[10px] sm:text-[11px] font-semibold border ${
-                order.cashOnHandStatus === 'APPROVED'
+              className={`p-1.5 rounded-lg flex items-center justify-between text-[10px] sm:text-[11px] font-semibold border ${order.cashOnHandStatus === 'APPROVED'
                   ? 'bg-emerald-50 text-emerald-950 border-emerald-200'
                   : order.cashOnHandStatus === 'DECLINED'
-                  ? 'bg-rose-50 text-rose-950 border-rose-200'
-                  : 'bg-amber-50 text-amber-950 border-amber-200'
-              }`}
+                    ? 'bg-rose-50 text-rose-950 border-rose-200'
+                    : 'bg-amber-50 text-amber-950 border-amber-200'
+                }`}
             >
               <div className="flex items-center gap-1.5 min-w-0">
                 <Banknote className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
