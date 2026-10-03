@@ -3,7 +3,7 @@ import type { User, Customer } from '../../models/domain';
 import { Card, CardContent } from '../ui/Card';
 import { Select } from '../ui/Select';
 import { SearchInput } from '../shared/SearchInput';
-import { CheckSquare, FileSpreadsheet } from 'lucide-react';
+import { CheckSquare, Square, FileSpreadsheet } from 'lucide-react';
 
 export interface InterestedFiltersProps {
   selectedMemberId: string;
@@ -75,7 +75,7 @@ export const InterestedFilters: React.FC<InterestedFiltersProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-700">
           {/* Left: Two Clearly Separated Selection Controls */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Control 1: Select up to 20 (Primary / Highlighted) */}
+            {/* Control 1: Select 20 (For Delivery Charge, Cancel) */}
             <button
               type="button"
               onClick={onSelectUpTo20}
@@ -83,17 +83,21 @@ export const InterestedFilters: React.FC<InterestedFiltersProps> = ({
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
                 isUpTo20Selected
                   ? 'bg-[#01A8F3] text-white ring-2 ring-[#01A8F3]/30 shadow-sky-500/20'
-                  : 'bg-sky-50 hover:bg-sky-100 text-[#0077b6] border border-sky-200 hover:border-sky-300'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 hover:border-slate-400'
               }`}
-              title="Select up to 20 orders for normal bulk actions (Print, PDF, Cancel, Delivery Charge)"
+              title="Select 20 orders (Required for Delivery Charge and Cancel)"
             >
-              <CheckSquare className="w-3.5 h-3.5 shrink-0" />
-              <span>{isUpTo20Selected ? 'Deselect (20)' : 'Select up to 20'}</span>
+              {isUpTo20Selected ? (
+                <CheckSquare className="w-3.5 h-3.5 text-white shrink-0" />
+              ) : (
+                <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              )}
+              <span>{isUpTo20Selected ? 'Deselect (20)' : 'Select 20'}</span>
               <span
                 className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
                   isUpTo20Selected
                     ? 'bg-white/20 text-white'
-                    : 'bg-sky-200/70 text-[#0077b6]'
+                    : 'bg-slate-100 text-slate-600'
                 }`}
               >
                 Max 20
@@ -103,32 +107,36 @@ export const InterestedFilters: React.FC<InterestedFiltersProps> = ({
             {/* Visual Separator */}
             <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0 mx-0.5" />
 
-            {/* Control 2: Select All for Excel (Visually Secondary) */}
+            {/* Control 2: Select All (For Excel, PDF, Print - Unlimited) */}
             <button
               type="button"
               onClick={onSelectAllExcel}
               disabled={filteredCount === 0}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shadow-2xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-2xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
                 isAllExcelSelected
                   ? 'bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/30'
-                  : 'bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 hover:border-slate-400'
               }`}
-              title="Select all filtered orders specifically for Excel export (No limit)"
+              title="Select all filtered orders for Excel, PDF, and Print (No limit)"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              {isAllExcelSelected ? (
+                <CheckSquare className="w-3.5 h-3.5 text-white shrink-0" />
+              ) : (
+                <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              )}
               <span>
                 {isAllExcelSelected
-                  ? `Deselect All Excel (${filteredCount})`
-                  : `Select All for Excel (${filteredCount})`}
+                  ? `Deselect All (${filteredCount})`
+                  : `Select All (${filteredCount})`}
               </span>
               <span
                 className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${
                   isAllExcelSelected
                     ? 'bg-white/20 text-white'
-                    : 'bg-emerald-100 text-emerald-800'
+                    : 'bg-slate-100 text-slate-600'
                 }`}
               >
-                Unlimited
+                Excel, PDF, Print
               </span>
             </button>
 
@@ -157,7 +165,7 @@ export const InterestedFilters: React.FC<InterestedFiltersProps> = ({
               }`}
             >
               {selectedCount} Selected
-              {selectedCount > 20 ? ' (Excel only)' : ''}
+              {selectedCount > 20 ? ' (Excel, PDF, Print)' : ''}
             </div>
           </div>
         </div>
