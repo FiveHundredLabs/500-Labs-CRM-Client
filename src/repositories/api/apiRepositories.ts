@@ -522,7 +522,8 @@ export class ApiOrderRepository implements IOrderRepository {
     status: any,
     remarks?: string,
     damagedProductIds?: string[],
-    damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[]
+    damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[],
+    actionDate?: string
   ): Promise<Order> {
     return unwrap(
       await apiClient.patch<{ data: Order }>(`/orders/${id}/status`, {
@@ -530,6 +531,7 @@ export class ApiOrderRepository implements IOrderRepository {
         remarks,
         damagedProductIds,
         damagedItems,
+        ...(actionDate ? { actionDate } : {}),
       })
     );
   }

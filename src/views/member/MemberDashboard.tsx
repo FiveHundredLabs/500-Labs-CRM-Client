@@ -179,7 +179,7 @@ export const MemberDashboard: React.FC = () => {
     [contacts, dateFilter, startDate, endDate]
   );
   const scopedDeliveredOrders = useMemo(
-    () => orders.filter((o) => o.status === 'DELIVERED' && isDateInFilter(o.deliveredAt || o.updatedAt || o.createdAt)),
+    () => orders.filter((o) => o.status === 'DELIVERED' && isDateInFilter(o.deliveredAt || o.createdAt)),
     [orders, dateFilter, startDate, endDate]
   );
   const scopedDeliveredSalesValue = useMemo(

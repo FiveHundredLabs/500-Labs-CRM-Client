@@ -68,9 +68,9 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
 
   const displayDate =
     order.status === 'DELIVERED'
-      ? order.deliveredAt || order.updatedAt || order.createdAt
+      ? order.deliveredAt || order.createdAt
       : order.status === 'REJECTED'
-        ? order.rejectedAt || order.updatedAt || order.createdAt
+        ? order.rejectedAt || order.createdAt
         : order.updatedAt || order.createdAt;
 
   const formattedDate = format(

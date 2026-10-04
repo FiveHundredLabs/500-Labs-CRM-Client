@@ -22,7 +22,7 @@ export class AdminAnalyticsService {
 
     return orders.filter((o) => {
       if (o.status !== 'DELIVERED') return false;
-      const deliveredTimestamp = historyDeliveredMap.get(o.id) || o.updatedAt || o.createdAt;
+      const deliveredTimestamp = o.deliveredAt || historyDeliveredMap.get(o.id) || o.createdAt;
       if (!deliveredTimestamp) return false;
       return deliveredTimestamp.substring(0, 7) === currentMonthKey;
     }).length;
@@ -176,7 +176,7 @@ export class AdminAnalyticsService {
       const teamName = teamMap.get(o.teamId);
       if (!teamName) return;
 
-      const deliveredTimestamp = historyDeliveredMap.get(o.id) || o.updatedAt || o.createdAt;
+      const deliveredTimestamp = o.deliveredAt || historyDeliveredMap.get(o.id) || o.createdAt;
       if (!deliveredTimestamp) return;
 
       const monthKey = deliveredTimestamp.substring(0, 7);

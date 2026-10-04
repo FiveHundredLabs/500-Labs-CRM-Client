@@ -86,7 +86,8 @@ export class OrderService {
     newStatus: OrderStatus,
     actor: User,
     remarks?: string,
-    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
+    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[],
+    actionDate?: string
   ): Promise<Order> {
     const order = await orderRepository.getById(orderId);
     if (!order) throw new Error('Order not found');
@@ -98,7 +99,7 @@ export class OrderService {
       ?.filter((item) => item.productId)
       .map((item) => item.productId as string);
 
-    const updatedOrder = await orderRepository.updateStatus(orderId, newStatus, remarks, damagedProductIds, damagedItems);
+    const updatedOrder = await orderRepository.updateStatus(orderId, newStatus, remarks, damagedProductIds, damagedItems, actionDate);
 
     // Save DeliveryStatusHistory
     await deliveryStatusHistoryRepository.create({
@@ -189,7 +190,8 @@ export class OrderService {
     orderIds: string[],
     newStatus: OrderStatus,
     actor: User,
-    damagedItems?: { orderId?: string; productId?: string; productName: string; quantity: number; reason?: string }[]
+    damagedItems?: { orderId?: string; productId?: string; productName: string; quantity: number; reason?: string }[],
+    actionDate?: string
   ): Promise<number> {
     let count = 0;
     for (const orderId of orderIds) {
@@ -210,7 +212,8 @@ export class OrderService {
         newStatus,
         actor,
         orderRemarks,
-        orderSpecificDamaged && orderSpecificDamaged.length > 0 ? orderSpecificDamaged : undefined
+        orderSpecificDamaged && orderSpecificDamaged.length > 0 ? orderSpecificDamaged : undefined,
+        actionDate
       );
       count++;
     }

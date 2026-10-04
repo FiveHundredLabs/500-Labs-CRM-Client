@@ -744,7 +744,9 @@ export const SupervisorOrdersPage: React.FC = () => {
         defaultNewStatus={targetNewStatus}
         customersMap={customersMap}
         onClose={() => setTargetOrder(null)}
-        onConfirm={updateOrderStatus}
+        onConfirm={async (order, status, remark, damaged, actionDate) =>
+        updateOrderStatus(order, status, remark, damaged, actionDate)
+      }
         onRejectionSubmitted={loadData}
       />
 
@@ -767,8 +769,8 @@ export const SupervisorOrdersPage: React.FC = () => {
         selectedCount={selectedOrderIds.length}
         selectedOrders={orders.filter((o) => selectedOrderIds.includes(o.id))}
         onClose={() => setIsBulkModalOpen(false)}
-        onConfirm={async (bulkTargetStatus, damagedPayload) => {
-          const success = await bulkUpdateOrderStatus(selectedOrderIds, bulkTargetStatus, damagedPayload);
+        onConfirm={async (bulkTargetStatus, damagedPayload, actionDate) => {
+          const success = await bulkUpdateOrderStatus(selectedOrderIds, bulkTargetStatus, damagedPayload, actionDate);
           if (success) clearSelection();
           return success;
         }}
