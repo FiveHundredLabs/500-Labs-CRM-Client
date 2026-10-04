@@ -730,17 +730,28 @@ export class MockOrderRepository implements IOrderRepository {
     status: OrderStatus,
     remarks?: string,
     damagedProductIds?: string[],
-    damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[]
+    damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[],
+    actionDate?: string
   ): Promise<Order> {
     await delay();
     const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
     const idx = orders.findIndex((o) => o.id === id);
     if (idx === -1) throw new Error('Order not found');
+    const now = new Date();
+    let deliveredAt = orders[idx].deliveredAt;
+    let rejectedAt = orders[idx].rejectedAt;
+    if (status === 'DELIVERED') {
+      deliveredAt = actionDate ? `${actionDate}T23:59:59.000Z` : now.toISOString();
+    } else if (status === 'REJECTED') {
+      rejectedAt = actionDate ? `${actionDate}T23:59:59.000Z` : now.toISOString();
+    }
     const updated = {
       ...orders[idx],
       status,
       remarks: remarks !== undefined ? remarks : orders[idx].remarks,
-      updatedAt: new Date().toISOString(),
+      deliveredAt,
+      rejectedAt,
+      updatedAt: now.toISOString(),
     };
     orders[idx] = updated;
     setStoredItem(STORAGE_KEYS.ORDERS, orders);
