@@ -210,7 +210,8 @@ export function useOrders(options?: string | UseOrdersOptions) {
     targetOrder: Order,
     targetNewStatus: OrderStatus,
     statusRemark: string,
-    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
+    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[],
+    actionDate?: string
   ) => {
     if (!user) return false;
     try {
@@ -220,6 +221,7 @@ export function useOrders(options?: string | UseOrdersOptions) {
         user,
         statusRemark,
         damagedItems,
+        actionDate,
       });
       return true;
     } catch {
@@ -244,7 +246,8 @@ export function useOrders(options?: string | UseOrdersOptions) {
   const bulkUpdateOrderStatus = async (
     selectedOrderIds: string[],
     bulkTargetStatus: OrderStatus,
-    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
+    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[],
+    actionDate?: string
   ) => {
     if (!user || selectedOrderIds.length === 0) return false;
     try {
@@ -253,6 +256,7 @@ export function useOrders(options?: string | UseOrdersOptions) {
         bulkTargetStatus,
         user,
         damagedItems,
+        actionDate,
       });
       return true;
     } catch {

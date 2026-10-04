@@ -241,7 +241,8 @@ export interface IOrderRepository {
     status: any,
     remarks?: string,
     damagedProductIds?: string[],
-    damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[]
+    damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[],
+    actionDate?: string
   ): Promise<Order>;
   updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order>;
   bulkUpdateDeliveryCharge(input: BulkUpdateDeliveryChargeInput): Promise<{ success: boolean; count: number; orders: Order[] }>;

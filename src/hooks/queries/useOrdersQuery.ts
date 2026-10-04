@@ -101,12 +101,14 @@ export function useOrderMutations() {
       user,
       statusRemark,
       damagedItems,
+      actionDate,
     }: {
       targetOrder: Order;
       targetNewStatus: OrderStatus;
       user: any;
       statusRemark?: string;
       damagedItems?: any[];
+      actionDate?: string;
     }) => {
       return OrderService.updateOrderStatus(
         targetOrder.id,
@@ -114,6 +116,7 @@ export function useOrderMutations() {
         user,
         statusRemark?.trim() || undefined,
         damagedItems,
+        actionDate,
       );
     },
     onSuccess: (_, variables) => {
@@ -157,17 +160,20 @@ export function useOrderMutations() {
       bulkTargetStatus,
       user,
       damagedItems,
+      actionDate,
     }: {
       selectedOrderIds: string[];
       bulkTargetStatus: OrderStatus;
       user: any;
       damagedItems?: any[];
+      actionDate?: string;
     }) => {
       return OrderService.bulkUpdateOrderStatus(
         selectedOrderIds,
         bulkTargetStatus,
         user,
         damagedItems,
+        actionDate,
       );
     },
     onSuccess: (count, variables) => {
