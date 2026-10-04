@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
+import { toColomboDateString } from '../../utils/deliveryDateUtils';
 import toast from 'react-hot-toast';
 
 type ActiveTab = 'ALL' | 'INTERESTED' | 'DISPATCHED' | 'DELIVERED' | 'REJECTED' | 'CANCELLED';
@@ -140,7 +141,7 @@ export const MemberSalesPage: React.FC = () => {
           : o.status === 'REJECTED' && o.rejectedAt
           ? o.rejectedAt
           : o.createdAt;
-      const d = dateToUse.split('T')[0];
+      const d = toColomboDateString(dateToUse);
       if (startDate && d < startDate) return false;
       if (endDate && d > endDate) return false;
       return true;
@@ -151,7 +152,7 @@ export const MemberSalesPage: React.FC = () => {
   const interestedContacts = useMemo(() => {
     return contacts.filter((c) => {
       if (c.status !== 'INTERESTED') return false;
-      const d = c.updatedAt ? c.updatedAt.split('T')[0] : '';
+      const d = c.updatedAt ? toColomboDateString(c.updatedAt) : '';
       if (startDate && d && d < startDate) return false;
       if (endDate && d && d > endDate) return false;
       return true;

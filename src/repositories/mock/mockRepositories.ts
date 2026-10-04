@@ -741,9 +741,9 @@ export class MockOrderRepository implements IOrderRepository {
     let deliveredAt = orders[idx].deliveredAt;
     let rejectedAt = orders[idx].rejectedAt;
     if (status === 'DELIVERED') {
-      deliveredAt = actionDate ? `${actionDate}T23:59:59.000Z` : now.toISOString();
+      deliveredAt = actionDate ? new Date(`${actionDate}T12:00:00.000+05:30`).toISOString() : now.toISOString();
     } else if (status === 'REJECTED') {
-      rejectedAt = actionDate ? `${actionDate}T23:59:59.000Z` : now.toISOString();
+      rejectedAt = actionDate ? new Date(`${actionDate}T12:00:00.000+05:30`).toISOString() : now.toISOString();
     }
     const updated = {
       ...orders[idx],

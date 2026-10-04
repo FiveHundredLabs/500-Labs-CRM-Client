@@ -45,6 +45,7 @@ import {
   addMonths,
   differenceInDays
 } from 'date-fns';
+import { toColomboDateString } from '../../utils/deliveryDateUtils';
 
 export type DashboardDateFilter = 'THIS_MONTH' | 'LAST_MONTH' | 'TODAY' | 'THIS_WEEK' | 'ALL' | 'LAST_6_MONTHS' | 'CUSTOM';
 
@@ -218,7 +219,7 @@ export const MemberDashboard: React.FC = () => {
 
   const monthlyDeliveredOrders = orders.filter((o) => {
     if (o.status !== 'DELIVERED') return false;
-    const dateStr = o.deliveredAt || o.createdAt;
+    const dateStr = toColomboDateString(o.deliveredAt || o.createdAt);
     return dateStr.startsWith(targetMonthPrefix);
   });
 
