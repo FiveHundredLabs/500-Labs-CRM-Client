@@ -1,4 +1,5 @@
 import apiClient from '../../lib/apiClient';
+import { sortTeamsBySeedOrder } from '../../utils/teamOrder';
 import {
   ITeamRepository,
   IUserRepository,
@@ -112,7 +113,8 @@ export const unwrapPaginated = <T>(res: any, defaultLimit = 50): PaginatedRespon
 // ─────────────────────────────────────────────────────────────────────────────
 export class ApiTeamRepository implements ITeamRepository {
   async getAll(): Promise<Team[]> {
-    return unwrap(await apiClient.get<{ data: Team[] }>('/teams'));
+    const list = unwrap(await apiClient.get<{ data: Team[] }>('/teams'));
+    return sortTeamsBySeedOrder(list);
   }
   async getById(id: string): Promise<Team | null> {
     try {
