@@ -24,9 +24,9 @@ export const AdminLeaderboardsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // Filters
-  const [datePreset, setDatePreset] = useState<string>('ALL');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [datePreset, setDatePreset] = useState<string>('THIS_MONTH');
+  const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
@@ -66,11 +66,16 @@ export const AdminLeaderboardsPage: React.FC = () => {
       setStartDate(format(startOfMonth(prev), 'yyyy-MM-dd'));
       setEndDate(format(endOfMonth(prev), 'yyyy-MM-dd'));
     } else if (preset === 'THIS_WEEK') {
-      setStartDate(format(startOfWeek(now), 'yyyy-MM-dd'));
-      setEndDate(format(endOfWeek(now), 'yyyy-MM-dd'));
+      setStartDate(format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+      setEndDate(format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
     } else if (preset === 'ALL') {
       setStartDate('');
       setEndDate('');
+    } else if (preset === 'CUSTOM') {
+      if (!startDate && !endDate) {
+        setStartDate(format(startOfMonth(now), 'yyyy-MM-dd'));
+        setEndDate(format(endOfMonth(now), 'yyyy-MM-dd'));
+      }
     }
   };
 
@@ -153,6 +158,7 @@ export const AdminLeaderboardsPage: React.FC = () => {
           primaryLabel: 'Delivered Sales',
           secondaryLabel: 'Delivered Orders',
           unitLabel: 'orders',
+          deliveredOrdersList: m.deliveredOrdersList,
         }))}
         chartTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Member Delivered Sales Ranking`}
         tableTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Sales Performance Data Table`}

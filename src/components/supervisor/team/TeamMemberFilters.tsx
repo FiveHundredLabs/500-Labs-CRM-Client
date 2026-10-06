@@ -51,10 +51,10 @@ export const TeamMemberFilters: React.FC<TeamMemberFiltersProps> = ({
             value={datePreset}
             onChange={(e) => onDatePresetChange(e.target.value)}
             options={[
-              { value: 'ALL', label: 'All Time' },
               { value: 'THIS_MONTH', label: 'This Month' },
-              { value: 'LAST_MONTH', label: 'Last Month' },
               { value: 'THIS_WEEK', label: 'This Week' },
+              { value: 'LAST_MONTH', label: 'Last Month' },
+              { value: 'ALL', label: 'All Time' },
               { value: 'CUSTOM', label: 'Custom Date Range' },
             ]}
           />

@@ -2,17 +2,10 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { Order, Customer, User } from '../models/domain';
 import { format } from 'date-fns';
+import { toColomboDateString } from '../utils/deliveryDateUtils';
 
 const toDateString = (val?: string | null): string => {
-  if (!val) return '';
-  if (val.length >= 10 && val[4] === '-' && val[7] === '-') {
-    return val.slice(0, 10);
-  }
-  try {
-    return format(new Date(val), 'yyyy-MM-dd');
-  } catch {
-    return '';
-  }
+  return toColomboDateString(val);
 };
 
 export function useOrderFilters(
