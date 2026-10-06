@@ -8,6 +8,7 @@
     "logoText": "EASY METHOD ENGLISH",
     "contactPhone": "0741488108",
     "address": "NO 287/2/2, HAVELOCK ROAD, COLOMBO - 06",
+    "includeInSalesCalculations": true,
     "createdAt": "2026-01-01T00:00:00Z"
   },
   {
@@ -20,6 +21,7 @@
     "contactEmail": "contact@growmart.com",
     "contactPhone": "0774613351",
     "address": "NO 287/2/1, HAVELOCK ROAD, COLOMBO - 06",
+    "includeInSalesCalculations": true,
     "createdAt": "2026-01-01T00:00:00Z"
   }
 ]

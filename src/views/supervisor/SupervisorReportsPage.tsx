@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { User, Order } from '../../models/domain';
-import { userRepository, orderRepository } from '../../repositories';
+import { userRepository, orderRepository, teamRepository } from '../../repositories';
 import {
   SupervisorAnalyticsService,
   ReportsFilterOptions,
@@ -24,6 +24,7 @@ export const SupervisorReportsPage: React.FC = () => {
 
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isSalesEligible, setIsSalesEligible] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
 
   // Filter States
@@ -40,17 +41,20 @@ export const SupervisorReportsPage: React.FC = () => {
       if (!effectiveTeamId) {
         setTeamMembers([]);
         setOrders([]);
+        setIsSalesEligible(true);
         setLoading(false);
         return;
       }
       setLoading(true);
       try {
-        const [membersData, ordersData] = await Promise.all([
+        const [membersData, ordersData, teamData] = await Promise.all([
           userRepository.getByTeamId(effectiveTeamId).catch(() => []),
           orderRepository.getByTeamId(effectiveTeamId).catch(() => []),
+          teamRepository.getById(effectiveTeamId).catch(() => null),
         ]);
         setTeamMembers(membersData.filter((m) => m.role === 'TEAM_MEMBER'));
         setOrders(ordersData);
+        setIsSalesEligible(teamData ? teamData.includeInSalesCalculations !== false : true);
       } finally {
         setLoading(false);
       }
@@ -99,10 +103,30 @@ export const SupervisorReportsPage: React.FC = () => {
   const filteredOrders = SupervisorAnalyticsService.filterOrders(orders, filterOptions);
 
   // Compute analytics metrics
-  const financialSummary = SupervisorAnalyticsService.computeFinancialSummary(filteredOrders);
-  const statusDistribution = SupervisorAnalyticsService.computeStatusDistribution(filteredOrders);
-  const leaderboard = SupervisorAnalyticsService.computeLeaderboard(teamMembers, filteredOrders);
-  const memberPerformance = SupervisorAnalyticsService.computeMemberPerformanceChart(leaderboard);
+  const rawFinancialSummary = SupervisorAnalyticsService.computeFinancialSummary(filteredOrders);
+  const financialSummary = isSalesEligible
+    ? rawFinancialSummary
+    : {
+        ...rawFinancialSummary,
+        totalOrderValue: 0,
+        deliveredOrderValue: 0,
+        dispatchedOrderValue: 0,
+        rejectedOrderValue: 0,
+        averageOrderValue: 0,
+      };
+
+  const rawStatusDistribution = SupervisorAnalyticsService.computeStatusDistribution(filteredOrders);
+  const statusDistribution = isSalesEligible
+    ? rawStatusDistribution
+    : rawStatusDistribution.map((d) => ({ ...d, value: 0 }));
+
+  const leaderboard = isSalesEligible
+    ? SupervisorAnalyticsService.computeLeaderboard(teamMembers, filteredOrders)
+    : [];
+
+  const memberPerformance = isSalesEligible
+    ? SupervisorAnalyticsService.computeMemberPerformanceChart(leaderboard)
+    : [];
 
   return (
     <div className="space-y-6">
