@@ -2,17 +2,10 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { Order, Customer, User } from '../models/domain';
 import { format } from 'date-fns';
+import { toColomboDateString } from '../utils/deliveryDateUtils';
 
 const toDateString = (val?: string | null): string => {
-  if (!val) return '';
-  if (val.length >= 10 && val[4] === '-' && val[7] === '-') {
-    return val.slice(0, 10);
-  }
-  try {
-    return format(new Date(val), 'yyyy-MM-dd');
-  } catch {
-    return '';
-  }
+  return toColomboDateString(val);
 };
 
 export function useOrderFilters(
@@ -96,6 +89,14 @@ export function useOrderFilters(
   const dateFilteredOrders = useMemo(() => {
     if (isServerFiltered || !selectedDate || selectedDate === 'ALL') return orders;
     return orders.filter((order) => {
+      if (order.status === 'DELIVERED') {
+        const delivDate = toDateString(order.deliveredAt || order.createdAt);
+        return delivDate === selectedDate;
+      }
+      if (order.status === 'REJECTED') {
+        const rejDate = toDateString(order.rejectedAt || order.createdAt);
+        return rejDate === selectedDate;
+      }
       const createdDate = toDateString(order.createdAt);
       if (createdDate === selectedDate) return true;
       const updatedDate = order.updatedAt ? toDateString(order.updatedAt) : createdDate;
@@ -129,7 +130,7 @@ export function useOrderFilters(
     const hasSearch = q.length > 0;
     const isAllMember = selectedMemberId === 'ALL';
 
-    return dateFilteredOrders.filter((order) => {
+    const list = dateFilteredOrders.filter((order) => {
       if (statusFilter !== 'ALL') {
         if (order.status !== statusFilter) return false;
       } else {
@@ -176,6 +177,24 @@ export function useOrderFilters(
         Boolean(member && member.username && member.username.toLowerCase().includes(q))
       );
     });
+
+    if (statusFilter === 'DELIVERED') {
+      return [...list].sort((a, b) => {
+        const timeA = a.deliveredAt ? new Date(a.deliveredAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const timeB = b.deliveredAt ? new Date(b.deliveredAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return timeB - timeA;
+      });
+    }
+
+    if (statusFilter === 'REJECTED') {
+      return [...list].sort((a, b) => {
+        const timeA = a.rejectedAt ? new Date(a.rejectedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const timeB = b.rejectedAt ? new Date(b.rejectedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return timeB - timeA;
+      });
+    }
+
+    return list;
   }, [dateFilteredOrders, orders, customersMap, membersMap, statusFilter, selectedMemberId, debouncedSearch, isServerFiltered]);
 
   const resetFilters = useCallback(() => {

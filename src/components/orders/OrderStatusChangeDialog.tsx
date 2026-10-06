@@ -5,8 +5,15 @@ import { useAuth } from '../../hooks/useAuth';
 import { Dialog } from '../ui/Dialog';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { AlertTriangle, Package, Check, ShieldAlert, Clock, Info } from 'lucide-react';
+import { AlertTriangle, Package, Check, ShieldAlert, Clock, Info, CalendarCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  getTodayDateStr,
+  getYesterdayDateStr,
+  isYesterdayAllowed,
+  todayLabel,
+  yesterdayLabel,
+} from '../../utils/deliveryDateUtils';
 
 export interface OrderItemDamageReport {
   productId?: string;
@@ -26,7 +33,8 @@ export interface OrderStatusChangeDialogProps {
     targetOrder: Order,
     newStatus: OrderStatus,
     remark: string,
-    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[]
+    damagedItems?: { productId?: string; productName: string; quantity: number; reason?: string }[],
+    actionDate?: string
   ) => Promise<boolean>;
   onRejectionSubmitted?: () => void;
 }
@@ -82,6 +90,15 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
   const [targetNewStatus, setTargetNewStatus] = useState<OrderStatus>(initialTargetStatus);
   const [statusRemark, setStatusRemark] = useState(order?.remarks || '');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Action date state (Today / Yesterday)
+  const [actionDate, setActionDate] = useState<string>(getTodayDateStr());
+  const yesterdayAllowed = isYesterdayAllowed();
+
+  // Reset action date whenever the dialog re-opens for a new order
+  useEffect(() => {
+    setActionDate(getTodayDateStr());
+  }, [order?.id]);
 
   // Damaged Items Reporting State
   const [hasDamagedItems, setHasDamagedItems] = useState(false);
@@ -312,7 +329,7 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
         return;
       }
 
-      const success = await onConfirm(order, targetNewStatus, statusRemark, damagedPayload);
+      const success = await onConfirm(order, targetNewStatus, statusRemark, damagedPayload, actionDate);
       if (success) {
         onClose();
       }
@@ -414,6 +431,57 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
           }}
           options={availableStatusOptions}
         />
+
+        {/* Date Selection: Today / Yesterday — shown when marking as DELIVERED or REJECTED */}
+        {(targetNewStatus === 'DELIVERED' || targetNewStatus === 'REJECTED') && (
+          <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl space-y-2">
+            <div className="flex items-center gap-2">
+              <CalendarCheck className="w-4 h-4 text-sky-600 shrink-0" />
+              <span className="text-xs font-bold text-sky-900">
+                {targetNewStatus === 'DELIVERED' ? 'Delivery Date' : 'Rejection Date'}
+              </span>
+              {!yesterdayAllowed && (
+                <span className="ml-auto text-[10px] text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-md">
+                  Yesterday locked after 12:00 PM
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setActionDate(getTodayDateStr())}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                  actionDate === getTodayDateStr()
+                    ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-sky-400 hover:bg-sky-50'
+                }`}
+              >
+                {todayLabel()}
+              </button>
+              <button
+                type="button"
+                disabled={!yesterdayAllowed}
+                onClick={() => yesterdayAllowed && setActionDate(getYesterdayDateStr())}
+                title={!yesterdayAllowed ? 'Yesterday option is only available before 12:00 PM' : ''}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold border transition-all ${
+                  !yesterdayAllowed
+                    ? 'opacity-40 cursor-not-allowed bg-slate-50 text-slate-400 border-slate-200'
+                    : actionDate === getYesterdayDateStr()
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-xs cursor-pointer'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-amber-400 hover:bg-amber-50 cursor-pointer'
+                }`}
+              >
+                {yesterdayLabel()}
+              </button>
+            </div>
+            {actionDate === getYesterdayDateStr() && yesterdayAllowed && (
+              <p className="text-[11px] text-amber-700 font-medium flex items-center gap-1">
+                <Info className="w-3 h-3 shrink-0" />
+                This order will be recorded as {targetNewStatus.toLowerCase()} on {yesterdayLabel()}.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Damaged Product Items in Order Selection Section - ONLY shown when status is REJECTED */}
         {targetNewStatus === 'REJECTED' && (

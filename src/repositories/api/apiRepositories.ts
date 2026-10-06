@@ -172,10 +172,15 @@ export class ApiUserRepository implements IUserRepository {
       )
     );
   }
-  async getLeaderboard(teamId?: string): Promise<LeaderboardUser[]> {
-    const params = teamId ? { teamId } : undefined;
+  async getLeaderboard(teamId?: string, startDate?: string, endDate?: string): Promise<LeaderboardUser[]> {
+    const params: Record<string, string> = {};
+    if (teamId) params.teamId = teamId;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
     return unwrap(
-      await apiClient.get<{ data: LeaderboardUser[] }>('/users/leaderboard', { params })
+      await apiClient.get<{ data: LeaderboardUser[] }>('/users/leaderboard', {
+        params: Object.keys(params).length > 0 ? params : undefined,
+      })
     );
   }
   async getBySupervisorId(supervisorId: string): Promise<User[]> {
@@ -522,7 +527,8 @@ export class ApiOrderRepository implements IOrderRepository {
     status: any,
     remarks?: string,
     damagedProductIds?: string[],
-    damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[]
+    damagedItems?: { productId?: string; productName?: string; quantity: number; reason?: string }[],
+    actionDate?: string
   ): Promise<Order> {
     return unwrap(
       await apiClient.patch<{ data: Order }>(`/orders/${id}/status`, {
@@ -530,6 +536,7 @@ export class ApiOrderRepository implements IOrderRepository {
         remarks,
         damagedProductIds,
         damagedItems,
+        ...(actionDate ? { actionDate } : {}),
       })
     );
   }

@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
+import { toColomboDateString } from '../../utils/deliveryDateUtils';
 import toast from 'react-hot-toast';
 
 type ActiveTab = 'ALL' | 'INTERESTED' | 'DISPATCHED' | 'DELIVERED' | 'REJECTED' | 'CANCELLED';
@@ -134,7 +135,13 @@ export const MemberSalesPage: React.FC = () => {
   // Filtered Orders within Date Range
   const dateFilteredOrders = useMemo(() => {
     return orders.filter((o) => {
-      const d = o.createdAt.split('T')[0];
+      const dateToUse =
+        o.status === 'DELIVERED' && o.deliveredAt
+          ? o.deliveredAt
+          : o.status === 'REJECTED' && o.rejectedAt
+          ? o.rejectedAt
+          : o.createdAt;
+      const d = toColomboDateString(dateToUse);
       if (startDate && d < startDate) return false;
       if (endDate && d > endDate) return false;
       return true;
@@ -145,7 +152,7 @@ export const MemberSalesPage: React.FC = () => {
   const interestedContacts = useMemo(() => {
     return contacts.filter((c) => {
       if (c.status !== 'INTERESTED') return false;
-      const d = c.updatedAt ? c.updatedAt.split('T')[0] : '';
+      const d = c.updatedAt ? toColomboDateString(c.updatedAt) : '';
       if (startDate && d && d < startDate) return false;
       if (endDate && d && d > endDate) return false;
       return true;
@@ -253,7 +260,19 @@ export const MemberSalesPage: React.FC = () => {
       });
     }
 
-    return list.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
+    return list.sort((a, b) => {
+      if (activeTab === 'DELIVERED') {
+        const timeA = a.deliveredAt ? new Date(a.deliveredAt).getTime() : new Date(a.createdAt).getTime();
+        const timeB = b.deliveredAt ? new Date(b.deliveredAt).getTime() : new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      }
+      if (activeTab === 'REJECTED') {
+        const timeA = a.rejectedAt ? new Date(a.rejectedAt).getTime() : new Date(a.createdAt).getTime();
+        const timeB = b.rejectedAt ? new Date(b.rejectedAt).getTime() : new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      }
+      return (b.createdAt > a.createdAt ? 1 : -1);
+    });
   }, [dateFilteredOrders, activeTab, searchQuery, customerMap]);
 
   const displayContacts = useMemo(() => {

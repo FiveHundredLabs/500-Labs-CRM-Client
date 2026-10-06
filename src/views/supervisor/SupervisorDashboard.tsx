@@ -75,8 +75,8 @@ export const SupervisorDashboard: React.FC = () => {
     }
     if (dateFilter === 'THIS_WEEK') {
       return {
-        startDate: format(startOfWeek(now), 'yyyy-MM-dd'),
-        endDate: format(endOfWeek(now), 'yyyy-MM-dd'),
+        startDate: format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+        endDate: format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
         teamId: effectiveTeamId,
       };
     }
@@ -420,6 +420,7 @@ export const SupervisorDashboard: React.FC = () => {
               primaryLabel: 'Delivered Sales',
               secondaryLabel: 'Delivered Orders',
               unitLabel: 'orders',
+              deliveredOrdersList: m.deliveredOrdersList,
             }))}
             compact={true}
             title="Team Delivered Sales Leaderboard"

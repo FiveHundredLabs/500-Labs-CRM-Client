@@ -6,6 +6,7 @@ import { OrderExpandedDetails } from './OrderExpandedDetails';
 import type { DuplicateOrderConflictInfo } from './DuplicateOrderConflictDialog';
 import { ChevronDown, ChevronUp, AlertTriangle, Info, FileText, Mail, Truck, Clock, ShieldAlert, Banknote, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatOrderDisplayDate } from '../../utils/deliveryDateUtils';
 
 export interface OrderCardProps {
   order: Order;
@@ -68,15 +69,12 @@ export const OrderCard: React.FC<OrderCardProps> = React.memo(({
 
   const displayDate =
     order.status === 'DELIVERED'
-      ? order.deliveredAt || order.updatedAt || order.createdAt
+      ? order.deliveredAt || order.createdAt
       : order.status === 'REJECTED'
-        ? order.rejectedAt || order.updatedAt || order.createdAt
+        ? order.rejectedAt || order.createdAt
         : order.updatedAt || order.createdAt;
 
-  const formattedDate = format(
-    new Date(displayDate),
-    'MMM dd'
-  );
+  const formattedDate = formatOrderDisplayDate(displayDate);
 
   const deliveryMethod = order.deliveryMethod || customer?.deliveryMethod || 'POST';
   const deliveryNote = order.deliveryNote || customer?.deliveryNote;
