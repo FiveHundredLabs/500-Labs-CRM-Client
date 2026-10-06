@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { expenseRepository, financeRepository, orderRepository } from '../../repositories';
-import { Expense, FinanceDashboardStats, Order } from '../../models/domain';
+import { expenseRepository, financeRepository, orderRepository, teamRepository } from '../../repositories';
+import { Expense, FinanceDashboardStats, Order, Team } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -39,6 +39,7 @@ export const FinanceDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [stats, setStats] = useState<FinanceDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,14 +52,16 @@ export const FinanceDashboard: React.FC = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const [dashboardStats, expData, orderData] = await Promise.all([
+        const [dashboardStats, expData, orderData, teamData] = await Promise.all([
           financeRepository.getDashboard(startDate || undefined, endDate || undefined),
           expenseRepository.getAll(),
           orderRepository.getAll(),
+          teamRepository.getAll(),
         ]);
         setStats(dashboardStats);
         setExpenses(expData);
         setOrders(orderData);
+        setTeams(teamData);
       } finally {
         setLoading(false);
       }
@@ -102,6 +105,10 @@ export const FinanceDashboard: React.FC = () => {
     });
   }, [expenses, startDate, endDate]);
 
+  const nonSalesTeamIdSet = useMemo(() => {
+    return new Set(teams.filter((t) => t.includeInSalesCalculations === false).map((t) => t.id));
+  }, [teams]);
+
   // Financial Metrics
   const salesMetrics = useMemo(() => {
     let totalSales = 0;
@@ -110,6 +117,7 @@ export const FinanceDashboard: React.FC = () => {
     let deliveredCount = 0;
 
     filteredOrders.forEach((o) => {
+      if (nonSalesTeamIdSet.has(o.teamId)) return;
       const productSalesValue = getProductSalesValue(o);
       const amountToCollect = getAmountToCollect(o);
       totalSales += productSalesValue;
@@ -128,9 +136,9 @@ export const FinanceDashboard: React.FC = () => {
       deliveredCount,
       totalOrders: filteredOrders.length,
     };
-  }, [filteredOrders]);
+  }, [filteredOrders, nonSalesTeamIdSet]);
 
-  const salesRevenue = salesMetrics.totalSales || stats?.salesRevenue || 0;
+  const salesRevenue = stats?.salesRevenue ?? salesMetrics.totalSales ?? 0;
   const grossProfit = stats?.grossProfit ?? 0;
   const totalExpenses = stats?.totalExpenses ?? 0;
   const cogs = stats?.cogs ?? 0;
