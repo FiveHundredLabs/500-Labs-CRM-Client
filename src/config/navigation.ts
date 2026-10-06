@@ -18,7 +18,6 @@ import {
   Boxes,
   Target,
   TrendingUp,
-  Building2,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -61,7 +60,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Home', path: '/admin/dashboard', icon: Home, isBottomNav: true, group: 'Admin' },
     { label: 'Sales Goals', path: '/admin/sales-goals', icon: Target, isBottomNav: false, group: 'Admin' },
     { label: 'Supervisor Goals', path: '/admin/supervisor-goals', icon: Trophy, isBottomNav: false, group: 'Admin' },
-    { label: 'Teams', path: '/admin/teams', icon: Building2, isBottomNav: false, group: 'Admin' },
+    // { label: 'Teams', path: '/admin/teams', icon: Building2, isBottomNav: false, group: 'Admin' },
     { label: 'Users', path: '/admin/users', icon: Users, isBottomNav: true, group: 'Admin' },
     { label: 'Products', path: '/admin/products', icon: Boxes, isBottomNav: true, group: 'Admin' },
     { label: 'Approvals', path: '/admin/approvals', icon: FileCheck, isBottomNav: false, group: 'Admin' },
