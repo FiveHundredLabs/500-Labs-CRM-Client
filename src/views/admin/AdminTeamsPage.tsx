@@ -20,6 +20,7 @@ type TeamFormState = {
   contactEmail: string;
   contactPhone: string;
   address: string;
+  includeInSalesCalculations: boolean;
 };
 
 const emptyForm: TeamFormState = {
@@ -32,6 +33,7 @@ const emptyForm: TeamFormState = {
   contactEmail: '',
   contactPhone: '',
   address: '',
+  includeInSalesCalculations: true,
 };
 
 const toForm = (team: Team): TeamFormState => ({
@@ -44,6 +46,7 @@ const toForm = (team: Team): TeamFormState => ({
   contactEmail: team.contactEmail,
   contactPhone: team.contactPhone,
   address: team.address,
+  includeInSalesCalculations: team.includeInSalesCalculations !== false,
 });
 
 export const AdminTeamsPage: React.FC = () => {
@@ -102,6 +105,7 @@ export const AdminTeamsPage: React.FC = () => {
         contactEmail: form.contactEmail.trim(),
         contactPhone: form.contactPhone.trim(),
         address: form.address.trim(),
+        includeInSalesCalculations: form.includeInSalesCalculations,
       };
 
       if (editingTeam) {
@@ -142,6 +146,7 @@ export const AdminTeamsPage: React.FC = () => {
               <th className="px-4 py-3">Team</th>
               <th className="px-4 py-3">Branding</th>
               <th className="px-4 py-3">Contact</th>
+              <th className="px-4 py-3">Sales Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -173,6 +178,17 @@ export const AdminTeamsPage: React.FC = () => {
                 <td className="px-4 py-3.5 text-xs text-slate-600">
                   <div>{team.contactEmail}</div>
                   <div className="font-mono text-slate-400">{team.contactPhone}</div>
+                </td>
+                <td className="px-4 py-3.5">
+                  {team.includeInSalesCalculations !== false ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Sales Enabled
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                      Operational Only
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3.5 text-right">
                   <Button
@@ -223,6 +239,23 @@ export const AdminTeamsPage: React.FC = () => {
           </div>
 
           <Input label="Address *" value={form.address} onChange={(e) => updateForm('address', e.target.value)} required />
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.includeInSalesCalculations}
+                onChange={(e) => updateForm('includeInSalesCalculations', e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-slate-900">Include in Sales Calculations &amp; KPIs</span>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  When enabled, orders from this team contribute to system sales revenue, financial reports, sales KPIs and leaderboards. Disable this for operational-only teams.
+                </p>
+              </div>
+            </label>
+          </div>
 
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
             <Button type="button" variant="secondary" onClick={() => setIsDialogOpen(false)}>

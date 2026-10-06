@@ -40,6 +40,7 @@ export interface Team {
   contactPhone: string;
   address: string;
   isActive?: boolean;
+  includeInSalesCalculations?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
