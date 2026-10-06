@@ -1,5 +1,4 @@
 import apiClient from '../../lib/apiClient';
-import { getTodayDateStr } from '../../utils/deliveryDateUtils';
 import {
   ITeamRepository,
   IUserRepository,
@@ -537,11 +536,7 @@ export class ApiOrderRepository implements IOrderRepository {
         remarks,
         damagedProductIds,
         damagedItems,
-        // Only send actionDate when it's a past date (e.g. "Yesterday").
-        // The backend defaults to now() when this field is absent, so omitting it
-        // for "today" is semantically identical and avoids breaking older builds
-        // that don't yet have this field whitelisted in the ValidationPipe.
-        ...(actionDate && actionDate !== getTodayDateStr() ? { actionDate } : {}),
+        ...(actionDate ? { actionDate } : {}),
       })
     );
   }
