@@ -172,10 +172,15 @@ export class ApiUserRepository implements IUserRepository {
       )
     );
   }
-  async getLeaderboard(teamId?: string): Promise<LeaderboardUser[]> {
-    const params = teamId ? { teamId } : undefined;
+  async getLeaderboard(teamId?: string, startDate?: string, endDate?: string): Promise<LeaderboardUser[]> {
+    const params: Record<string, string> = {};
+    if (teamId) params.teamId = teamId;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
     return unwrap(
-      await apiClient.get<{ data: LeaderboardUser[] }>('/users/leaderboard', { params })
+      await apiClient.get<{ data: LeaderboardUser[] }>('/users/leaderboard', {
+        params: Object.keys(params).length > 0 ? params : undefined,
+      })
     );
   }
   async getBySupervisorId(supervisorId: string): Promise<User[]> {

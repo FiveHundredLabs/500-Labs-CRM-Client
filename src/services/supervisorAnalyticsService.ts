@@ -1,6 +1,7 @@
 import { Order, User, OrderStatus } from '../models/domain';
 import { ORDER_STATUS_CONFIG } from '../config/status';
 import { getProductSalesValue } from '../utils/orderAmounts';
+import { toColomboDateString } from '../utils/deliveryDateUtils';
 
 export interface LeaderboardMemberStats {
   rank: number;
@@ -81,7 +82,13 @@ export class SupervisorAnalyticsService {
 
       // 3. Date range filter
       if (filters.startDate || filters.endDate) {
-        const orderDate = order.createdAt ? order.createdAt.substring(0, 10) : '';
+        const dateToUse =
+          order.status === 'DELIVERED' && order.deliveredAt
+            ? order.deliveredAt
+            : (order.status === 'REJECTED' || order.status === 'RETURNED') && order.rejectedAt
+            ? order.rejectedAt
+            : order.createdAt;
+        const orderDate = toColomboDateString(dateToUse);
         if (filters.startDate && orderDate < filters.startDate) return false;
         if (filters.endDate && orderDate > filters.endDate) return false;
       }

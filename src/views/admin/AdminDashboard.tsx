@@ -54,8 +54,8 @@ export const AdminDashboard: React.FC = () => {
     }
     if (dateFilter === 'THIS_WEEK') {
       return {
-        startDate: format(startOfWeek(now), 'yyyy-MM-dd'),
-        endDate: format(endOfWeek(now), 'yyyy-MM-dd'),
+        startDate: format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+        endDate: format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
       };
     }
     if (dateFilter === 'THIS_MONTH') {

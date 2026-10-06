@@ -1,14 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { User, Order } from '../../models/domain';
 import { userRepository, orderRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Leaderboard, LeaderboardItem } from '../../components/leaderboard';
-import { getProductSalesValue } from '../../utils/orderAmounts';
+import { TeamMemberFilters } from '../../components/supervisor/team/TeamMemberFilters';
+import {
+  SupervisorAnalyticsService,
+  ReportsFilterOptions,
+} from '../../services/supervisorAnalyticsService';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from 'date-fns';
 
 export const MemberLeaderboardPage: React.FC = () => {
   const { user } = useAuth();
-  const [items, setItems] = useState<LeaderboardItem[]>([]);
+  const [members, setMembers] = useState<User[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filters
+  const [datePreset, setDatePreset] = useState<string>('ALL');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -16,51 +29,18 @@ export const MemberLeaderboardPage: React.FC = () => {
       try {
         const currentTeamId = user?.teamId;
         if (!currentTeamId) {
-          setItems([]);
+          setMembers([]);
+          setAllOrders([]);
           return;
         }
-        const [teamUsers, allOrders] = await Promise.all([
-          userRepository.getByTeamId(currentTeamId),
-          orderRepository.getByTeamId(currentTeamId),
+        const [teamUsers, teamOrders] = await Promise.all([
+          userRepository.getByTeamId(currentTeamId).catch(() => []),
+          orderRepository.getByTeamId(currentTeamId).catch(() => []),
         ]);
 
-        const members = teamUsers.filter((u) => u.role === 'TEAM_MEMBER' && u.isActive);
-
-        const list: LeaderboardItem[] = members.map((m: any) => {
-          const mOrders = allOrders.filter((o) => o.teamMemberId === m.id);
-          const deliveredOrders = mOrders.filter((o) => o.status === 'DELIVERED');
-          const deliveredSalesAmount = m.deliveredSalesAmount !== undefined
-            ? Number(m.deliveredSalesAmount)
-            : deliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
-          const deliveredOrdersCount = m.deliveredOrdersCount !== undefined
-            ? Number(m.deliveredOrdersCount)
-            : deliveredOrders.length;
-          const totalOrdersCount = m.totalOrdersCount !== undefined
-            ? Number(m.totalOrdersCount)
-            : mOrders.length;
-
-          return {
-            id: m.id,
-            rank: 0,
-            name: m.fullName,
-            avatarUrl: m.avatarUrl,
-            isCurrentUser: m.id === user?.id,
-            primaryValue: deliveredSalesAmount,
-            secondaryValue: deliveredOrdersCount,
-            primaryLabel: 'Delivered Sales',
-            secondaryLabel: 'Delivered Orders',
-            unitLabel: 'orders',
-          };
-        });
-
-        // Rank primarily by Total Delivered Sales Value (highest revenue first)
-        list.sort((a, b) => b.primaryValue - a.primaryValue || b.secondaryValue - a.secondaryValue);
-
-        list.forEach((item, idx) => {
-          item.rank = idx + 1;
-        });
-
-        setItems(list);
+        const activeMembers = teamUsers.filter((u) => u.role === 'TEAM_MEMBER' && u.isActive);
+        setMembers(activeMembers);
+        setAllOrders(teamOrders);
       } finally {
         setLoading(false);
       }
@@ -69,11 +49,74 @@ export const MemberLeaderboardPage: React.FC = () => {
     loadLeaderboard();
   }, [user]);
 
+  const handleDatePresetChange = (preset: string) => {
+    setDatePreset(preset);
+    const now = new Date();
+
+    if (preset === 'THIS_MONTH') {
+      setStartDate(format(startOfMonth(now), 'yyyy-MM-dd'));
+      setEndDate(format(endOfMonth(now), 'yyyy-MM-dd'));
+    } else if (preset === 'LAST_MONTH') {
+      const prev = subMonths(now, 1);
+      setStartDate(format(startOfMonth(prev), 'yyyy-MM-dd'));
+      setEndDate(format(endOfMonth(prev), 'yyyy-MM-dd'));
+    } else if (preset === 'THIS_WEEK') {
+      setStartDate(format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+      setEndDate(format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+    } else if (preset === 'ALL') {
+      setStartDate('');
+      setEndDate('');
+    } else if (preset === 'CUSTOM') {
+      if (!startDate && !endDate) {
+        setStartDate(format(startOfMonth(now), 'yyyy-MM-dd'));
+        setEndDate(format(endOfMonth(now), 'yyyy-MM-dd'));
+      }
+    }
+  };
+
+  const filters: ReportsFilterOptions = {
+    datePreset,
+    startDate,
+    endDate,
+    searchQuery,
+  };
+
+  const leaderboardStats = SupervisorAnalyticsService.computeLeaderboard(members, allOrders, filters);
+
+  const filteredLeaderboard = searchQuery.trim()
+    ? leaderboardStats.filter((m) => m.memberName.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+    : leaderboardStats;
+
+  const items: LeaderboardItem[] = filteredLeaderboard.map((m) => ({
+    id: m.memberId,
+    rank: m.rank,
+    name: m.memberName,
+    avatarUrl: m.avatarUrl,
+    isCurrentUser: m.memberId === user?.id,
+    primaryValue: m.totalSalesValue,
+    secondaryValue: m.deliveredOrders,
+    primaryLabel: 'Delivered Sales',
+    secondaryLabel: 'Delivered Orders',
+    unitLabel: 'orders',
+  }));
+
   return (
     <div className="space-y-6 max-w-full overflow-hidden">
       <PageHeader
         title="Delivered Sales Leaderboard"
         description="Team member rankings based on total verified delivered sales revenue (LKR)"
+      />
+
+      {/* Filters */}
+      <TeamMemberFilters
+        datePreset={datePreset}
+        onDatePresetChange={handleDatePresetChange}
+        startDate={startDate}
+        onStartDateChange={setStartDate}
+        endDate={endDate}
+        onEndDateChange={setEndDate}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
       />
 
       <Leaderboard
