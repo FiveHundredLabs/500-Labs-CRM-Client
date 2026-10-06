@@ -420,6 +420,7 @@ export const SupervisorDashboard: React.FC = () => {
               primaryLabel: 'Delivered Sales',
               secondaryLabel: 'Delivered Orders',
               unitLabel: 'orders',
+              deliveredOrdersList: m.deliveredOrdersList,
             }))}
             compact={true}
             title="Team Delivered Sales Leaderboard"

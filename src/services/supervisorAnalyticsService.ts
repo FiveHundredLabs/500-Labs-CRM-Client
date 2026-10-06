@@ -2,6 +2,15 @@ import { Order, User, OrderStatus } from '../models/domain';
 import { ORDER_STATUS_CONFIG } from '../config/status';
 import { getProductSalesValue } from '../utils/orderAmounts';
 import { toColomboDateString } from '../utils/deliveryDateUtils';
+import { format } from 'date-fns';
+
+export interface LeaderboardOrderContribution {
+  orderId: string;
+  orderNumber: string;
+  deliveredAt: string;
+  deliveredDateFormatted: string; // e.g. "06 Oct 2026"
+  salesAmount: number;
+}
 
 export interface LeaderboardMemberStats {
   rank: number;
@@ -15,7 +24,8 @@ export interface LeaderboardMemberStats {
   deliveredOrders: number;
   rejectedOrders: number;
   deliveryRate: number; // percentage 0-100
-  totalSalesValue: number; // delivered order value or total handled value
+  totalSalesValue: number; // delivered order value
+  deliveredOrdersList: LeaderboardOrderContribution[];
 }
 
 export interface ReportsFilterOptions {
@@ -133,11 +143,14 @@ export class SupervisorAnalyticsService {
         rejectedOrders: 0,
         deliveryRate: 0,
         totalSalesValue: 0,
+        deliveredOrdersList: [],
       });
     });
 
-    // Aggregate order data per member
+    // Aggregate ONLY DELIVERED orders for the leaderboard ranking & sales breakdown
     filteredOrders.forEach((order) => {
+      if (order.status !== 'DELIVERED') return;
+
       let stats = statsMap.get(order.teamMemberId);
       if (!stats) {
         // If order belongs to a member not in teamMembers list yet, initialize dynamic entry
@@ -153,37 +166,53 @@ export class SupervisorAnalyticsService {
           rejectedOrders: 0,
           deliveryRate: 0,
           totalSalesValue: 0,
+          deliveredOrdersList: [],
         };
         statsMap.set(order.teamMemberId, stats);
       }
 
-      stats.totalOrders += 1;
-
-      if (order.status === 'DELIVERED') {
-        stats.deliveredOrders += 1;
-        stats.totalSalesValue += getProductSalesValue(order);
-      } else if (order.status === 'DISPATCHED') {
-        stats.dispatchedOrders += 1;
-      } else if (order.status === 'REJECTED' || order.status === 'RETURNED') {
-        stats.rejectedOrders += 1;
+      const salesAmount = getProductSalesValue(order);
+      const dateToUse = order.deliveredAt || order.createdAt || '';
+      let deliveredDateFormatted = 'Unknown';
+      if (dateToUse) {
+        try {
+          const d = new Date(dateToUse);
+          if (!isNaN(d.getTime())) {
+            deliveredDateFormatted = format(d, 'dd MMM yyyy');
+          }
+        } catch {
+          deliveredDateFormatted = dateToUse.substring(0, 10);
+        }
       }
+
+      stats.totalOrders += 1;
+      stats.deliveredOrders += 1;
+      stats.totalSalesValue += salesAmount;
+      stats.deliveredOrdersList.push({
+        orderId: order.id,
+        orderNumber: order.orderNumber || `ODR-${order.id.substring(0, 6)}`,
+        deliveredAt: dateToUse,
+        deliveredDateFormatted,
+        salesAmount,
+      });
     });
 
-    // Compute delivery rate & final stats list
-    const statsList: LeaderboardMemberStats[] = Array.from(statsMap.values()).map((s) => {
-      // Rate based on delivered out of total or completed orders
-      const rate = s.totalOrders > 0 ? (s.deliveredOrders / s.totalOrders) * 100 : 0;
-      return {
-        ...s,
-        deliveryRate: Math.round(rate * 10) / 10,
-      };
+    // Sort each member's delivered orders by delivered date descending (most recent first)
+    statsMap.forEach((s) => {
+      s.deliveryRate = 100;
+      s.deliveredOrdersList.sort((a, b) => {
+        const timeA = a.deliveredAt ? new Date(a.deliveredAt).getTime() : 0;
+        const timeB = b.deliveredAt ? new Date(b.deliveredAt).getTime() : 0;
+        return timeB - timeA;
+      });
     });
 
-    // Sort primarily by: 1. Total Delivered Sales Value desc, 2. Delivered Orders count desc, 3. Delivery Rate desc
+    const statsList = Array.from(statsMap.values());
+
+    // Sort primarily by Total Delivered Sales Value desc, then Delivered Orders count desc
     statsList.sort((a, b) => {
       if (b.totalSalesValue !== a.totalSalesValue) return b.totalSalesValue - a.totalSalesValue;
-      if (b.deliveredOrders !== a.deliveredOrders) return b.deliveredOrders - a.deliveredOrders;
-      return b.deliveryRate - a.deliveryRate;
+      return b.deliveredOrders - a.deliveredOrders;
     });
 
     // Assign rank 1-N

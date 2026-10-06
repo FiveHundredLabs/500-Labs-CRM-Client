@@ -25,9 +25,9 @@ export const SupervisorTeamMembersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // Filters
-  const [datePreset, setDatePreset] = useState<string>('ALL');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [datePreset, setDatePreset] = useState<string>('THIS_MONTH');
+  const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
@@ -134,6 +134,7 @@ export const SupervisorTeamMembersPage: React.FC = () => {
           primaryLabel: 'Delivered Sales',
           secondaryLabel: 'Delivered Orders',
           unitLabel: 'orders',
+          deliveredOrdersList: m.deliveredOrdersList,
         }))}
         chartTitle="Team Member Delivered Sales Ranking"
         tableTitle="Team Performance & Delivered Sales Table"
