@@ -55,6 +55,7 @@ import {
   DuplicatePhoneCheckResult,
 } from '../../models/domain';
 import { STORAGE_KEYS, getStoredItem, setStoredItem, delay } from './mockStore';
+import { toColomboDateString } from '../../utils/deliveryDateUtils';
 
 export class MockTeamRepository implements ITeamRepository {
   async getAll(): Promise<Team[]> {
@@ -125,14 +126,28 @@ export class MockUserRepository implements IUserRepository {
     return users.filter((u) => u.teamId === teamId);
   }
 
-  async getLeaderboard(teamId?: string): Promise<import('../interfaces').LeaderboardUser[]> {
+  async getLeaderboard(teamId?: string, startDate?: string, endDate?: string): Promise<import('../interfaces').LeaderboardUser[]> {
     await delay();
     const users = getStoredItem<User>(STORAGE_KEYS.USERS, []);
     const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
     return users
       .filter((user) => user.role === 'TEAM_MEMBER' && user.isActive && (!teamId || user.teamId === teamId))
       .map((user) => {
-        const memberOrders = orders.filter((order) => order.teamMemberId === user.id);
+        const memberOrders = orders.filter((order) => {
+          if (order.teamMemberId !== user.id) return false;
+          if (startDate || endDate) {
+            const dateToUse =
+              order.status === 'DELIVERED' && order.deliveredAt
+                ? order.deliveredAt
+                : (order.status === 'REJECTED' || order.status === 'RETURNED') && order.rejectedAt
+                ? order.rejectedAt
+                : order.createdAt;
+            const d = toColomboDateString(dateToUse);
+            if (startDate && d < startDate) return false;
+            if (endDate && d > endDate) return false;
+          }
+          return true;
+        });
         const deliveredOrders = memberOrders.filter((order) => order.status === 'DELIVERED');
         return {
           ...user,
@@ -741,9 +756,9 @@ export class MockOrderRepository implements IOrderRepository {
     let deliveredAt = orders[idx].deliveredAt;
     let rejectedAt = orders[idx].rejectedAt;
     if (status === 'DELIVERED') {
-      deliveredAt = actionDate ? `${actionDate}T23:59:59.000Z` : now.toISOString();
+      deliveredAt = actionDate ? new Date(`${actionDate}T12:00:00.000+05:30`).toISOString() : now.toISOString();
     } else if (status === 'REJECTED') {
-      rejectedAt = actionDate ? `${actionDate}T23:59:59.000Z` : now.toISOString();
+      rejectedAt = actionDate ? new Date(`${actionDate}T12:00:00.000+05:30`).toISOString() : now.toISOString();
     }
     const updated = {
       ...orders[idx],

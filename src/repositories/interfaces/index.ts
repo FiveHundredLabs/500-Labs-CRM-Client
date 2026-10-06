@@ -172,7 +172,7 @@ export interface IUserRepository {
   getByEmail(email: string): Promise<User | null>;
   getByRole(role: UserRole): Promise<User[]>;
   getByTeamId(teamId: string): Promise<User[]>;
-  getLeaderboard(teamId?: string): Promise<LeaderboardUser[]>;
+  getLeaderboard(teamId?: string, startDate?: string, endDate?: string): Promise<LeaderboardUser[]>;
   getBySupervisorId(supervisorId: string): Promise<User[]>;
   create(user: Omit<User, 'id' | 'createdAt'>): Promise<User>;
   update(id: string, updates: Partial<User>): Promise<User>;

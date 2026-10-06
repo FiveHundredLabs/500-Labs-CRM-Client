@@ -28,7 +28,7 @@ import {
   RotateCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Leaderboard } from '../../components/leaderboard';
+import { Leaderboard, LeaderboardOrderContribution } from '../../components/leaderboard';
 import { formatCurrency } from '../../utils/currency';
 import { getProductSalesValue } from '../../utils/orderAmounts';
 import { 
@@ -45,6 +45,7 @@ import {
   addMonths,
   differenceInDays
 } from 'date-fns';
+import { toColomboDateString } from '../../utils/deliveryDateUtils';
 
 export type DashboardDateFilter = 'THIS_MONTH' | 'LAST_MONTH' | 'TODAY' | 'THIS_WEEK' | 'ALL' | 'LAST_6_MONTHS' | 'CUSTOM';
 
@@ -54,6 +55,7 @@ interface LeaderboardMember {
   deliveredCount: number;
   deliveredSalesAmount: number;
   rank: number;
+  deliveredOrdersList?: LeaderboardOrderContribution[];
 }
 
 export const MemberDashboard: React.FC = () => {
@@ -85,6 +87,48 @@ export const MemberDashboard: React.FC = () => {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
+  const queryDates = useMemo(() => {
+    if (dateFilter === 'ALL') return { startDate: undefined, endDate: undefined };
+    const now = new Date();
+    if (dateFilter === 'TODAY') {
+      const todayStr = format(now, 'yyyy-MM-dd');
+      return { startDate: todayStr, endDate: todayStr };
+    }
+    if (dateFilter === 'THIS_WEEK') {
+      return {
+        startDate: format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+        endDate: format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+      };
+    }
+    if (dateFilter === 'THIS_MONTH') {
+      return {
+        startDate: format(startOfMonth(now), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(now), 'yyyy-MM-dd'),
+      };
+    }
+    if (dateFilter === 'LAST_MONTH') {
+      const lastMonth = subMonths(now, 1);
+      return {
+        startDate: format(startOfMonth(lastMonth), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(lastMonth), 'yyyy-MM-dd'),
+      };
+    }
+    if (dateFilter === 'LAST_6_MONTHS') {
+      const sixMonthsAgo = subMonths(now, 6);
+      return {
+        startDate: format(sixMonthsAgo, 'yyyy-MM-dd'),
+        endDate: format(now, 'yyyy-MM-dd'),
+      };
+    }
+    if (dateFilter === 'CUSTOM') {
+      return {
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      };
+    }
+    return { startDate: undefined, endDate: undefined };
+  }, [dateFilter, startDate, endDate]);
+
   const loadData = async () => {
     if (!user) return;
     setLoading(true);
@@ -92,11 +136,10 @@ export const MemberDashboard: React.FC = () => {
       const currentTeamId = user.teamId || '';
       const targetMonthPrefix = selectedMonth;
 
-      const [mContacts, mLogs, mOrders, teamUsers, fetchedTargets] = await Promise.all([
+      const [mContacts, mLogs, mOrders, fetchedTargets] = await Promise.all([
         contactRepository.getByMemberId(user.id).catch(() => []),
         callLogRepository.getByMemberId(user.id).catch(() => []),
         orderRepository.getByMemberId(user.id).catch(() => []),
-        userRepository.getLeaderboard(currentTeamId).catch(() => []),
         salesTargetRepository.getAll(targetMonthPrefix, currentTeamId).catch(() => []),
       ]);
 
@@ -104,24 +147,6 @@ export const MemberDashboard: React.FC = () => {
       setCallLogs(mLogs);
       setOrders(mOrders);
       setSalesTargets(fetchedTargets);
-
-      // Build Leaderboard Roster ranked by Delivered Sales Amount (LKR)
-      const computedRoster: LeaderboardMember[] = teamUsers.slice(0, 7).map((u) => {
-        return {
-          user: u,
-          totalOrders: u.totalOrdersCount,
-          deliveredCount: u.deliveredOrdersCount,
-          deliveredSalesAmount: u.deliveredSalesAmount,
-          rank: 0,
-        };
-      });
-
-      computedRoster.sort((a, b) => b.deliveredSalesAmount - a.deliveredSalesAmount || b.deliveredCount - a.deliveredCount);
-      computedRoster.forEach((m, idx) => {
-        m.rank = idx + 1;
-      });
-
-      setLeaderboard(computedRoster);
     } finally {
       setLoading(false);
     }
@@ -130,6 +155,31 @@ export const MemberDashboard: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [user, selectedMonth]);
+
+  // Dynamically update Leaderboard when dateFilter / queryDates changes
+  useEffect(() => {
+    if (!user?.teamId) return;
+    userRepository
+      .getLeaderboard(user.teamId, queryDates.startDate, queryDates.endDate)
+      .then((teamUsers) => {
+        const computedRoster: LeaderboardMember[] = teamUsers.slice(0, 7).map((u: any) => ({
+          user: u,
+          totalOrders: u.totalOrdersCount,
+          deliveredCount: u.deliveredOrdersCount,
+          deliveredSalesAmount: u.deliveredSalesAmount,
+          rank: 0,
+          deliveredOrdersList: u.deliveredOrdersList,
+        }));
+
+        computedRoster.sort((a, b) => b.deliveredSalesAmount - a.deliveredSalesAmount || b.deliveredCount - a.deliveredCount);
+        computedRoster.forEach((m, idx) => {
+          m.rank = idx + 1;
+        });
+
+        setLeaderboard(computedRoster);
+      })
+      .catch(() => {});
+  }, [user?.teamId, queryDates]);
 
   // Date Range Matcher Helper for Top Cards
   const isDateInFilter = (dateStr?: string | null) => {
@@ -143,7 +193,7 @@ export const MemberDashboard: React.FC = () => {
       return isWithinInterval(date, { start: startOfDay(now), end: endOfDay(now) });
     }
     if (dateFilter === 'THIS_WEEK') {
-      return isWithinInterval(date, { start: startOfWeek(now), end: endOfWeek(now) });
+      return isWithinInterval(date, { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) });
     }
     if (dateFilter === 'THIS_MONTH') {
       return isWithinInterval(date, { start: startOfMonth(now), end: endOfMonth(now) });
@@ -218,7 +268,7 @@ export const MemberDashboard: React.FC = () => {
 
   const monthlyDeliveredOrders = orders.filter((o) => {
     if (o.status !== 'DELIVERED') return false;
-    const dateStr = o.deliveredAt || o.createdAt;
+    const dateStr = toColomboDateString(o.deliveredAt || o.createdAt);
     return dateStr.startsWith(targetMonthPrefix);
   });
 
@@ -729,6 +779,7 @@ export const MemberDashboard: React.FC = () => {
             primaryLabel: 'Delivered Sales',
             secondaryLabel: 'Delivered Orders',
             unitLabel: 'orders',
+            deliveredOrdersList: m.deliveredOrdersList,
           }))}
           compact={true}
           title="Team Sales Leaderboard"

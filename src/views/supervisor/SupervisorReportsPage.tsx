@@ -72,8 +72,8 @@ export const SupervisorReportsPage: React.FC = () => {
       setStartDate(format(startOfMonth(prev), 'yyyy-MM-dd'));
       setEndDate(format(endOfMonth(prev), 'yyyy-MM-dd'));
     } else if (preset === 'THIS_WEEK') {
-      setStartDate(format(startOfWeek(now), 'yyyy-MM-dd'));
-      setEndDate(format(endOfWeek(now), 'yyyy-MM-dd'));
+      setStartDate(format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+      setEndDate(format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
     } else if (preset === 'ALL') {
       setStartDate('');
       setEndDate('');
