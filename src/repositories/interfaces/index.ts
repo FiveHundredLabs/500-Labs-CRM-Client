@@ -413,6 +413,13 @@ export interface LeaderboardUser extends User {
   deliveredSalesAmount: number;
   deliveredOrdersCount: number;
   totalOrdersCount: number;
+  deliveredOrdersList?: Array<{
+    orderId: string;
+    orderNumber: string;
+    deliveredAt?: string;
+    deliveredDateFormatted: string;
+    salesAmount: number;
+  }>;
 }
 
 export interface SupervisorDashboardSummary {
