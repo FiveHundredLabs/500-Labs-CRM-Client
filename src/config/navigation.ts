@@ -18,7 +18,8 @@ import {
   Boxes,
   Target,
   TrendingUp,
-  Banknote
+  Banknote,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export interface NavItem {

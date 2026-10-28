@@ -26,6 +26,8 @@ import {
   SupervisorTargetTier,
   PaymentMethod,
   SalesAnalysisMember,
+  OrderStatus,
+  DeliveryMethod,
 } from '../../models/domain';
 
 export interface ExpenseWritePayload {
@@ -246,6 +248,61 @@ export interface IOrderRepository {
   ): Promise<Order>;
   updateDeliveryCharge(id: string, codCharge: number, remarks?: string): Promise<Order>;
   bulkUpdateDeliveryCharge(input: BulkUpdateDeliveryChargeInput): Promise<{ success: boolean; count: number; orders: Order[] }>;
+  getTeamMemberOrdersReport(params: TeamMemberOrdersReportParams): Promise<TeamMemberOrdersReportResponse>;
+}
+
+export interface TeamMemberOrderReportItem {
+  id: string;
+  teamName: string;
+  teamMemberName: string;
+  username: string;
+  orderNumber: string;
+  status: OrderStatus;
+  deliveryMethod: DeliveryMethod;
+  totalAmount: number;
+  codAmount: number;
+  createdAt: string;
+  deliveredAt: string | null;
+  rejectedAt: string | null;
+  itemsDescription: string;
+  selectedPackage: string | null;
+}
+
+export interface TeamMemberOrdersReportMeta {
+  teamId: string;
+  teamName: string;
+  startDate: string | null;
+  endDate: string | null;
+  statuses: OrderStatus[];
+  memberIds: string[];
+  totalMatchingOrders: number;
+  total?: number;
+  summaryByStatus: Record<string, { count: number; totalAmount: number; codAmount: number }>;
+  grandTotalAmount: number;
+}
+
+export interface TeamMemberOrdersReportResponse {
+  meta: TeamMemberOrdersReportMeta;
+  data: TeamMemberOrderReportItem[];
+  items?: TeamMemberOrderReportItem[];
+  pageInfo?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface TeamMemberOrdersReportParams {
+  teamId?: string;
+  memberIds?: string[];
+  startDate?: string;
+  endDate?: string;
+  statuses?: string[];
+  search?: string;
+  page?: number;
+  limit?: number;
+  export?: boolean;
 }
 
 export interface BulkUpdateDeliveryChargeItem {

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { getReportById } from '../finance/reports/reportDefinitions';
 import { ReportDetailPage } from '../finance/reports/components/ReportDetailPage';
 import { AdminReportsLandingPage, AdminReportCategory } from './reports/AdminReportsLandingPage';
+import { SupervisorReportsPage } from '../supervisor/SupervisorReportsPage';
 
 export const AdminReportsPage: React.FC = () => {
   const { reportId: paramReportId } = useParams<{ reportId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Category: 'FINANCE' or 'SALES' (default to 'FINANCE')
   const paramCategory = (searchParams.get('category')?.toUpperCase() as AdminReportCategory) || 'FINANCE';
@@ -40,18 +42,21 @@ export const AdminReportsPage: React.FC = () => {
 
   const handleSelectReport = (reportId: string) => {
     setActiveReportId(reportId);
-    setSearchParams({ 
-      category: activeCategory.toLowerCase(),
-      report: reportId 
-    });
+    navigate(`/admin/reports/${reportId}?category=${activeCategory.toLowerCase()}`);
   };
 
   const handleBackToLanding = () => {
     setActiveReportId(null);
-    setSearchParams({ category: activeCategory.toLowerCase() });
+    navigate(`/admin/reports?category=${activeCategory.toLowerCase()}`);
   };
 
   const activeReport = activeReportId ? getReportById(activeReportId) : null;
+
+  if (activeReportId === 'team-member-orders' || activeReport?.id === 'team-member-orders') {
+    return (
+      <SupervisorReportsPage onBack={handleBackToLanding} />
+    );
+  }
 
   if (activeReport) {
     return (
@@ -70,3 +75,4 @@ export const AdminReportsPage: React.FC = () => {
     />
   );
 };
+

@@ -27,6 +27,8 @@ import {
   ExpensePaginationParams,
   OrderMetrics,
   OrderConflictCheckDto,
+  TeamMemberOrdersReportParams,
+  TeamMemberOrdersReportResponse,
 } from '../interfaces';
 import {
   Team,
@@ -44,6 +46,7 @@ import {
   UserRole,
   ContactStatus,
   OrderStatus,
+  DeliveryMethod,
   Product,
   StockActivityLog,
   ApprovalRequest,
@@ -820,6 +823,94 @@ export class MockOrderRepository implements IOrderRepository {
 
     setStoredItem(STORAGE_KEYS.ORDERS, orders);
     return { success: true, count: updatedOrders.length, orders: updatedOrders };
+  }
+
+  async getTeamMemberOrdersReport(params: TeamMemberOrdersReportParams): Promise<TeamMemberOrdersReportResponse> {
+    await delay();
+    const orders = getStoredItem<Order>(STORAGE_KEYS.ORDERS, []);
+    const teams = getStoredItem<Team>(STORAGE_KEYS.TEAMS, []);
+    const users = getStoredItem<User>(STORAGE_KEYS.USERS, []);
+
+    const team = teams.find((t) => t.id === params.teamId);
+    let filtered = orders.filter((o) => o.teamId === params.teamId);
+
+    if (params.memberIds && params.memberIds.length > 0) {
+      filtered = filtered.filter((o) => o.teamMemberId && params.memberIds!.includes(o.teamMemberId));
+    }
+
+    if (params.statuses && params.statuses.length > 0) {
+      filtered = filtered.filter((o) => params.statuses!.includes(o.status));
+    }
+
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      filtered = filtered.filter(
+        (o) =>
+          o.orderNumber?.toLowerCase().includes(q) ||
+          o.itemsDescription?.toLowerCase().includes(q)
+      );
+    }
+
+    const items = filtered.map((o) => {
+      const user = users.find((u) => u.id === o.teamMemberId);
+      return {
+        id: o.id,
+        orderNumber: o.orderNumber,
+        status: o.status,
+        deliveryMethod: (o.deliveryMethod || 'POST') as DeliveryMethod,
+        totalAmount: Number(o.totalAmount || 0),
+        codAmount: Number(o.codAmount || 0),
+        createdAt: o.createdAt,
+        deliveredAt: (o as any).deliveredAt || null,
+        rejectedAt: (o as any).rejectedAt || null,
+        itemsDescription: o.itemsDescription,
+        selectedPackage: o.selectedPackage || null,
+        teamId: o.teamId || params.teamId,
+        teamName: team?.name || 'Unknown Team',
+        teamMemberId: o.teamMemberId,
+        teamMemberName: user?.fullName || 'Unknown Member',
+        username: user?.username || '',
+      };
+    });
+
+    const summaryByStatus: Record<string, { count: number; totalAmount: number; codAmount: number }> = {};
+    for (const item of items) {
+      if (!summaryByStatus[item.status]) {
+        summaryByStatus[item.status] = { count: 0, totalAmount: 0, codAmount: 0 };
+      }
+      summaryByStatus[item.status].count += 1;
+      summaryByStatus[item.status].totalAmount += Number(item.totalAmount) || 0;
+      summaryByStatus[item.status].codAmount += Number(item.codAmount) || 0;
+    }
+
+    const page = params.page || 1;
+    const limit = params.limit || 50;
+    const isExport = !!params.export;
+
+    const pagedItems = isExport ? items : items.slice((page - 1) * limit, page * limit);
+
+    return {
+      data: pagedItems,
+      items: pagedItems,
+      meta: {
+        teamId: team?.id || params.teamId || '',
+        teamName: team?.name || 'Unknown Team',
+        startDate: params.startDate || null,
+        endDate: params.endDate || null,
+        statuses: (params.statuses as OrderStatus[]) || [],
+        memberIds: params.memberIds || [],
+        totalMatchingOrders: items.length,
+        total: items.length,
+        summaryByStatus,
+        grandTotalAmount: items.reduce((s, it) => s + (Number(it.totalAmount) || 0), 0),
+      },
+      pageInfo: {
+        total: items.length,
+        page: isExport ? 1 : page,
+        limit: isExport ? items.length : limit,
+        totalPages: isExport ? 1 : Math.ceil(items.length / limit) || 1,
+      },
+    };
   }
 }
 

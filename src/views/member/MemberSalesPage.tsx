@@ -38,6 +38,7 @@ import {
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
 import { toColomboDateString } from '../../utils/deliveryDateUtils';
+import { getProductSalesValue } from '../../utils/orderAmounts';
 import toast from 'react-hot-toast';
 
 type ActiveTab = 'ALL' | 'INTERESTED' | 'DISPATCHED' | 'DELIVERED' | 'REJECTED' | 'CANCELLED';
@@ -181,7 +182,7 @@ export const MemberSalesPage: React.FC = () => {
 
       if (o.status === 'DELIVERED') {
         deliveredCount++;
-        deliveredCODSales += amt;
+        deliveredCODSales += getProductSalesValue(o);
       } else if (o.status === 'DISPATCHED') {
         dispatchedCount++;
         dispatchedCODSales += amt;
@@ -321,7 +322,7 @@ export const MemberSalesPage: React.FC = () => {
         />
 
         <StatCard
-          title="Delivered COD"
+          title="Delivered Sales"
           value={formatCurrency(metrics.deliveredCODSales)}
           subtitle={`${metrics.deliveredCount} Orders Done`}
           icon={<CheckCircle2 className="w-4 h-4" />}
