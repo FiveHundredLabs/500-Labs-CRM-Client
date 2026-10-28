@@ -38,13 +38,14 @@ export const AdminLeaderboardsPage: React.FC = () => {
           userRepository.getAll(),
           orderRepository.getAll(),
         ]);
-        setTeams(teamsData);
+        const salesTeams = teamsData.filter((t) => t.includeInSalesCalculations !== false);
+        setTeams(salesTeams);
         setUsers(usersData);
         setOrders(ordersData);
 
-        if (teamsData.length > 0) {
-          const matched = urlTeamId && teamsData.some((t) => t.id === urlTeamId);
-          setSelectedTeamId(matched ? urlTeamId : teamsData[0].id);
+        if (salesTeams.length > 0) {
+          const matched = urlTeamId && salesTeams.some((t) => t.id === urlTeamId);
+          setSelectedTeamId(matched ? urlTeamId : salesTeams[0].id);
         }
       } finally {
         setLoading(false);

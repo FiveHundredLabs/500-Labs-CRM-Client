@@ -1,17 +1,20 @@
 [
   {
-    "id": "team_001",
+    "id": "e52978a9-28ff-438d-87b1-03bee3e5379a",
     "name": "Easy Method English",
     "code": "EME",
     "brandColor": "#2563EB",
     "accentColor": "#EFF6FF",
     "logoText": "EASY METHOD ENGLISH",
+    "contactEmail": "support@easymethodenglish.com",
     "contactPhone": "0741488108",
     "address": "NO 287/2/2, HAVELOCK ROAD, COLOMBO - 06",
+    "isActive": true,
+    "includeInSalesCalculations": true,
     "createdAt": "2026-01-01T00:00:00Z"
   },
   {
-    "id": "team_002",
+    "id": "db4557fc-0559-4864-a87c-273cc63d3628",
     "name": "Grow Mart",
     "code": "GM",
     "brandColor": "#16A34A",
@@ -20,6 +23,22 @@
     "contactEmail": "contact@growmart.com",
     "contactPhone": "0774613351",
     "address": "NO 287/2/1, HAVELOCK ROAD, COLOMBO - 06",
+    "isActive": true,
+    "includeInSalesCalculations": true,
+    "createdAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "7f3c9b21-6d84-4e5a-a2f7-91c6b8d4305e",
+    "name": "Easy Method Certificate",
+    "code": "EMEC",
+    "brandColor": "#2563EB",
+    "accentColor": "#EFF6FF",
+    "logoText": "EASY METHOD ENGLISH",
+    "contactEmail": "support@easymethodenglish.com",
+    "contactPhone": "0741488108",
+    "address": "NO 287/2/2, HAVELOCK ROAD, COLOMBO - 06",
+    "isActive": true,
+    "includeInSalesCalculations": false,
     "createdAt": "2026-01-01T00:00:00Z"
   }
 ]

@@ -73,7 +73,8 @@ export const AdminSalesGoalsPage: React.FC = () => {
           selectedTeamFilter !== 'ALL' ? selectedTeamFilter : undefined
         ),
       ]);
-      setTeams(allTeams);
+      const salesTeams = allTeams.filter((t) => t.includeInSalesCalculations !== false);
+      setTeams(salesTeams);
       setTargets(allTargets);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load sales targets');

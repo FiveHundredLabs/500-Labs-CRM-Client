@@ -3,6 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { getTeamBranding } from '../../config/branding';
 import { Team } from '../../models/domain';
 import { teamRepository } from '../../repositories';
+import { sortTeamsBySeedOrder } from '../../utils/teamOrder';
 import { Select } from '../ui/Select';
 import { Shield } from 'lucide-react';
 
@@ -27,9 +28,10 @@ export const AdminTeamSelector: React.FC<AdminTeamSelectorProps> = ({
     teamRepository.getAll()
       .then((teamList) => {
         if (!isMounted) return;
-        setTeams(teamList);
-        if (teamList.length > 0 && !teamList.some((team) => team.id === activeTeamId)) {
-          onTeamChange(teamList[0].id);
+        const sorted = sortTeamsBySeedOrder(teamList);
+        setTeams(sorted);
+        if (sorted.length > 0 && !sorted.some((team) => team.id === activeTeamId)) {
+          onTeamChange(sorted[0].id);
         }
       })
       .catch(() => {
@@ -41,7 +43,7 @@ export const AdminTeamSelector: React.FC<AdminTeamSelectorProps> = ({
     };
   }, [activeTeamId, onTeamChange, role]);
 
-  const teamList = useMemo(() => teams, [teams]);
+  const teamList = useMemo(() => sortTeamsBySeedOrder(teams), [teams]);
   const selectedTeam = teamList.find((team) => team.id === activeTeamId);
   const currentTeam = getTeamBranding(selectedTeam || activeTeamId);
 
