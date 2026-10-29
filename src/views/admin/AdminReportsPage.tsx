@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { getReportById } from '../finance/reports/reportDefinitions';
 import { ReportDetailPage } from '../finance/reports/components/ReportDetailPage';
 import { AdminReportsLandingPage, AdminReportCategory } from './reports/AdminReportsLandingPage';
-import { SupervisorReportsPage } from '../supervisor/SupervisorReportsPage';
+import { TeamMemberOrdersReportPage } from '../reports/TeamMemberOrdersReportPage';
 
 export const AdminReportsPage: React.FC = () => {
   const { reportId: paramReportId } = useParams<{ reportId?: string }>();
@@ -54,7 +54,7 @@ export const AdminReportsPage: React.FC = () => {
 
   if (activeReportId === 'team-member-orders' || activeReport?.id === 'team-member-orders') {
     return (
-      <SupervisorReportsPage onBack={handleBackToLanding} />
+      <TeamMemberOrdersReportPage onBack={handleBackToLanding} />
     );
   }
 

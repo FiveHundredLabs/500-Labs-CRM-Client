@@ -55,9 +55,10 @@ const DATE_PRESETS = [
 
 interface TeamMemberOrdersReportPageProps {
   onBack?: () => void;
+  hideBackButton?: boolean;
 }
 
-export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProps> = ({ onBack }) => {
+export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProps> = ({ onBack, hideBackButton = false }) => {
   const navigate = useNavigate();
   const { user, role } = useAuth();
   const isAdmin = role === 'ADMIN';
@@ -528,15 +529,17 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
   return (
     <div className="space-y-6 pb-12">
       {/* Back button */}
-      <div>
-        <button
-          onClick={handleBack}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0188C7] transition-colors cursor-pointer group"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
-          <span>Back to All Reports</span>
-        </button>
-      </div>
+      {!hideBackButton && (onBack || isAdmin) && (
+        <div>
+          <button
+            onClick={handleBack}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0188C7] transition-colors cursor-pointer group"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
+            <span>Back to All Reports</span>
+          </button>
+        </div>
+      )}
 
       {/* 1. Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -546,21 +549,24 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
         />
         <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
           <Button
-            variant="outline"
-            onClick={fetchReport}
-            disabled={loadingReport}
-            className="flex items-center gap-1.5 text-xs font-semibold bg-white cursor-pointer"
+            onClick={() => {
+              setCurrentPage(1);
+              fetchReport();
+            }}
+            disabled={loadingReport || !selectedTeamId}
+            className="flex items-center gap-2 text-xs font-bold bg-[#0188C7] hover:bg-[#0170a4] text-white shadow-xs cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingReport ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <span>Generate Report</span>
           </Button>
 
           <Button
+            variant="outline"
             onClick={handleExportExcel}
             disabled={exportingExcel || loadingReport || totalMatchingOrders === 0}
-            className="flex items-center gap-2 text-xs font-bold bg-[#0188C7] hover:bg-[#0170a4] text-white shadow-xs cursor-pointer"
+            className="flex items-center gap-2 text-xs font-bold border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs cursor-pointer bg-white"
           >
-            <FileSpreadsheet className="w-4 h-4" />
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             <span>{exportingExcel ? 'Exporting...' : 'Export to Excel (.xlsx)'}</span>
           </Button>
         </div>
@@ -834,6 +840,28 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Actions Bar: Generate Report */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
+          <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Click <strong className="text-slate-800">Generate Report</strong> to retrieve matching orders from the database.</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              onClick={() => {
+                setCurrentPage(1);
+                fetchReport();
+              }}
+              disabled={loadingReport || !selectedTeamId}
+              className="flex items-center gap-2 text-xs font-bold bg-[#0188C7] hover:bg-[#0170a4] text-white px-5 py-2.5 rounded-xl shadow-xs cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingReport ? 'animate-spin' : ''}`} />
+              <span>Generate Report</span>
+            </Button>
           </div>
         </div>
       </div>

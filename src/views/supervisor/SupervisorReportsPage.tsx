@@ -13,7 +13,8 @@ import { ReportKpis } from '../../components/supervisor/reports/ReportKpis';
 import { ReportCharts } from '../../components/supervisor/reports/ReportCharts';
 import { ReportTable } from '../../components/supervisor/reports/ReportTable';
 import { Button } from '../../components/ui/Button';
-import { FileSpreadsheet, ArrowLeft } from 'lucide-react';
+import { FileSpreadsheet, ArrowLeft, TrendingUp } from 'lucide-react';
+import { TeamMemberOrdersReportPage } from '../reports/TeamMemberOrdersReportPage';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from 'date-fns';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
@@ -35,6 +36,7 @@ export const SupervisorReportsPage: React.FC<SupervisorReportsPageProps> = ({ on
   const [isSalesEligible, setIsSalesEligible] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [exportingExcel, setExportingExcel] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'team-orders' | 'analytics'>('team-orders');
 
   // If Admin has no team selected yet, auto-select the first available team
   useEffect(() => {
@@ -260,7 +262,7 @@ export const SupervisorReportsPage: React.FC<SupervisorReportsPageProps> = ({ on
     }
   };
 
-  if (loading) return <LoadingState rows={8} />;
+  if (loading && activeTab === 'analytics') return <LoadingState rows={8} />;
 
   return (
     <div className="space-y-6">
@@ -277,7 +279,56 @@ export const SupervisorReportsPage: React.FC<SupervisorReportsPageProps> = ({ on
         </div>
       )}
 
-      <PageHeader
+      {/* Report View Mode Switcher */}
+      <div className="inline-flex items-center gap-1 p-1 bg-slate-100/90 border border-slate-200/80 rounded-2xl shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setActiveTab('team-orders')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            activeTab === 'team-orders'
+              ? 'bg-white text-slate-900 shadow-xs border border-[#01A8F3]/40 ring-1 ring-[#01A8F3]/20'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-white/60 border border-transparent'
+          }`}
+        >
+          <div
+            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
+              activeTab === 'team-orders'
+                ? 'bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]/80'
+                : 'bg-slate-200/60 text-slate-400'
+            }`}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+          </div>
+          <span className="tracking-tight">Team Order Reports &amp; Export</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('analytics')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            activeTab === 'analytics'
+              ? 'bg-white text-slate-900 shadow-xs border border-[#01A8F3]/40 ring-1 ring-[#01A8F3]/20'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-white/60 border border-transparent'
+          }`}
+        >
+          <div
+            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
+              activeTab === 'analytics'
+                ? 'bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]/80'
+                : 'bg-slate-200/60 text-slate-400'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+          </div>
+          <span className="tracking-tight">Sales &amp; Performance Analytics</span>
+        </button>
+      </div>
+
+      {activeTab === 'team-orders' ? (
+        <TeamMemberOrdersReportPage onBack={onBack} hideBackButton={true} />
+      ) : (
+        <>
+          <PageHeader
         title={user?.role === 'ADMIN' ? 'Team Member Orders & Sales Report' : 'Supervisor Sales & Financial Reports'}
         description="Business reporting, financial KPIs in LKR, order delivery rates, and team member sales performance"
         actions={
@@ -323,6 +374,8 @@ export const SupervisorReportsPage: React.FC<SupervisorReportsPageProps> = ({ on
 
       {/* Filtered Order Breakdown Table */}
       <ReportTable orders={filteredOrders} teamMembers={teamMembers} />
+        </>
+      )}
     </div>
   );
 };
