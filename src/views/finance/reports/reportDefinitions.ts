@@ -12,7 +12,8 @@ import {
   MapPin,
   Package,
   Users,
-  Compass
+  Compass,
+  FileSpreadsheet
 } from 'lucide-react';
 import { ReportDefinition, ActiveFilters } from './types';
 import { 
@@ -852,7 +853,127 @@ export const SALES_REPORTS: ReportDefinition[] = [
     },
   },
 
-  // 2. Contact Batch-Wise Performance Report
+  // 2. Team Member Orders Report (Operational lifecycle and consignment audit)
+  {
+    id: 'team-member-orders',
+    name: 'Team Member Orders Report',
+    description: 'Operational and status-event audit of order consignments by team, team members, status event timestamps, and date range with full Excel export.',
+    category: 'SALES',
+    groupCategory: 'SALES',
+    badgeText: 'Orders & Members',
+    badgeType: 'executive',
+    icon: FileSpreadsheet,
+    supportedFilters: ['dateRange', 'team', 'search'],
+    kpis: [
+      {
+        id: 'total-orders-audited',
+        label: 'Matching Orders',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.length : (data?.totalMatchingOrders || 0),
+        subtitle: () => 'Consignments matching status criteria',
+        accentColor: 'blue',
+      },
+      {
+        id: 'total-order-amount',
+        label: 'Gross Consignment Value',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0) : 0,
+        subtitle: () => 'Cumulative order values',
+        accentColor: 'green',
+      },
+      {
+        id: 'delivered-orders-count',
+        label: 'Delivered Orders',
+        format: 'number',
+        getValue: (data) => Array.isArray(data) ? data.filter((o) => o.status === 'DELIVERED').length : 0,
+        subtitle: (data) => {
+          const total = Array.isArray(data) ? data.length : 0;
+          const del = Array.isArray(data) ? data.filter((o) => o.status === 'DELIVERED').length : 0;
+          return total > 0 ? `${((del / total) * 100).toFixed(1)}% fulfillment` : '0%';
+        },
+        accentColor: 'purple',
+      },
+      {
+        id: 'total-cod-amount',
+        label: 'Total COD Value',
+        format: 'currency',
+        getValue: (data) => Array.isArray(data) ? data.reduce((s, o) => s + (Number(o.codAmount) || 0), 0) : 0,
+        subtitle: () => 'Cash on delivery consignments',
+        accentColor: 'amber',
+      },
+    ],
+    chartConfig: {
+      type: 'BAR',
+      xAxisKey: 'status',
+      series: [
+        { key: 'count', name: 'Order Count', color: '#01A8F3', format: 'number' },
+      ],
+      getChartData: (data) => {
+        if (!Array.isArray(data)) return [];
+        const counts: Record<string, number> = {};
+        data.forEach((o: any) => {
+          counts[o.status] = (counts[o.status] || 0) + 1;
+        });
+        return Object.entries(counts).map(([status, count]) => ({ status, count }));
+      },
+    },
+    columns: [
+      { id: 'orderNumber', header: 'Order #', accessorKey: 'orderNumber', format: 'badge' },
+      { id: 'status', header: 'Status', accessorKey: 'status', format: 'badge' },
+      { id: 'teamName', header: 'Team', accessorKey: 'teamName', format: 'badge' },
+      { id: 'teamMemberName', header: 'Team Member', accessorKey: 'teamMemberName' },
+      { id: 'username', header: 'Username', accessorKey: 'username' },
+      { id: 'deliveryMethod', header: 'Delivery Method', accessorKey: 'deliveryMethod', format: 'badge' },
+      { id: 'totalAmount', header: 'Total Amount', accessorKey: 'totalAmount', align: 'right', format: 'currency' },
+      { id: 'codAmount', header: 'COD Amount', accessorKey: 'codAmount', align: 'right', format: 'currency' },
+      { id: 'deliveredAt', header: 'Delivered Date', accessorKey: 'deliveredAt', format: 'date' },
+      { id: 'createdAt', header: 'Created Date', accessorKey: 'createdAt', format: 'date' },
+    ],
+    pdfConfig: {
+      orientation: 'landscape',
+      columns: [
+        { header: 'Order #', accessorKey: 'orderNumber', align: 'left', widthMm: 24 },
+        { header: 'Status', accessorKey: 'status', align: 'left', widthMm: 24 },
+        { header: 'Team', accessorKey: 'teamName', align: 'left', widthMm: 28 },
+        { header: 'Team Member', accessorKey: 'teamMemberName', align: 'left', widthMm: 34 },
+        { header: 'Delivery', accessorKey: 'deliveryMethod', align: 'left', widthMm: 22 },
+        { header: 'Total (LKR)', accessorKey: 'totalAmount', align: 'right', format: 'currency', widthMm: 28 },
+        { header: 'COD (LKR)', accessorKey: 'codAmount', align: 'right', format: 'currency', widthMm: 28 },
+        { header: 'Delivered Date', accessorKey: 'deliveredAt', align: 'left', format: 'date', widthMm: 28 },
+      ],
+      summaryLines: (data) => {
+        const totalAmount = data.reduce((s: number, o: any) => s + (Number(o.totalAmount) || 0), 0);
+        const codAmount = data.reduce((s: number, o: any) => s + (Number(o.codAmount) || 0), 0);
+        const deliveredCount = data.filter((o: any) => o.status === 'DELIVERED').length;
+        return [
+          { label: 'Total Orders Audited:', value: `${data.length.toLocaleString()} orders`, isBold: true },
+          { label: 'Delivered Orders:', value: `${deliveredCount.toLocaleString()} delivered` },
+          { label: 'Total COD Value:', value: formatCurrency(codAmount) },
+          { label: 'Gross Consignment Value:', value: formatCurrency(totalAmount), isBold: true, isHighlight: true },
+        ];
+      },
+    },
+    getData: (allData, filters) => {
+      const items = Array.isArray(allData) ? allData : (allData?.items || []);
+      return items.filter((o: any) => {
+        const orderDate = o.status === 'DELIVERED' ? o.deliveredAt : (o.status === 'REJECTED' ? o.rejectedAt : o.createdAt);
+        if (!isDateInRange(orderDate || o.createdAt, filters.dateRange.startDate, filters.dateRange.endDate)) return false;
+        if (filters.teamId && filters.teamId !== 'ALL' && o.teamId !== filters.teamId) return false;
+        if (filters.search && filters.search.trim()) {
+          const q = filters.search.toLowerCase().trim();
+          const matchOrder = (o.orderNumber || '').toLowerCase().includes(q);
+          const matchCust = (o.teamMemberName || '').toLowerCase().includes(q);
+          const matchUser = (o.username || '').toLowerCase().includes(q);
+          const matchTeam = (o.teamName || '').toLowerCase().includes(q);
+          const matchStatus = (o.status || '').toLowerCase().includes(q);
+          return matchOrder || matchCust || matchUser || matchTeam || matchStatus;
+        }
+        return true;
+      });
+    },
+  },
+
+  // 3. Contact Batch-Wise Performance Report
   {
     id: 'contact-batch-report',
     name: 'Contact Batch-Wise Performance Report',

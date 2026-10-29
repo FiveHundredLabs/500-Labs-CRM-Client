@@ -162,11 +162,11 @@ export const MemberDashboard: React.FC = () => {
     userRepository
       .getLeaderboard(user.teamId, queryDates.startDate, queryDates.endDate)
       .then((teamUsers) => {
-        const computedRoster: LeaderboardMember[] = teamUsers.slice(0, 7).map((u: any) => ({
+        const computedRoster: LeaderboardMember[] = teamUsers.map((u: any) => ({
           user: u,
-          totalOrders: u.totalOrdersCount,
-          deliveredCount: u.deliveredOrdersCount,
-          deliveredSalesAmount: u.deliveredSalesAmount,
+          totalOrders: u.totalOrdersCount || 0,
+          deliveredCount: u.deliveredOrdersCount || 0,
+          deliveredSalesAmount: u.deliveredSalesAmount || 0,
           rank: 0,
           deliveredOrdersList: u.deliveredOrdersList,
         }));
@@ -176,7 +176,7 @@ export const MemberDashboard: React.FC = () => {
           m.rank = idx + 1;
         });
 
-        setLeaderboard(computedRoster);
+        setLeaderboard(computedRoster.slice(0, 7));
       })
       .catch(() => {});
   }, [user?.teamId, queryDates]);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { User, Order } from '../../models/domain';
 import { userRepository, orderRepository } from '../../repositories';
@@ -29,6 +29,46 @@ export const SupervisorTeamMembersPage: React.FC = () => {
   const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [backendLeaderboard, setBackendLeaderboard] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    if (!effectiveTeamId) {
+      setBackendLeaderboard(null);
+      return;
+    }
+    let active = true;
+    userRepository
+      .getLeaderboard(effectiveTeamId, startDate || undefined, endDate || undefined)
+      .then((data) => {
+        if (active && Array.isArray(data)) {
+          const sorted = [...data].sort(
+            (a, b) => (b.deliveredSalesAmount || 0) - (a.deliveredSalesAmount || 0) || (b.deliveredOrdersCount || 0) - (a.deliveredOrdersCount || 0)
+          );
+          const ranked = sorted.map((m, idx) => ({
+            id: m.id,
+            rank: idx + 1,
+            name: m.fullName || m.username || 'Agent',
+            avatarUrl: m.avatarUrl,
+            isCurrentUser: m.id === user?.id,
+            primaryValue: m.deliveredSalesAmount || 0,
+            secondaryValue: m.deliveredOrdersCount || 0,
+            primaryLabel: 'Delivered Sales',
+            secondaryLabel: 'Delivered Orders',
+            unitLabel: 'orders',
+            deliveredOrdersList: m.deliveredOrdersList || [],
+          }));
+          setBackendLeaderboard(ranked);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load backend leaderboard, falling back to local computation:', err);
+        if (active) setBackendLeaderboard(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [effectiveTeamId, startDate, endDate, user?.id]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -80,7 +120,7 @@ export const SupervisorTeamMembersPage: React.FC = () => {
     }
   };
 
-  if (loading) return <LoadingState rows={8} />;
+
 
   const filters: ReportsFilterOptions = {
     datePreset,
@@ -89,12 +129,36 @@ export const SupervisorTeamMembersPage: React.FC = () => {
     searchQuery,
   };
 
-  const leaderboard = SupervisorAnalyticsService.computeLeaderboard(teamMembers, orders, filters);
+  const leaderboardItems = useMemo(() => {
+    if (backendLeaderboard !== null) {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        return backendLeaderboard.filter((m) => m.name.toLowerCase().includes(q));
+      }
+      return backendLeaderboard;
+    }
 
-  // Search query filter applied to leaderboard list
-  const filteredLeaderboard = searchQuery.trim()
-    ? leaderboard.filter((m) => m.memberName.toLowerCase().includes(searchQuery.toLowerCase().trim()))
-    : leaderboard;
+    const leaderboard = SupervisorAnalyticsService.computeLeaderboard(teamMembers, orders, filters);
+    const filtered = searchQuery.trim()
+      ? leaderboard.filter((m) => m.memberName.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+      : leaderboard;
+
+    return filtered.map((m) => ({
+      id: m.memberId,
+      rank: m.rank,
+      name: m.memberName,
+      avatarUrl: m.avatarUrl,
+      isCurrentUser: m.memberId === user?.id,
+      primaryValue: m.totalSalesValue,
+      secondaryValue: m.deliveredOrders,
+      primaryLabel: 'Delivered Sales',
+      secondaryLabel: 'Delivered Orders',
+      unitLabel: 'orders',
+      deliveredOrdersList: m.deliveredOrdersList,
+    }));
+  }, [backendLeaderboard, teamMembers, orders, filters, searchQuery, user?.id]);
+
+  if (loading) return <LoadingState rows={8} />;
 
   return (
     <div className="space-y-6">
@@ -123,19 +187,7 @@ export const SupervisorTeamMembersPage: React.FC = () => {
 
       {/* Full Leaderboard Component */}
       <Leaderboard
-        items={filteredLeaderboard.map((m) => ({
-          id: m.memberId,
-          rank: m.rank,
-          name: m.memberName,
-          avatarUrl: m.avatarUrl,
-          isCurrentUser: m.memberId === user?.id,
-          primaryValue: m.totalSalesValue,
-          secondaryValue: m.deliveredOrders,
-          primaryLabel: 'Delivered Sales',
-          secondaryLabel: 'Delivered Orders',
-          unitLabel: 'orders',
-          deliveredOrdersList: m.deliveredOrdersList,
-        }))}
+        items={leaderboardItems}
         chartTitle="Team Member Delivered Sales Ranking"
         tableTitle="Team Performance & Delivered Sales Table"
         primaryLabel="Delivered Sales"
