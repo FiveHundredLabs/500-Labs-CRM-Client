@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Team, User, OrderStatus } from '../../models/domain';
@@ -91,8 +91,9 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
 
   // 3. Date Range State
   const [datePreset, setDatePreset] = useState<string>('THIS_MONTH');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState<string>(() => format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const activeRequestRef = useRef<number>(0);
   const [dateError, setDateError] = useState<string | null>(null);
 
   // 4. Status Filter State
@@ -155,9 +156,7 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
     }
   }, []);
 
-  useEffect(() => {
-    applyDatePreset('THIS_MONTH');
-  }, [applyDatePreset]);
+  // Initial dates are initialized synchronously above
 
   // Validate Dates whenever start/end change
   useEffect(() => {
@@ -244,6 +243,7 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
       return;
     }
 
+    const currentRequestId = ++activeRequestRef.current;
     setLoadingReport(true);
     setFetchError(null);
 
@@ -260,15 +260,19 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
         limit: pageSize,
       });
 
+      if (currentRequestId !== activeRequestRef.current) return;
       setReportItems(response.data || response.items || []);
       setReportMeta(response.meta);
       setPageInfo(response.pageInfo || null);
     } catch (err: any) {
+      if (currentRequestId !== activeRequestRef.current) return;
       const errMsg = err?.response?.data?.message || err?.message || 'Failed to load report data';
       setFetchError(errMsg);
       toast.error(errMsg);
     } finally {
-      setLoadingReport(false);
+      if (currentRequestId === activeRequestRef.current) {
+        setLoadingReport(false);
+      }
     }
   }, [
     selectedTeamId,

@@ -34,7 +34,8 @@ export const SupervisorReportsPage: React.FC<SupervisorReportsPageProps> = ({ on
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isSalesEligible, setIsSalesEligible] = useState<boolean>(true);
-  const [loading, setLoading] = useState(true);
+  const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(false);
+  const [analyticsLoadedTeamId, setAnalyticsLoadedTeamId] = useState<string | null>(null);
   const [exportingExcel, setExportingExcel] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'team-orders' | 'analytics'>('team-orders');
 
@@ -47,7 +48,7 @@ export const SupervisorReportsPage: React.FC<SupervisorReportsPageProps> = ({ on
         }
       }).catch(() => {});
     }
-  }, [user, adminTeamId]);
+  }, [user?.role, adminTeamId]);
 
   // Filter States
   const [datePreset, setDatePreset] = useState<string>('THIS_MONTH');
@@ -57,33 +58,45 @@ export const SupervisorReportsPage: React.FC<SupervisorReportsPageProps> = ({ on
   const [orderStatus, setOrderStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Lazily load analytics datasets ONLY when the user is actively viewing the Analytics tab
   useEffect(() => {
-    const loadData = async () => {
-      if (!user) return;
-      if (!effectiveTeamId) {
-        setTeamMembers([]);
-        setOrders([]);
-        setIsSalesEligible(true);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      try {
-        const [membersData, ordersData, teamData] = await Promise.all([
-          userRepository.getByTeamId(effectiveTeamId).catch(() => []),
-          orderRepository.getByTeamId(effectiveTeamId).catch(() => []),
-          teamRepository.getById(effectiveTeamId).catch(() => null),
-        ]);
+    if (activeTab !== 'analytics') return;
+    if (!effectiveTeamId) {
+      setTeamMembers([]);
+      setOrders([]);
+      setIsSalesEligible(true);
+      setAnalyticsLoading(false);
+      return;
+    }
+
+    if (analyticsLoadedTeamId === effectiveTeamId) return;
+
+    let active = true;
+    setAnalyticsLoading(true);
+
+    Promise.all([
+      userRepository.getByTeamId(effectiveTeamId).catch(() => []),
+      orderRepository.getByTeamId(effectiveTeamId).catch(() => []),
+      teamRepository.getById(effectiveTeamId).catch(() => null),
+    ])
+      .then(([membersData, ordersData, teamData]) => {
+        if (!active) return;
         setTeamMembers(membersData.filter((m) => m.role === 'TEAM_MEMBER'));
         setOrders(ordersData);
         setIsSalesEligible(teamData ? teamData.includeInSalesCalculations !== false : true);
-      } finally {
-        setLoading(false);
-      }
-    };
+        setAnalyticsLoadedTeamId(effectiveTeamId);
+      })
+      .catch((err) => {
+        console.error('Failed to load analytics data:', err);
+      })
+      .finally(() => {
+        if (active) setAnalyticsLoading(false);
+      });
 
-    loadData();
-  }, [user, effectiveTeamId]);
+    return () => {
+      active = false;
+    };
+  }, [activeTab, effectiveTeamId, analyticsLoadedTeamId]);
 
   // Handle Preset Changes
   const handleDatePresetChange = (preset: string) => {
@@ -262,7 +275,7 @@ export const SupervisorReportsPage: React.FC<SupervisorReportsPageProps> = ({ on
     }
   };
 
-  if (loading && activeTab === 'analytics') return <LoadingState rows={8} />;
+  if (analyticsLoading && activeTab === 'analytics') return <LoadingState rows={8} />;
 
   return (
     <div className="space-y-6">
@@ -329,54 +342,56 @@ export const SupervisorReportsPage: React.FC<SupervisorReportsPageProps> = ({ on
       ) : (
         <>
           <PageHeader
-        title={user?.role === 'ADMIN' ? 'Team Member Orders & Sales Report' : 'Supervisor Sales & Financial Reports'}
-        description="Business reporting, financial KPIs in LKR, order delivery rates, and team member sales performance"
-        actions={
-          <Button
-            onClick={handleExportExcel}
-            disabled={exportingExcel || filteredOrders.length === 0}
-            className="flex items-center gap-2 text-xs font-bold bg-[#0188C7] hover:bg-[#0170a4] text-white rounded-xl shadow-xs cursor-pointer"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>{exportingExcel ? 'Exporting...' : 'Download Excel (.xlsx)'}</span>
-          </Button>
-        }
-      />
+            title={user?.role === 'ADMIN' ? 'Team Member Orders & Sales Report' : 'Supervisor Sales & Financial Reports'}
+            description="Business reporting, financial KPIs in LKR, order delivery rates, and team member sales performance"
+            actions={
+              <Button
+                onClick={handleExportExcel}
+                disabled={exportingExcel || filteredOrders.length === 0}
+                className="flex items-center gap-2 text-xs font-bold bg-[#0188C7] hover:bg-[#0170a4] text-white rounded-xl shadow-xs cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>{exportingExcel ? 'Exporting...' : 'Download Excel (.xlsx)'}</span>
+              </Button>
+            }
+          />
 
-      <AdminTeamSelector
-        activeTeamId={effectiveTeamId}
-        onTeamChange={setAdminTeamId}
-        title="Sales & Financial Reports Scope"
-      />
+          <AdminTeamSelector
+            activeTeamId={effectiveTeamId}
+            onTeamChange={(newTeamId) => {
+              setAdminTeamId(newTeamId);
+              setAnalyticsLoadedTeamId(null);
+            }}
+            title="Sales & Financial Reports Scope"
+          />
 
-      {/* Filter Parameters Section */}
-      <ReportFilters
-        datePreset={datePreset}
-        onDatePresetChange={handleDatePresetChange}
-        startDate={startDate}
-        onStartDateChange={setStartDate}
-        endDate={endDate}
-        onEndDateChange={setEndDate}
-        teamMemberId={teamMemberId}
-        onTeamMemberIdChange={setTeamMemberId}
-        orderStatus={orderStatus}
-        onOrderStatusChange={setOrderStatus}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        teamMembers={teamMembers}
-      />
+          {/* Filter Parameters Section */}
+          <ReportFilters
+            datePreset={datePreset}
+            onDatePresetChange={handleDatePresetChange}
+            startDate={startDate}
+            onStartDateChange={setStartDate}
+            endDate={endDate}
+            onEndDateChange={setEndDate}
+            teamMemberId={teamMemberId}
+            onTeamMemberIdChange={setTeamMemberId}
+            orderStatus={orderStatus}
+            onOrderStatusChange={setOrderStatus}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            teamMembers={teamMembers}
+          />
 
-      {/* Financial & Sales KPI Cards */}
-      <ReportKpis summary={financialSummary} />
+          {/* Financial & Sales KPI Cards */}
+          <ReportKpis summary={financialSummary} />
 
-      {/* Visualizations (Charts) */}
-      <ReportCharts statusDistribution={statusDistribution} memberPerformance={memberPerformance} />
+          {/* Visualizations (Charts) */}
+          <ReportCharts statusDistribution={statusDistribution} memberPerformance={memberPerformance} />
 
-      {/* Filtered Order Breakdown Table */}
-      <ReportTable orders={filteredOrders} teamMembers={teamMembers} />
+          {/* Filtered Order Breakdown Table */}
+          <ReportTable orders={filteredOrders} teamMembers={teamMembers} />
         </>
       )}
     </div>
   );
 };
-

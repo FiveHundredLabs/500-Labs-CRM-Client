@@ -1,11 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { User, Order } from '../../models/domain';
-import { userRepository, orderRepository } from '../../repositories';
-import {
-  SupervisorAnalyticsService,
-  ReportsFilterOptions,
-} from '../../services/supervisorAnalyticsService';
+import { userRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { Leaderboard } from '../../components/leaderboard';
@@ -20,9 +15,8 @@ export const SupervisorTeamMembersPage: React.FC = () => {
 
   const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || '';
 
-  const [teamMembers, setTeamMembers] = useState<User[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
 
   // Filters
   const [datePreset, setDatePreset] = useState<string>('THIS_MONTH');
@@ -31,18 +25,26 @@ export const SupervisorTeamMembersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [backendLeaderboard, setBackendLeaderboard] = useState<any[] | null>(null);
 
+  // Fetch server-aggregated team leaderboard
   useEffect(() => {
     if (!effectiveTeamId) {
       setBackendLeaderboard(null);
       return;
     }
+
     let active = true;
+    setLoading(true);
+    setLeaderboardError(null);
+
     userRepository
       .getLeaderboard(effectiveTeamId, startDate || undefined, endDate || undefined)
       .then((data) => {
-        if (active && Array.isArray(data)) {
+        if (!active) return;
+        if (Array.isArray(data)) {
           const sorted = [...data].sort(
-            (a, b) => (b.deliveredSalesAmount || 0) - (a.deliveredSalesAmount || 0) || (b.deliveredOrdersCount || 0) - (a.deliveredOrdersCount || 0)
+            (a, b) =>
+              (b.deliveredSalesAmount || 0) - (a.deliveredSalesAmount || 0) ||
+              (b.deliveredOrdersCount || 0) - (a.deliveredOrdersCount || 0)
           );
           const ranked = sorted.map((m, idx) => ({
             id: m.id,
@@ -58,42 +60,25 @@ export const SupervisorTeamMembersPage: React.FC = () => {
             deliveredOrdersList: m.deliveredOrdersList || [],
           }));
           setBackendLeaderboard(ranked);
+        } else {
+          setBackendLeaderboard([]);
         }
       })
       .catch((err) => {
-        console.warn('Could not load backend leaderboard, falling back to local computation:', err);
-        if (active) setBackendLeaderboard(null);
+        console.error('Could not load backend leaderboard:', err);
+        if (active) {
+          setBackendLeaderboard([]);
+          setLeaderboardError('Failed to load team leaderboard data. Please try again.');
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
 
     return () => {
       active = false;
     };
   }, [effectiveTeamId, startDate, endDate, user?.id]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      if (!user) return;
-      if (!effectiveTeamId) {
-        setTeamMembers([]);
-        setOrders([]);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      try {
-        const [membersData, ordersData] = await Promise.all([
-          userRepository.getByTeamId(effectiveTeamId).catch(() => []),
-          orderRepository.getByTeamId(effectiveTeamId).catch(() => []),
-        ]);
-        setTeamMembers(membersData.filter((m) => m.role === 'TEAM_MEMBER'));
-        setOrders(ordersData);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [user, effectiveTeamId]);
 
   const handleDatePresetChange = (preset: string) => {
     setDatePreset(preset);
@@ -120,45 +105,14 @@ export const SupervisorTeamMembersPage: React.FC = () => {
     }
   };
 
-
-
-  const filters: ReportsFilterOptions = {
-    datePreset,
-    startDate,
-    endDate,
-    searchQuery,
-  };
-
   const leaderboardItems = useMemo(() => {
-    if (backendLeaderboard !== null) {
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        return backendLeaderboard.filter((m) => m.name.toLowerCase().includes(q));
-      }
-      return backendLeaderboard;
+    if (!backendLeaderboard) return [];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      return backendLeaderboard.filter((m) => m.name.toLowerCase().includes(q));
     }
-
-    const leaderboard = SupervisorAnalyticsService.computeLeaderboard(teamMembers, orders, filters);
-    const filtered = searchQuery.trim()
-      ? leaderboard.filter((m) => m.memberName.toLowerCase().includes(searchQuery.toLowerCase().trim()))
-      : leaderboard;
-
-    return filtered.map((m) => ({
-      id: m.memberId,
-      rank: m.rank,
-      name: m.memberName,
-      avatarUrl: m.avatarUrl,
-      isCurrentUser: m.memberId === user?.id,
-      primaryValue: m.totalSalesValue,
-      secondaryValue: m.deliveredOrders,
-      primaryLabel: 'Delivered Sales',
-      secondaryLabel: 'Delivered Orders',
-      unitLabel: 'orders',
-      deliveredOrdersList: m.deliveredOrdersList,
-    }));
-  }, [backendLeaderboard, teamMembers, orders, filters, searchQuery, user?.id]);
-
-  if (loading) return <LoadingState rows={8} />;
+    return backendLeaderboard;
+  }, [backendLeaderboard, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -186,15 +140,19 @@ export const SupervisorTeamMembersPage: React.FC = () => {
       />
 
       {/* Full Leaderboard Component */}
-      <Leaderboard
-        items={leaderboardItems}
-        chartTitle="Team Member Delivered Sales Ranking"
-        tableTitle="Team Performance & Delivered Sales Table"
-        primaryLabel="Delivered Sales"
-        secondaryLabel="Delivered Orders"
-        unitLabel="orders"
-      />
+      {loading ? (
+        <LoadingState rows={8} />
+      ) : (
+        <Leaderboard
+          items={leaderboardItems}
+          chartTitle="Team Member Delivered Sales Ranking"
+          tableTitle="Team Performance & Delivered Sales Table"
+          primaryLabel="Delivered Sales"
+          secondaryLabel="Delivered Orders"
+          unitLabel="orders"
+          emptyMessage={leaderboardError || 'No leaderboard data available for this team and date range.'}
+        />
+      )}
     </div>
   );
 };
-

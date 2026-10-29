@@ -571,6 +571,7 @@ export class ApiOrderRepository implements IOrderRepository {
     const raw = unwrap(
       await apiClient.get<{ data: TeamMemberOrdersReportResponse }>('/orders/team-member-report', {
         params: qParams,
+        ...(params.export ? { timeout: 120000 } : {}),
       })
     ) as any;
 
