@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { teamRepository, userRepository, orderRepository } from '../../repositories';
 import { Team, User, Order } from '../../models/domain';
@@ -28,6 +28,42 @@ export const AdminLeaderboardsPage: React.FC = () => {
   const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [backendLeaderboard, setBackendLeaderboard] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    if (!selectedTeamId) return;
+    let active = true;
+    userRepository
+      .getLeaderboard(selectedTeamId, startDate || undefined, endDate || undefined)
+      .then((data) => {
+        if (active && Array.isArray(data)) {
+          const sorted = [...data].sort(
+            (a, b) => (b.deliveredSalesAmount || 0) - (a.deliveredSalesAmount || 0) || (b.deliveredOrdersCount || 0) - (a.deliveredOrdersCount || 0)
+          );
+          const ranked = sorted.map((m, idx) => ({
+            id: m.id,
+            rank: idx + 1,
+            name: m.fullName || m.username || 'Agent',
+            avatarUrl: m.avatarUrl,
+            primaryValue: m.deliveredSalesAmount || 0,
+            secondaryValue: m.deliveredOrdersCount || 0,
+            primaryLabel: 'Delivered Sales',
+            secondaryLabel: 'Delivered Orders',
+            unitLabel: 'orders',
+            deliveredOrdersList: m.deliveredOrdersList || [],
+          }));
+          setBackendLeaderboard(ranked);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load backend leaderboard, falling back to local computation:', err);
+        if (active) setBackendLeaderboard(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedTeamId, startDate, endDate]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -97,13 +133,33 @@ export const AdminLeaderboardsPage: React.FC = () => {
     searchQuery,
   };
 
-  // Compute leaderboard using shared analytics service
-  const leaderboard = SupervisorAnalyticsService.computeLeaderboard(teamMembers, teamOrders, filters);
+  const leaderboardItems = useMemo(() => {
+    if (backendLeaderboard !== null) {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        return backendLeaderboard.filter((m) => m.name.toLowerCase().includes(q));
+      }
+      return backendLeaderboard;
+    }
 
-  // Search query filter applied to leaderboard list
-  const filteredLeaderboard = searchQuery.trim()
-    ? leaderboard.filter((m) => m.memberName.toLowerCase().includes(searchQuery.toLowerCase().trim()))
-    : leaderboard;
+    const leaderboard = SupervisorAnalyticsService.computeLeaderboard(teamMembers, teamOrders, filters);
+    const filtered = searchQuery.trim()
+      ? leaderboard.filter((m) => m.memberName.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+      : leaderboard;
+
+    return filtered.map((m) => ({
+      id: m.memberId,
+      rank: m.rank,
+      name: m.memberName,
+      avatarUrl: m.avatarUrl,
+      primaryValue: m.totalSalesValue,
+      secondaryValue: m.deliveredOrders,
+      primaryLabel: 'Delivered Sales',
+      secondaryLabel: 'Delivered Orders',
+      unitLabel: 'orders',
+      deliveredOrdersList: m.deliveredOrdersList,
+    }));
+  }, [backendLeaderboard, teamMembers, teamOrders, filters, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -149,18 +205,7 @@ export const AdminLeaderboardsPage: React.FC = () => {
 
       {/* Reused Shared Leaderboard Component */}
       <Leaderboard
-        items={filteredLeaderboard.map((m) => ({
-          id: m.memberId,
-          rank: m.rank,
-          name: m.memberName,
-          avatarUrl: m.avatarUrl,
-          primaryValue: m.totalSalesValue,
-          secondaryValue: m.deliveredOrders,
-          primaryLabel: 'Delivered Sales',
-          secondaryLabel: 'Delivered Orders',
-          unitLabel: 'orders',
-          deliveredOrdersList: m.deliveredOrdersList,
-        }))}
+        items={leaderboardItems}
         chartTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Member Delivered Sales Ranking`}
         tableTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Sales Performance Data Table`}
         primaryLabel="Delivered Sales"
