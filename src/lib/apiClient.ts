@@ -12,6 +12,7 @@ declare module "axios" {
 export const apiClient = axios.create({
   baseURL: env.apiBaseUrl,
   withCredentials: true,
+  timeout: 25000,
   headers: {
     "Content-Type": "application/json",
   },

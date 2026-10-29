@@ -154,7 +154,7 @@ export const MemberDashboard: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [user, selectedMonth]);
+  }, [user?.id, selectedMonth]);
 
   // Dynamically update Leaderboard when dateFilter / queryDates changes
   useEffect(() => {
