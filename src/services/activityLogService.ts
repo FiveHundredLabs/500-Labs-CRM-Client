@@ -29,4 +29,5 @@ export class ActivityLogService {
   static async getLogsByUser(userId: string): Promise<ActivityLog[]> {
     return activityLogRepository.getByUserId(userId);
   }
+  
 }
