@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { User, Order } from '../../models/domain';
-import { userRepository, orderRepository } from '../../repositories';
+import { userRepository } from '../../repositories';
+import { LeaderboardUser } from '../../repositories/interfaces';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Leaderboard, LeaderboardItem } from '../../components/leaderboard';
 import { TeamMemberFilters } from '../../components/supervisor/team/TeamMemberFilters';
-import {
-  SupervisorAnalyticsService,
-  ReportsFilterOptions,
-} from '../../services/supervisorAnalyticsService';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from 'date-fns';
 
 export const MemberLeaderboardPage: React.FC = () => {
   const { user } = useAuth();
-  const [members, setMembers] = useState<User[]>([]);
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [members, setMembers] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -30,24 +25,20 @@ export const MemberLeaderboardPage: React.FC = () => {
         const currentTeamId = user?.teamId;
         if (!currentTeamId) {
           setMembers([]);
-          setAllOrders([]);
           return;
         }
-        const [teamUsers, teamOrders] = await Promise.all([
-          userRepository.getByTeamId(currentTeamId).catch(() => []),
-          orderRepository.getByTeamId(currentTeamId).catch(() => []),
-        ]);
+        const leaderboardData = await userRepository
+          .getLeaderboard(currentTeamId, startDate || undefined, endDate || undefined)
+          .catch(() => []);
 
-        const activeMembers = teamUsers.filter((u) => u.role === 'TEAM_MEMBER' && u.isActive);
-        setMembers(activeMembers);
-        setAllOrders(teamOrders);
+        setMembers(leaderboardData);
       } finally {
         setLoading(false);
       }
     };
 
     loadLeaderboard();
-  }, [user]);
+  }, [user?.teamId, startDate, endDate]);
 
   const handleDatePresetChange = (preset: string) => {
     setDatePreset(preset);
@@ -74,27 +65,24 @@ export const MemberLeaderboardPage: React.FC = () => {
     }
   };
 
-  const filters: ReportsFilterOptions = {
-    datePreset,
-    startDate,
-    endDate,
-    searchQuery,
-  };
+  const filteredMembers = searchQuery.trim()
+    ? members.filter((m) => m.fullName.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+    : members;
 
-  const leaderboardStats = SupervisorAnalyticsService.computeLeaderboard(members, allOrders, filters);
+  const sortedMembers = [...filteredMembers].sort(
+    (a, b) =>
+      (b.deliveredSalesAmount || 0) - (a.deliveredSalesAmount || 0) ||
+      (b.deliveredOrdersCount || 0) - (a.deliveredOrdersCount || 0)
+  );
 
-  const filteredLeaderboard = searchQuery.trim()
-    ? leaderboardStats.filter((m) => m.memberName.toLowerCase().includes(searchQuery.toLowerCase().trim()))
-    : leaderboardStats;
-
-  const items: LeaderboardItem[] = filteredLeaderboard.map((m) => ({
-    id: m.memberId,
-    rank: m.rank,
-    name: m.memberName,
+  const items: LeaderboardItem[] = sortedMembers.map((m, idx) => ({
+    id: m.id,
+    rank: idx + 1,
+    name: m.fullName,
     avatarUrl: m.avatarUrl,
-    isCurrentUser: m.memberId === user?.id,
-    primaryValue: m.totalSalesValue,
-    secondaryValue: m.deliveredOrders,
+    isCurrentUser: m.id === user?.id,
+    primaryValue: m.deliveredSalesAmount || 0,
+    secondaryValue: m.deliveredOrdersCount || 0,
     primaryLabel: 'Delivered Sales',
     secondaryLabel: 'Delivered Orders',
     unitLabel: 'orders',

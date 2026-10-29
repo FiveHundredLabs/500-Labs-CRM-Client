@@ -12,11 +12,20 @@ import { ReportFilters } from '../../components/supervisor/reports/ReportFilters
 import { ReportKpis } from '../../components/supervisor/reports/ReportKpis';
 import { ReportCharts } from '../../components/supervisor/reports/ReportCharts';
 import { ReportTable } from '../../components/supervisor/reports/ReportTable';
+import { Button } from '../../components/ui/Button';
+import { FileSpreadsheet, ArrowLeft, TrendingUp } from 'lucide-react';
+import { TeamMemberOrdersReportPage } from '../reports/TeamMemberOrdersReportPage';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from 'date-fns';
+import * as XLSX from 'xlsx';
+import toast from 'react-hot-toast';
 
 import { AdminTeamSelector } from '../../components/shared/AdminTeamSelector';
 
-export const SupervisorReportsPage: React.FC = () => {
+export interface SupervisorReportsPageProps {
+  onBack?: () => void;
+}
+
+export const SupervisorReportsPage: React.FC<SupervisorReportsPageProps> = ({ onBack }) => {
   const { user } = useAuth();
   const [adminTeamId, setAdminTeamId] = useState<string>(user?.teamId || '');
 
@@ -26,6 +35,19 @@ export const SupervisorReportsPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isSalesEligible, setIsSalesEligible] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
+  const [exportingExcel, setExportingExcel] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'team-orders' | 'analytics'>('team-orders');
+
+  // If Admin has no team selected yet, auto-select the first available team
+  useEffect(() => {
+    if (user?.role === 'ADMIN' && !adminTeamId) {
+      teamRepository.getAll().then((teams) => {
+        if (teams.length > 0) {
+          setAdminTeamId(teams[0].id);
+        }
+      }).catch(() => {});
+    }
+  }, [user, adminTeamId]);
 
   // Filter States
   const [datePreset, setDatePreset] = useState<string>('THIS_MONTH');
@@ -88,8 +110,6 @@ export const SupervisorReportsPage: React.FC = () => {
     handleDatePresetChange('THIS_MONTH');
   }, []);
 
-  if (loading) return <LoadingState rows={8} />;
-
   const filterOptions: ReportsFilterOptions = {
     datePreset,
     startDate,
@@ -128,11 +148,199 @@ export const SupervisorReportsPage: React.FC = () => {
     ? SupervisorAnalyticsService.computeMemberPerformanceChart(leaderboard)
     : [];
 
+  // Export to Excel handler
+  const handleExportExcel = () => {
+    if (filteredOrders.length === 0) {
+      toast.error('No orders match current filter parameters to export.');
+      return;
+    }
+
+    try {
+      setExportingExcel(true);
+      const toastId = toast.loading('Generating Excel report...');
+
+      // Lookup map for team members
+      const memberMap = new Map<string, User>();
+      teamMembers.forEach((m) => memberMap.set(m.id, m));
+
+      // 1. Metadata Rows
+      const metadataRows = [
+        ['Sales & Orders Report'],
+        ['Generated Date:', format(new Date(), 'yyyy-MM-dd HH:mm')],
+        ['Date Range:', `${startDate || 'All Time'} to ${endDate || 'All Time'}`],
+        ['Status Filter:', orderStatus === 'ALL' ? 'All Statuses' : orderStatus],
+        ['Team Member Filter:', teamMemberId === 'ALL' ? 'All Members' : (memberMap.get(teamMemberId)?.fullName || teamMemberId)],
+        ['Total Orders:', filteredOrders.length],
+        [],
+      ];
+
+      // 2. Table Headers
+      const headers = [
+        'Order #',
+        'Team Member',
+        'Username',
+        'Status',
+        'Delivery Method',
+        'Total Amount (LKR)',
+        'COD Amount (LKR)',
+        'Created Date',
+        'Delivered Date',
+        'Rejected Date',
+        'Package / Items',
+      ];
+
+      let sumTotal = 0;
+      let sumCod = 0;
+
+      // 3. Data Rows
+      const dataRows = filteredOrders.map((o) => {
+        const mem = memberMap.get(o.teamMemberId);
+        const amt = Number(o.totalAmount) || 0;
+        const cod = Number(o.codAmount) || 0;
+        sumTotal += amt;
+        sumCod += cod;
+
+        return [
+          o.orderNumber || '-',
+          mem?.fullName || '-',
+          mem?.username || '-',
+          o.status || '-',
+          o.deliveryMethod || '-',
+          amt,
+          cod,
+          o.createdAt ? format(new Date(o.createdAt), 'yyyy-MM-dd HH:mm') : '-',
+          o.deliveredAt ? format(new Date(o.deliveredAt), 'yyyy-MM-dd HH:mm') : '-',
+          o.rejectedAt ? format(new Date(o.rejectedAt), 'yyyy-MM-dd HH:mm') : '-',
+          o.itemsDescription || o.selectedPackage || '-',
+        ];
+      });
+
+      // 4. Summary Row
+      const summaryRow = [
+        'TOTALS',
+        `${filteredOrders.length} Orders`,
+        '',
+        '',
+        '',
+        sumTotal,
+        sumCod,
+        '',
+        '',
+        '',
+        '',
+      ];
+
+      const worksheetData = [...metadataRows, headers, ...dataRows, [], summaryRow];
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+      worksheet['!cols'] = [
+        { wch: 18 }, // Order #
+        { wch: 22 }, // Member Name
+        { wch: 16 }, // Username
+        { wch: 14 }, // Status
+        { wch: 16 }, // Delivery Method
+        { wch: 18 }, // Total Amount
+        { wch: 16 }, // COD Amount
+        { wch: 18 }, // Created Date
+        { wch: 18 }, // Delivered Date
+        { wch: 18 }, // Rejected Date
+        { wch: 32 }, // Package / Items
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders Report');
+
+      const filename = `Orders_Report_${startDate || 'all'}_to_${endDate || 'all'}.xlsx`;
+      XLSX.writeFile(workbook, filename);
+
+      toast.dismiss(toastId);
+      toast.success(`Exported ${filteredOrders.length} orders successfully!`);
+    } catch (err: any) {
+      toast.error('Excel Export Failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  if (loading && activeTab === 'analytics') return <LoadingState rows={8} />;
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Supervisor Sales & Financial Reports"
+      {/* Return to reports landing if onBack provided */}
+      {onBack && (
+        <div className="pb-1">
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0188C7] transition-colors cursor-pointer group"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
+            <span>Back to All Reports</span>
+          </button>
+        </div>
+      )}
+
+      {/* Report View Mode Switcher */}
+      <div className="inline-flex items-center gap-1 p-1 bg-slate-100/90 border border-slate-200/80 rounded-2xl shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setActiveTab('team-orders')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            activeTab === 'team-orders'
+              ? 'bg-white text-slate-900 shadow-xs border border-[#01A8F3]/40 ring-1 ring-[#01A8F3]/20'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-white/60 border border-transparent'
+          }`}
+        >
+          <div
+            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
+              activeTab === 'team-orders'
+                ? 'bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]/80'
+                : 'bg-slate-200/60 text-slate-400'
+            }`}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+          </div>
+          <span className="tracking-tight">Team Order Reports &amp; Export</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('analytics')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            activeTab === 'analytics'
+              ? 'bg-white text-slate-900 shadow-xs border border-[#01A8F3]/40 ring-1 ring-[#01A8F3]/20'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-white/60 border border-transparent'
+          }`}
+        >
+          <div
+            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
+              activeTab === 'analytics'
+                ? 'bg-[#E8F7FE] text-[#0188C7] border border-[#B9E7FC]/80'
+                : 'bg-slate-200/60 text-slate-400'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+          </div>
+          <span className="tracking-tight">Sales &amp; Performance Analytics</span>
+        </button>
+      </div>
+
+      {activeTab === 'team-orders' ? (
+        <TeamMemberOrdersReportPage onBack={onBack} hideBackButton={true} />
+      ) : (
+        <>
+          <PageHeader
+        title={user?.role === 'ADMIN' ? 'Team Member Orders & Sales Report' : 'Supervisor Sales & Financial Reports'}
         description="Business reporting, financial KPIs in LKR, order delivery rates, and team member sales performance"
+        actions={
+          <Button
+            onClick={handleExportExcel}
+            disabled={exportingExcel || filteredOrders.length === 0}
+            className="flex items-center gap-2 text-xs font-bold bg-[#0188C7] hover:bg-[#0170a4] text-white rounded-xl shadow-xs cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>{exportingExcel ? 'Exporting...' : 'Download Excel (.xlsx)'}</span>
+          </Button>
+        }
       />
 
       <AdminTeamSelector
@@ -166,6 +374,9 @@ export const SupervisorReportsPage: React.FC = () => {
 
       {/* Filtered Order Breakdown Table */}
       <ReportTable orders={filteredOrders} teamMembers={teamMembers} />
+        </>
+      )}
     </div>
   );
 };
+

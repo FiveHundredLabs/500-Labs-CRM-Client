@@ -56,13 +56,15 @@ export const AdminReportsLandingPage: React.FC<AdminReportsLandingPageProps> = (
           </p>
         </div>
 
-        {/* Polished Search Bar */}
-        <div className="w-full md:w-72 shrink-0">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search all reports..."
-          />
+        <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
+          {/* Polished Search Bar */}
+          <div className="w-full md:w-72 shrink-0">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search all reports..."
+            />
+          </div>
         </div>
       </div>
 
