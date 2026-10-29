@@ -116,7 +116,7 @@ export const AdminLeaderboardsPage: React.FC = () => {
     }
   };
 
-  if (loading) return <LoadingState rows={8} />;
+
 
   const selectedTeam = teams.find((t) => t.id === selectedTeamId) || teams[0];
 
@@ -160,6 +160,8 @@ export const AdminLeaderboardsPage: React.FC = () => {
       deliveredOrdersList: m.deliveredOrdersList,
     }));
   }, [backendLeaderboard, teamMembers, teamOrders, filters, searchQuery]);
+
+  if (loading) return <LoadingState rows={8} />;
 
   return (
     <div className="space-y-6">

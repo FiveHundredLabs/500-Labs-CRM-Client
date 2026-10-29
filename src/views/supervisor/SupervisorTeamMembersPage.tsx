@@ -120,7 +120,7 @@ export const SupervisorTeamMembersPage: React.FC = () => {
     }
   };
 
-  if (loading) return <LoadingState rows={8} />;
+
 
   const filters: ReportsFilterOptions = {
     datePreset,
@@ -157,6 +157,8 @@ export const SupervisorTeamMembersPage: React.FC = () => {
       deliveredOrdersList: m.deliveredOrdersList,
     }));
   }, [backendLeaderboard, teamMembers, orders, filters, searchQuery, user?.id]);
+
+  if (loading) return <LoadingState rows={8} />;
 
   return (
     <div className="space-y-6">
