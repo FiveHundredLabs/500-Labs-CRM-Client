@@ -299,6 +299,7 @@ export interface TeamMemberOrdersReportParams {
   startDate?: string;
   endDate?: string;
   statuses?: string[];
+  deliveryMethod?: string;
   search?: string;
   page?: number;
   limit?: number;

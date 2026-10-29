@@ -33,6 +33,7 @@ import {
   Check,
   ChevronDown,
   ArrowLeft,
+  Banknote,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -101,6 +102,9 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
     'PREPARED',
     'REJECTED',
   ]);
+
+  // Delivery Method Filter State
+  const [selectedDeliveryMethod, setSelectedDeliveryMethod] = useState<string>('ALL');
 
   // 5. Table & Search & Pagination State
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -250,6 +254,7 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         statuses: selectedStatuses as OrderStatus[],
+        deliveryMethod: selectedDeliveryMethod !== 'ALL' ? selectedDeliveryMethod : undefined,
         search: debouncedSearch || undefined,
         page: currentPage,
         limit: pageSize,
@@ -270,6 +275,7 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
     dateError,
     selectedStatuses,
     selectedMemberIds,
+    selectedDeliveryMethod,
     startDate,
     endDate,
     debouncedSearch,
@@ -364,6 +370,7 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         statuses: selectedStatuses as OrderStatus[],
+        deliveryMethod: selectedDeliveryMethod !== 'ALL' ? selectedDeliveryMethod : undefined,
         search: debouncedSearch || undefined,
         export: true,
       });
@@ -397,6 +404,7 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
         ['Team Members', membersText],
         ['Date Range', `${startDate || 'Beginning'} to ${endDate || 'Now'} (${CRM_TIMEZONE})`],
         ['Filtered Statuses', selectedStatuses.join(', ')],
+        ['Delivery Method', selectedDeliveryMethod === 'ALL' ? 'All Delivery Methods (Including Cash on Hand)' : selectedDeliveryMethod === 'CASH_ON_HAND' ? 'Cash on Hand' : selectedDeliveryMethod],
         [], // blank row
       ];
 
@@ -431,7 +439,7 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
           order.username || '-',
           order.orderNumber || '-',
           order.status || '-',
-          order.deliveryMethod || '-',
+          order.deliveryMethod === 'CASH_ON_HAND' ? 'Cash on Hand' : order.deliveryMethod === 'ROYAL_COURIER' ? 'Royal Courier' : order.deliveryMethod || '-',
           Number(order.totalAmount) || 0,
           Number(order.codAmount) || 0,
           order.createdAt ? format(new Date(order.createdAt), 'yyyy-MM-dd HH:mm') : '-',
@@ -843,6 +851,51 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
           </div>
         </div>
 
+        {/* E. Delivery Method Filter */}
+        <div className="pt-3 border-t border-slate-100 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Truck className="w-3.5 h-3.5 text-slate-500" />
+              <span>Delivery Method:</span>
+            </span>
+            <span className="text-[11px] text-slate-400 font-medium">
+              (Filter by courier logistics or cash on hand)
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { key: 'ALL', label: 'All Delivery Methods' },
+              { key: 'CASH_ON_HAND', label: 'Cash on Hand', icon: Banknote },
+              { key: 'POST', label: 'Post' },
+              { key: 'ROYAL_COURIER', label: 'Royal Courier' },
+            ].map((dm) => {
+              const isSelected = selectedDeliveryMethod === dm.key;
+              const Icon = dm.icon;
+              return (
+                <button
+                  key={dm.key}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDeliveryMethod(dm.key);
+                    setCurrentPage(1);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    isSelected
+                      ? dm.key === 'CASH_ON_HAND'
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-2xs'
+                        : 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  {Icon && <Icon className="w-3.5 h-3.5" />}
+                  <span>{dm.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Actions Bar: Generate Report */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
           <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
@@ -967,6 +1020,12 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
         <Badge variant="outline">
           Statuses: {selectedStatuses.join(', ')}
         </Badge>
+        {selectedDeliveryMethod !== 'ALL' && (
+          <Badge variant="warning" className="font-bold flex items-center gap-1">
+            <Truck className="w-3 h-3" />
+            Method: {selectedDeliveryMethod === 'CASH_ON_HAND' ? 'Cash on Hand' : selectedDeliveryMethod}
+          </Badge>
+        )}
       </div>
 
       {/* 5. Orders Table & Search Header */}
@@ -1064,9 +1123,20 @@ export const TeamMemberOrdersReportPage: React.FC<TeamMemberOrdersReportPageProp
                         </Badge>
                       </td>
                       <td className="py-2.5 px-3.5">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold text-[11px]">
-                          {item.deliveryMethod || '-'}
-                        </span>
+                        {item.deliveryMethod === 'CASH_ON_HAND' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[11px]">
+                            <Banknote className="w-3 h-3 text-amber-600" />
+                            Cash on Hand
+                          </span>
+                        ) : item.deliveryMethod === 'ROYAL_COURIER' ? (
+                          <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-semibold text-[11px]">
+                            Royal Courier
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold text-[11px]">
+                            {item.deliveryMethod || '-'}
+                          </span>
+                        )}
                       </td>
                       <td className="py-2.5 px-3.5 text-right font-bold text-slate-900 font-mono">
                         {formatCurrency(item.totalAmount)}

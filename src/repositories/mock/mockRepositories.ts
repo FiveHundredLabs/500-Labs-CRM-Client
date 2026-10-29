@@ -841,6 +841,9 @@ export class MockOrderRepository implements IOrderRepository {
     if (params.statuses && params.statuses.length > 0) {
       filtered = filtered.filter((o) => params.statuses!.includes(o.status));
     }
+    if (params.deliveryMethod && params.deliveryMethod !== 'ALL') {
+      filtered = filtered.filter((o) => o.deliveryMethod === params.deliveryMethod);
+    }
 
     if (params.search) {
       const q = params.search.toLowerCase();

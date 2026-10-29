@@ -562,6 +562,7 @@ export class ApiOrderRepository implements IOrderRepository {
     if (params.startDate) qParams.startDate = params.startDate;
     if (params.endDate) qParams.endDate = params.endDate;
     if (params.statuses && params.statuses.length > 0) qParams.statuses = params.statuses.join(',');
+    if (params.deliveryMethod) qParams.deliveryMethod = params.deliveryMethod;
     if (params.search) qParams.search = params.search;
     if (params.page) qParams.page = params.page;
     if (params.limit) qParams.limit = params.limit;
