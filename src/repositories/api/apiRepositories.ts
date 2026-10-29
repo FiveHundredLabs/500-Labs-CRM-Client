@@ -282,7 +282,7 @@ export class ApiContactRepository implements IContactRepository {
   }
   async getByMemberId(memberId: string): Promise<Contact[]> {
     if (!memberId || memberId === 'undefined' || memberId === 'null') return [];
-    const res = unwrap(await apiClient.get<{ data: any }>(`/contacts?memberId=${memberId}`)) as any;
+    const res = unwrap(await apiClient.get<{ data: any }>(`/contacts?memberId=${memberId}&limit=100`)) as any;
     return unwrapArray<Contact>(res);
   }
   async getByPhone(phone: string): Promise<Contact | null> {
@@ -487,7 +487,7 @@ export class ApiOrderRepository implements IOrderRepository {
   }
   async getByMemberId(memberId: string): Promise<Order[]> {
     if (!memberId || memberId === 'undefined' || memberId === 'null') return [];
-    const res = unwrap(await apiClient.get<{ data: any }>(`/orders?memberId=${memberId}`)) as any;
+    const res = unwrap(await apiClient.get<{ data: any }>(`/orders?memberId=${memberId}&limit=100`)) as any;
     return unwrapArray<Order>(res);
   }
   async getPaginated(params: OrderPaginationParams): Promise<PaginatedResponse<Order>> {
