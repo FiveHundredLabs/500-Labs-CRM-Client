@@ -1,6 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { userRepository } from '../../repositories';
+import { User, Order } from '../../models/domain';
+import { userRepository, orderRepository } from '../../repositories';
+import {
+  SupervisorAnalyticsService,
+  ReportsFilterOptions,
+} from '../../services/supervisorAnalyticsService';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { LoadingState } from '../../components/shared/LoadingState';
 import { Leaderboard } from '../../components/leaderboard';
@@ -15,70 +20,40 @@ export const SupervisorTeamMembersPage: React.FC = () => {
 
   const effectiveTeamId = user?.role === 'ADMIN' ? adminTeamId : user?.teamId || '';
 
-  const [loading, setLoading] = useState(false);
-  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<User[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Filters
   const [datePreset, setDatePreset] = useState<string>('THIS_MONTH');
   const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [backendLeaderboard, setBackendLeaderboard] = useState<any[] | null>(null);
 
-  // Fetch server-aggregated team leaderboard
   useEffect(() => {
-    if (!effectiveTeamId) {
-      setBackendLeaderboard(null);
-      return;
-    }
-
-    let active = true;
-    setLoading(true);
-    setLeaderboardError(null);
-
-    userRepository
-      .getLeaderboard(effectiveTeamId, startDate || undefined, endDate || undefined)
-      .then((data) => {
-        if (!active) return;
-        if (Array.isArray(data)) {
-          const sorted = [...data].sort(
-            (a, b) =>
-              (b.deliveredSalesAmount || 0) - (a.deliveredSalesAmount || 0) ||
-              (b.deliveredOrdersCount || 0) - (a.deliveredOrdersCount || 0)
-          );
-          const ranked = sorted.map((m, idx) => ({
-            id: m.id,
-            rank: idx + 1,
-            name: m.fullName || m.username || 'Agent',
-            avatarUrl: m.avatarUrl,
-            isCurrentUser: m.id === user?.id,
-            primaryValue: m.deliveredSalesAmount || 0,
-            secondaryValue: m.deliveredOrdersCount || 0,
-            primaryLabel: 'Delivered Sales',
-            secondaryLabel: 'Delivered Orders',
-            unitLabel: 'orders',
-            deliveredOrdersList: m.deliveredOrdersList || [],
-          }));
-          setBackendLeaderboard(ranked);
-        } else {
-          setBackendLeaderboard([]);
-        }
-      })
-      .catch((err) => {
-        console.error('Could not load backend leaderboard:', err);
-        if (active) {
-          setBackendLeaderboard([]);
-          setLeaderboardError('Failed to load team leaderboard data. Please try again.');
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
+    const loadData = async () => {
+      if (!user) return;
+      if (!effectiveTeamId) {
+        setTeamMembers([]);
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const [membersData, ordersData] = await Promise.all([
+          userRepository.getByTeamId(effectiveTeamId).catch(() => []),
+          orderRepository.getByTeamId(effectiveTeamId).catch(() => []),
+        ]);
+        setTeamMembers(membersData.filter((m) => m.role === 'TEAM_MEMBER'));
+        setOrders(ordersData);
+      } finally {
+        setLoading(false);
+      }
     };
-  }, [effectiveTeamId, startDate, endDate, user?.id]);
+
+    loadData();
+  }, [user, effectiveTeamId]);
 
   const handleDatePresetChange = (preset: string) => {
     setDatePreset(preset);
@@ -105,14 +80,21 @@ export const SupervisorTeamMembersPage: React.FC = () => {
     }
   };
 
-  const leaderboardItems = useMemo(() => {
-    if (!backendLeaderboard) return [];
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      return backendLeaderboard.filter((m) => m.name.toLowerCase().includes(q));
-    }
-    return backendLeaderboard;
-  }, [backendLeaderboard, searchQuery]);
+  if (loading) return <LoadingState rows={8} />;
+
+  const filters: ReportsFilterOptions = {
+    datePreset,
+    startDate,
+    endDate,
+    searchQuery,
+  };
+
+  const leaderboard = SupervisorAnalyticsService.computeLeaderboard(teamMembers, orders, filters);
+
+  // Search query filter applied to leaderboard list
+  const filteredLeaderboard = searchQuery.trim()
+    ? leaderboard.filter((m) => m.memberName.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+    : leaderboard;
 
   return (
     <div className="space-y-6">
@@ -140,19 +122,27 @@ export const SupervisorTeamMembersPage: React.FC = () => {
       />
 
       {/* Full Leaderboard Component */}
-      {loading ? (
-        <LoadingState rows={8} />
-      ) : (
-        <Leaderboard
-          items={leaderboardItems}
-          chartTitle="Team Member Delivered Sales Ranking"
-          tableTitle="Team Performance & Delivered Sales Table"
-          primaryLabel="Delivered Sales"
-          secondaryLabel="Delivered Orders"
-          unitLabel="orders"
-          emptyMessage={leaderboardError || 'No leaderboard data available for this team and date range.'}
-        />
-      )}
+      <Leaderboard
+        items={filteredLeaderboard.map((m) => ({
+          id: m.memberId,
+          rank: m.rank,
+          name: m.memberName,
+          avatarUrl: m.avatarUrl,
+          isCurrentUser: m.memberId === user?.id,
+          primaryValue: m.totalSalesValue,
+          secondaryValue: m.deliveredOrders,
+          primaryLabel: 'Delivered Sales',
+          secondaryLabel: 'Delivered Orders',
+          unitLabel: 'orders',
+          deliveredOrdersList: m.deliveredOrdersList,
+        }))}
+        chartTitle="Team Member Delivered Sales Ranking"
+        tableTitle="Team Performance & Delivered Sales Table"
+        primaryLabel="Delivered Sales"
+        secondaryLabel="Delivered Orders"
+        unitLabel="orders"
+      />
     </div>
   );
 };
+

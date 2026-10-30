@@ -38,8 +38,6 @@ import {
   ContactPaginationParams,
   CustomerPaginationParams,
   OrderPaginationParams,
-  TeamMemberOrdersReportParams,
-  TeamMemberOrdersReportResponse,
 } from '../interfaces';
 import {
   Team,
@@ -282,7 +280,7 @@ export class ApiContactRepository implements IContactRepository {
   }
   async getByMemberId(memberId: string): Promise<Contact[]> {
     if (!memberId || memberId === 'undefined' || memberId === 'null') return [];
-    const res = unwrap(await apiClient.get<{ data: any }>(`/contacts?memberId=${memberId}&limit=100`)) as any;
+    const res = unwrap(await apiClient.get<{ data: any }>(`/contacts?memberId=${memberId}`)) as any;
     return unwrapArray<Contact>(res);
   }
   async getByPhone(phone: string): Promise<Contact | null> {
@@ -487,7 +485,7 @@ export class ApiOrderRepository implements IOrderRepository {
   }
   async getByMemberId(memberId: string): Promise<Order[]> {
     if (!memberId || memberId === 'undefined' || memberId === 'null') return [];
-    const res = unwrap(await apiClient.get<{ data: any }>(`/orders?memberId=${memberId}&limit=100`)) as any;
+    const res = unwrap(await apiClient.get<{ data: any }>(`/orders?memberId=${memberId}`)) as any;
     return unwrapArray<Order>(res);
   }
   async getPaginated(params: OrderPaginationParams): Promise<PaginatedResponse<Order>> {
@@ -554,37 +552,6 @@ export class ApiOrderRepository implements IOrderRepository {
         input
       )
     );
-  }
-  async getTeamMemberOrdersReport(params: TeamMemberOrdersReportParams): Promise<TeamMemberOrdersReportResponse> {
-    const qParams: Record<string, any> = {};
-    if (params.teamId) qParams.teamId = params.teamId;
-    if (params.memberIds && params.memberIds.length > 0) qParams.memberIds = params.memberIds.join(',');
-    if (params.startDate) qParams.startDate = params.startDate;
-    if (params.endDate) qParams.endDate = params.endDate;
-    if (params.statuses && params.statuses.length > 0) qParams.statuses = params.statuses.join(',');
-    if (params.deliveryMethod) qParams.deliveryMethod = params.deliveryMethod;
-    if (params.search) qParams.search = params.search;
-    if (params.page) qParams.page = params.page;
-    if (params.limit) qParams.limit = params.limit;
-    if (params.export) qParams.export = true;
-
-    const raw = unwrap(
-      await apiClient.get<{ data: TeamMemberOrdersReportResponse }>('/orders/team-member-report', {
-        params: qParams,
-        ...(params.export ? { timeout: 120000 } : {}),
-      })
-    ) as any;
-
-    const items = raw.data || raw.items || [];
-    return {
-      meta: {
-        ...raw.meta,
-        total: raw.meta?.totalMatchingOrders ?? raw.meta?.total ?? items.length,
-      },
-      data: items,
-      items,
-      pageInfo: raw.pageInfo,
-    };
   }
 }
 
