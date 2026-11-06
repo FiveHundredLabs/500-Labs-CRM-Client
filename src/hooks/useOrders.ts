@@ -36,7 +36,7 @@ export function useOrders(options?: string | UseOrdersOptions) {
     return {
       teamId: effectiveTeamId,
       page: opts.page ?? 1,
-      limit: opts.limit ?? 50,
+      limit: opts.limit ?? 30,
       status: opts.status && opts.status !== 'ALL' ? opts.status : (opts.status === 'ALL' ? 'ALL' : undefined),
       memberId: opts.memberId && opts.memberId !== 'ALL' ? opts.memberId : undefined,
       search: opts.search ? opts.search.trim() : undefined,

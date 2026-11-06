@@ -58,15 +58,59 @@ export const AdminActivityPage: React.FC = () => {
   >('ALL');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 30;
 
-  const { data: rawActivities = [], isLoading: logsLoading } = useQuery({
-    queryKey: ['activities', selectedUserId],
-    queryFn: () =>
-      selectedUserId !== 'ALL'
-        ? activityLogRepository.getByUserId(selectedUserId)
-        : activityLogRepository.getRecentWithinMonth(),
+  const serverDateRange = useMemo(() => {
+    const now = new Date();
+    if (datePreset === 'TODAY') return { startDate: format(startOfDay(now), 'yyyy-MM-dd'), endDate: format(endOfDay(now), 'yyyy-MM-dd') };
+    if (datePreset === 'YESTERDAY') {
+      const yesterday = subDays(now, 1);
+      return { startDate: format(startOfDay(yesterday), 'yyyy-MM-dd'), endDate: format(endOfDay(yesterday), 'yyyy-MM-dd') };
+    }
+    if (datePreset === '7DAYS') return { startDate: format(startOfDay(subDays(now, 7)), 'yyyy-MM-dd') };
+    if (datePreset === 'THIS_MONTH') return { startDate: format(startOfMonth(now), 'yyyy-MM-dd'), endDate: format(endOfMonth(now), 'yyyy-MM-dd') };
+    if (datePreset === 'LAST_MONTH') {
+      const lastMonth = subMonths(now, 1);
+      return { startDate: format(startOfMonth(lastMonth), 'yyyy-MM-dd'), endDate: format(endOfMonth(lastMonth), 'yyyy-MM-dd') };
+    }
+    if (datePreset === 'CUSTOM' && customStartDate && customEndDate) {
+      return { startDate: customStartDate, endDate: customEndDate };
+    }
+    return {};
+  }, [datePreset, customStartDate, customEndDate]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedUserId, debouncedSearch, roleFilter, actionCategoryFilter, datePreset, customStartDate, customEndDate]);
+
+  const { data: activityPage, isLoading: logsLoading } = useQuery({
+    queryKey: [
+      'activities',
+      selectedUserId,
+      debouncedSearch,
+      roleFilter,
+      actionCategoryFilter,
+      datePreset,
+      customStartDate,
+      customEndDate,
+      currentPage,
+    ],
+    queryFn: () => activityLogRepository.getPaginated({
+      userId: selectedUserId !== 'ALL' ? selectedUserId : undefined,
+      recent: selectedUserId === 'ALL' && datePreset === 'ALL',
+      search: debouncedSearch.trim() || undefined,
+      userRole: roleFilter !== 'ALL' ? roleFilter : undefined,
+      actionCategory: actionCategoryFilter !== 'ALL' ? actionCategoryFilter : undefined,
+      ...serverDateRange,
+      page: currentPage,
+      limit: pageSize,
+    }),
     staleTime: CACHE_TIERS.WARM,
   });
+
+  const rawActivities = activityPage?.items ?? [];
+  const pageInfo = activityPage?.pageInfo;
 
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: queryKeys.users.all,
@@ -357,7 +401,7 @@ export const AdminActivityPage: React.FC = () => {
 
               <div className="text-right">
                 <div className="text-xs font-bold text-slate-900 font-mono">
-                  {filteredActivities.length} Actions Recorded
+                  {pageInfo?.total ?? filteredActivities.length} Actions Recorded
                 </div>
                 <button
                   type="button"
@@ -381,7 +425,7 @@ export const AdminActivityPage: React.FC = () => {
               <span>Activity Audit Trail</span>
             </div>
             <span className="text-xs font-bold text-[#0188C7] bg-[#E8F7FE] border border-[#B9E7FC] px-2.5 py-0.5 rounded-full font-mono">
-              {filteredActivities.length} Entries
+              {pageInfo?.total ?? filteredActivities.length} Entries
             </span>
           </CardTitle>
         </CardHeader>
@@ -393,6 +437,29 @@ export const AdminActivityPage: React.FC = () => {
             />
           ) : (
             <ActivityTimeline activities={filteredActivities} />
+          )}
+          {pageInfo && pageInfo.totalPages && pageInfo.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-600">
+              <span>Page {pageInfo.page ?? currentPage} of {pageInfo.totalPages} ({pageInfo.total} total)</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!pageInfo.hasPreviousPage}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!pageInfo.hasNextPage}
+                  onClick={() => setCurrentPage((page) => page + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

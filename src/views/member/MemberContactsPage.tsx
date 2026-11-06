@@ -18,7 +18,8 @@ import { InboundCallbackDialog } from '../../components/calling/InboundCallbackD
 import { Clock, PhoneCall, RotateCcw, Star, MapPin, PlusCircle, Hash, PhoneIncoming, Edit3, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { CACHE_TIERS, queryKeys } from '../../lib/queryClient';
-import { useContactsQuery } from '../../hooks/queries/useContactsQuery';
+import { useContactCountsQuery, usePaginatedContactsQuery } from '../../hooks/queries/useContactsQuery';
+import type { ContactPaginationParams } from '../../repositories/interfaces';
 import toast from 'react-hot-toast';
 
 type TabCategory =
@@ -67,6 +68,8 @@ export const MemberContactsPage: React.FC = () => {
     return tabParam && TABS.some((t) => t.key === tabParam) ? tabParam : 'NEW';
   });
   const [search, setSearch] = useState(() => searchParams.get('q') || '');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 30;
 
   // Debounced URL search param synchronization (doesn't trigger network calls or reload page)
   useEffect(() => {
@@ -89,34 +92,48 @@ export const MemberContactsPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [activeTab, search, searchParams, setSearchParams]);
 
-  // Load all contacts assigned to this team member once
-  const contactsQuery = useContactsQuery(
-    { memberId: user?.id },
-    Boolean(user?.id)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, search]);
+
+  const contactParams = useMemo<ContactPaginationParams>(() => ({
+    memberId: user?.id,
+    search: search.trim() || undefined,
+    tab: search.trim() ? undefined : activeTab,
+    page: currentPage,
+    limit: pageSize,
+  }), [user?.id, search, activeTab, currentPage]);
+
+  const contactsQuery = usePaginatedContactsQuery(contactParams, Boolean(user?.id));
+  const countsQuery = useContactCountsQuery(
+    { memberId: user?.id, search: search.trim() || undefined },
+    Boolean(user?.id),
   );
 
-  const contacts = contactsQuery.data ?? [];
+  const contacts = contactsQuery.data?.items ?? [];
+  const pageInfo = contactsQuery.data?.pageInfo;
+  const counts = countsQuery.data ?? {};
   const loading = contactsQuery.isLoading && contacts.length === 0;
   const isRefreshing = contactsQuery.isFetching;
 
-  // Compute status counts per category across all assigned contacts
+  // Counts are computed by the backend across the complete scoped dataset.
   const countMap: Record<TabCategory, number> = useMemo(() => {
     return {
-      ALL: contacts.length,
-      NEW: contacts.filter((c) => c.status === 'NEW').length,
-      FOLLOW_UP: contacts.filter((c) => c.status !== 'NEW' && c.isFollowUp).length,
-      ANSWERED: contacts.filter((c) => c.status === 'ANSWERED').length,
-      NOT_ANSWERED: contacts.filter((c) => c.status === 'NOT_ANSWERED').length,
-      PHONE_OFF: contacts.filter((c) => c.status === 'PHONE_OFF').length,
-      INTERESTED: contacts.filter((c) => c.status === 'INTERESTED').length,
-      NOT_INTERESTED: contacts.filter((c) => c.status === 'NOT_INTERESTED').length,
-      DISPATCHED: contacts.filter((c) => c.status === 'DISPATCHED').length,
-      REJECTED: contacts.filter((c) => c.status === 'REJECTED').length,
-      DELIVERED: contacts.filter((c) => c.status === 'DELIVERED').length,
-      CANCELLED: contacts.filter((c) => c.status === 'CANCELLED').length,
-      SAVED_CONTACTS: contacts.filter((c) => c.isSelfAdded || Boolean(c.addedBy)).length || contacts.length,
+      ALL: counts.ALL ?? 0,
+      NEW: counts.NEW ?? 0,
+      FOLLOW_UP: counts.FOLLOW_UP ?? 0,
+      ANSWERED: counts.ANSWERED ?? 0,
+      NOT_ANSWERED: counts.NOT_ANSWERED ?? 0,
+      PHONE_OFF: counts.PHONE_OFF ?? 0,
+      INTERESTED: counts.INTERESTED ?? 0,
+      NOT_INTERESTED: counts.NOT_INTERESTED ?? 0,
+      DISPATCHED: counts.DISPATCHED ?? 0,
+      REJECTED: counts.REJECTED ?? 0,
+      DELIVERED: counts.DELIVERED ?? 0,
+      CANCELLED: counts.CANCELLED ?? 0,
+      SAVED_CONTACTS: counts.SAVED_CONTACTS ?? 0,
     };
-  }, [contacts]);
+  }, [counts]);
 
   // Filter contacts by active tab & search
   // When a search term is entered, show matching contacts across ALL stages, not just the active tab
@@ -158,6 +175,7 @@ export const MemberContactsPage: React.FC = () => {
     if (search) {
       setSearch('');
     }
+    setCurrentPage(1);
   };
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -172,7 +190,7 @@ export const MemberContactsPage: React.FC = () => {
 
   const handleRefresh = async () => {
     try {
-      await contactsQuery.refetch();
+      await Promise.all([contactsQuery.refetch(), countsQuery.refetch()]);
       toast.success('Contacts refreshed!');
     } catch {
       toast.error('Failed to refresh contacts.');
@@ -569,6 +587,30 @@ export const MemberContactsPage: React.FC = () => {
       ) : (
         <div className="space-y-2.5">
           {filteredContacts.map(renderContactCard)}
+        </div>
+      )}
+
+      {pageInfo && pageInfo.totalPages && pageInfo.totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-600">
+          <span>Page {pageInfo.page ?? currentPage} of {pageInfo.totalPages} ({pageInfo.total} total)</span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!pageInfo.hasPreviousPage}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!pageInfo.hasNextPage}
+              onClick={() => setCurrentPage((page) => page + 1)}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
 
