@@ -124,11 +124,6 @@ const SupervisorCashOnHandPage = lazy(() =>
     default: m.SupervisorCashOnHandPage,
   }))
 );
-const TeamMemberOrdersReportPage = lazy(() =>
-  import("../views/reports/TeamMemberOrdersReportPage").then((m) => ({
-    default: m.TeamMemberOrdersReportPage,
-  }))
-);
 
 // Admin Views (lazy)
 const AdminDashboard = lazy(() =>
@@ -305,8 +300,6 @@ export const router = createBrowserRouter([
                     element: <SupervisorTeamMembersPage />,
                   },
                   { path: "reports", element: <SupervisorReportsPage /> },
-                  { path: "reports/team-member-orders", element: <Navigate to="/supervisor/reports" replace /> },
-                  { path: "team-member-orders-report", element: <Navigate to="/supervisor/reports" replace /> },
                   { path: "stock", element: <SupervisorStockPage /> },
                   { path: "import", element: <SupervisorImportPage /> },
                   { path: "allocation", element: <SupervisorAllocationPage /> },
@@ -349,8 +342,6 @@ export const router = createBrowserRouter([
                   { path: "cash-on-hand", element: <Navigate to="/admin/approvals" replace /> },
                   { path: "reports", element: <AdminReportsPage /> },
                   { path: "reports/:reportId", element: <AdminReportsPage /> },
-                  { path: "reports/team-member-orders", element: <AdminReportsPage /> },
-                  { path: "team-member-orders-report", element: <TeamMemberOrdersReportPage /> },
                   { path: "leaderboards", element: <AdminLeaderboardsPage /> },
                   { path: "activity", element: <AdminActivityPage /> },
                   { path: "profile", element: <AdminProfilePage /> },

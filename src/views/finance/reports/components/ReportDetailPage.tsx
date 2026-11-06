@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ReportDefinition, ActiveFilters } from '../types';
 import { TeamItem } from '../mockData';
-import { financeRepository, teamRepository, pettyCashRepository, orderRepository } from '../../../../repositories';
+import { financeRepository, teamRepository, pettyCashRepository } from '../../../../repositories';
 import { ReportFilters } from './ReportFilters';
 import { ReportSummaryCards } from './ReportSummaryCards';
 import { ReportChart } from './ReportChart';
@@ -27,7 +27,6 @@ const LIVE_DATA_REPORTS = [
   'daily-sales',
   'weekly-sales',
   'monthly-sales',
-  'team-member-orders',
 ];
 
 /** Normalise a date value from the backend to a plain YYYY-MM-DD string */
@@ -377,26 +376,6 @@ export const ReportDetailPage: React.FC<ReportDetailPageProps> = ({
         } catch (err) {
           console.error('Failed to fetch contact batch report from backend:', err);
           if (active) setLiveReportData({ batches: [] });
-        } finally {
-          if (active) setIsLoadingLive(false);
-        }
-
-      // ── Team Member Orders Report ──────────────────────────────────────────
-      } else if (report.id === 'team-member-orders') {
-        setIsLoadingLive(true);
-        try {
-          const res = await orderRepository.getTeamMemberOrdersReport({
-            teamId: filters.teamId !== 'ALL' ? filters.teamId : undefined,
-            startDate: filters.dateRange.startDate || undefined,
-            endDate: filters.dateRange.endDate || undefined,
-            export: true,
-          });
-          if (active) {
-            setLiveReportData(res?.items || []);
-          }
-        } catch (err) {
-          console.error('Failed to fetch team member orders report from backend:', err);
-          if (active) setLiveReportData([]);
         } finally {
           if (active) setIsLoadingLive(false);
         }
