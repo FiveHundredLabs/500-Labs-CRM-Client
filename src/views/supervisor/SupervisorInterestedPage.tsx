@@ -130,7 +130,7 @@ export const SupervisorInterestedPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [adminTeamId, user]);
+  }, [user]);
 
   const teamsMap = useMemo(() => {
     const map: Record<string, Team> = {};

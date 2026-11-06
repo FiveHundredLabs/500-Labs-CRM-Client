@@ -30,25 +30,38 @@ export function useInterestedLeads(overrideTeamId?: string) {
           conflicts: {} as Record<string, DuplicateOrderConflictInfo>,
         };
       }
-      const [cList, contactList, teamUsers, oList] = await Promise.all([
-        customerRepository.getByTeamId(effectiveTeamId),
-        contactRepository.getByTeamId(effectiveTeamId),
-        userRepository.getByTeamId(effectiveTeamId),
-        orderRepository.getByTeamId(effectiveTeamId),
-      ]);
+      // Start all four original reads immediately. Customer IDs are required
+      // by conflict detection, but conflict detection does not depend on
+      // contacts, users, or team orders. Starting it as soon as the customer
+      // request resolves removes the avoidable "all lists, then conflicts"
+      // waterfall without changing any payload or business rule.
+      const customersPromise = customerRepository.getByTeamId(effectiveTeamId);
+      const contactsPromise = contactRepository.getByTeamId(effectiveTeamId);
+      const teamUsersPromise = userRepository.getByTeamId(effectiveTeamId);
+      const ordersPromise = orderRepository.getByTeamId(effectiveTeamId);
 
+      const cList = await customersPromise;
       const custIds = cList.map((c) => c.id);
-      let conflicts: Record<string, DuplicateOrderConflictInfo> = {};
-      if (custIds.length > 0 && orderRepository.checkConflicts) {
-        try {
-          conflicts = await orderRepository.checkConflicts({
-            customerIds: custIds,
-            teamId: effectiveTeamId,
-          });
-        } catch (e) {
-          console.error('Failed to check order conflicts:', e);
-        }
-      }
+
+      const conflictsPromise: Promise<Record<string, DuplicateOrderConflictInfo>> =
+        custIds.length > 0 && orderRepository.checkConflicts
+          ? orderRepository
+              .checkConflicts({
+                customerIds: custIds,
+                teamId: effectiveTeamId,
+              })
+              .catch((e) => {
+                console.error('Failed to check order conflicts:', e);
+                return {} as Record<string, DuplicateOrderConflictInfo>;
+              })
+          : Promise.resolve({} as Record<string, DuplicateOrderConflictInfo>);
+
+      const [contactList, teamUsers, oList, conflicts] = await Promise.all([
+        contactsPromise,
+        teamUsersPromise,
+        ordersPromise,
+        conflictsPromise,
+      ]);
 
       return { cList, contactList, teamUsers, oList, conflicts };
     },
