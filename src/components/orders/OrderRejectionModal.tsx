@@ -6,6 +6,7 @@ import { Button } from '../ui/Button';
 import { AlertTriangle, Package, ShieldAlert, Clock, CheckCircle2 } from 'lucide-react';
 import { format, differenceInHours, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
+import { userErrorMessage } from '../../lib/errors';
 
 export interface OrderRejectionModalProps {
   order: Order | null;
@@ -192,7 +193,7 @@ export const OrderRejectionModal: React.FC<OrderRejectionModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to submit rejection request.');
+      toast.error(userErrorMessage(err, 'We could not submit this rejection request. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
