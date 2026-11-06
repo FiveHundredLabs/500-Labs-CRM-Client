@@ -14,6 +14,7 @@ import {
 } from "../services/authService";
 import { AUTH_EXPIRED_EVENT } from "../lib/apiClient";
 import toast from "react-hot-toast";
+import { userErrorMessage } from "../lib/errors";
 
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
 
@@ -84,9 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const message =
           err instanceof SessionCookieNotEstablishedError
             ? "Login was accepted, but this browser did not keep the secure session. Please refresh and try again."
-            : err?.response?.data?.message ||
-              err?.message ||
-              "Login failed. Check your credentials.";
+            : userErrorMessage(err, "Login failed. Check your credentials.");
         toast.error(message);
         throw err;
       }
