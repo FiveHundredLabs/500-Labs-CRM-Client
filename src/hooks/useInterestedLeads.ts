@@ -2,7 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import type { Customer, User, Order, Contact } from '../models/domain';
-import { customerRepository, userRepository, orderRepository, contactRepository } from '../repositories';
+import { interestLeadsRepository, orderRepository } from '../repositories';
 import { LeadService } from '../services/leadService';
 import { normalizeSriLankanPhone } from '../utils/phoneUtils';
 import type { DuplicateOrderConflictInfo } from '../components/orders/DuplicateOrderConflictDialog';
@@ -30,40 +30,7 @@ export function useInterestedLeads(overrideTeamId?: string) {
           conflicts: {} as Record<string, DuplicateOrderConflictInfo>,
         };
       }
-      // Start all four original reads immediately. Customer IDs are required
-      // by conflict detection, but conflict detection does not depend on
-      // contacts, users, or team orders. Starting it as soon as the customer
-      // request resolves removes the avoidable "all lists, then conflicts"
-      // waterfall without changing any payload or business rule.
-      const customersPromise = customerRepository.getByTeamId(effectiveTeamId);
-      const contactsPromise = contactRepository.getByTeamId(effectiveTeamId);
-      const teamUsersPromise = userRepository.getByTeamId(effectiveTeamId);
-      const ordersPromise = orderRepository.getByTeamId(effectiveTeamId);
-
-      const cList = await customersPromise;
-      const custIds = cList.map((c) => c.id);
-
-      const conflictsPromise: Promise<Record<string, DuplicateOrderConflictInfo>> =
-        custIds.length > 0 && orderRepository.checkConflicts
-          ? orderRepository
-              .checkConflicts({
-                customerIds: custIds,
-                teamId: effectiveTeamId,
-              })
-              .catch((e) => {
-                console.error('Failed to check order conflicts:', e);
-                return {} as Record<string, DuplicateOrderConflictInfo>;
-              })
-          : Promise.resolve({} as Record<string, DuplicateOrderConflictInfo>);
-
-      const [contactList, teamUsers, oList, conflicts] = await Promise.all([
-        contactsPromise,
-        teamUsersPromise,
-        ordersPromise,
-        conflictsPromise,
-      ]);
-
-      return { cList, contactList, teamUsers, oList, conflicts };
+      return interestLeadsRepository.getByTeamId(effectiveTeamId);
     },
     enabled: Boolean(user && effectiveTeamId),
     staleTime: CACHE_TIERS.WARM,
@@ -91,15 +58,17 @@ export function useInterestedLeads(overrideTeamId?: string) {
     const cntMap: Record<string, Contact> = {};
     contactList.forEach((cnt) => (cntMap[cnt.id] = cnt));
 
-    // Sort orders descending by createdAt (guarantee index 0 is always newest)
-    const sortedOList = [...oList].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    // The Interest endpoint returns this list using the same deterministic
+    // createdAt/id ordering as the existing orders API.
+    const sortedOList = oList;
 
     const globalCustMap: Record<string, Customer> = {};
     cList.forEach((c) => (globalCustMap[c.id] = c));
+    const processedConflictOrderIds = new Set<string>();
     Object.values(conflicts).forEach((info) => {
       info.allOrdersForPhone?.forEach((o: any) => {
+        if (processedConflictOrderIds.has(o.id)) return;
+        processedConflictOrderIds.add(o.id);
         if (o.customer && !globalCustMap[o.customerId]) {
           globalCustMap[o.customerId] = o.customer;
         }
@@ -120,7 +89,7 @@ export function useInterestedLeads(overrideTeamId?: string) {
         const conflictInfo = conflicts[custId];
         const phoneOrders = conflictInfo?.allOrdersForPhone || custOrders;
         // Order history contains strictly previous/completed/dispatched/delivered/cancelled orders
-        const historyOrders = phoneOrders.filter((o) =>
+        const historyOrders = phoneOrders.filter((o: Order) =>
           o.id !== primaryOrder.id &&
           ['DISPATCHED', 'DELIVERED', 'REJECTED', 'CANCELLED', 'RETURNED'].includes(o.status)
         );
@@ -169,6 +138,7 @@ export function useInterestedLeads(overrideTeamId?: string) {
     });
 
     const finalConflictMap: Record<string, DuplicateOrderConflictInfo> = {};
+    const activeOrderCountsByPhone: Record<string, number> = {};
     interestedOnlyCustomers.forEach((cust) => {
       const norm = normalizeSriLankanPhone(cust.phone) || cust.phone.trim();
       const serverConflict = conflicts[cust.id] || (norm ? conflicts[norm] : undefined);
@@ -176,9 +146,13 @@ export function useInterestedLeads(overrideTeamId?: string) {
 
       if (serverConflict) {
         const phoneOrders = serverConflict.allOrdersForPhone || [];
-        const activeOrdersCount = phoneOrders.filter(
-          (o: any) => ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status) && !o.isReplacement
-        ).length;
+        const conflictPhone = serverConflict.phone || norm;
+        if (activeOrderCountsByPhone[conflictPhone] === undefined) {
+          activeOrderCountsByPhone[conflictPhone] = phoneOrders.filter(
+            (o: any) => ['DRAFT', 'PREPARED', 'DISPATCHED'].includes(o.status) && !o.isReplacement
+          ).length;
+        }
+        const activeOrdersCount = activeOrderCountsByPhone[conflictPhone];
         // Strictly only a duplicate when there are 2 or more active orders in process
         const hasDuplicateActive = activeOrdersCount >= 2 || samePhoneInterested.length >= 2;
 

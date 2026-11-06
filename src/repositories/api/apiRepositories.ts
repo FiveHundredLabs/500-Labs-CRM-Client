@@ -9,6 +9,8 @@ import {
   ICallLogRepository,
   ICustomerRepository,
   IOrderRepository,
+  IInterestLeadsRepository,
+  InterestLeadsBundle,
   IDeliveryStatusHistoryRepository,
   IActivityLogRepository,
   IExpenseRepository,
@@ -551,6 +553,20 @@ export class ApiOrderRepository implements IOrderRepository {
       await apiClient.patch<{ data: { success: boolean; count: number; orders: Order[] } }>(
         '/orders/bulk/delivery-charge',
         input
+      )
+    );
+  }
+}
+
+export class ApiInterestLeadsRepository implements IInterestLeadsRepository {
+  async getByTeamId(teamId: string): Promise<InterestLeadsBundle> {
+    if (!teamId || teamId === 'undefined' || teamId === 'null') {
+      return { cList: [], contactList: [], teamUsers: [], oList: [], conflicts: {} };
+    }
+
+    return unwrap(
+      await apiClient.get<{ data: InterestLeadsBundle }>(
+        `/interest-leads?teamId=${encodeURIComponent(teamId)}`
       )
     );
   }
