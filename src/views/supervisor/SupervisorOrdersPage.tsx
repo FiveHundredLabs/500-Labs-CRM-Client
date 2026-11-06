@@ -111,7 +111,7 @@ export const SupervisorOrdersPage: React.FC = () => {
   } = useOrders({
     overrideTeamId: user?.role === 'ADMIN' ? adminTeamId : undefined,
     page: currentPage,
-    limit: 50,
+    limit: 30,
     status: statusFilter,
     memberId: selectedMemberId,
     search: debouncedSearch,

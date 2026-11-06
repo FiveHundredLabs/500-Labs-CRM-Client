@@ -92,6 +92,18 @@ export interface ContactPaginationParams {
   cursor?: string;
 }
 
+export interface ActivityPaginationParams {
+  userId?: string;
+  recent?: boolean;
+  search?: string;
+  userRole?: string;
+  actionCategory?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
 export interface CustomerPaginationParams {
   teamId?: string;
   supervisorId?: string;
@@ -271,6 +283,7 @@ export interface IActivityLogRepository {
   getRecentWithinMonth(userId?: string): Promise<ActivityLog[]>;
   getMyRecentWithinMonth(): Promise<ActivityLog[]>;
   getByEntity(entityType: string, entityId: string): Promise<ActivityLog[]>;
+  getPaginated(params: ActivityPaginationParams): Promise<PaginatedResponse<ActivityLog>>;
   create(log: ActivityLogWritePayload): Promise<ActivityLog>;
 }
 

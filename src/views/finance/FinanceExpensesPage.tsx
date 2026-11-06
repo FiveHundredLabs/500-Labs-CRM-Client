@@ -124,7 +124,7 @@ export const FinanceExpensesPage: React.FC = () => {
     () => ({
       ...summaryParams,
       page: currentPage,
-      limit: 50,
+      limit: 30,
     }),
     [summaryParams, currentPage]
   );
