@@ -233,7 +233,7 @@ export const AdminDashboard: React.FC = () => {
           accentColor="sales"
           title="Gross Sales"
           value={formatCurrency(kpi.totalGrossSales)}
-          subtitle={`${kpi.bookedOrdersCount} Booked Orders`}
+          subtitle="Delivered Sales Amount"
           icon={<DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
           className="col-span-2 sm:col-span-1"
         />
