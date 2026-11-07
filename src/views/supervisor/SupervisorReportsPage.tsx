@@ -92,8 +92,6 @@ export const SupervisorReportsPage: React.FC = () => {
     handleDatePresetChange('THIS_MONTH');
   }, []);
 
-  if (loading) return <LoadingState rows={8} />;
-
   const filterOptions: ReportsFilterOptions = {
     datePreset,
     startDate,
@@ -108,6 +106,8 @@ export const SupervisorReportsPage: React.FC = () => {
     () => SupervisorAnalyticsService.filterOrders(orders, filterOptions),
     [orders, datePreset, startDate, endDate, teamMemberId, orderStatus, searchQuery],
   );
+
+  if (loading) return <LoadingState rows={8} />;
 
   const handleExportCSV = () => {
     if (filteredOrders.length === 0) return;
