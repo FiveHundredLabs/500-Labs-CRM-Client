@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { User, Order } from '../../models/domain';
 import { userRepository, orderRepository, teamRepository } from '../../repositories';
@@ -104,7 +104,10 @@ export const SupervisorReportsPage: React.FC = () => {
   };
 
   // Filtered orders list
-  const filteredOrders = SupervisorAnalyticsService.filterOrders(orders, filterOptions);
+  const filteredOrders = useMemo(
+    () => SupervisorAnalyticsService.filterOrders(orders, filterOptions),
+    [orders, datePreset, startDate, endDate, teamMemberId, orderStatus, searchQuery],
+  );
 
   const handleExportCSV = () => {
     if (filteredOrders.length === 0) return;

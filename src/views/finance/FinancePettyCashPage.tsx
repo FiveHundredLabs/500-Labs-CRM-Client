@@ -24,6 +24,9 @@ import {
   Layers,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   FileSpreadsheet,
   Download,
   FileText,
@@ -53,6 +56,8 @@ export const FinancePettyCashPage: React.FC = () => {
   // Filter states
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'ALLOCATION' | 'EXPENSE'>('ALL');
+  const [transactionCurrentPage, setTransactionCurrentPage] = useState(1);
+  const [transactionPageSize, setTransactionPageSize] = useState(10);
 
   // New Expense Dialog State
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -72,6 +77,10 @@ export const FinancePettyCashPage: React.FC = () => {
   const [isSubmittingAllocation, setIsSubmittingAllocation] = useState(false);
 
   const targetTeamId = role === 'SUPERVISOR' ? user?.teamId ?? undefined : undefined;
+
+  useEffect(() => {
+    setTransactionCurrentPage(1);
+  }, [search, typeFilter, targetTeamId, transactions]);
 
   const loadData = async () => {
     setLoading(true);
@@ -358,6 +367,11 @@ export const FinancePettyCashPage: React.FC = () => {
     const matchesType = typeFilter === 'ALL' || t.transactionType === typeFilter;
     return matchesSearch && matchesType;
   });
+  const transactionTotalPages = Math.max(1, Math.ceil(filteredTransactions.length / transactionPageSize));
+  const paginatedTransactions = filteredTransactions.slice(
+    (transactionCurrentPage - 1) * transactionPageSize,
+    transactionCurrentPage * transactionPageSize,
+  );
 
   const utilizationPercentage =
     wallet && wallet.allocatedAmount > 0
@@ -503,7 +517,7 @@ export const FinancePettyCashPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-sans">
-                  {filteredTransactions.map((tx) => {
+                  {paginatedTransactions.map((tx) => {
                     const isAlloc = tx.transactionType === 'ALLOCATION';
 
                     return (
@@ -563,6 +577,71 @@ export const FinancePettyCashPage: React.FC = () => {
                   })}
                 </tbody>
               </table>
+            </div>
+            <div className="p-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+              <div className="flex flex-wrap items-center gap-2">
+                <span>Rows per page:</span>
+                <select
+                  value={transactionPageSize}
+                  onChange={(e) => {
+                    setTransactionPageSize(Number(e.target.value));
+                    setTransactionCurrentPage(1);
+                  }}
+                  className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+                <span className="text-slate-400 sm:ml-2">
+                  Showing <strong>{(transactionCurrentPage - 1) * transactionPageSize + 1}</strong>–{' '}
+                  <strong>{Math.min(transactionCurrentPage * transactionPageSize, filteredTransactions.length)}</strong> of{' '}
+                  <strong>{filteredTransactions.length}</strong> transactions
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTransactionCurrentPage(1)}
+                  disabled={transactionCurrentPage === 1}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="First Page"
+                  aria-label="First page of petty cash transactions"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTransactionCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={transactionCurrentPage === 1}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Previous Page"
+                  aria-label="Previous petty cash transactions page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="px-2 font-medium">Page {transactionCurrentPage} of {transactionTotalPages}</span>
+                <button
+                  type="button"
+                  onClick={() => setTransactionCurrentPage((page) => Math.min(transactionTotalPages, page + 1))}
+                  disabled={transactionCurrentPage === transactionTotalPages}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Next Page"
+                  aria-label="Next petty cash transactions page"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTransactionCurrentPage(transactionTotalPages)}
+                  disabled={transactionCurrentPage === transactionTotalPages}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Last Page"
+                  aria-label="Last page of petty cash transactions"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         )}
