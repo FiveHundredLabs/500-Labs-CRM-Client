@@ -37,15 +37,10 @@ import {
 import { generatePettyCashAllocationPdf, generatePettyCashStatementPdf } from '../../utils/voucherPdfGenerator';
 import {
   getLocalDateString,
-  getYesterdayDateString,
-  validatePettyCashDate,
 } from '../../utils/dateValidation';
 
 export const FinancePettyCashPage: React.FC = () => {
   const { user, role } = useAuth();
-
-  const todayDate = getLocalDateString();
-  const yesterdayDate = getYesterdayDateString();
 
   const [wallet, setWallet] = useState<PettyCashWallet | null>(null);
   const [transactions, setTransactions] = useState<PettyCashTransaction[]>([]);
@@ -151,12 +146,6 @@ export const FinancePettyCashPage: React.FC = () => {
       return;
     }
 
-    const dateCheck = validatePettyCashDate(date);
-    if (!dateCheck.isValid) {
-      toast.error(dateCheck.error || 'Invalid petty cash voucher date.');
-      return;
-    }
-
     if (availableAllocations.length === 0) {
       toast.error('No allocation funds with available balance exist. Please allocate funds first.');
       return;
@@ -223,12 +212,6 @@ export const FinancePettyCashPage: React.FC = () => {
 
     if (!allocateReason.trim()) {
       toast.error('Please specify a purpose for this allocation.');
-      return;
-    }
-
-    const dateCheck = validatePettyCashDate(allocateDate);
-    if (!dateCheck.isValid) {
-      toast.error(dateCheck.error || 'Invalid allocation date.');
       return;
     }
 
@@ -716,16 +699,11 @@ export const FinancePettyCashPage: React.FC = () => {
               </label>
               <input
                 type="date"
-                min={yesterdayDate}
-                max={todayDate}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
                 required
               />
-              <p className="text-[10px] text-slate-400 mt-1">
-                Yesterday ({yesterdayDate}) or Today ({todayDate}) only
-              </p>
             </div>
           </div>
 
@@ -847,16 +825,11 @@ export const FinancePettyCashPage: React.FC = () => {
               </label>
               <input
                 type="date"
-                min={yesterdayDate}
-                max={todayDate}
                 value={allocateDate}
                 onChange={(e) => setAllocateDate(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20"
                 required
               />
-              <p className="text-[10px] text-slate-400 mt-1">
-                Yesterday ({yesterdayDate}) or Today ({todayDate}) only
-              </p>
             </div>
           </div>
 

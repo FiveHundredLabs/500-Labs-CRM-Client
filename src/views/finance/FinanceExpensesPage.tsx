@@ -34,8 +34,6 @@ import { generateExpenseVoucherPdf } from '../../utils/voucherPdfGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import {
   getLocalDateString,
-  getStartOfCurrentWeekString,
-  validateExpenseDate,
 } from '../../utils/dateValidation';
 import { useExpenseSummaryQuery, usePaginatedExpensesQuery } from '../../hooks/queries/useExpensesQuery';
 import toast from 'react-hot-toast';
@@ -58,9 +56,6 @@ export const FinanceExpensesPage: React.FC = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
-
-  const minExpenseDate = getStartOfCurrentWeekString();
-  const maxExpenseDate = getLocalDateString();
 
   // Create Expense Dialog
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -242,12 +237,6 @@ export const FinanceExpensesPage: React.FC = () => {
       return;
     }
 
-    const dateCheck = validateExpenseDate(expenseDate);
-    if (!dateCheck.isValid) {
-      setCreateError(dateCheck.error || 'Invalid expense date.');
-      return;
-    }
-
     if (selectedCategoryName === 'Other' && !customCategory.trim()) {
       setCreateError('Please specify the custom category name.');
       return;
@@ -350,12 +339,6 @@ export const FinanceExpensesPage: React.FC = () => {
       return;
     }
 
-    const dateCheck = validateExpenseDate(editExpenseDate);
-    if (!dateCheck.isValid) {
-      toast.error(dateCheck.error || 'Invalid expense date.');
-      return;
-    }
-
     setIsSavingEdit(true);
     try {
       await expenseRepository.update(editingExpense.id, {
@@ -400,14 +383,6 @@ export const FinanceExpensesPage: React.FC = () => {
     if (!changeRequestReason.trim()) {
       toast.error('Please state a reason for this change request.');
       return;
-    }
-
-    if (changeRequestAction === 'EDIT') {
-      const dateCheck = validateExpenseDate(editExpenseDate);
-      if (!dateCheck.isValid) {
-        toast.error(dateCheck.error || 'Invalid expense date.');
-        return;
-      }
     }
 
     setIsSubmittingCR(true);
@@ -912,8 +887,6 @@ export const FinanceExpensesPage: React.FC = () => {
               </label>
               <input
                 type="date"
-                min={minExpenseDate}
-                max={maxExpenseDate}
                 value={expenseDate}
                 onChange={(e) => {
                   setExpenseDate(e.target.value);
@@ -922,9 +895,6 @@ export const FinanceExpensesPage: React.FC = () => {
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
                 required
               />
-              <p className="text-[10px] text-slate-400 mt-1">
-                Current week only (Mon {minExpenseDate} - Today {maxExpenseDate})
-              </p>
             </div>
           </div>
 
@@ -1033,15 +1003,10 @@ export const FinanceExpensesPage: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-700 mb-1">Expense Date</label>
               <input
                 type="date"
-                min={minExpenseDate}
-                max={maxExpenseDate}
                 value={editExpenseDate}
                 onChange={(e) => setEditExpenseDate(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
               />
-              <p className="text-[10px] text-slate-400 mt-1">
-                Current week only (Mon {minExpenseDate} - Today {maxExpenseDate})
-              </p>
             </div>
           </div>
 
