@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import {
   format,
-  isWithinInterval,
   startOfDay,
   endOfDay,
   subDays,
@@ -98,7 +97,9 @@ export const AdminActivityPage: React.FC = () => {
     ],
     queryFn: () => activityLogRepository.getPaginated({
       userId: selectedUserId !== 'ALL' ? selectedUserId : undefined,
-      recent: selectedUserId === 'ALL' && datePreset === 'ALL',
+      // "All Recorded Time" must not be narrowed to the backend's recent
+      // (last-30-days) scope. Date presets are sent explicitly below.
+      recent: false,
       search: debouncedSearch.trim() || undefined,
       userRole: roleFilter !== 'ALL' ? roleFilter : undefined,
       actionCategory: actionCategoryFilter !== 'ALL' ? actionCategoryFilter : undefined,
@@ -135,85 +136,10 @@ export const AdminActivityPage: React.FC = () => {
   // Selected User Object (if specific user selected)
   const selectedUserObj = selectedUserId !== 'ALL' ? usersMap[selectedUserId] : null;
 
-  // Filter Logic
-  const filteredActivities = useMemo(() => {
-    return activities.filter((act) => {
-      // 1. Text Search
-      if (debouncedSearch.trim()) {
-        const q = debouncedSearch.toLowerCase().trim();
-        const matchesSearch =
-          act.userName.toLowerCase().includes(q) ||
-          act.description.toLowerCase().includes(q) ||
-          act.action.toLowerCase().includes(q) ||
-          act.entityType.toLowerCase().includes(q) ||
-          act.id.toLowerCase().includes(q);
-        if (!matchesSearch) return false;
-      }
-
-      // 2. User-Wise Filter
-      if (selectedUserId !== 'ALL' && act.userId !== selectedUserId) {
-        return false;
-      }
-
-      // 3. Role Filter
-      if (roleFilter !== 'ALL' && act.userRole !== roleFilter) {
-        return false;
-      }
-
-      // 4. Action Category Filter
-      if (actionCategoryFilter !== 'ALL') {
-        if (actionCategoryFilter === 'CONTACTS' && !act.action.includes('CONTACT')) return false;
-        if (actionCategoryFilter === 'CALLS' && !act.action.includes('CALL') && !act.action.includes('CUSTOMER'))
-          return false;
-        if (actionCategoryFilter === 'ORDERS' && !act.action.includes('ORDER') && !act.action.includes('DELIVERY'))
-          return false;
-        if (actionCategoryFilter === 'FINANCE' && !act.action.includes('EXPENSE')) return false;
-        if (actionCategoryFilter === 'USERS' && !act.action.includes('USER')) return false;
-      }
-
-      // 5. Date Filter
-      const logDate = new Date(act.createdAt);
-      const now = new Date();
-
-      if (datePreset === 'TODAY') {
-        const start = startOfDay(now);
-        const end = endOfDay(now);
-        if (!isWithinInterval(logDate, { start, end })) return false;
-      } else if (datePreset === 'YESTERDAY') {
-        const yesterday = subDays(now, 1);
-        const start = startOfDay(yesterday);
-        const end = endOfDay(yesterday);
-        if (!isWithinInterval(logDate, { start, end })) return false;
-      } else if (datePreset === '7DAYS') {
-        const start7 = startOfDay(subDays(now, 7));
-        if (logDate < start7) return false;
-      } else if (datePreset === 'THIS_MONTH') {
-        const startM = startOfMonth(now);
-        const endM = endOfMonth(now);
-        if (!isWithinInterval(logDate, { start: startM, end: endM })) return false;
-      } else if (datePreset === 'LAST_MONTH') {
-        const lastM = subMonths(now, 1);
-        const startLM = startOfMonth(lastM);
-        const endLM = endOfMonth(lastM);
-        if (!isWithinInterval(logDate, { start: startLM, end: endLM })) return false;
-      } else if (datePreset === 'CUSTOM' && customStartDate && customEndDate) {
-        const start = startOfDay(new Date(customStartDate));
-        const end = endOfDay(new Date(customEndDate));
-        if (!isWithinInterval(logDate, { start, end })) return false;
-      }
-
-      return true;
-    });
-  }, [
-    activities,
-    debouncedSearch,
-    selectedUserId,
-    roleFilter,
-    actionCategoryFilter,
-    datePreset,
-    customStartDate,
-    customEndDate,
-  ]);
+  // The repository returns a filtered page from the server. Filtering again
+  // here would make the rendered page disagree with pageInfo and could hide
+  // records from an otherwise valid page (especially around date boundaries).
+  const filteredActivities = activities;
 
   // Reset Filters
   const handleResetFilters = () => {

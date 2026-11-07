@@ -135,40 +135,10 @@ export const MemberContactsPage: React.FC = () => {
     };
   }, [counts]);
 
-  // Filter contacts by active tab & search
-  // When a search term is entered, show matching contacts across ALL stages, not just the active tab
-  const filteredContacts = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return contacts.filter((c) => {
-      const matchesSearch =
-        !q ||
-        c.phone.toLowerCase().includes(q) ||
-        (c.code && c.code.toLowerCase().includes(q)) ||
-        (c.city && c.city.toLowerCase().includes(q)) ||
-        (c.secondaryMobile && c.secondaryMobile.toLowerCase().includes(q)) ||
-        (c.importBatchId && c.importBatchId.toLowerCase().includes(q)) ||
-        (c.allocationSource && c.allocationSource.toLowerCase().includes(q));
-
-      if (!matchesSearch) return false;
-
-      // When search term is entered, show matching contacts across all stages
-      if (q) {
-        return true;
-      }
-
-      if (activeTab === 'ALL') {
-        return true;
-      }
-      if (activeTab === 'FOLLOW_UP') {
-        return c.status !== 'NEW' && Boolean(c.isFollowUp);
-      }
-      if (activeTab === 'SAVED_CONTACTS') {
-        const hasSelfAdded = contacts.some((x) => x.isSelfAdded || Boolean(x.addedBy));
-        return hasSelfAdded ? Boolean(c.isSelfAdded || c.addedBy) : true;
-      }
-      return c.status === activeTab;
-    });
-  }, [contacts, search, activeTab]);
+  // The API returns the active tab/search result as a complete page. Applying
+  // those filters again here would make the rendered page disagree with
+  // pageInfo and could hide valid records from the current page.
+  const filteredContacts = contacts;
 
   const handleTabChange = (newTab: TabCategory) => {
     setActiveTab(newTab);

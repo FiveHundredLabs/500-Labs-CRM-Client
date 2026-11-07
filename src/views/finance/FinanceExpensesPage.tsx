@@ -768,7 +768,7 @@ export const FinanceExpensesPage: React.FC = () => {
           {pageInfo && (pageInfo.totalPages ?? 1) > 1 && (
             <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200/90 rounded-2xl shadow-2xs mt-3">
               <span className="text-xs text-slate-500">
-                Showing {((currentPage - 1) * 50) + 1}–{Math.min(currentPage * 50, pageInfo.total ?? 0)} of {pageInfo.total} vouchers
+                Showing {((currentPage - 1) * pageInfo.limit) + 1}–{Math.min(currentPage * pageInfo.limit, pageInfo.total ?? 0)} of {pageInfo.total} vouchers
               </span>
               <div className="flex items-center gap-2">
                 <Button

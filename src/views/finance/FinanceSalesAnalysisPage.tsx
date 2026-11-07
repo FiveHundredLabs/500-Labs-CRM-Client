@@ -36,6 +36,7 @@ import {
 import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
 import { getAmountToCollect, getProductSalesValue } from '../../utils/orderAmounts';
+import type { PageInfo } from '../../repositories/interfaces';
 import toast from 'react-hot-toast';
 
 export const FinanceSalesAnalysisPage: React.FC = () => {
@@ -43,6 +44,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
   const [members, setMembers] = useState<SalesAnalysisMember[]>([]);
   const [paginatedOrders, setPaginatedOrders] = useState<Order[]>([]);
   const [totalOrders, setTotalOrders] = useState<number>(0);
+  const [tablePageInfo, setTablePageInfo] = useState<PageInfo | null>(null);
   const [tableLoading, setTableLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
@@ -56,6 +58,10 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 15;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedTeamId, statusFilter, packageFilter, startDate, endDate, searchQuery]);
 
   // Load team & member catalogs once
   useEffect(() => {
@@ -154,6 +160,7 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
       });
       setPaginatedOrders(res.items || []);
       setTotalOrders(res.pageInfo?.total ?? res.items.length);
+      setTablePageInfo(res.pageInfo ?? null);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load transaction ledger records.');
     } finally {
@@ -277,8 +284,8 @@ export const FinanceSalesAnalysisPage: React.FC = () => {
   };
 
   // Pagination for transaction table
-  const totalRecords = summaryData?.totalOrdersCount ?? totalOrders;
-  const totalPages = Math.ceil(totalRecords / itemsPerPage) || 1;
+  const totalRecords = tablePageInfo?.total ?? totalOrders;
+  const totalPages = tablePageInfo?.totalPages ?? (Math.ceil(totalRecords / itemsPerPage) || 1);
 
   if (initialLoading || summaryLoading) return <LoadingState rows={8} />;
 
