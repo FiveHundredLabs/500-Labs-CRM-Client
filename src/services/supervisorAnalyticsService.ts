@@ -93,11 +93,13 @@ export class SupervisorAnalyticsService {
       // 3. Date range filter
       if (filters.startDate || filters.endDate) {
         const dateToUse =
-          order.status === 'DELIVERED' && order.deliveredAt
+          order.status === 'DELIVERED'
             ? order.deliveredAt
             : (order.status === 'REJECTED' || order.status === 'RETURNED') && order.rejectedAt
-            ? order.rejectedAt
-            : order.createdAt;
+              ? order.rejectedAt
+              : order.createdAt;
+        // A delivered order without a delivery timestamp cannot be assigned to a delivered-sales period.
+        if (order.status === 'DELIVERED' && !dateToUse) return false;
         const orderDate = toColomboDateString(dateToUse);
         if (filters.startDate && orderDate < filters.startDate) return false;
         if (filters.endDate && orderDate > filters.endDate) return false;
@@ -172,7 +174,7 @@ export class SupervisorAnalyticsService {
       }
 
       const salesAmount = getProductSalesValue(order);
-      const dateToUse = order.deliveredAt || order.createdAt || '';
+      const dateToUse = order.deliveredAt || '';
       let deliveredDateFormatted = 'Unknown';
       if (dateToUse) {
         try {
