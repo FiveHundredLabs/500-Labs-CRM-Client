@@ -171,6 +171,18 @@ export interface OrderConflictCheckDto {
   teamId?: string;
 }
 
+export interface InterestLeadsBundle {
+  cList: Customer[];
+  contactList: Contact[];
+  teamUsers: User[];
+  oList: Order[];
+  conflicts: Record<string, any>;
+}
+
+export interface IInterestLeadsRepository {
+  getByTeamId(teamId: string): Promise<InterestLeadsBundle>;
+}
+
 export interface ITeamRepository {
   getAll(): Promise<Team[]>;
   getById(id: string): Promise<Team | null>;
