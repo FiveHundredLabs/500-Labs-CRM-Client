@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Order, User } from '../../../models/domain';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { StatusBadge } from '../../shared/StatusBadge';
 import { EmptyState } from '../../shared/EmptyState';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../../utils/currency';
 import toast from 'react-hot-toast';
@@ -22,6 +22,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
   title = 'Order & Financial Breakdown',
   description = 'Detailed statement of orders matching your selected filter criteria',
 }) => {
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
   const memberMap = new Map<string, string>();
   teamMembers.forEach((m) => memberMap.set(m.id, m.fullName));
 
@@ -74,6 +75,47 @@ export const ReportTable: React.FC<ReportTableProps> = ({
     toast.success('CSV Report exported successfully!');
   };
 
+  const handleExportExcel = async () => {
+    if (orders.length === 0) {
+      toast.error('No orders available to export.');
+      return;
+    }
+
+    setIsExportingExcel(true);
+    try {
+      const XLSX = await import('xlsx');
+      const rows = orders.map((order) => ({
+        'Order Number': order.orderNumber,
+        'Team Member ID': order.teamMemberId,
+        'Team Member Name': memberMap.get(order.teamMemberId) || order.teamMemberId,
+        Status: order.status,
+        'Items Description': order.itemsDescription,
+        'Created Date': order.createdAt ? format(new Date(order.createdAt), 'yyyy-MM-dd') : '',
+        'Delivered Date': order.deliveredAt ? format(new Date(order.deliveredAt), 'yyyy-MM-dd') : '',
+        'Amount (LKR)': Number(order.totalAmount) || 0,
+      }));
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet['!cols'] = [
+        { wch: 20 },
+        { wch: 26 },
+        { wch: 28 },
+        { wch: 16 },
+        { wch: 48 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 18 },
+      ];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Supervisor Report');
+      XLSX.writeFile(workbook, `Supervisor_Report_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
+      toast.success(`Exported ${rows.length} report rows to Excel.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to export report to Excel.');
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   return (
     <Card className="shadow-xs border-slate-200">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3">
@@ -84,15 +126,27 @@ export const ReportTable: React.FC<ReportTableProps> = ({
           </CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon={<Download className="w-4 h-4 text-emerald-600" />}
-          onClick={handleExportCSV}
-          disabled={orders.length === 0}
-        >
-          Export CSV Report
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Download className="w-4 h-4 text-emerald-600" />}
+            onClick={handleExportCSV}
+            disabled={orders.length === 0}
+          >
+            Export CSV Report
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+            onClick={handleExportExcel}
+            disabled={orders.length === 0 || isExportingExcel}
+            isLoading={isExportingExcel}
+          >
+            Export Excel Report
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="p-0">
