@@ -362,7 +362,7 @@ export const AdminActivityPage: React.FC = () => {
               description="Try adjusting your date range, user filter, or search keyword."
             />
           ) : (
-            <ActivityTimeline activities={filteredActivities} />
+            <ActivityTimeline activities={filteredActivities} virtualize={false} />
           )}
           {pageInfo && pageInfo.totalPages && pageInfo.totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-600">

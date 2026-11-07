@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useAuth } from '../../hooks/useAuth';
 import { Contact, Order } from '../../models/domain';
 import { contactRepository } from '../../repositories';
@@ -235,17 +234,6 @@ export const MemberContactsPage: React.FC = () => {
       setLoadingOrderId(null);
     }
   };
-
-  // Virtualization for large lists (> 25 items) to bound DOM size
-  const listContainerRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = filteredContacts.length > 25;
-
-  const virtualizer = useWindowVirtualizer({
-    count: shouldVirtualize ? filteredContacts.length : 0,
-    estimateSize: () => 82,
-    overscan: 6,
-    scrollMargin: listContainerRef.current?.offsetTop ?? 0,
-  });
 
   const renderContactCard = (contact: Contact) => (
     <div
@@ -535,25 +523,6 @@ export const MemberContactsPage: React.FC = () => {
             ) : undefined
           }
         />
-      ) : shouldVirtualize ? (
-        <div ref={listContainerRef} className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            const contact = filteredContacts[virtualItem.index];
-            return (
-              <div
-                key={contact.id}
-                data-index={virtualItem.index}
-                ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 w-full pb-2.5"
-                style={{
-                  transform: `translateY(${virtualItem.start - virtualizer.options.scrollMargin}px)`,
-                }}
-              >
-                {renderContactCard(contact)}
-              </div>
-            );
-          })}
-        </div>
       ) : (
         <div className="space-y-2.5">
           {filteredContacts.map(renderContactCard)}
