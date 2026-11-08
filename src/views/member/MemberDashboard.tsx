@@ -28,7 +28,7 @@ import {
   RotateCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Leaderboard, LeaderboardOrderContribution } from '../../components/leaderboard';
+import { Leaderboard } from '../../components/leaderboard';
 import { formatCurrency } from '../../utils/currency';
 import { getProductSalesValue } from '../../utils/orderAmounts';
 import { 
@@ -55,7 +55,6 @@ interface LeaderboardMember {
   deliveredCount: number;
   deliveredSalesAmount: number;
   rank: number;
-  deliveredOrdersList?: LeaderboardOrderContribution[];
 }
 
 export const MemberDashboard: React.FC = () => {
@@ -168,7 +167,6 @@ export const MemberDashboard: React.FC = () => {
           deliveredCount: u.deliveredOrdersCount,
           deliveredSalesAmount: u.deliveredSalesAmount,
           rank: 0,
-          deliveredOrdersList: u.deliveredOrdersList,
         }));
 
         computedRoster.sort((a, b) => b.deliveredSalesAmount - a.deliveredSalesAmount || b.deliveredCount - a.deliveredCount);
@@ -779,7 +777,6 @@ export const MemberDashboard: React.FC = () => {
             primaryLabel: 'Delivered Sales',
             secondaryLabel: 'Delivered Orders',
             unitLabel: 'orders',
-            deliveredOrdersList: m.deliveredOrdersList,
           }))}
           compact={true}
           title="Team Sales Leaderboard"
