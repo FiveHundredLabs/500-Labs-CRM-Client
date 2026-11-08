@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { expenseRepository, financeRepository, orderRepository, teamRepository } from '../../repositories';
-import { Expense, FinanceDashboardStats, Order, Team } from '../../models/domain';
+import { financeRepository } from '../../repositories';
+import { FinanceDashboardStats } from '../../models/domain';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -33,13 +33,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
-import { getAmountToCollect, getProductSalesValue } from '../../utils/orderAmounts';
+import toast from 'react-hot-toast';
 
 export const FinanceDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [stats, setStats] = useState<FinanceDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -52,16 +49,10 @@ export const FinanceDashboard: React.FC = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const [dashboardStats, expData, orderData, teamData] = await Promise.all([
-          financeRepository.getDashboard(startDate || undefined, endDate || undefined),
-          expenseRepository.getAll(),
-          orderRepository.getAll(),
-          teamRepository.getAll(),
-        ]);
+        const dashboardStats = await financeRepository.getDashboard(startDate || undefined, endDate || undefined);
         setStats(dashboardStats);
-        setExpenses(expData);
-        setOrders(orderData);
-        setTeams(teamData);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to load finance dashboard data.');
       } finally {
         setLoading(false);
       }
@@ -88,57 +79,7 @@ export const FinanceDashboard: React.FC = () => {
     }
   }, [datePreset]);
 
-  // Filtered orders & expenses
-  const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
-      if (startDate && o.createdAt.split('T')[0] < startDate) return false;
-      if (endDate && o.createdAt.split('T')[0] > endDate) return false;
-      return true;
-    });
-  }, [orders, startDate, endDate]);
-
-  const filteredExpenses = useMemo(() => {
-    return expenses.filter((e) => {
-      if (startDate && e.expenseDate < startDate) return false;
-      if (endDate && e.expenseDate > endDate) return false;
-      return true;
-    });
-  }, [expenses, startDate, endDate]);
-
-  const nonSalesTeamIdSet = useMemo(() => {
-    return new Set(teams.filter((t) => t.includeInSalesCalculations === false).map((t) => t.id));
-  }, [teams]);
-
-  // Financial Metrics
-  const salesMetrics = useMemo(() => {
-    let totalSales = 0;
-    let deliveredCOD = 0;
-    let inTransit = 0;
-    let deliveredCount = 0;
-
-    filteredOrders.forEach((o) => {
-      if (nonSalesTeamIdSet.has(o.teamId)) return;
-      const productSalesValue = getProductSalesValue(o);
-      const amountToCollect = getAmountToCollect(o);
-      totalSales += productSalesValue;
-      if (o.status === 'DELIVERED') {
-        deliveredCOD += amountToCollect;
-        deliveredCount++;
-      } else if (o.status === 'DISPATCHED') {
-        inTransit += amountToCollect;
-      }
-    });
-
-    return {
-      totalSales,
-      deliveredCOD,
-      inTransit,
-      deliveredCount,
-      totalOrders: filteredOrders.length,
-    };
-  }, [filteredOrders, nonSalesTeamIdSet]);
-
-  const salesRevenue = stats?.salesRevenue ?? salesMetrics.totalSales ?? 0;
+  const salesRevenue = stats?.salesRevenue ?? 0;
   const grossProfit = stats?.grossProfit ?? 0;
   const totalExpenses = stats?.totalExpenses ?? 0;
   const cogs = stats?.cogs ?? 0;
@@ -159,35 +100,18 @@ export const FinanceDashboard: React.FC = () => {
 
   // Combined 14-Day Sales vs Expense Trend Chart
   const trendData = useMemo(() => {
-    const dayMap: Record<string, { date: string; sales: number; expenses: number }> = {};
-    const now = new Date();
-
-    for (let i = 14; i >= 0; i--) {
-      const d = subDays(now, i);
-      const key = format(d, 'yyyy-MM-dd');
-      dayMap[key] = {
-        date: format(d, 'MMM dd'),
-        sales: 0,
-        expenses: 0,
+    const trendByDay = new Map((stats?.salesTrend || []).map((point) => [point.date, point]));
+    return Array.from({ length: 15 }, (_, index) => {
+      const day = subDays(new Date(), 14 - index);
+      const dateKey = format(day, 'yyyy-MM-dd');
+      const point = trendByDay.get(dateKey);
+      return {
+        date: format(day, 'MMM dd'),
+        sales: point?.sales ?? 0,
+        expenses: point?.expenses ?? 0,
       };
-    }
-
-    filteredOrders.forEach((o) => {
-      const day = o.createdAt.split('T')[0];
-      if (dayMap[day]) {
-        dayMap[day].sales += getAmountToCollect(o);
-      }
     });
-
-    filteredExpenses.forEach((e) => {
-      const day = e.expenseDate;
-      if (dayMap[day]) {
-        dayMap[day].expenses += Number(e.amount || 0);
-      }
-    });
-
-    return Object.values(dayMap);
-  }, [filteredOrders, filteredExpenses]);
+  }, [stats?.salesTrend]);
 
   const getFilterLabel = () => {
     if (datePreset === 'THIS_MONTH') return 'This Month';

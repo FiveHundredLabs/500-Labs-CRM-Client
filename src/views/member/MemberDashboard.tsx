@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { Contact, CallLog, Order, User, TeamSalesTarget, TeamTargetTier } from '../../models/domain';
-import { contactRepository, callLogRepository, orderRepository, userRepository, salesTargetRepository } from '../../repositories';
+import { Contact, CallLog, User, TeamSalesTarget, TeamTargetTier } from '../../models/domain';
+import { contactRepository, callLogRepository, dashboardRepository, salesTargetRepository } from '../../repositories';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -30,7 +30,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Leaderboard } from '../../components/leaderboard';
 import { formatCurrency } from '../../utils/currency';
-import { getProductSalesValue } from '../../utils/orderAmounts';
+import toast from 'react-hot-toast';
 import { 
   format, 
   isWithinInterval, 
@@ -45,7 +45,6 @@ import {
   addMonths,
   differenceInDays
 } from 'date-fns';
-import { toColomboDateString } from '../../utils/deliveryDateUtils';
 
 export type DashboardDateFilter = 'THIS_MONTH' | 'LAST_MONTH' | 'TODAY' | 'THIS_WEEK' | 'ALL' | 'LAST_6_MONTHS' | 'CUSTOM';
 
@@ -63,7 +62,10 @@ export const MemberDashboard: React.FC = () => {
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orderSummary, setOrderSummary] = useState({
+    current: { deliveredCount: 0, deliveredSales: 0 },
+    month: { deliveredCount: 0, deliveredSales: 0 },
+  });
   const [salesTargets, setSalesTargets] = useState<TeamSalesTarget[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardMember[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -135,17 +137,26 @@ export const MemberDashboard: React.FC = () => {
       const currentTeamId = user.teamId || '';
       const targetMonthPrefix = selectedMonth;
 
-      const [mContacts, mLogs, mOrders, fetchedTargets] = await Promise.all([
+      const [mContacts, mLogs, fetchedTargets, fetchedOrderSummary] = await Promise.all([
         contactRepository.getByMemberId(user.id).catch(() => []),
         callLogRepository.getByMemberId(user.id).catch(() => []),
-        orderRepository.getByMemberId(user.id).catch(() => []),
         salesTargetRepository.getAll(targetMonthPrefix, currentTeamId).catch(() => []),
+        dashboardRepository.getMemberSummary({ ...queryDates, month: targetMonthPrefix }),
       ]);
 
       setContacts(mContacts);
       setCallLogs(mLogs);
-      setOrders(mOrders);
       setSalesTargets(fetchedTargets);
+      setOrderSummary(fetchedOrderSummary);
+      setLeaderboard(fetchedOrderSummary.leaderboard.map((member) => ({
+        user: { id: member.id, fullName: member.name, avatarUrl: member.avatarUrl } as User,
+        totalOrders: member.deliveredCount,
+        deliveredCount: member.deliveredCount,
+        deliveredSalesAmount: member.deliveredSales,
+        rank: member.rank,
+      })));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load dashboard data.');
     } finally {
       setLoading(false);
     }
@@ -153,31 +164,8 @@ export const MemberDashboard: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [user, selectedMonth]);
+  }, [user, selectedMonth, queryDates]);
 
-  // Dynamically update Leaderboard when dateFilter / queryDates changes
-  useEffect(() => {
-    if (!user?.teamId) return;
-    userRepository
-      .getLeaderboard(user.teamId, queryDates.startDate, queryDates.endDate)
-      .then((teamUsers) => {
-        const computedRoster: LeaderboardMember[] = teamUsers.slice(0, 7).map((u: any) => ({
-          user: u,
-          totalOrders: u.totalOrdersCount,
-          deliveredCount: u.deliveredOrdersCount,
-          deliveredSalesAmount: u.deliveredSalesAmount,
-          rank: 0,
-        }));
-
-        computedRoster.sort((a, b) => b.deliveredSalesAmount - a.deliveredSalesAmount || b.deliveredCount - a.deliveredCount);
-        computedRoster.forEach((m, idx) => {
-          m.rank = idx + 1;
-        });
-
-        setLeaderboard(computedRoster);
-      })
-      .catch(() => {});
-  }, [user?.teamId, queryDates]);
 
   // Date Range Matcher Helper for Top Cards
   const isDateInFilter = (dateStr?: string | null) => {
@@ -226,15 +214,6 @@ export const MemberDashboard: React.FC = () => {
     () => contacts.filter((c) => c.status === 'INTERESTED' && isDateInFilter(c.updatedAt || c.lastCalledAt || c.importedAt)),
     [contacts, dateFilter, startDate, endDate]
   );
-  const scopedDeliveredOrders = useMemo(
-    () => orders.filter((o) => o.status === 'DELIVERED' && isDateInFilter(o.deliveredAt || o.createdAt)),
-    [orders, dateFilter, startDate, endDate]
-  );
-  const scopedDeliveredSalesValue = useMemo(
-    () => scopedDeliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0),
-    [scopedDeliveredOrders]
-  );
-
   if (loading) return <DashboardSectionSkeleton cards={4} rows={2} />;
 
   const scopedAssignedCount = dateFilter === 'ALL' || dateFilter === 'THIS_MONTH' ? contacts.length : scopedContacts.length;
@@ -264,20 +243,14 @@ export const MemberDashboard: React.FC = () => {
   const nextRenewalDateText = format(nextRenewalDate, 'd MMM yyyy');
   const daysUntilRenewal = Math.max(1, differenceInDays(endOfMonth(now), now) + 1);
 
-  const monthlyDeliveredOrders = orders.filter((o) => {
-    if (o.status !== 'DELIVERED') return false;
-    const dateStr = toColomboDateString(o.deliveredAt || o.createdAt);
-    return dateStr.startsWith(targetMonthPrefix);
-  });
-
   // Calculate personal delivered sales
   const memberBreakdown = activeTarget?.memberBreakdowns?.find((m) => m.id === user?.id);
   const currentSalesAmount = memberBreakdown
     ? memberBreakdown.actualSales
-    : monthlyDeliveredOrders.reduce((sum, o) => sum + getProductSalesValue(o), 0);
+    : orderSummary.month.deliveredSales;
   const deliveredOrdersCount = memberBreakdown?.ordersCount !== undefined
     ? memberBreakdown.ordersCount
-    : monthlyDeliveredOrders.length;
+    : orderSummary.month.deliveredCount;
 
   const achievementPercentage = targetGoal > 0 ? (currentSalesAmount / targetGoal) * 100 : 0;
   const achievementProgressClamped = Math.min(100, achievementPercentage);
@@ -421,8 +394,8 @@ export const MemberDashboard: React.FC = () => {
         />
         <StatCard
           title="Delivered Orders"
-          value={scopedDeliveredOrders.length}
-          subtitle={`${formatCurrency(scopedDeliveredSalesValue)} delivered`}
+          value={orderSummary.current.deliveredCount}
+          subtitle={`${formatCurrency(orderSummary.current.deliveredSales)} delivered`}
           icon={<Trophy className="w-4 h-4 text-amber-600" />}
           accentColor="amber"
         />

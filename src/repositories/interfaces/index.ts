@@ -471,9 +471,16 @@ export interface SupervisorDashboardSummary {
   recentActivities: ActivityLog[];
 }
 
+export interface MemberDashboardSummary {
+  current: { deliveredCount: number; deliveredSales: number };
+  month: { deliveredCount: number; deliveredSales: number };
+  leaderboard: Array<{ id: string; name: string; avatarUrl?: string | null; deliveredCount: number; deliveredSales: number; rank: number }>;
+}
+
 export interface IDashboardRepository {
   getAdminSummary(params?: { startDate?: string; endDate?: string }): Promise<AdminDashboardSummary>;
   getSupervisorSummary(params?: { startDate?: string; endDate?: string; teamId?: string }): Promise<SupervisorDashboardSummary>;
+  getMemberSummary(params?: { startDate?: string; endDate?: string; month?: string }): Promise<MemberDashboardSummary>;
 }
 
 export interface ISalesTargetRepository {
