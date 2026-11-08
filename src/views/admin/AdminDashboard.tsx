@@ -6,7 +6,7 @@ import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ActivityTimeline } from '../../components/shared/ActivityTimeline';
-import { LoadingState } from '../../components/shared/LoadingState';
+import { DashboardSectionSkeleton } from '../../components/shared/LoadingState';
 import { Leaderboard } from '../../components/leaderboard';
 import {
   PhoneCall,
@@ -82,7 +82,7 @@ export const AdminDashboard: React.FC = () => {
 
   const { data: summary, isLoading } = useAdminDashboardQuery(queryDates);
 
-  if (isLoading) return <LoadingState rows={8} />;
+  if (isLoading) return <DashboardSectionSkeleton cards={5} rows={3} />;
 
   const kpi = summary?.kpi || {
     totalGrossSales: 0,

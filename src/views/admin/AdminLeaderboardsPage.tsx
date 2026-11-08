@@ -159,7 +159,6 @@ export const AdminLeaderboardsPage: React.FC = () => {
           primaryLabel: 'Delivered Sales',
           secondaryLabel: 'Delivered Orders',
           unitLabel: 'orders',
-          deliveredOrdersList: m.deliveredOrdersList,
         }))}
         chartTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Member Delivered Sales Ranking`}
         tableTitle={`${selectedTeam ? selectedTeam.name : 'Team'} Sales Performance Data Table`}

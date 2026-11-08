@@ -1,11 +1,3 @@
-export interface LeaderboardOrderContribution {
-  orderId: string;
-  orderNumber: string;
-  deliveredAt?: string;
-  deliveredDateFormatted: string; // e.g. "06 Oct 2026"
-  salesAmount: number;
-}
-
 export interface LeaderboardItem {
   id: string;
   rank: number;
@@ -19,7 +11,6 @@ export interface LeaderboardItem {
   unitLabel?: string;
   formattedPrimary?: string;
   formattedSecondary?: string;
-  deliveredOrdersList?: LeaderboardOrderContribution[];
 }
 
 export interface LeaderboardProps {

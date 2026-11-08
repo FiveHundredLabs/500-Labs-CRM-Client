@@ -827,6 +827,7 @@ export interface FinanceDashboardStats {
   };
   pettyCashExpensesTotal: number;
   expenseByCategory: Record<string, number>;
+  salesTrend?: Array<{ date: string; sales: number; expenses: number }>;
 }
 
 export interface IncomeStatementData {

@@ -25,6 +25,7 @@ import {
   IDashboardRepository,
   AdminDashboardSummary,
   SupervisorDashboardSummary,
+  MemberDashboardSummary,
   SalesAnalysisSummary,
   ExpenseWritePayload,
   ExpenseUpdatePayload,
@@ -1158,6 +1159,12 @@ export class ApiDashboardRepository implements IDashboardRepository {
   async getSupervisorSummary(params?: { startDate?: string; endDate?: string; teamId?: string }): Promise<SupervisorDashboardSummary> {
     return unwrap(
       await apiClient.get<{ data: SupervisorDashboardSummary }>('/dashboard/supervisor-summary', { params })
+    );
+  }
+
+  async getMemberSummary(params?: { startDate?: string; endDate?: string; month?: string }): Promise<MemberDashboardSummary> {
+    return unwrap(
+      await apiClient.get<{ data: MemberDashboardSummary }>('/dashboard/member-summary', { params })
     );
   }
 }
