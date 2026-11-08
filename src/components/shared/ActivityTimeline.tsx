@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 export interface ActivityTimelineProps {
   activities: ActivityLog[];
   className?: string;
+  virtualize?: boolean;
 }
 
 const ACTION_CONFIG: Record<string, { icon: React.FC<any>; color: string; bg: string }> = {
@@ -37,9 +38,9 @@ const ACTION_CONFIG: Record<string, { icon: React.FC<any>; color: string; bg: st
   SYSTEM_CONFIG_UPDATED: { icon: Settings, color: 'text-amber-600', bg: 'bg-amber-50' },
 };
 
-export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ activities, className = '' }) => {
+export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ activities, className = '', virtualize = true }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const shouldVirtualize = activities.length > 25;
+  const shouldVirtualize = virtualize && activities.length > 25;
 
   const virtualizer = useWindowVirtualizer({
     count: shouldVirtualize ? activities.length : 0,

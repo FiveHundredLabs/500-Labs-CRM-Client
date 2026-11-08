@@ -92,6 +92,18 @@ export interface ContactPaginationParams {
   cursor?: string;
 }
 
+export interface ActivityPaginationParams {
+  userId?: string;
+  recent?: boolean;
+  search?: string;
+  userRole?: string;
+  actionCategory?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
 export interface CustomerPaginationParams {
   teamId?: string;
   supervisorId?: string;
@@ -157,6 +169,18 @@ export interface OrderConflictCheckDto {
   customerIds?: string[];
   phones?: string[];
   teamId?: string;
+}
+
+export interface InterestLeadsBundle {
+  cList: Customer[];
+  contactList: Contact[];
+  teamUsers: User[];
+  oList: Order[];
+  conflicts: Record<string, any>;
+}
+
+export interface IInterestLeadsRepository {
+  getByTeamId(teamId: string): Promise<InterestLeadsBundle>;
 }
 
 export interface ITeamRepository {
@@ -271,6 +295,7 @@ export interface IActivityLogRepository {
   getRecentWithinMonth(userId?: string): Promise<ActivityLog[]>;
   getMyRecentWithinMonth(): Promise<ActivityLog[]>;
   getByEntity(entityType: string, entityId: string): Promise<ActivityLog[]>;
+  getPaginated(params: ActivityPaginationParams): Promise<PaginatedResponse<ActivityLog>>;
   create(log: ActivityLogWritePayload): Promise<ActivityLog>;
 }
 
@@ -446,9 +471,16 @@ export interface SupervisorDashboardSummary {
   recentActivities: ActivityLog[];
 }
 
+export interface MemberDashboardSummary {
+  current: { deliveredCount: number; deliveredSales: number };
+  month: { deliveredCount: number; deliveredSales: number };
+  leaderboard: Array<{ id: string; name: string; avatarUrl?: string | null; deliveredCount: number; deliveredSales: number; rank: number }>;
+}
+
 export interface IDashboardRepository {
   getAdminSummary(params?: { startDate?: string; endDate?: string }): Promise<AdminDashboardSummary>;
   getSupervisorSummary(params?: { startDate?: string; endDate?: string; teamId?: string }): Promise<SupervisorDashboardSummary>;
+  getMemberSummary(params?: { startDate?: string; endDate?: string; month?: string }): Promise<MemberDashboardSummary>;
 }
 
 export interface ISalesTargetRepository {

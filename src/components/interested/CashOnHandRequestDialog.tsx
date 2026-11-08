@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { getProductSalesValue, getCodCharge, getAmountToCollect } from '../../utils/orderAmounts';
 import { Banknote, Package, UserCheck, AlertCircle, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { userErrorMessage } from '../../lib/errors';
 import { cashOnHandRepository } from '../../repositories/cashOnHandRepository';
 
 export interface CashOnHandRequestDialogProps {
@@ -48,7 +49,7 @@ export const CashOnHandRequestDialog: React.FC<CashOnHandRequestDialogProps> = (
       onSuccess();
       onClose();
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Failed to submit Cash On Hand request';
+      const msg = userErrorMessage(err, 'We could not submit this cash handover request. Please try again.');
       toast.error(msg);
     } finally {
       setIsSubmitting(false);

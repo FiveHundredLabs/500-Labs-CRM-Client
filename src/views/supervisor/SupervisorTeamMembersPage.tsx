@@ -134,7 +134,6 @@ export const SupervisorTeamMembersPage: React.FC = () => {
           primaryLabel: 'Delivered Sales',
           secondaryLabel: 'Delivered Orders',
           unitLabel: 'orders',
-          deliveredOrdersList: m.deliveredOrdersList,
         }))}
         chartTitle="Team Member Delivered Sales Ranking"
         tableTitle="Team Performance & Delivered Sales Table"

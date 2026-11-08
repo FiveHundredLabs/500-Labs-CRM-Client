@@ -27,16 +27,11 @@ import { format } from 'date-fns';
 import { formatCurrency } from '../../utils/currency';
 import {
   getLocalDateString,
-  getStartOfCurrentWeekString,
-  validateExpenseDate,
 } from '../../utils/dateValidation';
 
 export const FinanceNewExpensePage: React.FC = () => {
   const { user, role } = useAuth();
   const navigate = useNavigate();
-
-  const minExpenseDate = getStartOfCurrentWeekString();
-  const maxExpenseDate = getLocalDateString();
 
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string>('');
@@ -82,12 +77,6 @@ export const FinanceNewExpensePage: React.FC = () => {
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       toast.error('Please enter a valid positive amount.');
-      return;
-    }
-
-    const dateCheck = validateExpenseDate(expenseDate);
-    if (!dateCheck.isValid) {
-      toast.error(dateCheck.error || 'Invalid expense date.');
       return;
     }
 
@@ -231,16 +220,11 @@ export const FinanceNewExpensePage: React.FC = () => {
                     </label>
                     <input
                       type="date"
-                      min={minExpenseDate}
-                      max={maxExpenseDate}
                       value={expenseDate}
                       onChange={(e) => setExpenseDate(e.target.value)}
                       className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#01A8F3]/20 shadow-2xs"
                       required
                     />
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Current week only (Mon {minExpenseDate} - Today {maxExpenseDate})
-                    </p>
                   </div>
                 </div>
 
