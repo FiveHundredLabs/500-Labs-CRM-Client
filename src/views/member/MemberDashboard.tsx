@@ -9,7 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { PostCallModal } from '../../components/calling/PostCallModal';
-import { LoadingState } from '../../components/shared/LoadingState';
+import { DashboardSectionSkeleton } from '../../components/shared/LoadingState';
 import { 
   PhoneCall, 
   CheckCircle2, 
@@ -235,7 +235,7 @@ export const MemberDashboard: React.FC = () => {
     [scopedDeliveredOrders]
   );
 
-  if (loading) return <LoadingState rows={6} />;
+  if (loading) return <DashboardSectionSkeleton cards={4} rows={2} />;
 
   const scopedAssignedCount = dateFilter === 'ALL' || dateFilter === 'THIS_MONTH' ? contacts.length : scopedContacts.length;
   const scopedCompletedCallsCount = scopedCalls.length;

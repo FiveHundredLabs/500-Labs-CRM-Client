@@ -6,7 +6,7 @@ import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
-import { LoadingState } from '../../components/shared/LoadingState';
+import { DashboardSectionSkeleton } from '../../components/shared/LoadingState';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -197,7 +197,7 @@ export const FinanceDashboard: React.FC = () => {
     return 'Custom Range';
   };
 
-  if (loading) return <LoadingState rows={6} />;
+  if (loading) return <DashboardSectionSkeleton cards={4} rows={2} />;
 
   return (
     <div className="space-y-6">
