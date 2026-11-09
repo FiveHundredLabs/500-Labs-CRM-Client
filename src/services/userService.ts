@@ -23,6 +23,10 @@ export class UserService {
     userData: Omit<User, 'id' | 'createdAt'>,
     actor: User
   ): Promise<User> {
+    if (actor.role !== 'ADMIN') {
+      throw new Error('Only administrators have permission to create users.');
+    }
+
     const newUser = await userRepository.create(userData);
 
     await ActivityLogService.logAction({
@@ -48,6 +52,9 @@ export class UserService {
     if (id === actor.id) {
       updated = await userRepository.updateMe(updates);
     } else {
+      if (actor.role !== 'ADMIN') {
+        throw new Error('Only administrators have permission to update other users.');
+      }
       updated = await userRepository.update(id, updates);
     }
 
@@ -66,6 +73,9 @@ export class UserService {
   }
 
   static async disableUser(id: string, actor: User): Promise<void> {
+    if (actor.role !== 'ADMIN') {
+      throw new Error('Only administrators have permission to disable users.');
+    }
     const userToDisable = await userRepository.getById(id);
     if (!userToDisable) throw new Error('User not found');
 

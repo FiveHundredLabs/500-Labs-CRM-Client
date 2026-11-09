@@ -39,9 +39,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   SUPERVISOR: [
     'users.view',
-    'users.create',
-    'users.edit',
-    'users.disable',
     'contacts.view',
     'contacts.import',
     'contacts.allocate',

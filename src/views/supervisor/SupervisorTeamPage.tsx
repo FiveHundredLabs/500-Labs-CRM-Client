@@ -73,6 +73,10 @@ export const SupervisorTeamPage: React.FC = () => {
   }, [user, effectiveTeamId]);
 
   const openAddModal = () => {
+    if (user?.role !== 'ADMIN') {
+      toast.error('Only administrators can add team members.');
+      return;
+    }
     setEditingMember(null);
     setFullName('');
     setEmail('');
@@ -89,6 +93,10 @@ export const SupervisorTeamPage: React.FC = () => {
   };
 
   const openEditModal = (member: User) => {
+    if (user?.role !== 'ADMIN') {
+      toast.error('Only administrators can edit team members.');
+      return;
+    }
     setEditingMember(member);
     setFullName(member.fullName);
     setEmail(member.email);
@@ -136,6 +144,11 @@ export const SupervisorTeamPage: React.FC = () => {
           return;
         }
       }
+    }
+
+    if (user?.role !== 'ADMIN') {
+      toast.error('Only administrators can add or edit team members.');
+      return;
     }
 
     setIsSubmitting(true);
@@ -188,6 +201,10 @@ export const SupervisorTeamPage: React.FC = () => {
 
   const handleDisableConfirm = async () => {
     if (!disablingId || !user) return;
+    if (user.role !== 'ADMIN') {
+      toast.error('Only administrators can disable team members.');
+      return;
+    }
     try {
       await UserService.disableUser(disablingId, user);
       toast.success('Team member account has been disabled.');
@@ -218,9 +235,11 @@ export const SupervisorTeamPage: React.FC = () => {
         title="Team Members"
         description="Manage tele-calling team specialists, performance analytics, and profile accounts."
         actions={
-          <Button variant="primary" leftIcon={<UserPlus className="w-4 h-4" />} onClick={openAddModal}>
-            Add Team Member
-          </Button>
+          user?.role === 'ADMIN' ? (
+            <Button variant="primary" leftIcon={<UserPlus className="w-4 h-4" />} onClick={openAddModal}>
+              Add Team Member
+            </Button>
+          ) : undefined
         }
       />
 
@@ -284,18 +303,20 @@ export const SupervisorTeamPage: React.FC = () => {
                       <span className="hidden sm:inline">View Details</span>
                     </Button>
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      leftIcon={<Edit2 className="w-3.5 h-3.5" />}
-                      onClick={() => openEditModal(member)}
-                      className="px-2 sm:px-3 text-xs"
-                      title="Edit Member"
-                    >
-                      <span className="hidden sm:inline">Edit</span>
-                    </Button>
+                    {user?.role === 'ADMIN' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                        onClick={() => openEditModal(member)}
+                        className="px-2 sm:px-3 text-xs"
+                        title="Edit Member"
+                      >
+                        <span className="hidden sm:inline">Edit</span>
+                      </Button>
+                    )}
 
-                    {member.isActive && (
+                    {user?.role === 'ADMIN' && member.isActive && (
                       <Button
                         variant="ghost"
                         size="sm"
