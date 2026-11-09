@@ -98,7 +98,6 @@ export const MemberLeaderboardPage: React.FC = () => {
     primaryLabel: 'Delivered Sales',
     secondaryLabel: 'Delivered Orders',
     unitLabel: 'orders',
-    deliveredOrdersList: m.deliveredOrdersList,
   }));
 
   return (

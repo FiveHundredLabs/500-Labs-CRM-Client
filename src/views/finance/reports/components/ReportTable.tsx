@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ReportColumn } from '../types';
 import { EmptyState } from '../../../../components/shared/EmptyState';
 import { formatCurrency } from '../../../../utils/currency';
@@ -57,6 +57,11 @@ export const ReportTable: React.FC<ReportTableProps> = ({
     const start = (currentPage - 1) * pageSize;
     return sortedData.slice(start, start + pageSize);
   }, [sortedData, currentPage, pageSize]);
+
+  // Keep local pagination aligned when the report dataset or ordering changes.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [data, pageSize, sortKey, sortDirection]);
 
   const renderCellContent = (column: ReportColumn, row: any) => {
     if (column.cell) {

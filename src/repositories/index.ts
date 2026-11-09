@@ -6,6 +6,7 @@ import {
   ApiCallLogRepository,
   ApiCustomerRepository,
   ApiOrderRepository,
+  ApiInterestLeadsRepository,
   ApiDeliveryStatusHistoryRepository,
   ApiActivityLogRepository,
   ApiExpenseRepository,
@@ -30,6 +31,7 @@ export const allocationRepository = new ApiAllocationRepository();
 export const callLogRepository = new ApiCallLogRepository();
 export const customerRepository = new ApiCustomerRepository();
 export const orderRepository = new ApiOrderRepository();
+export const interestLeadsRepository = new ApiInterestLeadsRepository();
 export const deliveryStatusHistoryRepository = new ApiDeliveryStatusHistoryRepository();
 export const activityLogRepository = new ApiActivityLogRepository();
 export const expenseRepository = new ApiExpenseRepository();

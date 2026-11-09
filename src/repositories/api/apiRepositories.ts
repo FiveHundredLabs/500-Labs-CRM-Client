@@ -9,6 +9,8 @@ import {
   ICallLogRepository,
   ICustomerRepository,
   IOrderRepository,
+  IInterestLeadsRepository,
+  InterestLeadsBundle,
   IDeliveryStatusHistoryRepository,
   IActivityLogRepository,
   IExpenseRepository,
@@ -23,6 +25,7 @@ import {
   IDashboardRepository,
   AdminDashboardSummary,
   SupervisorDashboardSummary,
+  MemberDashboardSummary,
   SalesAnalysisSummary,
   ExpenseWritePayload,
   ExpenseUpdatePayload,
@@ -36,6 +39,7 @@ import {
   BulkUpdateDeliveryChargeInput,
   PaginatedResponse,
   ContactPaginationParams,
+  ActivityPaginationParams,
   CustomerPaginationParams,
   OrderPaginationParams,
 } from '../interfaces';
@@ -78,7 +82,7 @@ export const unwrapArray = <T>(res: any): T[] => {
   return [];
 };
 
-export const unwrapPaginated = <T>(res: any, defaultLimit = 50): PaginatedResponse<T> => {
+export const unwrapPaginated = <T>(res: any, defaultLimit = 30): PaginatedResponse<T> => {
   if (res && res.items && res.pageInfo) {
     return {
       items: Array.isArray(res.items) ? res.items : [],
@@ -310,7 +314,7 @@ export class ApiContactRepository implements IContactRepository {
         },
       })
     );
-    return unwrapPaginated<Contact>(res, params.limit || 50);
+    return unwrapPaginated<Contact>(res, params.limit || 30);
   }
   async create(contact: Omit<Contact, 'id' | 'updatedAt'>): Promise<Contact> {
     return unwrap(await apiClient.post<{ data: Contact }>('/contacts', contact));
@@ -442,7 +446,7 @@ export class ApiCustomerRepository implements ICustomerRepository {
         },
       })
     );
-    return unwrapPaginated<Customer>(res, params.limit || 50);
+    return unwrapPaginated<Customer>(res, params.limit || 30);
   }
   async create(customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
     return unwrap(await apiClient.post<{ data: Customer }>('/customers', customer));
@@ -497,7 +501,7 @@ export class ApiOrderRepository implements IOrderRepository {
         },
       })
     );
-    return unwrapPaginated<Order>(res, params.limit || 50);
+    return unwrapPaginated<Order>(res, params.limit || 30);
   }
   async getMetrics(params?: {
     teamId?: string;
@@ -550,6 +554,20 @@ export class ApiOrderRepository implements IOrderRepository {
       await apiClient.patch<{ data: { success: boolean; count: number; orders: Order[] } }>(
         '/orders/bulk/delivery-charge',
         input
+      )
+    );
+  }
+}
+
+export class ApiInterestLeadsRepository implements IInterestLeadsRepository {
+  async getByTeamId(teamId: string): Promise<InterestLeadsBundle> {
+    if (!teamId || teamId === 'undefined' || teamId === 'null') {
+      return { cList: [], contactList: [], teamUsers: [], oList: [], conflicts: {} };
+    }
+
+    return unwrap(
+      await apiClient.get<{ data: InterestLeadsBundle }>(
+        `/interest-leads?teamId=${encodeURIComponent(teamId)}`
       )
     );
   }
@@ -611,6 +629,17 @@ export class ApiActivityLogRepository implements IActivityLogRepository {
     const res = unwrap(await apiClient.get<{ data: any }>('/activity-logs/me')) as any;
     return unwrapArray<ActivityLog>(res);
   }
+  async getPaginated(params: ActivityPaginationParams): Promise<PaginatedResponse<ActivityLog>> {
+    const res = unwrap(
+      await apiClient.get<{ data: any }>('/activity-logs', {
+        params: {
+          ...params,
+          paginate: true,
+        },
+      }),
+    );
+    return unwrapPaginated<ActivityLog>(res, params.limit || 30);
+  }
   async getByEntity(entityType: string, entityId: string): Promise<ActivityLog[]> {
     const all = await this.getAll();
     return all.filter((l) => l.entityType === entityType && l.entityId === entityId);
@@ -643,7 +672,7 @@ export class ApiExpenseRepository implements IExpenseRepository {
         },
       })
     );
-    return unwrapPaginated<Expense>(res, params.limit || 50);
+    return unwrapPaginated<Expense>(res, params.limit || 30);
   }
   async getById(id: string): Promise<Expense | null> {
     try {
@@ -1130,6 +1159,12 @@ export class ApiDashboardRepository implements IDashboardRepository {
   async getSupervisorSummary(params?: { startDate?: string; endDate?: string; teamId?: string }): Promise<SupervisorDashboardSummary> {
     return unwrap(
       await apiClient.get<{ data: SupervisorDashboardSummary }>('/dashboard/supervisor-summary', { params })
+    );
+  }
+
+  async getMemberSummary(params?: { startDate?: string; endDate?: string; month?: string }): Promise<MemberDashboardSummary> {
+    return unwrap(
+      await apiClient.get<{ data: MemberDashboardSummary }>('/dashboard/member-summary', { params })
     );
   }
 }

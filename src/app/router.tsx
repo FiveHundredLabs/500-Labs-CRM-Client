@@ -1,14 +1,19 @@
-import React, { lazy, Suspense } from "react";
+import React, { Suspense } from "react";
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { AppShell } from "../components/navigation/AppShell";
 import { ProtectedRoute } from "../components/navigation/ProtectedRoute";
 import { RoleLanding } from "../components/navigation/RoleLanding";
 import { LoadingState } from "../components/shared/LoadingState";
+import { lazyWithRetry, RouteLoadBoundary } from "./routeLoading";
+
+const lazy = lazyWithRetry;
 
 const SuspenseWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Suspense fallback={<LoadingState showHeader={false} showStats={false} />}>
-    {children}
-  </Suspense>
+  <RouteLoadBoundary>
+    <Suspense fallback={<LoadingState showHeader={false} showStats={false} />}>
+      {children}
+    </Suspense>
+  </RouteLoadBoundary>
 );
 
 // Public Views (lazy)

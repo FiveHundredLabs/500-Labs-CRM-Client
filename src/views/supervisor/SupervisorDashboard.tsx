@@ -8,7 +8,7 @@ import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ActivityTimeline } from '../../components/shared/ActivityTimeline';
-import { LoadingState } from '../../components/shared/LoadingState';
+import { DashboardSectionSkeleton } from '../../components/shared/LoadingState';
 import { Leaderboard } from '../../components/leaderboard';
 import {
   Layers,
@@ -115,7 +115,7 @@ export const SupervisorDashboard: React.FC = () => {
 
   const { data: summary, isLoading } = useSupervisorDashboardQuery(queryDates, !!user);
 
-  if (isLoading) return <LoadingState rows={6} />;
+  if (isLoading) return <DashboardSectionSkeleton cards={6} rows={2} />;
 
   const kpi = summary?.kpi || {
     totalGrossSales: 0,
@@ -420,7 +420,6 @@ export const SupervisorDashboard: React.FC = () => {
               primaryLabel: 'Delivered Sales',
               secondaryLabel: 'Delivered Orders',
               unitLabel: 'orders',
-              deliveredOrdersList: m.deliveredOrdersList,
             }))}
             compact={true}
             title="Team Delivered Sales Leaderboard"

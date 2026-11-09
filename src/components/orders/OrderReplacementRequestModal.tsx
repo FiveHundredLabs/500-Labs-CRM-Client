@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { userErrorMessage } from '../../lib/errors';
 
 export interface OrderReplacementRequestModalProps {
   order: Order | null;
@@ -186,7 +187,7 @@ export const OrderReplacementRequestModal: React.FC<OrderReplacementRequestModal
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to submit replacement request.');
+      toast.error(userErrorMessage(err, 'We could not submit this replacement request. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }

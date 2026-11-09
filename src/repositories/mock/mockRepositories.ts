@@ -21,6 +21,7 @@ import {
   BulkUpdateDeliveryChargeInput,
   PaginatedResponse,
   ContactPaginationParams,
+  ActivityPaginationParams,
   CustomerPaginationParams,
   OrderPaginationParams,
   ExpenseSummary,
@@ -441,7 +442,7 @@ export class MockContactRepository implements IContactRepository {
   async getPaginated(params: ContactPaginationParams): Promise<PaginatedResponse<Contact>> {
     const contacts = await this.getAll();
     const page = params.page || 1;
-    const limit = params.limit || 50;
+    const limit = params.limit || 30;
     const start = (page - 1) * limit;
     const items = contacts.slice(start, start + limit);
     return {
@@ -577,7 +578,7 @@ export class MockCustomerRepository implements ICustomerRepository {
   async getPaginated(params: CustomerPaginationParams): Promise<PaginatedResponse<Customer>> {
     const customers = await this.getAll();
     const page = params.page || 1;
-    const limit = params.limit || 50;
+    const limit = params.limit || 30;
     const start = (page - 1) * limit;
     const items = customers.slice(start, start + limit);
     return {
@@ -660,7 +661,7 @@ export class MockOrderRepository implements IOrderRepository {
   async getPaginated(params: OrderPaginationParams): Promise<PaginatedResponse<Order>> {
     const orders = await this.getAll();
     const page = params.page || 1;
-    const limit = params.limit || 50;
+    const limit = params.limit || 30;
     const start = (page - 1) * limit;
     const items = orders.slice(start, start + limit);
     return {
@@ -888,6 +889,51 @@ export class MockActivityLogRepository implements IActivityLogRepository {
     return logs.filter((l) => l.entityType === entityType && l.entityId === entityId);
   }
 
+  async getPaginated(params: ActivityPaginationParams): Promise<PaginatedResponse<ActivityLog>> {
+    await delay();
+    const page = Math.max(1, params.page || 1);
+    const limit = Math.min(100, Math.max(1, params.limit || 30));
+    const search = params.search?.trim().toLowerCase();
+    const logs = getStoredItem<ActivityLog>(STORAGE_KEYS.ACTIVITY_LOGS, [])
+      .filter((log) => !params.userId || log.userId === params.userId)
+      .filter((log) => !params.userRole || log.userRole === params.userRole)
+      .filter((log) => !params.recent || new Date(log.createdAt).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000)
+      .filter((log) => !params.startDate || log.createdAt >= `${params.startDate}T00:00:00`)
+      .filter((log) => !params.endDate || log.createdAt <= `${params.endDate}T23:59:59`)
+      .filter((log) => {
+        if (!search) return true;
+        return [log.userName, log.description, log.action, log.entityType, log.id]
+          .some((value) => value.toLowerCase().includes(search));
+      })
+      .filter((log) => {
+        if (!params.actionCategory) return true;
+        const action = log.action;
+        const categoryActions: Record<string, string[]> = {
+          CONTACTS: ['CONTACT'],
+          CALLS: ['CALL', 'CUSTOMER'],
+          ORDERS: ['ORDER', 'DELIVERY', 'LEAD'],
+          FINANCE: ['EXPENSE'],
+          USERS: ['USER'],
+        };
+        return (categoryActions[params.actionCategory] || []).some((token) => action.includes(token));
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() || b.id.localeCompare(a.id));
+    const start = (page - 1) * limit;
+    const totalPages = Math.ceil(logs.length / limit) || 1;
+    return {
+      items: logs.slice(start, start + limit),
+      pageInfo: {
+        total: logs.length,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+        endCursor: null,
+      },
+    };
+  }
+
   async create(logData: ActivityLogWritePayload): Promise<ActivityLog> {
     await delay();
     const logs = getStoredItem<ActivityLog>(STORAGE_KEYS.ACTIVITY_LOGS, []);
@@ -927,7 +973,7 @@ export class MockExpenseRepository implements IExpenseRepository {
   async getPaginated(params: ExpensePaginationParams): Promise<PaginatedResponse<Expense>> {
     const expenses = await this.getAll(params);
     const page = params.page || 1;
-    const limit = params.limit || 50;
+    const limit = params.limit || 30;
     const start = (page - 1) * limit;
     const items = expenses.slice(start, start + limit);
     return {

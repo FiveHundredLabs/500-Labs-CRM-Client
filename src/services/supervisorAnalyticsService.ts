@@ -2,15 +2,6 @@ import { Order, User, OrderStatus } from '../models/domain';
 import { ORDER_STATUS_CONFIG } from '../config/status';
 import { getProductSalesValue } from '../utils/orderAmounts';
 import { toColomboDateString } from '../utils/deliveryDateUtils';
-import { format } from 'date-fns';
-
-export interface LeaderboardOrderContribution {
-  orderId: string;
-  orderNumber: string;
-  deliveredAt: string;
-  deliveredDateFormatted: string; // e.g. "06 Oct 2026"
-  salesAmount: number;
-}
 
 export interface LeaderboardMemberStats {
   rank: number;
@@ -25,7 +16,6 @@ export interface LeaderboardMemberStats {
   rejectedOrders: number;
   deliveryRate: number; // percentage 0-100
   totalSalesValue: number; // delivered order value
-  deliveredOrdersList: LeaderboardOrderContribution[];
 }
 
 export interface ReportsFilterOptions {
@@ -93,11 +83,13 @@ export class SupervisorAnalyticsService {
       // 3. Date range filter
       if (filters.startDate || filters.endDate) {
         const dateToUse =
-          order.status === 'DELIVERED' && order.deliveredAt
+          order.status === 'DELIVERED'
             ? order.deliveredAt
             : (order.status === 'REJECTED' || order.status === 'RETURNED') && order.rejectedAt
-            ? order.rejectedAt
-            : order.createdAt;
+              ? order.rejectedAt
+              : order.createdAt;
+        // A delivered order without a delivery timestamp cannot be assigned to a delivered-sales period.
+        if (order.status === 'DELIVERED' && !dateToUse) return false;
         const orderDate = toColomboDateString(dateToUse);
         if (filters.startDate && orderDate < filters.startDate) return false;
         if (filters.endDate && orderDate > filters.endDate) return false;
@@ -143,7 +135,6 @@ export class SupervisorAnalyticsService {
         rejectedOrders: 0,
         deliveryRate: 0,
         totalSalesValue: 0,
-        deliveredOrdersList: [],
       });
     });
 
@@ -166,45 +157,19 @@ export class SupervisorAnalyticsService {
           rejectedOrders: 0,
           deliveryRate: 0,
           totalSalesValue: 0,
-          deliveredOrdersList: [],
         };
         statsMap.set(order.teamMemberId, stats);
       }
 
       const salesAmount = getProductSalesValue(order);
-      const dateToUse = order.deliveredAt || order.createdAt || '';
-      let deliveredDateFormatted = 'Unknown';
-      if (dateToUse) {
-        try {
-          const d = new Date(dateToUse);
-          if (!isNaN(d.getTime())) {
-            deliveredDateFormatted = format(d, 'dd MMM yyyy');
-          }
-        } catch {
-          deliveredDateFormatted = dateToUse.substring(0, 10);
-        }
-      }
-
       stats.totalOrders += 1;
       stats.deliveredOrders += 1;
       stats.totalSalesValue += salesAmount;
-      stats.deliveredOrdersList.push({
-        orderId: order.id,
-        orderNumber: order.orderNumber || `ODR-${order.id.substring(0, 6)}`,
-        deliveredAt: dateToUse,
-        deliveredDateFormatted,
-        salesAmount,
-      });
     });
 
     // Sort each member's delivered orders by delivered date descending (most recent first)
     statsMap.forEach((s) => {
       s.deliveryRate = 100;
-      s.deliveredOrdersList.sort((a, b) => {
-        const timeA = a.deliveredAt ? new Date(a.deliveredAt).getTime() : 0;
-        const timeB = b.deliveredAt ? new Date(b.deliveredAt).getTime() : 0;
-        return timeB - timeA;
-      });
     });
 
     const statsList = Array.from(statsMap.values());

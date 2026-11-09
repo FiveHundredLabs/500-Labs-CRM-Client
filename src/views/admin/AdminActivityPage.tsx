@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import {
   format,
-  isWithinInterval,
   startOfDay,
   endOfDay,
   subDays,
@@ -58,15 +57,61 @@ export const AdminActivityPage: React.FC = () => {
   >('ALL');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 30;
 
-  const { data: rawActivities = [], isLoading: logsLoading } = useQuery({
-    queryKey: ['activities', selectedUserId],
-    queryFn: () =>
-      selectedUserId !== 'ALL'
-        ? activityLogRepository.getByUserId(selectedUserId)
-        : activityLogRepository.getRecentWithinMonth(),
+  const serverDateRange = useMemo(() => {
+    const now = new Date();
+    if (datePreset === 'TODAY') return { startDate: format(startOfDay(now), 'yyyy-MM-dd'), endDate: format(endOfDay(now), 'yyyy-MM-dd') };
+    if (datePreset === 'YESTERDAY') {
+      const yesterday = subDays(now, 1);
+      return { startDate: format(startOfDay(yesterday), 'yyyy-MM-dd'), endDate: format(endOfDay(yesterday), 'yyyy-MM-dd') };
+    }
+    if (datePreset === '7DAYS') return { startDate: format(startOfDay(subDays(now, 7)), 'yyyy-MM-dd') };
+    if (datePreset === 'THIS_MONTH') return { startDate: format(startOfMonth(now), 'yyyy-MM-dd'), endDate: format(endOfMonth(now), 'yyyy-MM-dd') };
+    if (datePreset === 'LAST_MONTH') {
+      const lastMonth = subMonths(now, 1);
+      return { startDate: format(startOfMonth(lastMonth), 'yyyy-MM-dd'), endDate: format(endOfMonth(lastMonth), 'yyyy-MM-dd') };
+    }
+    if (datePreset === 'CUSTOM' && customStartDate && customEndDate) {
+      return { startDate: customStartDate, endDate: customEndDate };
+    }
+    return {};
+  }, [datePreset, customStartDate, customEndDate]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedUserId, debouncedSearch, roleFilter, actionCategoryFilter, datePreset, customStartDate, customEndDate]);
+
+  const { data: activityPage, isLoading: logsLoading } = useQuery({
+    queryKey: [
+      'activities',
+      selectedUserId,
+      debouncedSearch,
+      roleFilter,
+      actionCategoryFilter,
+      datePreset,
+      customStartDate,
+      customEndDate,
+      currentPage,
+    ],
+    queryFn: () => activityLogRepository.getPaginated({
+      userId: selectedUserId !== 'ALL' ? selectedUserId : undefined,
+      // "All Recorded Time" must not be narrowed to the backend's recent
+      // (last-30-days) scope. Date presets are sent explicitly below.
+      recent: false,
+      search: debouncedSearch.trim() || undefined,
+      userRole: roleFilter !== 'ALL' ? roleFilter : undefined,
+      actionCategory: actionCategoryFilter !== 'ALL' ? actionCategoryFilter : undefined,
+      ...serverDateRange,
+      page: currentPage,
+      limit: pageSize,
+    }),
     staleTime: CACHE_TIERS.WARM,
   });
+
+  const rawActivities = activityPage?.items ?? [];
+  const pageInfo = activityPage?.pageInfo;
 
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: queryKeys.users.all,
@@ -91,85 +136,10 @@ export const AdminActivityPage: React.FC = () => {
   // Selected User Object (if specific user selected)
   const selectedUserObj = selectedUserId !== 'ALL' ? usersMap[selectedUserId] : null;
 
-  // Filter Logic
-  const filteredActivities = useMemo(() => {
-    return activities.filter((act) => {
-      // 1. Text Search
-      if (debouncedSearch.trim()) {
-        const q = debouncedSearch.toLowerCase().trim();
-        const matchesSearch =
-          act.userName.toLowerCase().includes(q) ||
-          act.description.toLowerCase().includes(q) ||
-          act.action.toLowerCase().includes(q) ||
-          act.entityType.toLowerCase().includes(q) ||
-          act.id.toLowerCase().includes(q);
-        if (!matchesSearch) return false;
-      }
-
-      // 2. User-Wise Filter
-      if (selectedUserId !== 'ALL' && act.userId !== selectedUserId) {
-        return false;
-      }
-
-      // 3. Role Filter
-      if (roleFilter !== 'ALL' && act.userRole !== roleFilter) {
-        return false;
-      }
-
-      // 4. Action Category Filter
-      if (actionCategoryFilter !== 'ALL') {
-        if (actionCategoryFilter === 'CONTACTS' && !act.action.includes('CONTACT')) return false;
-        if (actionCategoryFilter === 'CALLS' && !act.action.includes('CALL') && !act.action.includes('CUSTOMER'))
-          return false;
-        if (actionCategoryFilter === 'ORDERS' && !act.action.includes('ORDER') && !act.action.includes('DELIVERY'))
-          return false;
-        if (actionCategoryFilter === 'FINANCE' && !act.action.includes('EXPENSE')) return false;
-        if (actionCategoryFilter === 'USERS' && !act.action.includes('USER')) return false;
-      }
-
-      // 5. Date Filter
-      const logDate = new Date(act.createdAt);
-      const now = new Date();
-
-      if (datePreset === 'TODAY') {
-        const start = startOfDay(now);
-        const end = endOfDay(now);
-        if (!isWithinInterval(logDate, { start, end })) return false;
-      } else if (datePreset === 'YESTERDAY') {
-        const yesterday = subDays(now, 1);
-        const start = startOfDay(yesterday);
-        const end = endOfDay(yesterday);
-        if (!isWithinInterval(logDate, { start, end })) return false;
-      } else if (datePreset === '7DAYS') {
-        const start7 = startOfDay(subDays(now, 7));
-        if (logDate < start7) return false;
-      } else if (datePreset === 'THIS_MONTH') {
-        const startM = startOfMonth(now);
-        const endM = endOfMonth(now);
-        if (!isWithinInterval(logDate, { start: startM, end: endM })) return false;
-      } else if (datePreset === 'LAST_MONTH') {
-        const lastM = subMonths(now, 1);
-        const startLM = startOfMonth(lastM);
-        const endLM = endOfMonth(lastM);
-        if (!isWithinInterval(logDate, { start: startLM, end: endLM })) return false;
-      } else if (datePreset === 'CUSTOM' && customStartDate && customEndDate) {
-        const start = startOfDay(new Date(customStartDate));
-        const end = endOfDay(new Date(customEndDate));
-        if (!isWithinInterval(logDate, { start, end })) return false;
-      }
-
-      return true;
-    });
-  }, [
-    activities,
-    debouncedSearch,
-    selectedUserId,
-    roleFilter,
-    actionCategoryFilter,
-    datePreset,
-    customStartDate,
-    customEndDate,
-  ]);
+  // The repository returns a filtered page from the server. Filtering again
+  // here would make the rendered page disagree with pageInfo and could hide
+  // records from an otherwise valid page (especially around date boundaries).
+  const filteredActivities = activities;
 
   // Reset Filters
   const handleResetFilters = () => {
@@ -357,7 +327,7 @@ export const AdminActivityPage: React.FC = () => {
 
               <div className="text-right">
                 <div className="text-xs font-bold text-slate-900 font-mono">
-                  {filteredActivities.length} Actions Recorded
+                  {pageInfo?.total ?? filteredActivities.length} Actions Recorded
                 </div>
                 <button
                   type="button"
@@ -381,7 +351,7 @@ export const AdminActivityPage: React.FC = () => {
               <span>Activity Audit Trail</span>
             </div>
             <span className="text-xs font-bold text-[#0188C7] bg-[#E8F7FE] border border-[#B9E7FC] px-2.5 py-0.5 rounded-full font-mono">
-              {filteredActivities.length} Entries
+              {pageInfo?.total ?? filteredActivities.length} Entries
             </span>
           </CardTitle>
         </CardHeader>
@@ -392,7 +362,30 @@ export const AdminActivityPage: React.FC = () => {
               description="Try adjusting your date range, user filter, or search keyword."
             />
           ) : (
-            <ActivityTimeline activities={filteredActivities} />
+            <ActivityTimeline activities={filteredActivities} virtualize={false} />
+          )}
+          {pageInfo && pageInfo.totalPages && pageInfo.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-600">
+              <span>Page {pageInfo.page ?? currentPage} of {pageInfo.totalPages} ({pageInfo.total} total)</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!pageInfo.hasPreviousPage}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!pageInfo.hasNextPage}
+                  onClick={() => setCurrentPage((page) => page + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

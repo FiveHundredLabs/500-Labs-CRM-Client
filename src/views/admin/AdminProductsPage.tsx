@@ -48,6 +48,10 @@ import {
   History,
   RefreshCw,
   Filter,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 
 export interface DamageAuditRecord {
@@ -118,6 +122,8 @@ export const AdminProductsPage: React.FC = () => {
   const [stockLogActionFilter, setStockLogActionFilter] = useState<string>('ALL');
   const [stockLogSearch, setStockLogSearch] = useState('');
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [stockLogCurrentPage, setStockLogCurrentPage] = useState(1);
+  const [stockLogPageSize, setStockLogPageSize] = useState(10);
 
   const loadData = async () => {
     setLoading(true);
@@ -412,6 +418,16 @@ export const AdminProductsPage: React.FC = () => {
       return true;
     });
   }, [stockLogs, selectedTeamId, stockLogActionFilter, stockLogSearch]);
+
+  const stockLogTotalPages = Math.max(1, Math.ceil(filteredStockLogs.length / stockLogPageSize));
+  const paginatedStockLogs = useMemo(() => {
+    const start = (stockLogCurrentPage - 1) * stockLogPageSize;
+    return filteredStockLogs.slice(start, start + stockLogPageSize);
+  }, [filteredStockLogs, stockLogCurrentPage, stockLogPageSize]);
+
+  useEffect(() => {
+    setStockLogCurrentPage(1);
+  }, [filteredStockLogs]);
 
   const renderStockActionBadge = (action: string) => {
     switch (action) {
@@ -924,7 +940,7 @@ export const AdminProductsPage: React.FC = () => {
           </div>
 
           {/* Activity Log Table */}
-          <div className="overflow-x-auto rounded-lg border border-slate-100 max-h-96 overflow-y-auto">
+          <div className="overflow-x-auto rounded-lg border border-slate-100">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50/80 sticky top-0 z-10 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
@@ -945,7 +961,7 @@ export const AdminProductsPage: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredStockLogs.map((log) => {
+                  paginatedStockLogs.map((log) => {
                     const stockDiff = log.newStock - log.previousStock;
                     const isPositive = stockDiff > 0 || (stockDiff === 0 && ['ADD', 'RETURN_RESTOCK'].includes(log.action));
                     const isNegative = stockDiff < 0 || (stockDiff === 0 && ['DISPATCH', 'DELIVER'].includes(log.action));
@@ -1039,6 +1055,74 @@ export const AdminProductsPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {filteredStockLogs.length > 0 && (
+            <div className="p-4 border border-slate-100 rounded-b-lg flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+              <div className="flex flex-wrap items-center gap-2">
+                <span>Rows per page:</span>
+                <select
+                  value={stockLogPageSize}
+                  onChange={(e) => {
+                    setStockLogPageSize(Number(e.target.value));
+                    setStockLogCurrentPage(1);
+                  }}
+                  className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+                <span className="text-slate-400 sm:ml-2">
+                  Showing <strong>{(stockLogCurrentPage - 1) * stockLogPageSize + 1}</strong>–{' '}
+                  <strong>{Math.min(stockLogCurrentPage * stockLogPageSize, filteredStockLogs.length)}</strong> of{' '}
+                  <strong>{filteredStockLogs.length}</strong> activity records
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setStockLogCurrentPage(1)}
+                  disabled={stockLogCurrentPage === 1}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="First Page"
+                  aria-label="First page of activity log"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStockLogCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={stockLogCurrentPage === 1}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Previous Page"
+                  aria-label="Previous activity log page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="px-2 font-medium">Page {stockLogCurrentPage} of {stockLogTotalPages}</span>
+                <button
+                  type="button"
+                  onClick={() => setStockLogCurrentPage((page) => Math.min(stockLogTotalPages, page + 1))}
+                  disabled={stockLogCurrentPage === stockLogTotalPages}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Next Page"
+                  aria-label="Next activity log page"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStockLogCurrentPage(stockLogTotalPages)}
+                  disabled={stockLogCurrentPage === stockLogTotalPages}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Last Page"
+                  aria-label="Last page of activity log"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -10,6 +10,30 @@ export interface LoadingStateProps {
   variant?: 'full' | 'rows-only';
 }
 
+export const DashboardSectionSkeleton: React.FC<{ cards?: number; rows?: number }> = ({ cards = 5, rows = 3 }) => (
+  <div className="space-y-4 sm:space-y-6 animate-fade-in" aria-label="Loading dashboard">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      {Array.from({ length: cards }).map((_, index) => (
+        <div key={index} className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
+          <div className="h-3 w-20 bg-slate-200/70 animate-shimmer rounded" />
+          <div className="h-7 w-28 bg-slate-200/90 animate-shimmer rounded-lg" />
+          <div className="h-2.5 w-24 bg-slate-200/50 animate-shimmer rounded" />
+        </div>
+      ))}
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div key={index} className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
+          <div className="h-4 w-48 bg-slate-200/80 animate-shimmer rounded" />
+          <div className="h-3 w-full bg-slate-200/60 animate-shimmer rounded" />
+          <div className="h-3 w-4/5 bg-slate-200/60 animate-shimmer rounded" />
+          <div className="h-3 w-3/5 bg-slate-200/60 animate-shimmer rounded" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 export const LoadingState: React.FC<LoadingStateProps> = ({
   rows = 5,
   showStats = true,

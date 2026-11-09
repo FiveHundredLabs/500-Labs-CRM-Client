@@ -1,13 +1,11 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Order, User } from '../../../models/domain';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../ui/Card';
-import { Button } from '../../ui/Button';
 import { StatusBadge } from '../../shared/StatusBadge';
 import { EmptyState } from '../../shared/EmptyState';
-import { Download, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../../utils/currency';
-import toast from 'react-hot-toast';
 
 export interface ReportTableProps {
   orders: Order[];
@@ -22,57 +20,21 @@ export const ReportTable: React.FC<ReportTableProps> = ({
   title = 'Order & Financial Breakdown',
   description = 'Detailed statement of orders matching your selected filter criteria',
 }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const memberMap = new Map<string, string>();
   teamMembers.forEach((m) => memberMap.set(m.id, m.fullName));
 
   const totalAmount = orders.reduce((acc, curr) => acc + (Number(curr.totalAmount) || 0), 0);
+  const totalPages = Math.max(1, Math.ceil(orders.length / pageSize));
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return orders.slice(start, start + pageSize);
+  }, [orders, currentPage, pageSize]);
 
-  const handleExportCSV = () => {
-    if (orders.length === 0) {
-      toast.error('No orders available to export.');
-      return;
-    }
-
-    const headers = [
-      'Order Number',
-      'Team Member ID',
-      'Team Member Name',
-      'Status',
-      'Items Description',
-      'Created Date',
-      'Amount (LKR)',
-    ];
-
-    const rows = orders.map((o) => [
-      o.orderNumber,
-      o.teamMemberId,
-      `"${(memberMap.get(o.teamMemberId) || o.teamMemberId).replace(/"/g, '""')}"`,
-      o.status,
-      `"${o.itemsDescription.replace(/"/g, '""')}"`,
-      o.createdAt ? o.createdAt.substring(0, 10) : '',
-      (o.totalAmount || 0).toFixed(2),
-    ]);
-
-    const csvContent = [
-      `"Supervisor Sales & Financial Report"`,
-      `"Export Date","${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}"`,
-      `"Total Records","${orders.length}"`,
-      `"Total Amount (LKR)","${totalAmount.toFixed(2)}"`,
-      '',
-      headers.join(','),
-      ...rows.map((r) => r.join(',')),
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Supervisor_Report_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('CSV Report exported successfully!');
-  };
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [orders]);
 
   return (
     <Card className="shadow-xs border-slate-200">
@@ -84,21 +46,13 @@ export const ReportTable: React.FC<ReportTableProps> = ({
           </CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon={<Download className="w-4 h-4 text-emerald-600" />}
-          onClick={handleExportCSV}
-          disabled={orders.length === 0}
-        >
-          Export CSV Report
-        </Button>
       </CardHeader>
 
       <CardContent className="p-0">
         {orders.length === 0 ? (
           <EmptyState title="No orders match your filters" description="Adjust date, team member, or status filters." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm text-slate-700">
               <thead className="bg-slate-50 border-y border-slate-200 text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -112,7 +66,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {orders.map((order) => (
+                {paginatedOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4 font-mono font-semibold text-slate-900">{order.orderNumber}</td>
                     <td className="py-3 px-4 font-medium text-slate-800">
@@ -143,6 +97,72 @@ export const ReportTable: React.FC<ReportTableProps> = ({
               </tfoot>
             </table>
           </div>
+          <div className="p-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+            <div className="flex flex-wrap items-center gap-2">
+              <span>Rows per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#01A8F3]"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+              <span className="text-slate-400 sm:ml-2">
+                Showing <strong>{(currentPage - 1) * pageSize + 1}</strong>–{' '}
+                <strong>{Math.min(currentPage * pageSize, orders.length)}</strong> of{' '}
+                <strong>{orders.length}</strong> orders
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="First Page"
+                aria-label="First page of order breakdown"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Previous Page"
+                aria-label="Previous order breakdown page"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="px-2 font-medium">Page {currentPage} of {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Next Page"
+                aria-label="Next order breakdown page"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Last Page"
+                aria-label="Last page of order breakdown"
+              >
+                <ChevronsRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          </>
         )}
       </CardContent>
     </Card>

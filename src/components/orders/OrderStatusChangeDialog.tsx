@@ -7,6 +7,7 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { AlertTriangle, Package, Check, ShieldAlert, Clock, Info, CalendarCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { userErrorMessage } from '../../lib/errors';
 import {
   getTodayDateStr,
   getYesterdayDateStr,
@@ -334,7 +335,7 @@ export const OrderStatusChangeDialog: React.FC<OrderStatusChangeDialogProps> = (
         onClose();
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Status transition failed.');
+      toast.error(userErrorMessage(err, 'Your order changes could not be saved. Please try again.'));
     } finally {
       setIsUpdatingStatus(false);
     }

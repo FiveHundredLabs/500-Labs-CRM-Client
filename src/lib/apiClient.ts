@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { env } from "../config/env";
+import { normalizeError } from "./errors";
 
 export const AUTH_EXPIRED_EVENT = "crm-auth-expired";
 
@@ -122,6 +123,17 @@ apiClient.interceptors.response.use(
 
     if (isAuthEndpoint(originalRequest.url) || error.response?.status === 401) {
       logAuthNetworkDiagnostic(error, "response");
+    }
+
+    // Keep legacy callers safe while they migrate to normalizeError: never expose
+    // Axios, database, proxy, or stack messages as user-facing text.
+    const friendly = normalizeError(error);
+    error.message = friendly.message;
+    if (error.response?.data && typeof error.response.data === "object") {
+      const safeData = error.response.data as Record<string, unknown>;
+      safeData.message = friendly.message;
+      safeData.code = friendly.code;
+      if (friendly.requestId) safeData.requestId = friendly.requestId;
     }
 
     return Promise.reject(error);

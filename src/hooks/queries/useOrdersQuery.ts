@@ -4,6 +4,7 @@ import { OrderService } from '../../services/orderService';
 import { queryKeys, CACHE_TIERS } from '../../lib/queryClient';
 import type { Order, OrderStatus } from '../../models/domain';
 import toast from 'react-hot-toast';
+import { userErrorMessage } from '../../lib/errors';
 
 export interface OrderQueryFilters {
   teamId?: string;
@@ -128,7 +129,7 @@ export function useOrderMutations() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Status transition failed.');
+      toast.error(userErrorMessage(err, 'Your changes could not be saved. Please try again.'));
     },
   });
 
@@ -150,7 +151,7 @@ export function useOrderMutations() {
       queryClient.invalidateQueries({ queryKey: ['interested-leads-bundle'] });
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Failed to update remark.');
+      toast.error(userErrorMessage(err, 'Your changes could not be saved. Please try again.'));
     },
   });
 
@@ -185,7 +186,7 @@ export function useOrderMutations() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Bulk status update failed.');
+      toast.error(userErrorMessage(err, 'We could not update these orders. Please try again.'));
     },
   });
 
