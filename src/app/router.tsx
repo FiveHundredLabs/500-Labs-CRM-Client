@@ -295,7 +295,7 @@ export const router = createBrowserRouter([
                 element: <ProtectedRoute allowedRoles={["SUPERVISOR"]} />,
                 children: [
                   { path: "dashboard", element: <SupervisorDashboard /> },
-                  { path: "team", element: <SupervisorTeamPage /> },
+                  { path: "team", element: <Navigate to="/supervisor/dashboard" replace /> },
                   {
                     path: "team-members",
                     element: <SupervisorTeamMembersPage />,
