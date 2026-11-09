@@ -49,7 +49,6 @@ export const ROLE_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Import', path: '/supervisor/import', icon: Upload, isBottomNav: false },
     { label: 'Allocation', path: '/supervisor/allocation', icon: Layers, isBottomNav: false },
     { label: 'Allocation History', path: '/supervisor/allocation/history', icon: Clock, isBottomNav: false },
-    { label: 'Team', path: '/supervisor/team', icon: Users, isBottomNav: true },
     { label: 'Leaderboard', path: '/supervisor/team-members', icon: Trophy, isBottomNav: false },
     { label: 'Reports', path: '/supervisor/reports', icon: PieChart, isBottomNav: false },
     { label: 'Profile', path: '/supervisor/profile', icon: User, isBottomNav: false },

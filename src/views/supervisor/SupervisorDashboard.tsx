@@ -23,7 +23,6 @@ import {
   Sparkles,
   DollarSign,
   Trophy,
-  ArrowRight,
   Target,
   Award,
 } from 'lucide-react';
@@ -435,15 +434,6 @@ export const SupervisorDashboard: React.FC = () => {
               <CardTitle className="text-base font-bold text-slate-900">Recent Activity Feed</CardTitle>
               <CardDescription>Live team audit feed within past 30 days</CardDescription>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<ArrowRight className="w-3.5 h-3.5" />}
-              onClick={() => navigate('/supervisor/team')}
-              className="text-xs"
-            >
-              View Team
-            </Button>
           </CardHeader>
           <CardContent className="p-3.5 sm:p-6 max-h-[420px] overflow-y-auto">
             <ActivityTimeline activities={activities} />
